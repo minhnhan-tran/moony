@@ -10,12 +10,12 @@
 //     fetched (everything else is blocked).
 //   - If the allow list is empty, any host that isn't denied is permitted.
 //
-// Rules are bare domains ("apple.com"); a rule matches that host and all of its
-// subdomains, so "apple.com" covers "apple.com" and "docs.apple.com".
+// Rules are bare domains ("example.com"); a rule matches that host and all of
+// its subdomains, so "example.com" covers "example.com" and "docs.example.com".
 //
-// A fresh install is seeded (see EnsureDefaults) with allow=["apple.com"], so by
-// default web_fetch may reach only Apple hosts until the user adds more or
-// clears the list.
+// A fresh install permits all (non-denied) hosts by default (empty allow list);
+// add allow rules to switch into lockdown mode, where only listed hosts may be
+// fetched.
 package domains
 
 import (
@@ -36,13 +36,13 @@ type List struct {
 	malformed bool // the file existed but could not be read/parsed (unexported: not persisted)
 }
 
-// defaultAllow seeds a fresh install so web_fetch is restricted to Apple hosts
-// out of the box. Because a non-empty allow list activates lockdown mode, the
-// practical effect is "Apple-only until you add more hosts or clear the list".
-var defaultAllow = []string{"apple.com"}
+// defaultAllow seeds a fresh install. It is empty, so web_fetch permits all
+// (non-denied) hosts out of the box; users add allow rules to opt into lockdown
+// mode where only listed hosts are reachable.
+var defaultAllow = []string{}
 
 // Load reads the global domains file. A missing or malformed file yields an
-// empty list (best effort), which permits everything. The Apple-only default is
+// empty list (best effort); an empty allow list permits everything. Defaults are
 // materialized by EnsureDefaults at startup, not synthesized here, so the file
 // stays the single source of truth (clearing every rule re-permits all hosts).
 func Load() *List {
@@ -65,10 +65,10 @@ func Load() *List {
 }
 
 // EnsureDefaults writes the default domains file the first time the agent runs
-// (when none exists yet) so the Apple-only default is active and is visible and
-// editable in the /domains command and the web UI's Domains menu. It never
-// overwrites an existing file, so user edits — including clearing the list — are
-// always preserved. Best effort: a failure to write just leaves it unconfigured.
+// (when none exists yet) so the list is visible and editable in the /domains
+// command and the web UI's Domains menu. It never overwrites an existing file,
+// so user edits — including clearing the list — are always preserved. Best
+// effort: a failure to write just leaves it unconfigured.
 func EnsureDefaults() {
 	path := globalPath()
 	if path == "" {
@@ -178,8 +178,8 @@ func normalizeHost(host string) string {
 	return h
 }
 
-// normalizeDomain reduces user input ("https://Docs.Apple.com/x", "*.apple.com:443")
-// to a bare lower-case domain ("docs.apple.com", "apple.com").
+// normalizeDomain reduces user input ("https://Docs.Example.com/x", "*.example.com:443")
+// to a bare lower-case domain ("docs.example.com", "example.com").
 func normalizeDomain(d string) string {
 	d = strings.ToLower(strings.TrimSpace(d))
 	d = strings.TrimPrefix(d, "https://")

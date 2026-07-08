@@ -9,7 +9,7 @@ import (
 
 // builtinBackends are the engines auto-detected as default workers when their
 // CLI is installed, so `delegate` works out of the box with no workers.json.
-var builtinBackends = []string{BackendOptimus, BackendClaude, BackendAppleGemini}
+var builtinBackends = []string{BackendOptimus, BackendClaude, BackendGemini}
 
 // defaultEngineCommand maps a backend to the CLI it drives.
 func defaultEngineCommand(backend string) string {
@@ -18,8 +18,8 @@ func defaultEngineCommand(backend string) string {
 		return "claude"
 	case BackendOptimus:
 		return "optimus"
-	case BackendAppleGemini:
-		return "apple-gemini"
+	case BackendGemini:
+		return "gemini"
 	default:
 		return ""
 	}
@@ -35,17 +35,15 @@ func commandFor(c Config) string {
 }
 
 // InstallCommand returns the vetted shell one-liner that installs a backend's
-// engine on this machine (Apple-internal artifact/registry endpoints), or ""
-// when the backend has no canned installer. These are fixed, trusted commands
-// run as `bash -lc <cmd>`; callers must never substitute caller-supplied input.
+// engine on this machine, or "" when the backend has no canned installer. These
+// are fixed, trusted commands run as `bash -lc <cmd>`; callers must never
+// substitute caller-supplied input.
 func InstallCommand(backend string) string {
 	switch backend {
 	case BackendClaude:
-		return "curl -fsSL https://artifacts.apple.com/artifactory/mls-generic-local/com/apple/mls/apple-claude-code/install.sh | bash"
-	case BackendOptimus:
-		return `curl -fLk "https://msq-cluster-traefik-alt.rno.shld.apple.com:8888/optimus-api/1/releases/latest/download?type=SHELL_SCRIPT" -o /tmp/install-optimus.sh && bash /tmp/install-optimus.sh && rm -f /tmp/install-optimus.sh`
-	case BackendAppleGemini:
-		return "npm install -g @apple/apple-gemini-cli --registry https://npm.apple.com"
+		return "curl -fsSL https://claude.ai/install.sh | bash"
+	case BackendGemini:
+		return "npm install -g @google/gemini-cli"
 	default:
 		return ""
 	}
@@ -98,8 +96,8 @@ func builtinWorker(backend string) Config {
 		desc = "Claude Code (auto-detected)"
 	case BackendOptimus:
 		desc = "Optimus (auto-detected)"
-	case BackendAppleGemini:
-		desc = "Apple Gemini (auto-detected)"
+	case BackendGemini:
+		desc = "Gemini (auto-detected)"
 	}
 	// srcPath stays empty -> this is an ephemeral auto worker until edited.
 	return Config{Name: backend, Backend: backend, Desc: desc}

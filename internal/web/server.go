@@ -39,8 +39,8 @@ import (
 )
 
 // staticFS embeds the browser UI plus its vendored assets (tailwind.css,
-// marked.min.js). They're served locally rather than from a CDN because the
-// Apple network blocks non-Apple CDNs.
+// marked.min.js). They're served locally rather than from a CDN because
+// some networks block third-party CDNs.
 //
 //go:embed static
 var staticFS embed.FS

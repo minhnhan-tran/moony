@@ -665,11 +665,11 @@ class SSLTrustDelegate: NSObject, URLSessionDelegate {
     }
 }
 
-// MARK: - Native Web View for AppleConnect Login
+// MARK: - Native Web View for Sign-In
 
 import WebKit
 
-// AppleConnectWebView drives the relay's OIDC sign-in inside a WKWebView:
+// AuthWebView drives the relay's OIDC sign-in inside a WKWebView:
 //   load /auth/login → 302 to the IdMS authorize page → user authenticates →
 //   IdMS redirects to /auth/callback?code=… → relay sets the session cookie and
 //   302s back to "/". We detect completion when navigation lands back on the
@@ -679,7 +679,7 @@ import WebKit
 // It surfaces load failures and a spinner instead of a blank white screen, which
 // is what you get if (e.g.) the host URL is wrong, the TLS handshake is rejected,
 // or the network is unreachable and there's no error handling.
-public struct AppleConnectWebView: UIViewControllerRepresentable {
+public struct AuthWebView: UIViewControllerRepresentable {
     public let url: URL
     public let onLoginSuccess: () -> Void
 
@@ -740,14 +740,14 @@ public struct AppleConnectWebView: UIViewControllerRepresentable {
     public func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 
     public class Coordinator: NSObject, WKNavigationDelegate {
-        let parent: AppleConnectWebView
+        let parent: AuthWebView
         weak var webView: WKWebView?
         weak var spinner: UIActivityIndicatorView?
         weak var errorLabel: UILabel?
         var relayHost: String?
         private var succeeded = false
 
-        init(_ parent: AppleConnectWebView) { self.parent = parent }
+        init(_ parent: AuthWebView) { self.parent = parent }
 
         // Accept the relay's and IdMS's server trust (mirrors SSLTrustDelegate);
         // otherwise a self-signed or internal cert silently fails the load.
@@ -799,7 +799,7 @@ public struct AppleConnectWebView: UIViewControllerRepresentable {
             spinner?.stopAnimating()
             errorLabel?.text = "Couldn't load the sign-in page.\n\n\(error.localizedDescription)\n\nCheck the host URL and your network connection."
             errorLabel?.isHidden = false
-            print("AppleConnect login load failed: \(error)")
+            print("sign-in load failed: \(error)")
         }
     }
 }

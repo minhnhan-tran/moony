@@ -150,15 +150,12 @@ func saveRegistry(r registryFile) error {
 // Marketplaces returns the added marketplaces.
 func Marketplaces() []Marketplace { return loadRegistry().Marketplaces }
 
-// defaultMarketplaces are pre-registered for every user, so the curated
-// skill/MCP/plugin marketplaces are available out of the box with no manual
-// `/plugins marketplace add`. They're cloned lazily by EnsureDefaultMarketplaces;
-// one that can't be reached (offline, no access, private repo) is simply
-// skipped so nothing blocks on it.
-var defaultMarketplaces = []Marketplace{
-	{Name: "apple-genai", URL: "https://api.genai.apple.com/marketplace.git"},
-	{Name: "claude-code", URL: "https://github.pie.apple.com/AI-for-Devs-Community/claude-code-marketplace.git"},
-}
+// defaultMarketplaces are pre-registered for every user so curated
+// skill/MCP/plugin marketplaces are available out of the box. It is empty by
+// default — add marketplaces with `/plugins marketplace add <url>`. Entries here
+// are cloned lazily by EnsureDefaultMarketplaces; one that can't be reached
+// (offline, no access, private repo) is simply skipped so nothing blocks on it.
+var defaultMarketplaces = []Marketplace{}
 
 // DefaultMarketplaces returns the built-in default marketplaces (name + URL).
 func DefaultMarketplaces() []Marketplace {

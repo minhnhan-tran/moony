@@ -4,12 +4,12 @@
 const api = (path) => apiBase + path;
 
 // --- session-expiry guard ---------------------------------------------------
-// When AppleConnect auth is on (MOONY_AUTH), an expired OIDC session makes the
+// When the auth provider is on (MOONY_AUTH), an expired OIDC session makes the
 // server answer API calls with 401 JSON (a full-page navigation gets a 302 to
 // /auth/login, but our fetch/SSE calls don't). This SPA stays open long after
 // login — well past the session TTL — so a stale page would otherwise just see
 // its calls fail silently. We wrap fetch so ANY 401 bounces the browser to
-// /auth/login, which redirects on to the IdMS/AppleConnect login (and back to
+// /auth/login, which redirects on to the auth provider's login (and back to
 // where we were via ?next=). Auth-off builds never return 401, so this is inert.
 let authBouncing = false; // one redirect even if many calls 401 at once
 function bounceToLogin() {
@@ -421,7 +421,7 @@ function focusLaptop(host) {
 }
 
 // loadAuthUser reveals the signed-in identity + Sign out in the account menu
-// when AppleConnect auth is on (GET /auth/me). When auth is disabled the
+// when the auth provider is on (GET /auth/me). When auth is disabled the
 // endpoint isn't routed (404), so the menu just stays as-is.
 async function loadAuthUser() {
   try {
@@ -1015,11 +1015,11 @@ function sqeProxyDeniedCard() {
   const d = el("div", "msg msg-info text-sm");
   d.appendChild(sym("info.circle.fill", "msg-info-icon"));
   const body = el("div", "md");
-  body.innerHTML = renderMD("You're not in the SQE Proxy group — using the built-in model list. If you were just added, retry.");
+  body.innerHTML = renderMD("You don't have access to this provider — using the built-in model list. If you were just added, retry.");
   d.appendChild(body);
   const btn = el("button", "btn btn-sm mt-2");
   btn.textContent = "Refresh Access";
-  btn.title = "Re-check your SQE Proxy group membership without signing out";
+  btn.title = "Re-check your provider access without signing out";
   btn.onclick = async () => {
     btn.disabled = true; btn.textContent = "Refreshing…";
     try {
@@ -1036,12 +1036,12 @@ function sqeProxyDeniedCard() {
   return d;
 }
 
-// primeSQEProxyGate primes the SQE Proxy group gate in the BACKGROUND: it POSTs
+// primeSQEProxyGate primes the provider group gate in the BACKGROUND: it POSTs
 // /api/refresh-membership once to record this user's membership in the relay's
 // (in-memory, server-side) GroupMembers store, which the cookie's in_group hint
 // can't substitute for (a relay restart drops the store while the cookie still
 // says in_group=true). It dedupes via a shared in-flight promise and is a no-op
-// once primed / when not on SQE Proxy. Returns a promise resolving true when the
+// once primed / when not on the relay proxy. Returns a promise resolving true when the
 // gate is (or already was) primed, false on a genuine denial. Safe to call
 // proactively (on a provider switch) so the first send doesn't pay the round-trip.
 function primeSQEProxyGate() {
@@ -1075,7 +1075,7 @@ function primeSQEProxyGate() {
 async function ensureSQEProxyAccess() {
   const onSQEProxy = lastStatus && (lastStatus.llmProvider || "ollama") === "sqe-proxy";
   if (!onSQEProxy || !authUser || sqeProxyGatePrimed) return true; // not gated / already primed → instant
-  const note = sqeProxyInfoNote("Checking SQE Proxy access…");
+  const note = sqeProxyInfoNote("Checking provider access…");
   let ok = true;
   try { ok = await primeSQEProxyGate(); } finally { if (note) note.remove(); }
   if (ok) return true;
@@ -1095,7 +1095,7 @@ function sqeProxyInfoNote(text) {
   return d;
 }
 
-// tryAutoRefreshMembership handles a SQE Proxy "access denied" on any surface
+// tryAutoRefreshMembership handles a provider "access denied" on any surface
 // (the /models menu OR a turn that hit a provider 403). On EVERY denial it
 // silently re-checks the user's allow-group membership via POST
 // /api/refresh-membership (root-relative → the relay, which has the web session +
@@ -1227,7 +1227,7 @@ function handle(ev) {
       turnStartMs = Date.now(); turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
       lastTodos = [];      // drop the previous turn's todos so a plan event can't resurrect them
       renderTodos([]);     // hide the previous turn's task-list bar until new todos arrive
-      // A transparent resend after a SQE-Proxy refresh: do the turn-start resets
+      // A transparent resend after a provider access refresh: do the turn-start resets
       // above (so the retried answer streams cleanly) but skip the duplicate user
       // bubble + footer — the original question is already shown above.
       if (suppressNextUserEcho) { suppressNextUserEcho = false; break; }
@@ -1388,7 +1388,7 @@ function handle(ev) {
       break;
     }
     case "info": {
-      // SQE Proxy access denials surface here as plain info notes (the connector
+      // Provider access denials surface here as plain info notes (the connector
       // can't refresh membership itself — only the browser has the web session +
       // DSID). Two forms: a /models fetch ("sqe-proxy: access denied") and a
       // /provider switch ("SQE Proxy unavailable: …"). For BOTH, refresh membership
@@ -1412,7 +1412,7 @@ function handle(ev) {
       break;
     }
     case "sqe_proxy_denied": {
-      // SQE Proxy access denied on the /models fetch — drop the picker loader and
+      // Provider access denied on the /models fetch — drop the picker loader and
       // auto-refresh membership, then silently retry /models (which re-shows the
       // loader). A concise card appears only if the user genuinely isn't in the group.
       hideMenu();
@@ -1484,7 +1484,7 @@ function handle(ev) {
       const prevProvider = lastStatus && lastStatus.llmProvider;
       lastStatus = ev.status || null;
       // A provider switch invalidates the gate-primed state — switching (back) to
-      // SQE Proxy must re-prime. Do it PROACTIVELY in the background here, so the
+      // the relay proxy must re-prime. Do it PROACTIVELY in the background here, so the
       // round-trip is done (or in flight) well before the user's first send —
       // making send() instant instead of paying the pre-flight on Enter.
       if (lastStatus && lastStatus.llmProvider !== prevProvider) {
@@ -2076,7 +2076,7 @@ function initialsFrom(name) {
   return (parts.length >= 2 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2)).toUpperCase();
 }
 function updateAvatar(s) {
-  // Prefer the signed-in AppleConnect user (when auth is on); otherwise fall back
+  // Prefer the signed-in user (via the auth provider, when auth is on); otherwise fall back
   // to the host machine the agent runs on. The authed identity is constant, so
   // per-session status updates (whose host changes when switching laptops) must
   // not clobber it.
@@ -2704,7 +2704,7 @@ async function sendText(text) {
 }
 
 // sendMessageRaw POSTs a turn with optional attachments (no input/UI side effects)
-// — used to transparently resend a turn after a SQE Proxy membership refresh.
+// — used to transparently resend a turn after a provider access refresh.
 async function sendMessageRaw(text, attachments) {
   if (!current) { suppressNextUserEcho = false; return; }
   text = text || "";
@@ -2738,7 +2738,7 @@ async function send() {
   }
   const attachments = pendingAttachments.map((a) => ({ name: a.name, mediaType: a.mediaType, data: a.data }));
   // Clear the composer and go responsive IMMEDIATELY — don't make the user wait on
-  // the SQE Proxy pre-flight before the input even empties. The gate is normally
+  // the provider access pre-flight before the input even empties. The gate is normally
   // already primed (we prime proactively on the provider switch), so the common
   // case has zero delay; only an unprimed gate awaits below, showing a brief info
   // note. The optimistic clear is restored if the gate genuinely denies access.
@@ -2747,8 +2747,8 @@ async function send() {
   renderAttachStrip();
   hidePalette();
   hideMentions();
-  lastUserSend = { text, attachments }; // remember for a transparent resend after a SQE-Proxy membership refresh
-  // Pre-flight the SQE Proxy group gate so the turn doesn't start, 403, and then
+  lastUserSend = { text, attachments }; // remember for a transparent resend after a provider access refresh
+  // Pre-flight the provider group gate so the turn doesn't start, 403, and then
   // restart after a reactive refresh (the visible stop/restart). On a genuine
   // denial, restore the composer so nothing the user typed is lost.
   if (!(await ensureSQEProxyAccess())) {
@@ -3830,7 +3830,7 @@ async function renderMembersPanel(body) {
   body.innerHTML = "";
   body.append(el("p", "access-intro",
     "Usernames here are granted access even though they're not in MOONY_AUTH_GROUP_DSID. " +
-    "Changes take effect on the user's next login. Each row shows today's SQE Proxy spend " +
+    "Changes take effect on the user's next login. Each row shows today's provider spend " +
     "against the daily cap — click the pencil to set a per-user cap (blank reverts to the " +
     "default); group members who've logged in and used quota are listed below."));
   const list = el("div", null);
@@ -3839,7 +3839,7 @@ async function renderMembersPanel(body) {
   const form = el("div", "access-form");
   const input = el("input", "access-input");
   input.type = "text";
-  input.placeholder = "appleconnect username";
+  input.placeholder = "username";
   const addBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Add");
   form.append(input, addBtn);
   body.append(form);
@@ -3979,7 +3979,7 @@ async function renderMembersPanel(body) {
 
 // renderUsagePanel is the team-wide usage dashboard: one row per user (total
 // cost + tokens across every model they've used), each expandable into its
-// per-model breakdown. Backed by /api/usage, which is relay-only (SQE Proxy
+// per-model breakdown. Backed by /api/usage, which is relay-only (provider
 // metering is the only place a request can be attributed to a user) — reports
 // {available:false} everywhere else, rendered as a simple explanatory note.
 async function renderUsagePanel(body) {
@@ -3987,7 +3987,7 @@ async function renderUsagePanel(body) {
   body.innerHTML = "";
   body.appendChild(el("div", "access-intro",
     "Token usage and cost per user, broken down by model. Tracked by the relay's " +
-    "per-user metering (SQE Proxy). Pick a window below — \"All time\" never resets; " +
+    "per-user metering (provider access). Pick a window below — \"All time\" never resets; " +
     "the others cover the last N UTC calendar days."));
 
   const bar = el("div", "access-row", "");
@@ -4016,7 +4016,7 @@ async function renderUsagePanel(body) {
 
   list.innerHTML = "";
   if (!data || !data.available) {
-    list.appendChild(el("div", "access-empty", "Usage tracking isn't available here (requires the relay's per-user SQE Proxy metering)."));
+    list.appendChild(el("div", "access-empty", "Usage tracking isn't available here (requires the relay's per-user provider metering)."));
     return;
   }
   const rows = data.rows || [];

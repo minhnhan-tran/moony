@@ -1,15 +1,15 @@
 // Package worker lets moony dispatch focused tasks to other coding
-// agents running as out-of-process "workers" — currently Claude Code and Optimus
-// (the Apple opencode fork). Unlike the in-process `task` sub-agents, a worker is
+// agents running as out-of-process "workers" — Claude Code, an ACP agent, and
+// Gemini. Unlike the in-process `task` sub-agents, a worker is
 // a separate agent binary with its own context, model, and tools; the agent
 // drives it over the binary's headless interface and gets back a final answer.
 //
-// Two backends, two transports, one Session interface:
+// Three backends, two transports, one Session interface:
 //
 //   - "claude":  one-shot `claude -p … --output-format json`, made stateful by
 //     threading the returned session_id through `--resume`. Read-only via
 //     `--permission-mode plan`.
-//   - "optimus": a long-lived `optimus acp` process driven over the Agent Client
+//   - "optimus": a long-lived ACP process driven over the Agent Client
 //     Protocol (JSON-RPC on stdio). Read-only by rejecting any edit/execute
 //     permission request from the client side.
 //
@@ -64,16 +64,16 @@ type Session interface {
 
 // Backend identifiers.
 const (
-	BackendClaude      = "claude"
-	BackendOptimus     = "optimus"
-	BackendAppleGemini = "apple-gemini"
+	BackendClaude  = "claude"
+	BackendOptimus = "optimus"
+	BackendGemini  = "gemini"
 )
 
 // isKnownBackend reports whether b is a backend this build can drive. Used to
 // reject unsupported configs in Load and Manager.Add.
 func isKnownBackend(b string) bool {
 	switch b {
-	case BackendClaude, BackendOptimus, BackendAppleGemini:
+	case BackendClaude, BackendOptimus, BackendGemini:
 		return true
 	default:
 		return false
@@ -350,7 +350,7 @@ var open = func(ctx context.Context, c Config, opts Options) (Session, error) {
 		return openClaude(opts), nil
 	case BackendOptimus:
 		return openACP(ctx, opts)
-	case BackendAppleGemini:
+	case BackendGemini:
 		return openGemini(opts), nil
 	default:
 		return nil, fmt.Errorf("unknown worker backend %q", c.Backend)
@@ -534,7 +534,7 @@ func (m *Manager) materialize(name string, cfg Config) error {
 	return nil
 }
 
-// Add registers a new worker (backend "claude", "optimus", or "apple-gemini")
+// Add registers a new worker (backend "claude", "optimus", or "gemini")
 // and persists it to
 // the global (~/.config/moony/workers.json) or project workers.json,
 // making it available to the delegate tool immediately. Returns the file written.
@@ -548,7 +548,7 @@ func (m *Manager) Add(name, backend, model, command string, global bool) (string
 		return "", fmt.Errorf("a worker name is required")
 	}
 	if !isKnownBackend(backend) {
-		return "", fmt.Errorf("backend must be %q, %q, or %q", BackendClaude, BackendOptimus, BackendAppleGemini)
+		return "", fmt.Errorf("backend must be %q, %q, or %q", BackendClaude, BackendOptimus, BackendGemini)
 	}
 	path := globalPath()
 	if !global {

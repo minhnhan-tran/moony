@@ -40,7 +40,7 @@ export class Sqe {
   // stays in lockstep with how the UI itself creates + selects a session.
   async openSession(): Promise<void> {
     await this.page.goto('/');
-    if (await this.page.locator('text=/log ?in|sign ?in|AppleConnect/i').first().isVisible().catch(() => false)) {
+    if (await this.page.locator('text=/log ?in|sign ?in/i').first().isVisible().catch(() => false)) {
       throw new Error('Login screen detected — capture a valid storageState (see README "Auth") or point MOONY_BASE_URL at a loopback, unauthenticated instance.');
     }
     await this.page.locator('#input').waitFor({ state: 'attached', timeout: 60_000 });

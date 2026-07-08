@@ -64,10 +64,10 @@ Point it at your running stack and go:
 ```bash
 # Scripted journey with assertions — deterministic user, no persona model.
 # Set MOONY_WORKDIR to the session's working dir to also assert the file on disk.
-MOONY_BASE_URL="https://localhost.apple.com:448" MOONY_WORKDIR="/path/to/your/repo" npm run test:journey
+MOONY_BASE_URL="https://localhost.example.com:448" MOONY_WORKDIR="/path/to/your/repo" npm run test:journey
 
 # LLM persona (exploratory), headed so you can watch it.
-MOONY_BASE_URL="https://localhost.apple.com:448" HEADED=1 npm run test:persona
+MOONY_BASE_URL="https://localhost.example.com:448" HEADED=1 npm run test:persona
 
 npm test                   # run everything (both specs)
 npm run report             # open the HTML report (trace/video on failure)
@@ -77,7 +77,7 @@ npm run report             # open the HTML report (trace/video on failure)
 
 | Env | Applies to | Default | Meaning |
 |-----|-----------|---------|---------|
-| `MOONY_BASE_URL` | both | `https://localhost.apple.com:448` | Where the SPA is served |
+| `MOONY_BASE_URL` | both | `https://localhost.example.com:448` | Where the SPA is served |
 | `MOONY_STORAGE_STATE` | both | _(unset)_ | Playwright storage state for auth (see below) |
 | `HEADED` | both | _(unset)_ | Set to run with a visible browser |
 | `MOONY_WORKDIR` | journey | _(unset)_ | Session working dir; enables the on-disk file assertion |

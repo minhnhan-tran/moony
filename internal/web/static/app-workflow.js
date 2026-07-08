@@ -307,7 +307,7 @@
 
   // setRuntime POSTs a provider/model/reasoning change to the connector and
   // refreshes the switcher from the response (reasoning levels can change with the
-  // model). On an SQE-Proxy denial it refreshes membership and retries once.
+  // model). On a provider access denial it refreshes membership and retries once.
   async function setRuntime(patch, retried) {
     runtimeMsg("Applying…");
     try {
@@ -315,7 +315,7 @@
       if (!r.ok) {
         var txt = (await r.text()).trim();
         if (!retried && isProxyDenied(txt)) {
-          runtimeMsg("Refreshing SQE Proxy access…");
+          runtimeMsg("Refreshing provider access…");
           try {
             var rr = await fetch("/api/refresh-membership", { method: "POST" });
             var d = rr.ok ? await rr.json().catch(function () { return {}; }) : {};
@@ -1454,7 +1454,7 @@
     trace.classList.remove("hidden");
     trace.appendChild(el("div", "wf-trace-title", "Run trace"));
     var deltas = {}; // nodeId -> accumulated streamed text (live, before node_completed)
-    var proxyDenied = false; // a node hit the SQE-Proxy group gate (403) → refresh-first
+    var proxyDenied = false; // a node hit the provider group gate (403) → refresh-first
 
     runAbort = new AbortController();
     try {
@@ -1479,7 +1479,7 @@
             if (line.indexOf("data:") !== 0) continue;
             var ev;
             try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
-            // SQE-Proxy group gate: suppress the raw 403 rows; handle it once the
+            // Provider group gate: suppress the raw 403 rows; handle it once the
             // stream drains by refreshing membership and retrying (refresh-first).
             if (isProxyDeniedEvent(ev)) { proxyDenied = true; continue; }
             handleRunEvent(ev, deltas, trace);
@@ -1509,7 +1509,7 @@
   }
 
   // handleRunProxyDenied implements the refresh-first rule for a run that hit the
-  // SQE-Proxy group gate: silently re-check membership (POST /api/refresh-membership,
+  // provider group gate: silently re-check membership (POST /api/refresh-membership,
   // sharing the global dedup/cooldown) and, on success, retry the run ONCE; only if
   // the user genuinely isn't in the group does a concise note + Refresh button show
   // — the raw 403 is never surfaced. `retried` guards against a refresh→retry loop.
@@ -1522,12 +1522,12 @@
     }
     if (typeof sqeProxyRefreshing !== "undefined" && sqeProxyRefreshing) {
       // Another surface is already refreshing — wait it out, then retry once.
-      var note = el("div", "wf-trace-row", "↻ Refreshing SQE Proxy access…");
+      var note = el("div", "wf-trace-row", "↻ Refreshing provider access…");
       trace.appendChild(note); trace.scrollTop = trace.scrollHeight;
       setTimeout(function () { note.remove(); startRun(input, true); }, 2000);
       return;
     }
-    var row = el("div", "wf-trace-row", "↻ SQE Proxy access denied — refreshing membership…");
+    var row = el("div", "wf-trace-row", "↻ Provider access denied — refreshing membership…");
     trace.appendChild(row); trace.scrollTop = trace.scrollHeight;
     (async function () {
       var ok = false;
@@ -1549,7 +1549,7 @@
   // trace (never the raw 403), with a Refresh Access button that retries the run.
   function showRunProxyDeniedNote(trace, input) {
     var box = el("div", "wf-trace-done wf-trace-fail");
-    box.appendChild(el("span", null, "✕ You're not in the SQE Proxy group — agent nodes can't reach the model. If you were just added, retry. "));
+    box.appendChild(el("span", null, "✕ You don't have access to this provider — agent nodes can't reach the model. If you were just added, retry. "));
     var btn = el("button", "wf-btn"); btn.type = "button"; btn.style.marginLeft = ".4rem";
     btn.appendChild(sym("arrow.clockwise")); btn.appendChild(el("span", null, "Refresh Access"));
     btn.onclick = function () { startRun(input, false); };

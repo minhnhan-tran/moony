@@ -7,24 +7,20 @@ import (
 )
 
 func TestModelFetchNote(t *testing.T) {
-	authErr := errors.New(`anthropic endpoint: 403 Forbidden: {"message":"Caller not in authorized group","request_id":"x"}`)
-	if !NotInGenAIGroup(authErr) {
-		t.Fatal("should detect not-in-group")
+	// A generic fetch error surfaces its cause and falls back to the built-in list.
+	other := errors.New("connection refused")
+	if !strings.Contains(ModelFetchNote(other), "connection refused") {
+		t.Error("generic errors should still surface the cause")
 	}
-	note := ModelFetchNote(authErr)
+
+	// A region-restriction error is hidden behind the friendly message.
+	regionErr := errors.New(`403 Forbidden: {"message":"This model is unavailable in your region"}`)
+	note := ModelFetchNote(regionErr)
 	if strings.Contains(note, "403") || strings.Contains(note, "Forbidden") {
 		t.Errorf("note must not leak the raw 403: %q", note)
 	}
-	if !strings.Contains(note, GenAIOnboardingURL) {
-		t.Errorf("note should point to onboarding: %q", note)
-	}
-
-	other := errors.New("connection refused")
-	if NotInGenAIGroup(other) {
-		t.Error("should not misclassify a generic error")
-	}
-	if !strings.Contains(ModelFetchNote(other), "connection refused") {
-		t.Error("generic errors should still surface the cause")
+	if !strings.Contains(note, regionRestrictedNote) {
+		t.Errorf("note should surface the region-restricted message: %q", note)
 	}
 }
 
@@ -43,9 +39,5 @@ func TestTurnErrorNoteRegion(t *testing.T) {
 	// Unrecognized turn errors pass through unchanged.
 	if got := TurnErrorNote(errors.New("boom")); got != "boom" {
 		t.Errorf("generic turn error should pass through, got %q", got)
-	}
-	// Region restriction is not misclassified as an onboarding problem.
-	if NotInGenAIGroup(regionErr) {
-		t.Error("regional restriction is not a group/onboarding error")
 	}
 }

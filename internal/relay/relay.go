@@ -22,7 +22,7 @@ const laptopPrefix = "/l/"
 
 // Relay proxies browser HTTP traffic to one or more connected connectors
 // ("laptops") over their tunnels. Each connector dials in and announces its host
-// and owner (the AppleConnect user who launched it). The relay lists connectors
+// and owner (the user who launched it). The relay lists connectors
 // at GET /api/laptops and routes /l/{host}/... requests to that host's
 // connector. When an owner resolver is set (SetOwnerResolver), it isolates per
 // user: each web user only lists and reaches the connectors they own. The SPA
@@ -215,7 +215,7 @@ func (r *Relay) SetDownloads(dir string) { r.downloads = dir }
 func (r *Relay) SetTunnelAddr(addr string) { r.tunnelAddr = strings.TrimSpace(addr) }
 
 // SetOwnerResolver enables per-user isolation: f returns the authenticated web
-// user's AppleConnect account for a request (ok=false when auth is off or the
+// user's auth account for a request (ok=false when auth is off or the
 // request is anonymous). When set, each user only sees and can reach the
 // connectors whose owner matches their account. Pass nil to show every connector.
 func (r *Relay) SetOwnerResolver(f func(*http.Request) (string, bool)) { r.owner = f }
@@ -467,7 +467,7 @@ func splitLaptopPath(p string) (host, forward string) {
 // bookkeeping for proxying browser requests to it.
 type link struct {
 	host    string
-	owner   string // the AppleConnect username that launched this connector
+	owner   string // the username that launched this connector
 	version string // the connector's build version (from its hello frame)
 	t       *tunnel
 

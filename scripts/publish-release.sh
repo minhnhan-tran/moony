@@ -4,8 +4,7 @@
 #
 # Builds static (CGO-free) binaries for the supported platforms, packages each as
 # a .tar.gz, writes SHA256SUMS, and creates/updates the GitHub release for the
-# version's tag on the (private) Apple GitHub Enterprise host, uploading the
-# assets. install.sh then downloads from that release.
+# version's tag, uploading the assets. install.sh then downloads from that release.
 #
 # Typical flow:
 #   make release VERSION=0.16.0        # bump config.Version + CHANGELOG, commit, tag
@@ -94,15 +93,14 @@ for plat in $PLATFORMS; do
   os="${plat%%/*}"; arch="${plat##*/}"
   [ "$os" != "$plat" ] && [ -n "$arch" ] || die "bad platform '$plat' (want os/arch)."
   info "Building $os/$arch..."
-  # GIT_TERMINAL_PROMPT=0: the ,direct GOPROXY fallback below can send `go` to
-  # `git clone https://github.com/...` for a public dep missing from the Apple
-  # proxy; without this it would block forever on an interactive
+  # GIT_TERMINAL_PROMPT=0: the ,direct GOPROXY fallback can send `go` to
+  # `git clone https://github.com/...` for a dep missing from the module proxy;
+  # without this it would block forever on an interactive
   # "Username for 'https://github.com':" prompt in non-interactive/CI contexts.
   # Disabling the prompt turns that into a fast, visible error instead of a hang.
   env -u GOROOT \
     GIT_TERMINAL_PROMPT=0 \
     CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-    GOPROXY=https://artifacts.apple.com/api/go/apple-go,direct GOSUMDB=off GOPRIVATE='github.pie.apple.com/*' \
     go build -trimpath -ldflags "-s -w" -o "$DIST/stage/$BINARY" "$ROOT" \
     || die "build failed for $os/$arch."
   members=( "$BINARY" )
@@ -138,8 +136,7 @@ PREV_VERSION="${PREV_TAG#v}"
 # Release notes: every CHANGELOG.md section newer than the previous release —
 # from the version being published down to (but excluding) PREV_VERSION — so the
 # body summarizes everything shipped since the last release, not just one
-# version (intermediate bumps land in non-[rio: build] commits). Falls back to
-# gh's generated notes if nothing matches.
+# version. Falls back to gh's generated notes if nothing matches.
 NOTES_FILE="$DIST/.notes.md"
 awk -v ver="$VERSION" -v prev="$PREV_VERSION" '
   $0 ~ ("^## \\[" ver "\\]") {flag=1}

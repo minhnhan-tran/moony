@@ -14,7 +14,7 @@ public struct MainSplitView: View {
     @State private var showAddHost = false
     @State private var showSettings = false
     @State private var showProgressDrawer = false
-    @State private var showAppleConnectLogin = false
+    @State private var showAuthLogin = false
     @State private var userProfile: UserProfile? = nil
     
     // Multi-laptop Tree state
@@ -74,7 +74,7 @@ public struct MainSplitView: View {
                     }
                 }
                 
-                // AppleConnect Authentication Section
+                // Authentication Section
                 if selectedProfile != nil {
                     Section(header: Text("Authentication")) {
                         if let user = userProfile {
@@ -94,9 +94,9 @@ public struct MainSplitView: View {
                             .padding(.vertical, 4)
                         } else {
                             Button {
-                                showAppleConnectLogin = true
+                                showAuthLogin = true
                             } label: {
-                                Label("Sign In with AppleConnect", systemImage: "key.fill")
+                                Label("Sign In", systemImage: "key.fill")
                             }
                         }
                     }
@@ -198,10 +198,10 @@ public struct MainSplitView: View {
             .sheet(isPresented: $showSettings) {
                 ConfigSheetsView(hostProfile: selectedProfile, laptopBase: selectedLaptop?.base ?? "", sessionId: selectedSession?.id)
             }
-            .sheet(isPresented: $showAppleConnectLogin) {
+            .sheet(isPresented: $showAuthLogin) {
                 if let profile = selectedProfile, let url = URL(string: "\(profile.hostUrlString)/auth/login") {
-                    AppleConnectWebView(url: url) {
-                        showAppleConnectLogin = false
+                    AuthWebView(url: url) {
+                        showAuthLogin = false
                         checkAuthAndFetchSessions(for: profile)
                     }
                 }
@@ -307,10 +307,10 @@ public struct MainSplitView: View {
                 let (data, response) = try await URLSession.trusted.data(for: request)
                 if let httpResponse = response as? HTTPURLResponse {
                     if httpResponse.statusCode == 401 {
-                        // Needs AppleConnect login!
+                        // Needs sign-in!
                         await MainActor.run {
                             self.userProfile = nil
-                            self.showAppleConnectLogin = true
+                            self.showAuthLogin = true
                         }
                     } else if httpResponse.statusCode == 200 {
                         // Successfully authenticated, let's decode UserProfile

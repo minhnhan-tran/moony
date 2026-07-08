@@ -1,11 +1,11 @@
 ---
 name: pr-review
-description: Use when asked to review a GitHub pull request (read the diff, assess correctness, run tests, and post a review). Covers the end-to-end review workflow on Apple GitHub Enterprise, including how to post APPROVE / REQUEST_CHANGES reviews and inline comments via the API.
+description: Use when asked to review a GitHub pull request (read the diff, assess correctness, run tests, and post a review). Covers the end-to-end review workflow on GitHub (including self-hosted GitHub Enterprise), including how to post APPROVE / REQUEST_CHANGES reviews and inline comments via the API.
 ---
 
 # Reviewing a GitHub pull request
 
-This skill describes how to perform a substantive PR review on Apple's internal GitHub Enterprise. For the underlying `gh api` / host / token mechanics, follow the **`gh`** skill — every API call below assumes those rules.
+This skill describes how to perform a substantive PR review on GitHub (including a self-hosted GitHub Enterprise host). For the underlying `gh api` / host / token mechanics, follow the **`gh`** skill — every API call below assumes those rules.
 
 ## 1. Gather context
 
@@ -32,14 +32,14 @@ Structure feedback as: a short verdict, then a correctness section, then concret
 Submit a single review with an explicit event, not loose comments. Use `gh api --method POST` with a body file (see the `gh` skill on multiline bodies):
 
 ```bash
-GH_HOST=github.pie.apple.com GITHUB_TOKEN=$(gh auth token --hostname github.pie.apple.com) \
+GH_HOST=github.example.com GITHUB_TOKEN=$(gh auth token --hostname github.example.com) \
   gh api repos/ORG/REPO/pulls/NUMBER/reviews --method POST \
     -f event=REQUEST_CHANGES \
     -f body="$(cat review.md)"
 ```
 
 - `event` is one of `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`.
-- For **inline** comments, add a `comments` array where each entry uses `path` + `position` (the 1-indexed offset from the first `@@` hunk header, continuous across hunks) — **not** `line`+`side`, which this GHE version rejects.
+- For **inline** comments, add a `comments` array where each entry uses `path` + `position` (the 1-indexed offset from the first `@@` hunk header, continuous across hunks) — **not** `line`+`side`, which some GitHub Enterprise versions reject.
 
 ## 5. Etiquette
 

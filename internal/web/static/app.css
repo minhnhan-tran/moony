@@ -827,7 +827,7 @@ body.agent-awaiting .app-statusbar::after {
 .access-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .access-rm { flex: 0 0 auto; color: rgb(var(--c-faint)); padding: .1rem; border-radius: var(--r-xs); line-height: 0; }
 .access-rm:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-danger) / .14); }
-/* SQE Proxy used-quota chip + status tag in the Members panel. */
+/* provider used-quota chip + status tag in the Members panel. */
 .access-quota { flex: 0 0 auto; font-size: 11px; font-variant-numeric: tabular-nums; color: rgb(var(--c-faint)); white-space: nowrap; }
 .access-quota-over { color: rgb(var(--c-danger)); font-weight: 600; }
 .access-tag { flex: 0 0 auto; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: rgb(var(--c-ok)); border: 1px solid rgb(var(--c-ok) / .4); border-radius: var(--r-xs); padding: 0 .3rem; }

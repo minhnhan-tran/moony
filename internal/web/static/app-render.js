@@ -565,7 +565,7 @@ function bumpWorkerGroup(g) {
 // highlight() is a tiny, dependency-free tokenizer (comments/strings/numbers/
 // keywords). It escapes all source text and only emits our own <span> tags, so
 // it's safe to assign via innerHTML. (Real multi-language highlighting would
-// need a vendored library — the Apple network blocks CDNs.)
+// need a vendored library — the network blocks CDNs.)
 const CODE_KEYWORDS = new Set("import from export default const let var function fn func return if else for while do class new async await yield true false null nil undefined none package type struct interface enum def public private protected static void switch case break continue this self in of is and or not try catch finally throw raise with as lambda match where impl mod use pub".split(" "));
 function highlight(code) {
   const re = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*)|(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\b\d[\w.]*\b)|([A-Za-z_$][\w$]*)/g;

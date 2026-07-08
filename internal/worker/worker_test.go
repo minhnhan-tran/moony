@@ -267,7 +267,7 @@ func TestClaudeBuildArgsWritable(t *testing.T) {
 
 func TestGeminiBuildArgs(t *testing.T) {
 	// Read-only → plan mode, with the model threaded through.
-	s := &geminiSession{opts: Options{ReadOnly: true, Model: "gemini-2.5-pro"}, bin: "apple-gemini"}
+	s := &geminiSession{opts: Options{ReadOnly: true, Model: "gemini-2.5-pro"}, bin: "gemini"}
 	joined := strings.Join(s.buildArgs("do it"), " ")
 	for _, want := range []string{"-p do it", "-o json", "--approval-mode plan", "-m gemini-2.5-pro"} {
 		if !strings.Contains(joined, want) {
@@ -278,7 +278,7 @@ func TestGeminiBuildArgs(t *testing.T) {
 		t.Error("read-only worker should not use yolo mode")
 	}
 	// Writable → yolo mode; no model when unset.
-	w := &geminiSession{opts: Options{ReadOnly: false}, bin: "apple-gemini"}
+	w := &geminiSession{opts: Options{ReadOnly: false}, bin: "gemini"}
 	wj := strings.Join(w.buildArgs("x"), " ")
 	if !strings.Contains(wj, "--approval-mode yolo") {
 		t.Errorf("writable worker should use yolo mode: %s", wj)
@@ -432,12 +432,12 @@ func TestAddRemoveWorker(t *testing.T) {
 		t.Error("an unsupported backend should error")
 	}
 
-	// apple-gemini is a supported backend.
-	if _, err := m.Add("gem", BackendAppleGemini, "", "", true); err != nil {
-		t.Fatalf("apple-gemini should be accepted: %v", err)
+	// gemini is a supported backend.
+	if _, err := m.Add("gem", BackendGemini, "", "", true); err != nil {
+		t.Fatalf("gemini should be accepted: %v", err)
 	}
-	if c, ok := workerNames(m.All())["gem"]; !ok || c.Backend != BackendAppleGemini {
-		t.Fatalf("apple-gemini worker wrong: %+v ok=%v", c, ok)
+	if c, ok := workerNames(m.All())["gem"]; !ok || c.Backend != BackendGemini {
+		t.Fatalf("gemini worker wrong: %+v ok=%v", c, ok)
 	}
 
 	// Remove — gone from memory and from the file.

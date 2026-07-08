@@ -977,40 +977,21 @@ var KnownOpenAIModels = []ModelInfo{
 // AllKnownModels is the merged curated list across both endpoints (Anthropic
 // Claude + OpenAI-route Gemini), used as the /models fallback when the live
 // fetch fails. The route for each is derived from its id by ProviderForModel.
-// GenAIOnboardingURL is where users join the GenAI-authorized group that grants
-// access to the hosted model endpoints.
-const GenAIOnboardingURL = "https://genai.apple.com/profile/onboarding"
 
-// NotInGenAIGroup reports whether a model-fetch error is the provider's
-// "Caller not in authorized group" 403 — i.e. the user hasn't onboarded to GenAI.
-func NotInGenAIGroup(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "authorized group")
-}
-
-// ModelFetchNote returns a user-facing note for a failed model fetch. For the
-// not-onboarded case it hides the raw 403 and points to onboarding; otherwise it
-// surfaces the underlying error. Both cases fall back to the built-in list.
+// ModelFetchNote returns a user-facing note for a failed model fetch. It hides a
+// raw region-restriction 403 behind a friendly message; otherwise it surfaces the
+// underlying error. Both cases fall back to the built-in list.
 func ModelFetchNote(err error) string {
-	if NotInGenAIGroup(err) {
-		return "You're not in the GenAI authorized group yet — finish onboarding at " +
-			GenAIOnboardingURL + ", then retry. Showing the built-in model list for now."
-	}
 	if ModelRegionRestricted(err) {
 		return regionRestrictedNote + " Showing the built-in model list for now."
 	}
 	return "Could not fetch models (" + err.Error() + "); showing the built-in list."
 }
 
-// ModelRegionRestrictionsURL documents which models are usable in which regions.
-const ModelRegionRestrictionsURL = "https://genai.apple.com/policies/models/#model-regional-restrictions"
-
 const regionRestrictedNote = "This model is unavailable in your region."
 
 // ModelRegionRestricted reports whether an error is the provider's "model unavailable
-// in your region" 403 (a regional restriction, not a group/onboarding problem).
+// in your region" 403 (a regional restriction).
 func ModelRegionRestricted(err error) bool {
 	if err == nil {
 		return false

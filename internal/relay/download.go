@@ -18,7 +18,7 @@ import (
 //   - GET /install.sh       a curl|sh installer that picks the right macOS arch
 //
 // They're meant to be public (see internal/auth: /download, /download/, and
-// /install.sh bypass AppleConnect) so `curl -fsSL https://relay/install.sh | sh`
+// /install.sh bypass auth) so `curl -fsSL https://relay/install.sh | sh`
 // works without an interactive login. The files are baked into the relay image
 // (see the Dockerfile), so the served version always matches this relay.
 
@@ -239,7 +239,7 @@ esac
 
 // downloadPageHTML is a standalone (non-SPA) page; the __TOKENS__ are filled in
 // at serve time. Self-contained styling (system fonts only — no web-font CDN,
-// which the Apple network blocks); color-scheme makes it adapt to light/dark.
+// which some networks block); color-scheme makes it adapt to light/dark.
 const downloadPageHTML = `<!doctype html>
 <html lang="en">
 <head>

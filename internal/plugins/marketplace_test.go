@@ -134,11 +134,17 @@ func hasServer(cfgs []mcp.Config, name string) bool {
 }
 
 // TestEnsureDefaultMarketplaces verifies the built-in defaults are cloned and
-// registered (idempotently), so their plugins show up without a manual add.
+// registered (idempotently), so their plugins show up without a manual add. The
+// shipped default set is empty, so the test injects a temporary default to
+// exercise the clone/register machinery.
 func TestEnsureDefaultMarketplaces(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+
+	origDefaults := defaultMarketplaces
+	defaultMarketplaces = []Marketplace{{Name: "test-defaults", URL: "https://example.com/marketplace.git"}}
+	t.Cleanup(func() { defaultMarketplaces = origDefaults })
 
 	orig := cloneRepo
 	cloneRepo = func(_ context.Context, _, dest string) error { writeFixtureMarketplace(t, dest); return nil }

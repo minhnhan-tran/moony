@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// geminiSession drives Apple Gemini's headless mode. Like Claude Code there's no
-// long-lived process: each Prompt spawns `apple-gemini -p … -o json`. apple-gemini
+// geminiSession drives Gemini's headless mode. Like Claude Code there's no
+// long-lived process: each Prompt spawns `gemini -p … -o json`. gemini
 // is a thin authenticated wrapper around Google's gemini-cli, so it
 // exposes the same one-shot flags (-p/--prompt, -o/--output-format, -m/--model,
 // --approval-mode). Read-only maps to --approval-mode plan; otherwise yolo.
@@ -25,7 +25,7 @@ type geminiSession struct {
 func openGemini(opts Options) Session {
 	bin := opts.Command
 	if bin == "" {
-		bin = "apple-gemini"
+		bin = "gemini"
 	}
 	return &geminiSession{opts: opts, bin: bin}
 }
@@ -59,7 +59,7 @@ func (s *geminiSession) Prompt(ctx context.Context, task string, onEvent func(Ev
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// apple-gemini -p is one-shot: no incremental progress to stream (we only get
+	// gemini -p is one-shot: no incremental progress to stream (we only get
 	// the final JSON), and the delegate tool shows a spinner while it runs, so we
 	// don't emit a transient "running" line here.
 	runErr := cmd.Run()
@@ -83,13 +83,13 @@ func (s *geminiSession) Prompt(ctx context.Context, task string, onEvent func(Ev
 		if detail == "" {
 			detail = strings.TrimSpace(stdout.String())
 		}
-		return Result{}, fmt.Errorf("apple-gemini failed: %v: %s", runErr, truncate(detail, 500))
+		return Result{}, fmt.Errorf("gemini failed: %v: %s", runErr, truncate(detail, 500))
 	}
 	// Ran cleanly but unexpected output — return the raw stdout as the answer.
 	return Result{Text: strings.TrimSpace(stdout.String()), OK: true}, nil
 }
 
-// buildArgs assembles the apple-gemini headless invocation.
+// buildArgs assembles the gemini headless invocation.
 func (s *geminiSession) buildArgs(task string) []string {
 	args := []string{"-p", task, "-o", "json"}
 	if s.opts.ReadOnly {

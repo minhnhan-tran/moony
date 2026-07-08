@@ -31,16 +31,16 @@ func sized(t *testing.T, m Model, w, h int) Model {
 	return next.(Model)
 }
 
-// TestNoteWarningSurfacesInTranscript verifies the startup AppleConnect warning
+// TestNoteWarningSurfacesInTranscript verifies the startup auth warning
 // shows up in the rendered view (used when the session is expired).
 func TestNoteWarningSurfacesInTranscript(t *testing.T) {
 	m := newTestModel(t)
-	m.NoteWarning("AppleConnect session unavailable — re-authenticate.")
+	m.NoteWarning("Auth session unavailable — re-authenticate.")
 	m.NoteWarning("") // empty is ignored
 	m = sized(t, m, 100, 30)
 
 	out := m.View()
-	if !strings.Contains(out, "AppleConnect session unavailable") {
+	if !strings.Contains(out, "Auth session unavailable") {
 		t.Fatalf("startup warning not visible in the transcript; got:\n%s", out)
 	}
 }

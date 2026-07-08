@@ -139,13 +139,17 @@ func byNameLookup(m *Manager, name string) (Config, bool) {
 }
 
 func TestInstallCommand(t *testing.T) {
-	for _, b := range []string{BackendClaude, BackendOptimus, BackendAppleGemini} {
+	// Claude and Gemini ship a canned public installer.
+	for _, b := range []string{BackendClaude, BackendGemini} {
 		if InstallCommand(b) == "" {
 			t.Errorf("backend %q should have an install command", b)
 		}
 	}
-	if InstallCommand("gpt") != "" {
-		t.Error("unknown backend should have no install command")
+	// Optimus (a user-supplied ACP agent) and unknown backends have none.
+	for _, b := range []string{BackendOptimus, "gpt"} {
+		if InstallCommand(b) != "" {
+			t.Errorf("backend %q should have no install command", b)
+		}
 	}
 }
 

@@ -294,7 +294,7 @@ var (
 	fileCreatedStyle  = lipgloss.NewStyle().Foreground(diffAdd)
 	fileModifiedStyle = lipgloss.NewStyle().Foreground(colorTool)
 
-	// Startup loader (the animated "Checking AppleConnect / MCP / LSP" block
+	// Startup loader (the animated "Checking auth / MCP / LSP" block
 	// shown below the input while the background startup sequence runs).
 	startupBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

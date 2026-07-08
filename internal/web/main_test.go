@@ -7,7 +7,7 @@ import (
 
 // TestMain makes the web package's tests hermetic against the developer's
 // environment. NewServer calls auth.FromEnv() at construction, which reads
-// MOONY_AUTH (the AppleConnect gate switch) and the OIDC vars from the process
+// MOONY_AUTH (the auth gate switch) and the OIDC vars from the process
 // environment. On a machine that runs the relay with auth on (MOONY_AUTH=1 plus
 // OIDC config exported in the shell), that ambient config would leak into every
 // test server, gate all the API routes, and make session-creating tests fail

@@ -138,12 +138,9 @@ func checkGoEnv(r *Report) {
 	}
 
 	proxy := goEnv("GOPROXY")
-	switch {
-	case proxy == "":
-		r.add("GOPROXY", StatusWarn, "unset — public proxy.golang.org is firewalled here; `make` pins the Apple proxy")
-	case strings.Contains(proxy, "proxy.golang.org") && !strings.Contains(proxy, "artifacts.apple.com"):
-		r.add("GOPROXY", StatusWarn, proxy+" — public proxy is firewalled; prefer the Apple proxy (build with `make`)")
-	default:
+	if proxy == "" {
+		r.add("GOPROXY", StatusWarn, "unset — module downloads use the default (proxy.golang.org)")
+	} else {
 		r.add("GOPROXY", StatusOK, proxy)
 	}
 }

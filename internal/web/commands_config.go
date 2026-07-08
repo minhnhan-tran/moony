@@ -614,7 +614,7 @@ func (s *Server) workersCommand(sess *session, arg string) string {
 			return fmt.Sprintf("Reset worker %q.", f[1])
 		case "add":
 			if len(f) < 3 {
-				return "usage: /workers add <name> <claude|optimus|apple-gemini> [provider/model]"
+				return "usage: /workers add <name> <claude|optimus|gemini> [provider/model]"
 			}
 			model := strings.TrimSpace(strings.Join(f[3:], " "))
 			if _, err := mgr.Add(f[1], f[2], model, "", true); err != nil {
@@ -840,7 +840,7 @@ func (s *Server) providerCommand(cfg *config.Config, arg string, info func(strin
 		s.cfg.LLMProvider = p.ID
 	}
 	// Move onto this provider's default model — a model id is backend-specific, so
-	// keeping the old one would feed e.g. a Claude id to AFM (or vice-versa).
+	// keeping the old one would feed e.g. a Claude id to a local model (or vice-versa).
 	// SetModel re-derives the route + reasoning level; mirror it onto s.cfg too
 	// (the shared LLM client holds a pointer to it), exactly like /model.
 	switched := ""

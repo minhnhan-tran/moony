@@ -42,15 +42,15 @@ let announcements = [];                  // maintainer announcement banners (GET
 let isRelayAdmin = false;                // current user may author announcements (MOONY_ADMIN_USERS)
 let versionWarnDismissed = false;        // user closed the "terminal is behind" banner this page load
 let upgrading = false;                   // an Upgrade (remote /update) is in flight
-let sqeProxyRefreshing = false;          // a SQE-Proxy membership-refresh POST is in flight (dedupes a burst of denials)
+let sqeProxyRefreshing = false;          // a provider-access membership-refresh POST is in flight (dedupes a burst of denials)
 let sqeProxyRefreshAt = 0;               // ms timestamp of the last auto-refresh (cooldown guard against retry loops)
 let sqeProxyGatePrimed = false;          // we've primed the relay's group-gate store this page-session (refresh records membership server-side); reset on a provider switch
 let sqeProxyPrimePromise = null;         // in-flight background gate-prime (POST /api/refresh-membership) promise, so send() awaits/dedupes it rather than blocking on or re-firing its own
 let lastUserSend = null;                 // {text, attachments} of the last turn THIS browser sent, for transparent resend after a membership refresh
-let suppressNextUserEcho = false;        // set when transparently resending a turn after a SQE-Proxy refresh, so its user-bubble echo + the failed turn's footer aren't duplicated
+let suppressNextUserEcho = false;        // set when transparently resending a turn after a provider-access refresh, so its user-bubble echo + the failed turn's footer aren't duplicated
 let lastProviderSwitch = "";             // the provider id the user last tried to switch to (for retry after a membership refresh)
 let upgradeStartVer = "";                // terminal version when Upgrade was clicked (to detect it came back)
-let authUser = null;                     // signed-in AppleConnect user (/auth/me), when auth is on
+let authUser = null;                     // signed-in user via the auth provider (/auth/me), when auth is on
 let commandList = [];                    // slash commands for the palette
 let paletteItems = [], paletteIdx = 0;   // current palette matches + highlighted row
 let mentionList = [];                    // @-mention candidates (agents + workers)
@@ -59,7 +59,7 @@ let curStep = 0, maxStep = 0;            // turn progress (tool-call loop)
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-// sym builds an Apple SF Symbol element. Size it via font-size (inline style or
+// sym builds an SF Symbol icon element. Size it via font-size (inline style or
 // a text-* class) and color it via the inherited `color`.
 const sym = (name, cls) => { const s = document.createElement("sf-symbol"); s.setAttribute("name", name); if (cls) s.className = cls; return s; };
 // themeColor reads a palette token (e.g. "--c-brand") from the active theme and
@@ -175,7 +175,7 @@ const composerMetaEl = $("#composerMeta"); // model · reasoning notched into th
 if (composerMetaEl) {
   // Clicking (or Enter/Space) opens the model picker (/models). Show a
   // jumping-Claude loader in #menu immediately — fetching models can be slow
-  // (it hits the model endpoints / SQE Proxy) — replaced by the menu when ready.
+  // (it hits the model endpoints / the relay proxy) — replaced by the menu when ready.
   const pickModel = () => {
     if (!composerMetaEl.childElementCount) return;
     if (typeof showMenuLoading === "function") showMenuLoading("Loading models…");

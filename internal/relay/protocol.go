@@ -1,6 +1,6 @@
 // Package relay implements a reverse HTTP tunnel so the moony web UI can
 // be fronted by a remotely-hosted relay while the agent, session store, and
-// AppleConnect auth all stay on the user's machine.
+// auth all stay on the user's machine.
 //
 // One or more connectors (the user's laptops) dial OUT to the relay and serve
 // their local web app's HTTP handler over that connection. Each connector
@@ -51,7 +51,7 @@ type frame struct {
 	Status int         `json:"s,omitempty"`
 	Body   []byte      `json:"b,omitempty"`
 	Host   string      `json:"host,omitempty"` // fHello: the connector's machine name
-	User   string      `json:"user,omitempty"` // fHello: the connector owner's AppleConnect username
+	User   string      `json:"user,omitempty"` // fHello: the connector owner's username
 	Ver    string      `json:"ver,omitempty"`  // fWelcome: the relay's build version; fHello: the connector's build version
 }
 

@@ -1104,7 +1104,7 @@ function manageWorkersSection(items) {
   if (!workerInstalling.size) stopWorkerPoll();
   const list = el("div", "overflow-y-auto");
   list.style.maxHeight = "500px";
-  if (!items.length) list.appendChild(noneRow("No workers. Install claude, optimus, or apple-gemini, or add one below."));
+  if (!items.length) list.appendChild(noneRow("No workers. Install claude, optimus, or gemini, or add one below."));
   for (const wk of items) {
     const row = el("div", "py-1.5 border-b border-edge");
     const top = el("div", "flex items-center gap-2");
@@ -1137,13 +1137,13 @@ function manageWorkersSection(items) {
   }
   sec.appendChild(list);
 
-  // "+ Add worker": a name, a backend (claude/optimus/apple-gemini), and an
+  // "+ Add worker": a name, a backend (claude/optimus/gemini), and an
   // optional model → /workers add, written to the global workers.json.
   const form = el("div", "flex items-center gap-2 mt-2");
   const name = manageInput("name", "84px");
   const backend = el("select", "shrink-0 rounded border border-edge bg-surface text-ink");
   backend.style.fontSize = "12px"; backend.style.padding = "0.15rem 0.25rem";
-  for (const b of ["claude", "optimus", "apple-gemini"]) backend.appendChild(el("option", null, b));
+  for (const b of ["claude", "optimus", "gemini"]) backend.appendChild(el("option", null, b));
   const model = manageInput("provider/model (optional)"); model.className += " flex-1";
   const add = el("button", "shrink-0 text-brand"); add.style.fontSize = "12px"; add.textContent = "+ Add";
   add.onclick = () => {

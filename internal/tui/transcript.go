@@ -116,7 +116,7 @@ type transcript struct {
 	renderer *glamour.TermRenderer
 	width    int
 
-	// userLabel is the speaker label for the human's messages (the AppleConnect
+	// userLabel is the speaker label for the human's messages (the
 	// username when known; falls back to "You").
 	userLabel string
 

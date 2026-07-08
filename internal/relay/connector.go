@@ -14,7 +14,7 @@ var errTunnelClosed = errors.New("relay: tunnel closed")
 // ServeConnector announces this connector's host, owner, and build version to
 // the relay, then reads browser requests off the tunnel and serves each one
 // against h (the local web app's handler), streaming the response back frame by
-// frame. owner is the AppleConnect username of whoever launched the connector;
+// frame. owner is the username of whoever launched the connector;
 // the relay uses it to show each web user only their own connectors. version is
 // this terminal's build version, surfaced in GET /api/laptops so the web UI can
 // flag (and live-clear) an out-of-date terminal from the laptop poll. onRelayVersion,

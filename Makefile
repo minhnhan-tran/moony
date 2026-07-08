@@ -101,10 +101,3 @@ dist:
 ## publish: cross-compile and upload a GitHub release (needs gh auth + a pushed vX.Y.Z tag)
 publish:
 	./scripts/publish-release.sh $(if $(VERSION),--version=$(VERSION),)
-
-## ship: one-command [rio: build] release — stage your files first, then run this.
-## Signs (ac-sign biometry), commits, pushes to main, and publishes in one shot,
-## instead of ~20 agent round-trips. MESSAGE="..." required; EMPTY=1 for a
-## trigger-only commit; VERSION=x.y.z to pin the published version.
-ship:
-	./scripts/ship.sh -m "$(MESSAGE)" $(if $(EMPTY),--empty,) $(if $(VERSION),--version=$(VERSION),)

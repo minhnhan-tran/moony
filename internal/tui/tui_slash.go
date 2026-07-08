@@ -91,7 +91,7 @@ func (m Model) workersCmd(fields []string) string {
 		return fmt.Sprintf("Reset worker %q — its next dispatch starts a fresh session.", fields[2])
 	case "add":
 		if len(fields) < 4 {
-			return "Usage: /workers add <name> <claude|optimus|apple-gemini> [provider/model]"
+			return "Usage: /workers add <name> <claude|optimus|gemini> [provider/model]"
 		}
 		name, backend := fields[2], strings.ToLower(fields[3])
 		model := strings.TrimSpace(strings.Join(fields[4:], " "))
@@ -280,7 +280,7 @@ func (m Model) domainsCmd(fields []string) string {
 	domain := strings.TrimSpace(strings.Join(fields[2:], " "))
 	if domain == "" {
 		return "Usage: /domains [allow|deny|remove <domain>]\n" +
-			"A domain is a host such as apple.com (also matches its subdomains)."
+			"A domain is a host such as example.com (also matches its subdomains)."
 	}
 
 	switch action {
@@ -318,8 +318,8 @@ func domainsList(list *domains.List) string {
 	for _, r := range allow {
 		fmt.Fprintf(&b, "  allow  %s\n", r)
 	}
-	b.WriteString("\nAdd with /domains allow|deny <domain>; a domain is a host such as apple.com\n")
-	b.WriteString("(it also matches subdomains like docs.apple.com). Rules are saved globally.")
+	b.WriteString("\nAdd with /domains allow|deny <domain>; a domain is a host such as example.com\n")
+	b.WriteString("(it also matches subdomains like docs.example.com). Rules are saved globally.")
 	return b.String()
 }
 
