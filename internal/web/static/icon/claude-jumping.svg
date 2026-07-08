@@ -46,14 +46,6 @@
       40% { transform: scaleY(1.2); }
       60% { transform: scaleY(0.85); }
     }
-    /* Respect reduced-motion: freeze the mascot to a static pose everywhere it's
-       used (welcome, connecting, loading, offline, upgrade). Internal SVG
-       animations aren't reachable from page CSS, so the guard lives here. */
-    @media (prefers-reduced-motion: reduce) {
-      .claude-body, .shadow, .left-arm, .right-arm, .left-ear, .right-ear {
-        animation: none;
-      }
-    }
   </style>
 
   <!-- Shadow -->
