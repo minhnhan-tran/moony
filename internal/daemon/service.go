@@ -18,16 +18,13 @@ const (
 	systemdUnitName = "moony.service"
 )
 
-// legacyLaunchdLabels/legacySystemdUnits are service identifiers used by earlier
-// builds, before the move to the moony.* names. Install() best-effort tears any
-// of them down if present so upgrading the binary doesn't leave an orphaned
-// daemon running under an old name alongside the new one. These are teardown
-// anchors that must match what older installs actually registered as, not
-// branding.
-var (
-	legacyLaunchdLabels = []string{"sqeqct.coding-agent", "sqeqct.sqe-code-agent"}
-	legacySystemdUnits  = []string{"sqe-code-agent.service"}
-)
+// legacySystemdUnits are systemd --user units used by builds before the
+// sqe-code-agent -> moony rename. Install() best-effort tears any of them down
+// if present so upgrading the binary doesn't leave an orphaned daemon running
+// under an old name alongside the new one. These are teardown anchors that must
+// match what older installs actually registered as. There is no launchd
+// counterpart: earlier macOS builds are not migrated.
+var legacySystemdUnits = []string{"sqe-code-agent.service"}
 
 // Install writes the OS service unit (launchd plist / systemd --user unit) that
 // runs `moony daemon run` with the given relay address, and starts it.
@@ -248,19 +245,15 @@ func guiDomain() string { return "gui/" + strconv.Itoa(os.Getuid()) }
 // cleanupLegacyService best-effort removes daemons installed under any earlier
 // service name, ignoring all errors — there may be nothing to clean up, or
 // insufficient permissions, either way Install() should proceed with the current
-// name regardless.
+// name regardless. Only systemd (Linux) has a legacy unit to migrate; earlier
+// macOS builds are not torn down.
 func cleanupLegacyService(home string) {
-	switch runtime.GOOS {
-	case "darwin":
-		for _, label := range legacyLaunchdLabels {
-			_, _ = runCmd("launchctl", "bootout", guiDomain()+"/"+label)
-			_ = os.Remove(filepath.Join(home, "Library", "LaunchAgents", label+".plist"))
-		}
-	case "linux":
-		for _, unit := range legacySystemdUnits {
-			_, _ = runCmd("systemctl", "--user", "disable", "--now", unit)
-			_ = os.Remove(filepath.Join(home, ".config", "systemd", "user", unit))
-		}
+	if runtime.GOOS != "linux" {
+		return
+	}
+	for _, unit := range legacySystemdUnits {
+		_, _ = runCmd("systemctl", "--user", "disable", "--now", unit)
+		_ = os.Remove(filepath.Join(home, ".config", "systemd", "user", unit))
 	}
 }
 

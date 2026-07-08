@@ -106,18 +106,9 @@ func TestPaths(t *testing.T) {
 // TestLegacyServiceIdentifiersMatchPreRenameNames pins the earlier service
 // identifiers cleanupLegacyService looks for, so an upgrading user's old daemon
 // is actually found and torn down instead of silently orphaned. Also guards
-// against a legacy label colliding with the current one, which would make
+// against a legacy unit colliding with the current one, which would make
 // Install() tear down the service it just made.
 func TestLegacyServiceIdentifiersMatchPreRenameNames(t *testing.T) {
-	wantLabels := map[string]bool{"sqeqct.coding-agent": true, "sqeqct.sqe-code-agent": true}
-	for _, label := range legacyLaunchdLabels {
-		if !wantLabels[label] {
-			t.Errorf("unexpected legacy launchd label %q", label)
-		}
-		if label == launchdLabel {
-			t.Errorf("legacy launchd label %q must differ from the current launchdLabel", label)
-		}
-	}
 	for _, unit := range legacySystemdUnits {
 		if unit != "sqe-code-agent.service" {
 			t.Errorf("unexpected legacy systemd unit %q", unit)
