@@ -1,0 +1,10 @@
+# Node / Playwright
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Captured login (never commit credentials/cookies)
+.auth/
+*.storageState.json

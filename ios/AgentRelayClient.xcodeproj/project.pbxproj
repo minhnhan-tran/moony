@@ -1,0 +1,310 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E00000000000000000000001 /* AgentRelayClientApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000001 /* AgentRelayClientApp.swift */; };
+		E00000000000000000000002 /* HostProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000002 /* HostProfile.swift */; };
+		E00000000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000003 /* Models.swift */; };
+		E00000000000000000000004 /* SSEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000004 /* SSEClient.swift */; };
+		E00000000000000000000005 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000005 /* TranscriptView.swift */; };
+		E00000000000000000000006 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000006 /* ComposerView.swift */; };
+		E00000000000000000000007 /* MainSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000007 /* MainSplitView.swift */; };
+		E00000000000000000000008 /* ConfigSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000008 /* ConfigSheets.swift */; };
+		E00000000000000000000009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000009 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1B2C3D4E5F601020304050B /* SQECodeAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SQECodeAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F00000000000000000000001 /* AgentRelayClientApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AgentRelayClientApp.swift; path = AgentRelayClient/AgentRelayClientApp.swift; sourceTree = "<group>"; };
+		F00000000000000000000002 /* HostProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HostProfile.swift; path = AgentRelayClient/HostProfile.swift; sourceTree = "<group>"; };
+		F00000000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Models.swift; path = AgentRelayClient/Models.swift; sourceTree = "<group>"; };
+		F00000000000000000000004 /* SSEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SSEClient.swift; path = AgentRelayClient/SSEClient.swift; sourceTree = "<group>"; };
+		F00000000000000000000005 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptView.swift; path = AgentRelayClient/TranscriptView.swift; sourceTree = "<group>"; };
+		F00000000000000000000006 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ComposerView.swift; path = AgentRelayClient/ComposerView.swift; sourceTree = "<group>"; };
+		F00000000000000000000007 /* MainSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MainSplitView.swift; path = AgentRelayClient/MainSplitView.swift; sourceTree = "<group>"; };
+		F00000000000000000000008 /* ConfigSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConfigSheets.swift; path = AgentRelayClient/ConfigSheets.swift; sourceTree = "<group>"; };
+		F00000000000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = AgentRelayClient/Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1B2C3D4E5F601020304050F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1B2C3D4E5F6010203040507 = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6010203040508 /* AgentRelayClient */,
+				A1B2C3D4E5F601020304050A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6010203040508 /* AgentRelayClient */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000001 /* AgentRelayClientApp.swift */,
+				F00000000000000000000002 /* HostProfile.swift */,
+				F00000000000000000000003 /* Models.swift */,
+				F00000000000000000000004 /* SSEClient.swift */,
+				F00000000000000000000005 /* TranscriptView.swift */,
+				F00000000000000000000006 /* ComposerView.swift */,
+				F00000000000000000000007 /* MainSplitView.swift */,
+				F00000000000000000000008 /* ConfigSheets.swift */,
+				F00000000000000000000009 /* Assets.xcassets */,
+			);
+			name = AgentRelayClient;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F601020304050A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F601020304050B /* SQECodeAgent.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1B2C3D4E5F6010203040509 /* SQECodeAgent */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D4E5F601020304050C /* Build configuration list for PBXNativeTarget "SQECodeAgent" */;
+			buildPhases = (
+				A1B2C3D4E5F601020304050E /* Sources */,
+				A1B2C3D4E5F601020304050F /* Frameworks */,
+				A1B2C3D4E5F6010203040510 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SQECodeAgent;
+			productName = SQECodeAgent;
+			productReference = A1B2C3D4E5F601020304050B /* SQECodeAgent.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1B2C3D4E5F6010203040506 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A1B2C3D4E5F6010203040509 = {
+						CreatedOnToolsVersion = 15.0;
+						LastSwiftMigration = 1500;
+					};
+				};
+			};
+			buildConfigurationList = A1B2C3D4E5F601020304050D /* Build configuration list for PBXProject "AgentRelayClient" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1B2C3D4E5F6010203040507;
+			productRefGroup = A1B2C3D4E5F601020304050A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1B2C3D4E5F6010203040509 /* SQECodeAgent */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1B2C3D4E5F6010203040510 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E00000000000000000000009 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1B2C3D4E5F601020304050E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E00000000000000000000001 /* AgentRelayClientApp.swift in Sources */,
+				E00000000000000000000002 /* HostProfile.swift in Sources */,
+				E00000000000000000000003 /* Models.swift in Sources */,
+				E00000000000000000000004 /* SSEClient.swift in Sources */,
+				E00000000000000000000005 /* TranscriptView.swift in Sources */,
+				E00000000000000000000006 /* ComposerView.swift in Sources */,
+				E00000000000000000000007 /* MainSplitView.swift in Sources */,
+				E00000000000000000000008 /* ConfigSheets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1B2C3D4E5F6010203040511 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 2TY6MMN2FD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "SQE Code Agent";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sqe.SQECodingAgent;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6010203040512 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 2TY6MMN2FD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "SQE Code Agent";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sqe.SQECodingAgent;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1B2C3D4E5F6010203040513 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6010203040514 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1B2C3D4E5F601020304050C /* Build configuration list for PBXNativeTarget "SQECodeAgent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6010203040511 /* Debug */,
+				A1B2C3D4E5F6010203040512 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D4E5F601020304050D /* Build configuration list for PBXProject "AgentRelayClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6010203040513 /* Debug */,
+				A1B2C3D4E5F6010203040514 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1B2C3D4E5F6010203040506 /* Project object */;
+}

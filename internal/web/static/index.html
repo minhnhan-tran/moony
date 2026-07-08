@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" class="dark" style="color-scheme: dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SQEQCT Coding Agent</title>
+
+<!-- Theme bootstrap: apply the saved (or system) light/dark choice to <html>
+     before any CSS paints, so there's no flash of the wrong theme. app.js wires
+     up the toggle and persists changes to localStorage under the same key. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("sqe-theme");
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      }
+      var r = document.documentElement;
+      r.classList.remove("light", "dark");
+      r.classList.add(t);
+      r.style.colorScheme = t;
+    } catch (e) { /* storage blocked — keep the default dark theme */ }
+  })();
+</script>
+
+<!-- Favicons / touch icon (served from the embedded static dir). -->
+<link rel="icon" href="/static/icon/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icon/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/static/icon/favicon-16.png" />
+<link rel="apple-touch-icon" href="/static/icon/apple-touch-icon.png" />
+
+<!-- Apple SF Symbols web component (Apple's own CDN — reachable on the Apple
+     network and the license-appropriate way to use SF Symbols on the web).
+     Usage: <sf-symbol name="arrow.up"></sf-symbol>; size via font-size, color
+     via the inherited CSS `color`. Degrades to empty if the script can't load. -->
+<script src="https://sf-saas.cdn-apple.com/7.1.1/sf-symbol.js" async
+        onerror="console.error('[sf-symbol] CDN script failed to load — icons will be blank.', event);"></script>
+<link href="https://sf-saas.cdn-apple.com/7.1.1/colors/default.css" rel="stylesheet"
+      onerror="console.warn('[sf-symbol] colors stylesheet failed to load.', event);" />
+
+<!-- TailwindCSS and marked are vendored locally and served from the binary, not
+     a CDN: the Apple network blocks non-Apple CDNs. tailwind.css is prebuilt
+     from internal/web/tailwind/ (see `make tailwind`); regenerate it if you add
+     new utility classes to this file. -->
+<link rel="stylesheet" href="/static/tailwind.css" />
+<script src="/static/marked.min.js"></script>
+
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+
+<body class="app-body flex h-screen m-0 bg-base text-ink font-sans text-sm">
+  <aside class="app-sidebar shrink-0 bg-surface border-r border-edge flex flex-col">
+    <!-- Sidebar list. In multi-project mode this is a project tree (click a
+         project to expand its sessions); in mirror mode it's the live session. -->
+    <div id="sessions" class="overflow-y-auto flex-1"></div>
+    <!-- Left-panel sections: modified files (#files), and #mcp — the session's
+         usage history (skills / subagents / workers / MCP tools), populated by
+         renderUsage() in app.js from the tool-call stream. -->
+    <div id="files" class="hidden border-t border-edge px-3 py-2 max-h-48 overflow-y-auto text-xs shrink-0"></div>
+    <div id="agentmsgs" class="hidden border-t border-edge px-3 py-2 max-h-48 overflow-y-auto text-xs shrink-0"></div>
+    <div id="mcp" class="hidden border-t border-edge px-3 py-2 max-h-40 overflow-y-auto text-xs shrink-0"></div>
+    <!-- Drag the right edge to resize the sidebar (desktop only); width persists.
+         Double-click resets to the default. -->
+    <div id="sidebarResize" class="sidebar-resize" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize · double-click to reset"></div>
+  </aside>
+
+  <main class="flex-1 flex flex-col min-w-0">
+    <!-- Top header, mirroring the terminal banner: app + version on the left,
+         model · think · dir · approval-mode on the right. -->
+    <div class="app-topbar shrink-0 px-4 py-2 border-b border-edge flex items-center gap-2 text-xs">
+      <button id="navBtn" type="button" aria-label="Toggle sidebar" class="nav-btn text-faint hover:text-ink"><sf-symbol name="sidebar.left" style="font-size:18px"></sf-symbol></button>
+      <img src="/static/icon/favicon-32.png" alt="" class="w-5 h-5 rounded" />
+      <span class="app-wordmark font-semibold text-ink">SQEQCT Coding Agent</span>
+      <span id="hdrVersion" class="text-faint" title="web UI (relay) version"></span>
+      <span id="hdrEncrypt" class="inline-flex items-center text-faint" title=""></span>
+      <span class="flex-1"></span>
+      <span id="hdrMeta" class="inline-flex items-center gap-2 text-faint font-mono min-w-0"></span>
+      <!-- Light/dark theme toggle. The icon (sun/moon) and persistence are wired
+           in app.js; the <head> bootstrap applies the saved choice before paint. -->
+      <button class="theme-toggle shrink-0" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle light/dark theme">
+        <sf-symbol name="moon.stars.fill"></sf-symbol>
+      </button>
+      <!-- Completion-sound toggle: plays a short chime when a turn finishes in this
+           browser session (the web equivalent of the TUI's afplay chime). Icon and
+           persistence (localStorage "sqe-sound") are wired in app-core.js. -->
+      <button class="theme-toggle shrink-0" id="soundToggle" type="button" title="Toggle completion sound" aria-label="Toggle completion sound">
+        <sf-symbol name="speaker.wave.2.fill"></sf-symbol>
+      </button>
+      <!-- Account avatar (adapted from the hybrid-assistant UI). This tool has no
+           auth, so it reflects the host machine the agent runs on; the menu shows
+           host + working dir and quick actions. Populated by updateAvatar(). -->
+      <div class="user-avatar-wrapper shrink-0" id="userAvatarWrapper">
+        <button class="user-avatar" id="userAvatar" type="button" title="Account" aria-label="Account">SQE</button>
+        <div class="user-menu" id="userMenu" role="menu">
+          <div class="user-menu-name" id="authUser" style="display:none"></div>
+          <div class="user-menu-divider" id="authDivider" style="display:none"></div>
+          <button class="user-menu-item" id="umManage" type="button" role="menuitem"><sf-symbol name="slider.horizontal.3"></sf-symbol> Workers</button>
+          <button class="user-menu-item" id="umConfig" type="button" role="menuitem"><sf-symbol name="gearshape"></sf-symbol> Config</button>
+          <button class="user-menu-item" id="umPlugins" type="button" role="menuitem"><sf-symbol name="shippingbox"></sf-symbol> Plugins</button>
+          <button class="user-menu-item" id="umPersona" type="button" role="menuitem"><sf-symbol name="person.text.rectangle"></sf-symbol> Persona</button>
+          <button class="user-menu-item" id="umAdmin" type="button" role="menuitem" style="display:none"><sf-symbol name="shield.fill"></sf-symbol> Admin</button>
+          <a class="user-menu-item" id="umDownload" href="/download" target="_blank" rel="noopener noreferrer" role="menuitem" style="display:none"><sf-symbol name="arrow.down.circle"></sf-symbol> Download terminal app</a>
+          <a class="user-menu-item" id="umRepo" href="https://github.com/pysty1995/moony" target="_blank" rel="noopener noreferrer" role="menuitem"><sf-symbol name="chevron.left.forwardslash.chevron.right"></sf-symbol> Repository</a>
+          <a class="user-menu-item" id="umLogout" href="/auth/logout" role="menuitem" style="display:none"><sf-symbol name="rectangle.portrait.and.arrow.right"></sf-symbol> Sign out</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Version-skew banner: shown by updateVersionWarning() in app.js when the
+         connected terminal's version (from its status event) is behind this web
+         UI's version (GET /api/relay). shrink-0 keeps it from squeezing the
+         transcript; dismissible for the page session. -->
+    <div id="versionWarn" class="app-version-warn hidden shrink-0 flex items-center gap-2 px-4 py-2 text-xs">
+      <sf-symbol id="versionWarnIcon" name="exclamationmark.triangle.fill"></sf-symbol>
+      <img id="versionWarnArt" class="app-version-warn-art" src="/static/icon/claude-jumping.svg" alt="" hidden />
+      <span id="versionWarnText" class="app-version-warn-text flex-1 min-w-0"></span>
+      <button id="versionWarnUpgrade" type="button" class="app-version-warn-link shrink-0">Upgrade</button>
+      <a id="versionWarnDownload" href="/download" target="_blank" rel="noopener noreferrer" class="app-version-warn-link shrink-0">Download</a>
+      <button id="versionWarnClose" type="button" class="app-version-warn-close" aria-label="Dismiss this notice">
+        <sf-symbol name="xmark"></sf-symbol>
+      </button>
+    </div>
+
+    <!-- Maintainer announcement banner: new/undismissed announcements shown in
+         the main column (like versionWarn) by renderAnnouncementBar(). Full list
+         + admin compose live in the userMenu → Announcement panel. -->
+    <div id="announceBar" class="app-announce hidden shrink-0"></div>
+
+    <div class="transcript-wrap">
+      <div id="transcript" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <div id="empty">
+          <sf-symbol name="sparkles" class="empty-icon"></sf-symbol>
+          <div class="empty-title">Pick a <span class="text-brand">session</span> to start</div>
+          <div class="empty-sub">Choose a session from the sidebar — or create a new one — to begin a conversation.</div>
+        </div>
+      </div>
+      <button id="scrollBtn" class="scroll-btn" type="button" aria-label="Scroll to bottom" hidden>
+        <sf-symbol name="chevron.down"></sf-symbol>
+      </button>
+    </div>
+
+    <!-- Plan bar, mirroring the terminal's plan artifact above the task list. -->
+    <div id="plan" class="hidden shrink-0 border-t border-edge bg-surface px-4 py-2 text-xs"></div>
+
+    <!-- Todo bar, mirroring the terminal's task list above the status bar. -->
+    <div id="todos" class="hidden shrink-0 border-t border-edge bg-surface px-4 py-2 text-xs"></div>
+
+    <!-- Status bar sits just above the input area, mirroring the terminal. -->
+    <div class="app-statusbar shrink-0 px-4 py-1.5 text-xs text-faint border-t border-edge flex items-center gap-3">
+      <span id="status" class="inline-flex items-center gap-1.5 shrink-0">No session selected.</span>
+      <span class="flex-1"></span>
+      <span id="stats" class="inline-flex items-center gap-3 shrink-0 font-mono text-[11px]"></span>
+    </div>
+
+    <div id="approval" class="app-approval hidden shrink-0 px-4 py-3">
+      <!-- Header: an amber icon chip, an eyebrow + the tool/summary line (.q,
+           filled by the "approval" handler), and a +N −N diff badge on the right. -->
+      <div class="app-approval-head">
+        <span class="app-approval-badge"><sf-symbol name="hand.raised.fill"></sf-symbol></span>
+        <div class="app-approval-titles">
+          <div class="app-approval-eyebrow">Permission required</div>
+          <div class="q"></div>
+        </div>
+        <span class="app-approval-counts"></span>
+      </div>
+      <pre class="app-approval-pre"></pre>
+      <div class="app-approval-actions">
+        <button class="b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="approve"><sf-symbol name="checkmark"></sf-symbol> Approve </button>
+        <button class="b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="deny"><sf-symbol name="xmark"></sf-symbol> Deny </button>
+        <button class="b-always inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="always"><sf-symbol name="checkmark.shield.fill"></sf-symbol> Always allow </button>
+      </div>
+    </div>
+
+    <!-- Question panel (ask_user): a question + selectable options, mirroring the
+         terminal's chooser. Options + actions are filled by the "question" handler. -->
+    <div id="question" class="app-approval app-question hidden shrink-0 px-4 py-3">
+      <div class="app-approval-head">
+        <span class="app-approval-badge"><sf-symbol name="questionmark.bubble.fill"></sf-symbol></span>
+        <div class="app-approval-titles">
+          <div class="app-approval-eyebrow">Your input needed</div>
+          <div class="q"></div>
+        </div>
+      </div>
+      <div class="app-question-options"></div>
+      <div class="app-approval-actions app-question-actions"></div>
+    </div>
+
+    <!-- Clickable picker (model/route/reasoning), mirrored from the terminal. -->
+    <div id="menu" class="hidden shrink-0 border-t border-edge max-h-72 overflow-y-auto bg-surface text-xs"></div>
+
+    <!-- Slash-command palette: shown when the input starts with "/". -->
+    <div id="palette" class="hidden shrink-0 border-t border-edge max-h-60 overflow-y-auto bg-surface text-xs"></div>
+
+    <!-- @-mention dropdown: shown when the input has a trailing "@<partial>" token. -->
+    <div id="mentions" class="hidden shrink-0 border-t border-edge max-h-60 overflow-y-auto bg-surface text-xs"></div>
+
+    <!-- Pending attachments staged for the next message (preview tiles). -->
+    <div id="attachStrip" class="hidden shrink-0 flex flex-wrap items-center gap-2 px-3 py-2"></div>
+
+    <!-- Queued messages typed while the agent is busy (FIFO); each can be edited
+         (click) or removed (×). Mirrors the terminal's busy-time message queue. -->
+    <div id="queueStrip" class="hidden shrink-0 flex flex-col gap-1 px-3 py-2"></div>
+    <div class="app-inputbar shrink-0 flex gap-2 p-3" id="inputArea">
+      <!-- Two distinct pickers, each filtered to its kind, opened from the attach
+           menu below. Office + iWork (Pages/Numbers/Keynote) count as documents. -->
+      <input type="file" id="imageInput" multiple class="hidden"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,.svg">
+      <input type="file" id="docInput" multiple class="hidden"
+        accept=".pdf,.docx,.xlsx,.pptx,.pages,.numbers,.key,application/pdf">
+      <!-- Composer: the textarea with the attach button tucked into its lower-left
+           and an Image / Document chooser that opens upward. -->
+      <div class="composer">
+        <!-- Active primary agent name, notched into the composer's top border
+             (fieldset/legend style). Text set from the status event's agent
+             field by renderComposerAgent(); hidden when empty (:empty). Clickable
+             (and keyboard-focusable) to open the /agent picker. -->
+        <span id="composerAgent" class="composer-agent" role="button" tabindex="0"></span>
+        <!-- Model · reasoning, notched into the composer's top-right border
+             (mirrors the agent legend on the left). Filled by renderComposerMeta();
+             clickable to change the model. -->
+        <span id="composerMeta" class="composer-meta" role="button" tabindex="0"></span>
+        <!-- Syntax-highlight mirror for the composer. A <textarea> can't style
+             substrings, so when the message starts with a backtick we render a
+             read-only copy of the text behind the (then transparent) textarea and
+             wrap `...` spans. Kept in sync by syncInputHighlight(). -->
+        <div id="inputHighlight" class="composer-highlight hidden" aria-hidden="true"></div>
+        <textarea id="input" rows="1"
+          class="composer-input resize-none bg-surface text-ink border border-edge rounded-lg min-h-[44px] focus:outline-none focus:border-brand disabled:opacity-50"
+          placeholder="Ask sqe to build, fix, or explain something…  (Enter to send, / for commands, paste or drop an image)"></textarea>
+        <button id="attachBtn" type="button" title="Attach a file" aria-label="Attach a file" class="composer-attach text-faint hover:text-ink">
+          <sf-symbol name="plus" style="font-size:20px"></sf-symbol>
+        </button>
+        <div id="attachMenu" class="attach-menu" role="menu">
+          <button class="attach-menu-item" data-kind="image" type="button" role="menuitem"><sf-symbol name="photo"></sf-symbol> Image</button>
+          <button class="attach-menu-item" data-kind="doc" type="button" role="menuitem"><sf-symbol name="doc.text"></sf-symbol> Document</button>
+        </div>
+        <button id="send" title="Send" aria-label="Send" class="brand-btn composer-send inline-flex items-center justify-center bg-brand text-white disabled:opacity-50">
+          <sf-symbol name="arrow.up" style="font-size:18px"></sf-symbol>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Picker opened by clicking the "approval: …" header token or the reasoning
+       value in the composer-meta legend. Body-level + position:fixed so it escapes
+       the topbar's backdrop stacking context and survives re-renders on status
+       events. Positioned + filled by app.js (openHdrMenu). -->
+  <div id="hdrMenu" class="hdr-menu hidden" role="menu"></div>
+
+  <!-- Mobile-only scrim behind the slide-in sidebar drawer; tap to dismiss. -->
+  <div id="navBackdrop" aria-hidden="true"></div>
+
+  <!-- Shared modal: Manage (skills + MCP), Tools (command access), Domains (web access). -->
+  <div id="manageOverlay" class="app-overlay" style="display:none;position:fixed;inset:0;background:rgba(1,4,9,.55);-webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%);z-index:50;align-items:center;justify-content:center">
+    <div class="app-modal bg-surface border border-edge rounded-lg" style="width:min(640px,92vw);max-height:82dvh;display:flex;flex-direction:column">
+      <div class="px-4 py-3 border-b border-edge flex items-center gap-2">
+        <sf-symbol id="manageIcon" name="slider.horizontal.3" class="text-faint"></sf-symbol>
+        <span id="manageTitle" class="font-semibold text-ink text-sm">Manage</span>
+        <span class="flex-1"></span>
+        <button id="manageClose" class="text-faint hover:text-ink" aria-label="Close"><sf-symbol name="xmark"></sf-symbol></button>
+      </div>
+      <!-- Tab strip for the consolidated Config modal (Skills/MCP/Agents/Tools/
+           Domains/LSP/Schedule); hidden for the other panels sharing this shell
+           (Manage, Persona, Git). Populated by renderConfigTabs(). -->
+      <div id="manageTabs" class="flex items-center gap-1 px-3 pt-2 border-b border-edge overflow-x-auto" style="display:none"></div>
+      <div id="manageBody" class="overflow-y-auto p-4 text-[13px]" style="flex:1 1 auto"></div>
+    </div>
+  </div>
+
+<!-- app.js was split into ordered classic scripts that share one global scope;
+     they MUST load in this order (state → render → core → manage). defer keeps
+     execution order and waits for the DOM. -->
+<script src="/static/app-state.js" defer></script>
+<script src="/static/app-render.js" defer></script>
+<script src="/static/app-core.js" defer></script>
+<script src="/static/app-manage.js" defer></script>
+<script src="/static/app-workflow.js" defer></script>
+</body>
+</html>

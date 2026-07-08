@@ -1,0 +1,2586 @@
+/* App-specific styles for the SQE Code Agent web UI.
+   Extracted from index.html; served from the embedded static dir at
+   /static/app.css. Tailwind utility classes come from the prebuilt
+   tailwind.css — these are the rules Tailwind's preflight can't cover
+   (markdown typography, scrollbars, the sf-symbol glyph, etc.). */
+
+/* ============================================================================
+   Theme tokens (light + dark).
+   Every color in this file (and the Tailwind custom-color utilities, re-mapped
+   farther down) resolves through a `--c-*` channel-triplet token, so the whole
+   UI re-themes by swapping one variable set. Dark is the default and its values
+   are identical to the original hardcoded palette, so the dark UI is unchanged;
+   `html.light` overrides the same tokens with a GitHub-light palette. The
+   triplets are space-separated RGB channels, used as rgb(var(--c-x) / <alpha>)
+   — the same form the prebuilt tailwind.css already emits, so no rebuild needed.
+   ============================================================================ */
+:root, html.dark {
+  /* core palette */
+  --c-base: 13 17 23;          /* app background            */
+  --c-surface: 22 27 34;       /* sidebar / cards / chrome  */
+  --c-raised: 33 38 46;        /* hover / elevated surfaces (lifted off base+surface for clearer depth in dark) */
+  --c-edge: 48 54 61;          /* default borders           */
+  --c-ink: 230 237 243;        /* primary text              */
+  --c-faint: 139 148 158;      /* secondary text            */
+  --c-brand: 88 166 255;       /* accent (blue)             */
+  --c-brand-strong: 121 184 255;
+  --c-ok: 63 185 80;           /* success (green)           */
+  --c-warn: 210 153 34;        /* warning (amber)           */
+  --c-danger: 248 81 73;       /* error (red)               */
+  /* extended inks + surfaces */
+  --c-ink-bright: 240 246 252; /* brighter than ink (emphasis/headings) */
+  --c-ink-soft: 201 209 217;   /* dimmer than ink (code / mono text)    */
+  --c-faint-2: 110 118 129;    /* faintest (gutter line numbers)        */
+  --c-edge-soft: 33 38 45;     /* hairline borders inside cards         */
+  --c-edge-2: 35 42 50;        /* chrome borders (top/status/input bar) */
+  --c-violet: 163 113 247;     /* delegate-worker accent                */
+  --c-shadow: 1 4 9;           /* drop-shadow color (near-black)        */
+  --c-hi: 240 246 252;         /* top inset highlight (near-white)      */
+  /* code-viewer syntax tokens (One Dark Pro) */
+  --tok-c: 127 140 153;        /* comments */
+  --tok-s: 152 195 121;        /* strings  */
+  --tok-n: 209 154 102;        /* numbers  */
+  --tok-k: 224 108 117;        /* keywords */
+  --c-code-bg: 9 11 16;        /* code block background */
+  --c-code-border: 24 33 46;   /* code block border */
+  --c-code-text: 230 237 243;  /* code block text */
+  /* depth helpers (theme-specific) */
+  --hairline: inset 0 1px 0 rgb(var(--c-hi) / .045);
+  --shadow-lg: 0 30px 70px -30px rgb(var(--c-shadow) / .96);
+  color-scheme: dark;
+}
+
+html.light {
+  --c-base: 255 255 255;
+  --c-surface: 246 248 250;
+  --c-raised: 234 238 242;
+  --c-edge: 208 215 222;
+  --c-ink: 31 35 40;
+  --c-faint: 89 99 110;
+  --c-brand: 9 105 218;
+  --c-brand-strong: 5 80 174;
+  --c-ok: 26 127 55;
+  --c-warn: 154 103 0;
+  --c-danger: 207 34 46;
+  --c-ink-bright: 1 4 9;
+  --c-ink-soft: 71 80 90;
+  --c-faint-2: 140 149 159;
+  --c-edge-soft: 216 222 228;
+  --c-edge-2: 208 215 222;
+  --c-violet: 130 80 223;
+  --c-shadow: 140 149 159;
+  --c-hi: 255 255 255;
+  --tok-c: 100 116 139;        /* comments */
+  --tok-s: 22 163 74;          /* strings  */
+  --tok-n: 217 119 6;          /* numbers  */
+  --tok-k: 219 39 119;         /* keywords */
+  --c-code-bg: 248 250 252;    /* code block background */
+  --c-code-border: 226 232 240;/* code block border */
+  --c-code-text: 30 41 59;     /* code block text */
+  --hairline: inset 0 1px 0 rgb(255 255 255 / .65);
+  --shadow-lg: 0 18px 50px -22px rgb(var(--c-shadow) / .5);
+  color-scheme: light;
+}
+
+/* Derived accents — theme-agnostic: they resolve against whichever palette is
+   active, so they need defining only once. */
+:root {
+  --accent: rgb(var(--c-brand));
+  --accent-strong: rgb(var(--c-brand-strong));
+  --accent-glow: rgb(var(--c-brand) / .22);
+  --ring: 0 0 0 3px rgb(var(--c-brand) / .20);
+
+  /* Corner-radius scale. Consolidates the ~18 ad-hoc px/rem radii this file grew
+     into one ramp, so rounding stays consistent. The steps equal the previously
+     dominant values (4 / 6 / 8 / 10 / 14 / 20px), so most elements are byte-for-
+     byte unchanged; a handful of near-duplicates (5/7/9px and the .xxrem values)
+     snap to the nearest step. --pill for stadium shapes, --full for circles. */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-2xl: 20px;
+  --r-pill: 999px;
+  --r-full: 50%;
+}
+
+/* Smooth the flip between themes (colors only — not transforms/opacity, so
+   animations stay crisp). Honors reduced-motion below. */
+body.app-body,
+.app-sidebar, .app-topbar, .app-statusbar, .app-inputbar,
+.file-card, .file-card-head, .user-menu, .tool-card, .user-body, .msg-info {
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+}
+
+/* sf-symbol renders an inline glyph sized by font-size and colored by the
+   inherited `color`; these defaults keep it aligned with adjacent text. */
+sf-symbol { display: inline-flex; align-items: center; line-height: 0; }
+
+/* SF Symbols load from Apple's CDN (the sf-symbol.js in index.html). If that
+   script fails to load — or during its async load window — the <sf-symbol>
+   custom element never becomes :defined, so it renders NOTHING and the icon-only
+   controls (Send, attach, theme toggle, sidebar, close ×, scroll) go blank and
+   unusable. Render a Unicode fallback glyph while undefined; the moment the
+   component upgrades, `:not(:defined)` stops matching and the real symbol takes
+   over (no double glyph). Only icon-only / high-signal controls get a fallback —
+   labeled controls already read fine on their text. */
+sf-symbol:not(:defined) { line-height: 1; font-style: normal; }
+sf-symbol:not(:defined)[name="arrow.up"]::after                      { content: "\2191"; }   /* ↑ send */
+sf-symbol:not(:defined)[name="plus"]::after                          { content: "+"; }       /* attach */
+sf-symbol:not(:defined)[name="xmark"]::after                         { content: "\2715"; }   /* ✕ close */
+sf-symbol:not(:defined)[name="chevron.down"]::after                  { content: "\2304"; }   /* ⌄ scroll */
+sf-symbol:not(:defined)[name="sidebar.left"]::after                  { content: "\2630"; }   /* ☰ nav */
+sf-symbol:not(:defined)[name="moon.stars.fill"]::after               { content: "\263E"; }   /* ☾ theme */
+sf-symbol:not(:defined)[name="sun.max.fill"]::after                  { content: "\2600"; }   /* ☀ theme */
+sf-symbol:not(:defined)[name="arrow.down.circle"]::after             { content: "\2913"; }   /* ⤓ download */
+sf-symbol:not(:defined)[name="checkmark"]::after                     { content: "\2713"; }   /* ✓ approve */
+sf-symbol:not(:defined)[name="hand.raised.fill"]::after              { content: "\270B"; }   /* ✋ permission */
+sf-symbol:not(:defined)[name="questionmark.bubble.fill"]::after      { content: "?"; }       /* ask_user */
+sf-symbol:not(:defined)[name="exclamationmark.triangle.fill"]::after { content: "\26A0"; }   /* ⚠ warning */
+sf-symbol:not(:defined)[name="sparkles"]::after                      { content: "\2728"; }   /* ✨ empty state */
+
+/* App sans font stack — overrides Tailwind's .font-sans on the body without a
+   rebuild (body.app-body beats the utility by specificity). Mono text keeps its
+   own .font-mono family. Mirrored in tailwind/tailwind.config.js for rebuilds. */
+body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; }
+
+/* Thin scrollbars throughout the UI. */
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--c-edge)) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-edge)); border-radius: var(--r-xs); }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-faint) / .55); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Per-session delete button. On a mouse it's revealed on row hover; on touch it
+   stays visible. Why: a hover-reveal makes iOS treat the first tap on the row as
+   a "hover" (showing this button), so opening the session would need a SECOND
+   tap. Gating the reveal to hover-capable pointers keeps a single tap opening
+   the session on phones. */
+.sess .del { opacity: .55; transition: opacity .12s ease; }
+.sess .del:active { opacity: 1; }
+@media (hover: hover) {
+  .sess .del { opacity: 0; }
+  .sess:hover .del { opacity: .55; }
+  .sess .del:hover { opacity: 1; }
+}
+
+/* Usage panel (#mcp): a taller minimum so the session's usage history has room;
+   still grows to a cap and scrolls past it. (Overrides the max-h-40 utility.) */
+#mcp { min-height: 12rem; max-height: 20rem; }
+/* Sidebar foot panels (modified Files + Usage): a touch more vertical padding so
+   the two stacked sections breathe and don't read as one cramped block. */
+#files, #mcp { padding-top: .65rem; padding-bottom: .65rem; }
+
+/* Per-session "running" dot: a small amber pulse on a session whose agent is
+   mid-turn, so parallel agents are visible in the laptop tree. */
+.sess-running {
+  display: inline-block; width: 7px; height: 7px; border-radius: var(--r-pill);
+  background: rgb(var(--c-warn));
+  animation: sess-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sess-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .sess-running { animation: none; } }
+
+/* Per-session "needs approval" badge: a parallel session is blocked waiting for
+   you to approve/deny a tool. An expanding ring (a notification "ping") reads as
+   "needs you" — distinct from the calm running pulse — so a backgrounded agent
+   that's stuck is obvious across the tree. */
+.sess-attn {
+  display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill);
+  background: rgb(var(--c-warn));
+  animation: sess-attn-ping 1.2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+@keyframes sess-attn-ping {
+  0%   { box-shadow: 0 0 0 0 rgb(var(--c-warn) / .55); }
+  70%  { box-shadow: 0 0 0 6px rgb(var(--c-warn) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--c-warn) / 0); }
+}
+@media (prefers-reduced-motion: reduce) { .sess-attn { animation: none; } }
+
+/* Per-session "active" accent: an amber left bar on a session whose agent is
+   working right now, so ALL concurrently-active sessions in a project stand out
+   at a glance — not just the one you've selected (which keeps the brand-blue
+   highlight). Plain box-shadow so it never shifts layout or fights row hover. */
+.sess-active { box-shadow: inset 3px 0 0 rgb(var(--c-warn)); }
+
+/* ---------- Conversation transcript ---------- */
+/* Keep lines readable on wide screens by centering messages in a column. */
+#transcript > * { max-width: 52rem; margin-left: auto; margin-right: auto; }
+
+/* Chat alignment: the human's turns hug the right (a width-capped bubble); the
+   agent's reply + its tool calls / worker updates / phase timeline fill the full
+   centered conversation column (capped at 52rem by the rule above). One width
+   system — no inner re-cap — so the agent side shares one left edge and reaches
+   the same right edge as the user bubbles, closing the old right-side void. The
+   disclosure heads are width:fit-content (see below), so they hug their label. */
+.msg-user { display: flex; flex-direction: column; align-items: flex-end; }
+.msg-user > * { max-width: min(86%, 40rem); }
+.msg-user .msg-label { display: none; } /* reference style: flat bubble, no speaker label */
+
+/* Separate conversation pairs: extra breathing room before each new user turn
+   (every user message starts a fresh question → answer exchange), above the
+   small gap between blocks within one turn. :not(:first-child) keeps the very
+   first message flush to the top. */
+#transcript > .msg-user:not(:first-child) { margin-top: 2rem; }
+
+/* @-mention chips inside the user's message: the subagent / worker invocations
+   the compose dropdown completes (highlightMentions() in app.js wraps them after
+   the markdown render). A neutral bold chip (not colored) — so it reads as a
+   tagged name without competing with violet, which is reserved for actual
+   delegate/worker activity (cards, pills, dots). Tokenized for both themes. */
+.msg-user .mention {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em; font-weight: 600;
+  padding: .03em .34em; border-radius: var(--r-sm);
+  white-space: nowrap;
+  background: rgb(var(--c-faint) / .14);
+  border: 1px solid rgb(var(--c-faint) / .3);
+  color: rgb(var(--c-ink-bright));
+}
+
+/* Think (reasoning effort) level in the header: bold + brightest ink so the
+   active level pops among the faint model · dir · mode tokens, without spending
+   a color identity (violet stays for delegation). The "think:" label inherits
+   the faint #hdrMeta color; only the value is highlighted. Both themes. */
+.hdr-think-level { font-weight: 700; color: rgb(var(--c-ink-bright)); }
+/* Color the think level by intensity — a cool→hot ramp (off faint · low/medium
+   brand · high/x-high amber · max red) so reasoning depth/cost reads at a glance.
+   "auto" is the adaptive meta-level (off the ramp) → green. thinkTierClass() in
+   app.js picks the tier. Tokenized for both themes. */
+.hdr-think-auto { color: rgb(var(--c-ok)); }
+.hdr-think-off  { color: rgb(var(--c-faint)); }
+.hdr-think-calm { color: rgb(var(--c-brand)); }
+.hdr-think-deep { color: rgb(var(--c-warn)); }
+.hdr-think-max  { color: rgb(var(--c-danger)); }
+
+/* Speaker label above each message: small-caps with the speaker's accent color
+   (inherited from a text-ok / text-brand / text-faint utility on the element). */
+.msg-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .92; }
+.msg-label sf-symbol { font-size: 13px; }
+/* Soften the agent's speaker label to a quiet, faint eyebrow (not a loud blue
+   one) so it doesn't out-shout the now-bubbled, label-less user turn — balancing
+   the two sides. Overrides the text-brand utility the label carries. */
+.msg-assistant .msg-label { color: rgb(var(--c-faint)); font-weight: 500; opacity: 1; padding-left: .9rem; } /* align with the prose, which is offset by the rail's left padding */
+.msg-assistant .msg-label sf-symbol { color: rgb(var(--c-faint)); }
+
+/* ---------- Per-turn message scheme ----------
+   Every turn is a .msg block; a modifier class tints its accent and gives
+   user / assistant / thinking / info / error a distinct, scannable look. New
+   blocks ease in so a streaming conversation feels alive. */
+.msg, .tool-card { animation: msg-in .18s ease-out both; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .msg, .tool-card { animation: none; } }
+
+/* The human's turn: a brand-tinted, bordered, gently-elevated bubble (like a
+   "sent message") so it's instantly identifiable as your message and distinct
+   from the agent's plain, left-railed reply. Tinted from the app accent; reads
+   in both themes. */
+.user-body {
+  background: rgb(var(--c-brand) / .12);
+  border: 1px solid rgb(var(--c-brand) / .28);
+  border-radius: var(--r-2xl);
+  padding: .65rem 1.05rem;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgb(var(--c-shadow) / .35);
+}
+
+/* The assistant's reply: flat editorial prose (no card) with a single subtle
+   brand left-rail for just-enough containment, so consecutive assistant / tool /
+   timeline blocks stay visually separated. The rail brightens slightly on hover.
+   Scoped to .msg-assistant so the compact info callouts that also use .md are
+   unaffected. (This is the one, intentional definition — the old card chrome and
+   its later flatten override were both removed.) */
+.msg-assistant > .md {
+  max-width: none; /* prose (paragraphs) span the full transcript column — was capped to a 70ch reading measure */
+  border-left: 2px solid rgb(var(--c-brand) / .35);
+  padding-left: .9rem;
+  transition: border-color .15s ease;
+  font-size: 15px;
+  line-height: 1.72;
+  letter-spacing: .002em;
+  color: rgb(var(--c-ink));
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "kern", "liga", "calt";
+  text-wrap: pretty; /* trim orphans/short last lines where supported */
+}
+.msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .6); }
+/* The rail at .35α is too faint over the dark base — lift it (and its hover) in
+   dark so it actually reads as containment. Light stays as-is. */
+html.dark .msg-assistant > .md { border-left-color: rgb(var(--c-brand) / .55); }
+html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .8); }
+.msg-assistant > .md p { margin: .65rem 0; }
+.msg-assistant > .md li { margin: .3rem 0; }
+.msg-assistant > .md strong { color: rgb(var(--c-ink-bright)); } /* brighter than body for emphasis */
+.msg-assistant > .md a { text-decoration-color: rgb(var(--c-brand) / .4); text-underline-offset: 2px; }
+
+/* Thinking: dim and italic, on its own dashed hairline rail. */
+.msg-thinking { opacity: .85; }
+.think-body { border-left: 2px dashed rgb(var(--c-edge)); }
+
+/* Info lines: a muted blue-accented callout. */
+/* Info callout: a calm brand-tinted note with a leading info icon, a brand
+   left-rail, and readable (ink-soft) body text. The icon is added by the "info"
+   event handler; the markdown body sits beside it. Tokenized for both themes. */
+.msg-info {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  background: rgb(var(--c-brand) / .07);
+  border: 1px solid rgb(var(--c-brand) / .2);
+  border-left: 3px solid rgb(var(--c-brand));
+  border-radius: var(--r-lg);
+  padding: .6rem .85rem;
+  color: rgb(var(--c-ink-soft));
+  line-height: 1.5;
+}
+.msg-info-icon { flex: none; color: rgb(var(--c-brand)); font-size: 15px; height: 1.5em; line-height: 1.5; }
+.msg-info > .md { flex: 1 1 auto; min-width: 0; }
+
+/* Errors: a red-accented callout. */
+.msg-error {
+  background: rgb(var(--c-danger) / .08);
+  border: 1px solid rgb(var(--c-danger) / .3);
+  border-radius: var(--r-md);
+  padding: .5rem .75rem;
+}
+
+/* Tool calls: a left accent rail that tracks state — amber while running, green
+   on success, red on error — on a faintly elevated surface with a hover lift. */
+.tool-card { background: linear-gradient(180deg, rgb(var(--c-raised)), rgb(var(--c-surface))); border-left-width: 3px; border-left-color: rgb(var(--c-warn)); box-shadow: inset 0 1px 0 rgb(var(--c-hi) / .04); transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+.tool-card:hover { background: linear-gradient(180deg, rgb(var(--c-raised)), rgb(var(--c-raised))); box-shadow: inset 0 1px 0 rgb(var(--c-hi) / .05), 0 8px 20px -14px rgb(var(--c-shadow) / .9); }
+.tool-card.tool-ok { border-left-color: rgb(var(--c-ok)); }
+.tool-card.tool-err { border-left-color: rgb(var(--c-danger)); }
+
+/* Rendered markdown (assistant replies + info lines). Tailwind's preflight
+   resets headings/lists/etc., so the conversation needs its own typography. */
+.md { line-height: 1.65; color: rgb(var(--c-ink)); }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: .5rem 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5 { margin: 1.1rem 0 .5rem; font-weight: 600; line-height: 1.3; color: rgb(var(--c-ink)); }
+.md h1 { font-size: 1.35rem; }
+.md h2 { font-size: 1.18rem; border-bottom: 1px solid rgb(var(--c-edge)); padding-bottom: .25rem; }
+.md h3 { font-size: 1.05rem; }
+.md h4 { font-size: .95rem; }
+.md ul, .md ol { margin: .5rem 0; padding-left: 1.5rem; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md li { margin: .2rem 0; }
+.md li > ul, .md li > ol { margin: .2rem 0; }
+.md a { color: rgb(var(--c-brand)); text-decoration: none; }
+.md a:hover { text-decoration: underline; }
+.md strong { font-weight: 600; color: rgb(var(--c-ink)); }
+.md em { font-style: italic; }
+.md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); padding: .1em .35em; }
+.md pre { background: rgb(var(--c-code-bg)); border: 1px solid rgb(var(--c-code-border)); color: rgb(var(--c-code-text)); border-radius: var(--r-lg); padding: .8rem 1rem; overflow-x: auto; margin: .65rem 0; }
+.md pre code { background: none; border: 0; padding: 0; font-size: .82rem; line-height: 1.55; }
+/* Code blocks get a copy button (like the tool-call file cards). highlightCodeBlocks
+   wraps each <pre> in a non-scrolling .code-wrap and appends the button, so it stays
+   pinned even when the code scrolls horizontally. Click handled by delegation. */
+.code-wrap { position: relative; }
+.code-wrap > pre { margin-top: .65rem; margin-bottom: .65rem; }
+.code-copy {
+  position: absolute; top: .5rem; right: .5rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: var(--r-sm);
+  border: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-base) / .8);
+  color: rgb(var(--c-faint)); cursor: pointer; opacity: .5;
+  transition: opacity .12s ease, color .12s ease, background-color .12s ease, border-color .12s ease;
+}
+.code-wrap:hover .code-copy { opacity: 1; }
+.code-copy:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.code-copy.copied { color: rgb(var(--c-ok)); border-color: rgb(var(--c-ok) / .5); opacity: 1; }
+.code-copy sf-symbol { font-size: 12px; }
+.md blockquote { border-left: 3px solid rgb(var(--c-edge)); padding-left: .9rem; margin: .65rem 0; color: rgb(var(--c-faint)); }
+.md hr { border: 0; border-top: 1px solid rgb(var(--c-edge)); margin: 1.1rem 0; }
+.md table { border-collapse: collapse; margin: .65rem 0; display: block; overflow-x: auto; font-size: .9em; }
+.md th, .md td { border: 1px solid rgb(var(--c-edge)); padding: .35rem .65rem; text-align: left; }
+.md th { background: rgb(var(--c-raised)); font-weight: 600; }
+.md img { max-width: 100%; border-radius: var(--r-md); }
+
+/* Code blocks get a faint inner shadow so they read as recessed wells, and
+   links brighten on hover. */
+.md pre { box-shadow: inset 0 1px 2px rgb(var(--c-shadow) / .06); }
+.md a:hover { color: rgb(var(--c-brand-strong)); }
+.md blockquote { background: rgb(var(--c-brand) / .04); border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: .5rem .9rem; }
+
+/* ---- Inline icons: emoji + task-list checkboxes rendered as SF Symbols
+        (iconizeEmoji / iconizeChecklists in app.js). Sized to sit on the text
+        baseline; they inherit the surrounding text color unless tinted with a
+        themed text-* class. ---- */
+.md-emoji { font-size: 1.08em; vertical-align: -.12em; margin: 0 .03em; }
+.md-task { font-size: 1.05em; vertical-align: -.1em; margin-right: .22em; color: rgb(var(--c-faint)); }
+.md-task.md-task-done { color: rgb(var(--c-ok)); }
+/* Task-list rows show only the checkbox — drop the normal list marker / dot. */
+.md li.md-task-item { list-style: none; }
+.md ul > li.md-task-item::before,
+.msg-assistant > .md ul > li.md-task-item::before { content: none; }
+
+/* ============================================================================
+   Refined console theme — depth, a single confident accent, and restrained
+   motion, layered over the Tailwind utilities and the rules above. Every hook
+   below is a plain (non-utility) class name defined here, so the prebuilt
+   tailwind.css never needs regenerating. Design language: a premium developer
+   console — atmospheric backdrop, hairline-lit elevated surfaces, one brand
+   accent, and tactile controls. Type stays on the SF system stack on purpose:
+   the Apple network blocks web-font CDNs, and SF Pro / SF Mono are the
+   context-true, characterful choice for an Apple-internal tool.
+   ============================================================================ */
+
+/* Optical sizing for the variable SF system font. */
+html { font-optical-sizing: auto; }
+
+/* Atmospheric backdrop: a faint brand glow up top, a cool corner wash, and a
+   soft vignette at the bottom — depth instead of a flat fill. `body.app-body`
+   outranks the .bg-base utility so this gradient takes hold. */
+body.app-body {
+  background-color: rgb(var(--c-base));
+  background-image:
+    radial-gradient(1100px 620px at 10% -10%, rgb(var(--c-brand) / .05), transparent 60%),
+    radial-gradient(880px 700px at 102% -4%, rgb(var(--c-ok) / .028), transparent 55%),
+    radial-gradient(1300px 900px at 50% 116%, rgb(var(--c-shadow) / .55), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Text selection + keyboard focus rings carry a soft brand accent. */
+::selection { background: rgb(var(--c-brand) / .22); color: #fff; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible,
+[role="button"]:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ---- Elevated chrome: sidebar, top bar, status bar, input bar ---- */
+.app-sidebar { background: linear-gradient(180deg, rgb(var(--c-surface)), rgb(var(--c-base))); box-shadow: 1px 0 0 rgb(var(--c-shadow) / .5); }
+.app-topbar {
+  position: relative;
+  z-index: 20; /* lift the bar (and its avatar dropdown) above the transcript;
+                  backdrop-filter makes it a stacking context, so without this
+                  the dropdown would be trapped under the chat below it. */
+  background: linear-gradient(180deg, rgb(var(--c-raised) / .55), rgb(var(--c-base) / .25));
+  border-bottom-color: rgb(var(--c-edge-2));
+  box-shadow: var(--hairline);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+}
+.app-wordmark { letter-spacing: -.01em; }
+.app-statusbar {
+  position: relative;
+  min-height: 32px; /* stable height (content vertically centered) so it doesn't jump as stats update */
+  gap: .75rem;
+  background: linear-gradient(180deg, rgb(var(--c-surface) / .5), rgb(var(--c-base) / .62));
+  border-top-color: rgb(var(--c-edge-2));
+  box-shadow: var(--hairline);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  transition: background .25s ease, border-color .25s ease;
+}
+/* Stats (tokens · cost · ctx): tabular figures so the numbers don't jitter as they
+   tick, tight enough that the "·" dividers read as field separators not gaps. */
+#stats { gap: .5rem; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+/* Busy: tint the bar amber (the UI's "working" color) with an indeterminate
+   scan-line gliding along its top edge to convey ongoing activity. */
+body.agent-busy .app-statusbar {
+  background: linear-gradient(180deg, rgb(var(--c-warn) / .14), rgb(var(--c-base) / .62));
+  border-top-color: rgb(var(--c-warn) / .45);
+}
+body.agent-busy .app-statusbar::after {
+  content: "";
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(var(--c-warn)), transparent);
+  background-size: 38% 100%;
+  background-repeat: no-repeat;
+  animation: statusbar-scan 1.5s ease-in-out infinite;
+}
+@keyframes statusbar-scan {
+  0% { background-position: -38% 0; }
+  100% { background-position: 138% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.agent-busy .app-statusbar::after { animation: none; background: rgb(var(--c-warn) / .5); }
+}
+/* Awaiting approval: a brand-blue "your turn" tint with a gently pulsing top
+   line — distinct from busy's amber moving scan. */
+body.agent-awaiting .app-statusbar {
+  background: linear-gradient(180deg, rgb(var(--c-brand) / .14), rgb(var(--c-base) / .62));
+  border-top-color: rgb(var(--c-brand) / .5);
+}
+body.agent-awaiting .app-statusbar::after {
+  content: "";
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(var(--c-brand) / .9), transparent);
+  animation: statusbar-pulse 1.6s ease-in-out infinite;
+}
+@keyframes statusbar-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  body.agent-awaiting .app-statusbar::after { animation: none; opacity: 1; }
+}
+.app-inputbar {
+  position: relative;
+  /* Breathing room above the input area so it sits clear of the status bar
+     (and gives the composer's top-border agent legend room to notch). */
+  margin-top: .9rem;
+  background: linear-gradient(180deg, rgb(var(--c-surface) / .38), rgb(var(--c-base) / .72));
+  /* No top border — the gap above plus the composer's own border are the divider. */
+  border-top: 0;
+  box-shadow: 0 -10px 28px -20px rgb(var(--c-shadow) / .95);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* The primary text field: a recessed well at rest that lifts with a brand ring on
+   focus. Its border (and caret) take the active agent's color via --agent-color
+   (set on .composer by renderComposerAgent), falling back to the neutral edge /
+   accent when no agent is set. The ID beats the markup's .border-edge utility. */
+#input { border-color: var(--agent-color, rgb(var(--c-edge))); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; caret-color: var(--agent-color, var(--accent)); box-shadow: inset 0 1px 2px rgb(var(--c-shadow) / .35); }
+#input::placeholder { color: rgb(var(--c-faint) / .85); }
+#input:focus { border-color: var(--agent-color, var(--accent)); background-color: rgb(var(--c-base)); box-shadow: inset 0 1px 2px rgb(var(--c-shadow) / .35), var(--ring); }
+
+/* ---- Primary button (Send): the same flat style as the approval buttons — a
+        solid brand fill that darkens on hover, with a subtle press and a focus
+        ring (no glossy gradient or hover-lift). ---- */
+.brand-btn {
+  background: rgb(var(--c-brand));
+  transition: background-color .15s ease, transform .1s ease, box-shadow .15s ease;
+}
+.brand-btn:hover { background: rgb(var(--c-brand) / .86); }
+.brand-btn:active { transform: translateY(1px); }
+.brand-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.brand-btn:disabled { transform: none; }
+
+/* ---- Sidebar session rows: a soft hover rail + a gentle active marker ---- */
+.sess { transition: background-color .12s ease, box-shadow .12s ease; }
+@media (hover: hover) { .sess:hover { box-shadow: inset 2px 0 0 rgb(var(--c-brand) / .26); } }
+.sess.border-l-brand { box-shadow: inset 3px 0 10px -7px var(--accent-glow); }
+
+/* ---- Sidebar root row: the terminal machine ("laptop") above the project
+   tree. When the relay is connected it gets a live green rail + pulsing dot so
+   a remote viewer can see the link is up. ---- */
+.host-row { transition: background-color .12s ease, box-shadow .12s ease; }
+.host-row.is-connected {
+  background: linear-gradient(180deg, rgb(var(--c-ok) / .10), rgb(var(--c-ok) / 0));
+  box-shadow: inset 3px 0 0 0 rgb(var(--c-ok));
+}
+.host-dot { font-size: 9px; line-height: 1; } /* sizes the circle.fill status dot (in the mirror host row + the laptop tree) */
+.host-row.is-connected .host-dot { animation: host-pulse 2s ease-in-out infinite; }
+@keyframes host-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .host-row.is-connected .host-dot { animation: none; } }
+
+/* Sidebar section divider (e.g. "Local Machines", "Cloud"). Hand-written CSS so
+   it needs no Tailwind rebuild — the uppercase/tracking/size utilities aren't in
+   the prebuilt tailwind.css. .is-divided adds a hairline + gap to separate one
+   section from the one above. */
+.sidebar-section {
+  padding: .75rem .75rem .25rem;
+  font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: rgb(var(--c-faint)); user-select: none;
+}
+.sidebar-section.is-divided { border-top: 1px solid rgb(var(--c-edge)); margin-top: .25rem; }
+
+
+/* ---- Slash palette + picker menu: a brand rail tracks the hovered row ---- */
+#palette > *, #menu > *, #mentions > * { transition: background-color .1s ease, box-shadow .1s ease; }
+/* Unify hover and keyboard-selection: both get the same brand rail + soft fill
+   (the selected row carries .is-sel), so mouse and keyboard look identical. */
+#palette > *:hover, #menu > *:hover, #mentions > *:hover,
+#palette > .is-sel, #mentions > .is-sel { background: rgb(var(--c-raised) / .7); box-shadow: inset 2px 0 0 rgb(var(--c-brand) / .6); }
+
+/* @-mention dropdown rows: a name + a color-coded TYPE tag so the kind is obvious
+   at a glance. Colors match each kind's identity elsewhere — agent = green,
+   worker = violet (delegation), skill = brand. */
+.mention-row-name { color: rgb(var(--c-ink-bright)); }
+.mention-type {
+  flex: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: .1em .42em; border-radius: var(--r-xs); line-height: 1;
+}
+.mention-type-agent  { background: rgb(var(--c-ok) / .16);     color: rgb(var(--c-ok)); }
+.mention-type-worker { background: rgb(var(--c-violet) / .18); color: rgb(var(--c-violet)); }
+.mention-type-skill  { background: rgb(var(--c-brand) / .16);  color: rgb(var(--c-brand)); }
+.mention-type-workflow { background: rgb(var(--c-violet) / .16); color: rgb(var(--c-violet)); }
+.mention-type-deep   { background: rgb(var(--c-warn) / .16);   color: rgb(var(--c-warn)); }
+
+/* Slash-command palette token: the command name is brand-highlighted (in JS);
+   its arguments read as distinct syntax — faint bracket/keyword scaffolding with
+   the <placeholders> you fill in popped in amber. */
+.cmd-args { color: rgb(var(--c-faint)); }
+.cmd-arg-ph { color: rgb(var(--c-warn)); }
+/* A slash command referenced in prose (e.g. inside an info note): bold brand mono
+   so "/workers", "/model", etc. stand out as runnable commands. */
+.cmd-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; color: rgb(var(--c-brand)); }
+
+/* ---- Todo bar: faintly elevated above the status bar ---- */
+#todos { background: linear-gradient(180deg, rgb(var(--c-raised) / .4), rgb(var(--c-base) / .5)); box-shadow: var(--hairline); }
+/* Compact task summary: a progress sliver fills the middle between the "Tasks
+   N/M" label and the expand chevron. The full list lives in the inline phase
+   timeline; this is the always-visible glance. */
+.todos-head { display: flex; align-items: center; gap: .5rem; }
+.todos-title { font-weight: 600; color: rgb(var(--c-ink)); }
+.todos-count { color: rgb(var(--c-faint)); font-variant-numeric: tabular-nums; }
+.todos-track { flex: 1 1 auto; min-width: 2rem; height: 4px; border-radius: var(--r-pill); background: rgb(var(--c-edge) / .6); overflow: hidden; }
+.todos-fill { height: 100%; border-radius: var(--r-pill); background: rgb(var(--c-brand)); transition: width .3s ease; }
+.todos-fill.is-done { background: rgb(var(--c-ok)); }
+@media (prefers-reduced-motion: reduce) { .todos-fill { transition: none; } }
+
+/* ---- Plan bar: mirrors the todo bar's compact head, with a status pill and an
+        expandable numbered step list (the plan's steps carry no per-step state). ---- */
+.plan-status { text-transform: uppercase; letter-spacing: .04em; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: var(--r-pill); background: rgb(var(--c-edge) / .6); color: rgb(var(--c-faint)); }
+.plan-headline { min-width: 0; max-width: 40%; }
+.plan-steps { display: flex; flex-direction: column; gap: .35rem; }
+.plan-step { display: flex; align-items: baseline; gap: .5rem; }
+.plan-step-num { font-variant-numeric: tabular-nums; }
+.plan-step-body { min-width: 0; }
+.plan-step-title { color: rgb(var(--c-ink)); }
+.plan-step-detail { font-size: 11px; margin-top: 1px; }
+
+/* ---- Conversation cards pick up soft depth to match the assistant reply ---- */
+.msg-info { box-shadow: var(--hairline), 0 8px 22px -20px rgb(var(--c-shadow) / .8); }
+
+/* ---- Approval prompt: an amber-lit "your turn" card. A header row (an icon
+        chip + an eyebrow + the tool/summary line + a +N −N diff badge), then the
+        code/diff preview, then the ranked action buttons. ---- */
+.app-approval {
+  background: linear-gradient(180deg, rgb(var(--c-warn) / .12), rgb(var(--c-base) / .55));
+  border-top: 2px solid rgb(var(--c-warn) / .6);
+  box-shadow: inset 0 1px 0 rgb(var(--c-warn) / .28);
+  animation: msg-in .2s ease-out both;
+}
+.app-approval-head { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .55rem; }
+.app-approval-badge {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: var(--r-lg);
+  background: rgb(var(--c-warn) / .15);
+  box-shadow: inset 0 0 0 1px rgb(var(--c-warn) / .32);
+  color: rgb(var(--c-warn));
+  font-size: 15px;
+}
+.app-approval-titles { flex: 1 1 auto; min-width: 0; }
+.app-approval-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: rgb(var(--c-warn));
+}
+.app-approval .q {
+  margin-top: .12rem;
+  color: rgb(var(--c-ink-bright));
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+/* The tool name reads as a small mono chip; the optional summary trails it, muted. */
+.app-approval-tool {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .9em;
+  background: rgb(var(--c-ink) / .07);
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-sm);
+  padding: .06em .42em;
+}
+.app-approval-summary { margin-left: .45rem; color: rgb(var(--c-faint)); font-weight: 400; }
+.app-approval-counts { flex: none; align-self: center; white-space: nowrap; }
+/* The code / unified-diff preview. When renderDiff() adds the .diff class, the
+   pre.diff rule supplies its own padding + inset line; the box (fill, border,
+   radius, max-height) stays from here. */
+.app-approval-pre {
+  margin: 0;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-md);
+  padding: .55rem .7rem;
+  max-height: 14rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: rgb(var(--c-ink-soft));
+  box-shadow: inset 0 1px 3px rgb(var(--c-shadow) / .3);
+}
+/* Action bar: a hairline-separated footer for the approval panel. The two
+   immediate decisions (Approve / Deny) cluster on the left; the consequential
+   "Always allow" (a permanent rule) is pushed apart to the right so it reads as
+   distinct and isn't fat-fingered. Wraps cleanly on a phone. */
+.app-approval-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .55rem;
+  margin-top: .8rem; padding-top: .75rem;
+  border-top: 1px solid rgb(var(--c-edge) / .55);
+}
+.app-approval-actions .b-always { margin-left: auto; }
+
+/* ---- Question panel (ask_user): reuses the approval card; options are a
+        vertical list of clickable rows (radio for single, checkbox for multi). */
+.app-question-options { display: flex; flex-direction: column; gap: .4rem; margin-top: .2rem; }
+.app-question-option {
+  display: flex; align-items: flex-start; gap: .6rem; width: 100%; text-align: left;
+  padding: .5rem .65rem; border-radius: var(--r-md); cursor: pointer;
+  background: rgb(var(--c-surface) / .6); border: 1px solid rgb(var(--c-edge) / .6);
+  color: rgb(var(--c-ink)); transition: background .12s ease, border-color .12s ease;
+}
+.app-question-option:hover { background: rgb(var(--c-raised)); border-color: rgb(var(--c-brand) / .5); }
+.app-question-option:focus-visible { outline: none; box-shadow: var(--ring); }
+.app-question-option.is-on { border-color: rgb(var(--c-brand)); background: rgb(var(--c-brand) / .1); }
+.app-question-mark { flex: none; color: rgb(var(--c-brand)); margin-top: 1px; }
+.app-question-option-body { min-width: 0; }
+.app-question-option-label { font-weight: 500; }
+.app-question-option-desc { font-size: 11px; color: rgb(var(--c-faint)); margin-top: 1px; }
+@media (prefers-reduced-motion: reduce) { .app-question-option { transition: none; } }
+
+/* Grouped ask_user (questions[]): a strip of switchable tabs above the active
+   question's panel. Each tab shows an answered mark, its number, and a truncated
+   question label. */
+.app-question-tabs { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .2rem; }
+.app-question-tab { display: inline-flex; align-items: center; gap: .3rem; max-width: 16rem; padding: .25rem .55rem; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge) / .6); background: rgb(var(--c-surface) / .5); color: rgb(var(--c-faint)); cursor: pointer; font-size: 12px; transition: border-color .12s, background .12s; }
+.app-question-tab:hover { border-color: rgb(var(--c-brand) / .5); }
+.app-question-tab:focus-visible { outline: none; box-shadow: var(--ring); }
+.app-question-tab.is-active { border-color: rgb(var(--c-brand)); background: rgb(var(--c-brand) / .1); color: rgb(var(--c-ink)); }
+.app-question-tab-mark { flex: none; display: inline-flex; align-items: center; }
+.app-question-tab-num { font-weight: 600; flex: none; }
+.app-question-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-question-panel { margin-top: .55rem; }
+.app-question-qtext { font-weight: 500; margin-bottom: .4rem; }
+.app-question-optlist { display: flex; flex-direction: column; gap: .4rem; }
+@media (prefers-reduced-motion: reduce) { .app-question-tab { transition: none; } }
+
+/* ---- Version-skew banner: connected terminal older than this web UI --------
+   Visual styling only — no `display` here, so the `hidden` utility (toggled by
+   app.js) still wins by Tailwind source order. Layout comes from the utility
+   classes on the element. */
+.app-version-warn {
+  color: rgb(var(--c-ink) / .9);
+  background: linear-gradient(180deg, rgb(var(--c-warn) / .14), rgb(var(--c-warn) / .05));
+  border-bottom: 1px solid rgb(var(--c-warn) / .35);
+}
+.app-version-warn > sf-symbol { color: rgb(var(--c-warn)); font-size: 14px; }
+.app-version-warn-text b { color: rgb(var(--c-ink-bright)); font-weight: 600; }
+.app-version-warn-link {
+  color: rgb(var(--c-ink-bright));
+  background: rgb(var(--c-warn) / .2);
+  border: 1px solid rgb(var(--c-warn) / .45);
+  padding: .12rem .55rem;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.app-version-warn-link:hover { background: rgb(var(--c-warn) / .32); }
+.app-version-warn-link:disabled { opacity: .5; cursor: default; }
+.app-version-warn-link:disabled:hover { background: rgb(var(--c-warn) / .2); }
+/* Jumping Claude shown in place of the warning triangle while a remote /update
+   is in flight (the terminal rebuilds + reconnects) — see syncUpgradeBtn(). */
+.app-version-warn-art { width: 18px; height: 18px; flex: 0 0 auto; }
+
+/* ---- Config modal tab strip (Skills/MCP/Agents/Tools/Domains/LSP/Schedule) - */
+.config-tab {
+  display: flex; align-items: center; gap: .3rem; white-space: nowrap;
+  font-size: 12.5px; font-weight: 600; color: rgb(var(--c-faint));
+  padding: .4rem .6rem; border-radius: var(--r-sm); border: 1px solid transparent;
+  background: transparent; cursor: pointer;
+}
+.config-tab:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.config-tab-active { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); border-color: rgb(var(--c-edge)); }
+
+/* ---- Tools / Domains access panels (allow/deny editors) -------------------- */
+.access-intro { color: rgb(var(--c-faint)); margin-bottom: 1rem; line-height: 1.45; }
+.access-section { margin-bottom: .9rem; }
+.access-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .35rem; }
+.access-head.access-allow { color: rgb(var(--c-ok)); }
+.access-head.access-deny { color: rgb(var(--c-danger)); }
+.access-empty { color: rgb(var(--c-faint)); font-size: 12px; padding: .15rem 0; }
+.access-row { display: flex; align-items: center; gap: .5rem; padding: .3rem .5rem; border-radius: var(--r-sm); }
+.access-row:hover { background: rgb(var(--c-raised) / .6); }
+
+/* ---- Manage / marketplace rows (skills · MCP · agents · LSP): hoverable rows
+        with a clear fill-vs-outline toggle and a brand "Install" pill, replacing
+        the old flat hairline list so an enabled item and an action read at a
+        glance. Used by manageRow + the *AvailableRow builders in app.js. ---- */
+.manage-row { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: var(--r-md); transition: background-color .12s ease; }
+.manage-row + .manage-row { margin-top: .12rem; }
+.manage-row:hover { background: rgb(var(--c-raised) / .6); }
+.manage-row-main { min-width: 0; flex: 1 1 auto; }
+/* Toggle: a filled green pill when enabled, a quiet outline ghost when off — so
+   state reads as fill-vs-outline, not just a text-color swap. */
+.manage-toggle {
+  flex: none; cursor: pointer;
+  font-size: 11px; font-weight: 600; line-height: 1;
+  padding: .22em .6em; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid rgb(var(--c-edge)); color: rgb(var(--c-faint));
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.manage-toggle:hover { border-color: rgb(var(--c-faint) / .65); color: rgb(var(--c-ink-soft)); }
+.manage-toggle.is-on { background: rgb(var(--c-ok) / .16); border-color: rgb(var(--c-ok) / .45); color: rgb(var(--c-ok)); }
+.manage-toggle.is-on:hover { background: rgb(var(--c-ok) / .26); border-color: rgb(var(--c-ok) / .6); }
+/* Install: a brand pill so it reads as the primary "add this" action. */
+.manage-install {
+  flex: none; cursor: pointer;
+  font-size: 11px; font-weight: 600; line-height: 1;
+  padding: .28em .7em; border-radius: var(--r-pill);
+  background: rgb(var(--c-brand) / .14); border: 1px solid rgb(var(--c-brand) / .4); color: rgb(var(--c-brand));
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.manage-install:hover { background: rgb(var(--c-brand) / .24); border-color: rgb(var(--c-brand) / .6); }
+.manage-install:disabled { opacity: .6; cursor: default; }
+.manage-remove { flex: none; cursor: pointer; background: none; border: 0; padding: 0 .2rem; color: rgb(var(--c-faint)); transition: color .12s ease; }
+.manage-remove:hover { color: rgb(var(--c-danger)); }
+.access-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.access-rm { flex: 0 0 auto; color: rgb(var(--c-faint)); padding: .1rem; border-radius: var(--r-xs); line-height: 0; }
+.access-rm:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-danger) / .14); }
+/* SQE Proxy used-quota chip + status tag in the Members panel. */
+.access-quota { flex: 0 0 auto; font-size: 11px; font-variant-numeric: tabular-nums; color: rgb(var(--c-faint)); white-space: nowrap; }
+.access-quota-over { color: rgb(var(--c-danger)); font-weight: 600; }
+.access-tag { flex: 0 0 auto; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: rgb(var(--c-ok)); border: 1px solid rgb(var(--c-ok) / .4); border-radius: var(--r-xs); padding: 0 .3rem; }
+/* Editable per-user cap: chip + pencil, swapped for an input while editing. */
+.access-quota-cell { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .25rem; }
+.access-quota-custom { color: rgb(var(--c-brand)); font-weight: 600; }
+.access-capedit { flex: 0 0 auto; color: rgb(var(--c-faint)); padding: .1rem; border-radius: var(--r-xs); line-height: 0; font-size: 11px; }
+.access-capedit:hover { color: rgb(var(--c-brand)); background: rgb(var(--c-brand) / .12); }
+.access-capinput { width: 6.5em; font-size: 12px; font-variant-numeric: tabular-nums; padding: .1rem .35rem; border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); background: rgb(var(--c-base)); color: rgb(var(--c-ink)); }
+.access-capsave { flex: 0 0 auto; font-size: 11px; padding: .1rem .5rem; border-radius: var(--r-sm); background: rgb(var(--c-brand)); color: #fff; }
+.access-form { display: flex; gap: .5rem; margin-top: .25rem; }
+.access-input {
+  flex: 1 1 auto; min-width: 0;
+  background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  padding: .35rem .6rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+}
+.access-input:focus { outline: none; border-color: rgb(var(--c-brand)); }
+
+/* ---- Persona panel (env/config form: stacked fields, masked secrets) ------ */
+.persona-form { display: flex; flex-direction: column; gap: 1rem; margin-top: .25rem; }
+.persona-scroll { display: flex; flex-direction: column; gap: 1rem; max-height: 40vh; overflow-y: auto; padding-right: .4rem; border-top: 1px solid rgb(var(--c-edge)); padding-top: 1rem; }
+.persona-field { display: flex; flex-direction: column; gap: .3rem; }
+.persona-label { font-weight: 600; color: rgb(var(--c-ink)); font-size: 13px; }
+.persona-desc { color: rgb(var(--c-faint)); font-size: 12px; line-height: 1.4; }
+.persona-row { display: flex; gap: .5rem; align-items: center; }
+.persona-input { flex: 1 1 auto; min-width: 0; }
+.persona-reveal {
+  flex: 0 0 auto; background: rgb(var(--c-base)); color: rgb(var(--c-faint));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  padding: .35rem .6rem; font-size: 12px; cursor: pointer;
+}
+.persona-reveal:hover { color: rgb(var(--c-ink)); border-color: rgb(var(--c-brand)); }
+.persona-toggle { display: flex; align-items: center; gap: .45rem; color: rgb(var(--c-ink)); font-size: 13px; cursor: pointer; }
+label.persona-toggle { display: inline-flex; } /* bool: checkbox + label stay side-by-side */
+div.persona-toggle  { justify-content: space-between; } /* select: label left, control right */
+.persona-select {
+  flex: 1 1 auto; min-width: 0; background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  padding: .35rem .5rem; font-size: 12px; cursor: pointer; max-width: 260px;
+}
+.persona-select:focus { outline: none; border-color: rgb(var(--c-brand)); }
+.persona-actions { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; position: sticky; bottom: 0; background: rgb(var(--c-surface)); padding-top: .5rem; padding-bottom: .75rem; }
+.persona-status { color: rgb(var(--c-faint)); font-size: 12px; }
+
+/* ---- Schedule panel (add form: name+spec row, prompt textarea, button) ---- */
+.schedule-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .25rem; }
+.schedule-form-row { display: flex; gap: .5rem; }
+.schedule-prompt { width: 100%; box-sizing: border-box; resize: vertical; min-height: 2.4rem; font-family: inherit; }
+
+/* ---- Plugins panel (search box + grouped, scrollable plugin list) --------- */
+.plugins-search {
+  width: 100%; box-sizing: border-box; margin: 0 0 .5rem;
+  background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
+  padding: .4rem .6rem; font-size: 12px;
+}
+.plugins-search::placeholder { color: rgb(var(--c-faint)); }
+.plugins-search:focus { outline: none; border-color: rgb(var(--c-brand)); box-shadow: 0 0 0 2px rgb(var(--c-brand) / .22); }
+/* The grouped list scrolls within a bounded height so long catalogs don't push
+   the panel; the outer #manageBody still scrolls the controls above it. */
+.plugins-scroll { max-height: 360px; overflow-y: auto; margin: 0 -.15rem; padding: 0 .15rem; }
+/* Installed skills in the marketplace panel scroll within a bounded height so a
+   long list doesn't push the install controls below it off-screen. */
+.skills-installed { max-height: 320px; overflow-y: auto; margin: 0 -.15rem; padding: 0 .15rem; }
+/* Installed subagents in the Agents marketplace panel scroll within a bounded
+   height so a long list doesn't push the install controls below it off-screen. */
+.agents-installed { max-height: 320px; overflow-y: auto; margin: 0 -.15rem; padding: 0 .15rem; }
+/* Installed MCP servers in the MCP marketplace panel scroll within a bounded
+   height so a long list doesn't push the install controls below it off-screen. */
+.mcp-installed { max-height: 320px; overflow-y: auto; margin: 0 -.15rem; padding: 0 .15rem; }
+/* Installed language servers in the LSP panel scroll within a bounded height so
+   a long list doesn't push the marketplace controls below it off-screen. */
+.lsp-installed { max-height: 320px; overflow-y: auto; margin: 0 -.15rem; padding: 0 .15rem; }
+.plugin-row { padding: .45rem .1rem; border-bottom: 1px solid rgb(var(--c-edge)); }
+.plugin-row[hidden] { display: none; }
+/* Marketplace plugins stand apart from built-in bundles: a violet accent card. */
+.plugin-row.is-market {
+  margin: .35rem 0; padding: .5rem .6rem;
+  border: 1px solid rgb(var(--c-violet) / .3); border-left: 2px solid rgb(var(--c-violet));
+  border-radius: var(--r-md); background: rgb(var(--c-violet) / .06);
+}
+.plugin-badge {
+  display: inline-flex; align-items: center; max-width: 45%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px; font-weight: 600; letter-spacing: .03em;
+  padding: .05rem .35rem; border-radius: var(--r-xs);
+  background: rgb(var(--c-violet) / .16); color: rgb(var(--c-violet));
+}
+/* Bundle contents: one line per type, each color-coded with a bold label. */
+.plugin-parts { margin-top: .15rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.plugin-part { line-height: 1.55; }
+.plugin-part-label { font-weight: 700; }
+.plugin-part.t-skills { color: rgb(var(--c-brand)); }
+.plugin-part.t-agents { color: rgb(var(--c-ok)); }
+.plugin-part.t-mcp    { color: rgb(var(--c-violet)); }
+.plugin-part.t-cmds   { color: rgb(var(--c-warn)); }
+.app-version-warn-close {
+  color: rgb(var(--c-faint));
+  padding: .15rem;
+  border-radius: var(--r-xs);
+  line-height: 0;
+  transition: color .12s ease, background .12s ease;
+}
+.app-version-warn-close:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-warn) / .18); }
+
+/* ---- Manage modal: a blurred backdrop fade + a card that rises into place ---- */
+.app-overlay { animation: overlay-in .18s ease-out; }
+.app-modal { box-shadow: var(--shadow-lg); animation: modal-in .22s cubic-bezier(.2, .7, .2, 1) both; }
+/* The modal floats on near-white in light with little depth — give it a stronger
+   drop there, and tint the header bar (first child) in both themes so the title
+   row reads as distinct chrome rather than just a hairline. */
+html.light .app-modal { box-shadow: 0 20px 56px -22px rgb(var(--c-shadow) / .7), 0 4px 14px -8px rgb(var(--c-shadow) / .45); }
+.app-modal > div:first-child { background: rgb(var(--c-raised) / .5); border-top-left-radius: inherit; border-top-right-radius: inherit; }
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-overlay, .app-modal, .app-approval, .brand-btn { animation: none; transition: none; }
+  body.app-body { background-attachment: scroll; }
+  /* Don't animate the theme flip for users who prefer reduced motion. */
+  body.app-body, .app-sidebar, .app-topbar, .app-statusbar, .app-inputbar,
+  .file-card, .file-card-head, .user-menu, .tool-card, .user-body, .msg-info { transition: none; }
+}
+
+/* ============================================================================
+   Polite assistant typography — scoped strictly to .msg-assistant > .md so the
+   user message, info callouts, and thinking blocks are unaffected. Restrained
+   and well-mannered: clear hierarchy with gentle accents, and none of the
+   louder flourishes (no gradient text, glows, highlighter, oversized quote, or
+   attention-seeking motion). Pure CSS — no rebuild needed.
+   ============================================================================ */
+
+/* Headings: solid bright ink with slightly tighter tracking; h2 keeps a faint,
+   short brand accent beneath its existing hairline rule. */
+.msg-assistant > .md h1,
+.msg-assistant > .md h2,
+.msg-assistant > .md h3 { color: rgb(var(--c-ink-bright)); letter-spacing: -.011em; }
+.msg-assistant > .md h2 { position: relative; border-bottom: 0; padding-bottom: 0; } /* drop the full-width rule; the brand stub below is the single underline */
+.msg-assistant > .md h2::after {
+  content: "";
+  position: absolute; left: 0; bottom: -1px;
+  width: 1.6rem; height: 2px; border-radius: var(--r-xs);
+  background: linear-gradient(90deg, rgb(var(--c-brand) / .45), transparent);
+}
+
+/* Lead paragraph: gently brighter, no size change. */
+.msg-assistant > .md > p:first-of-type { color: rgb(var(--c-ink-bright)); }
+
+/* Links: a soft, always-present underline that simply warms on hover. */
+.msg-assistant > .md a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--c-brand) / .35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color .2s ease, text-decoration-color .2s ease;
+}
+.msg-assistant > .md a:hover { color: var(--accent-strong); text-decoration-color: var(--accent-strong); }
+
+/* Inline code: a quiet neutral chip (the :not(pre) guard leaves fenced blocks
+   reading as plain recessed wells). Superseded by the amber chip in the reorg
+   section below; kept tokenized for consistency. */
+.msg-assistant > .md :not(pre) > code {
+  background: rgb(var(--c-faint) / .14);
+  border-color: rgb(var(--c-faint) / .26);
+  color: rgb(var(--c-ink-soft));
+}
+
+/* Fenced code blocks: a recessed code panel. Shared by the assistant reply and
+   the user bubble so code reads the same in both — surface fill, hairline border,
+   soft inset shadow. */
+.msg-assistant > .md pre,
+.msg-user > .md pre {
+  background: rgb(var(--c-surface));
+  border-color: rgb(var(--c-edge));
+  box-shadow: inset 0 1px 3px rgb(var(--c-shadow) / .28);
+}
+.msg-assistant > .md pre code,
+.msg-user > .md pre code {
+  color: rgb(var(--c-ink-soft));
+  font-size: .84rem;
+  line-height: 1.6;
+}
+
+/* Architecture / flow diagrams: a <pre> whose text contains box-drawing, block,
+   or arrow glyphs (tagged .md-diagram by markDiagramPres). Tighten the line-height
+   so the vertical bars connect into unbroken lines instead of leaving gaps between
+   rows; keep whitespace literal with horizontal scroll so wide diagrams aren't
+   wrapped. Scoped to diagram blocks so ordinary code keeps its readable 1.6. */
+.md pre.md-diagram,
+.msg-assistant > .md pre.md-diagram,
+.msg-user > .md pre.md-diagram { white-space: pre; overflow-x: auto; }
+.md pre.md-diagram code,
+.msg-assistant > .md pre.md-diagram code,
+.msg-user > .md pre.md-diagram code { line-height: 1.2; }
+
+/* Bold: simply brighter — no highlighter. */
+.msg-assistant > .md strong { color: rgb(var(--c-ink-bright)); }
+
+/* Lists: small, soft brand markers and quiet counters — no glow. */
+.msg-assistant > .md ul { list-style: none; padding-left: 1.3rem; }
+.msg-assistant > .md ul > li { position: relative; }
+.msg-assistant > .md ul > li::before {
+  content: "";
+  position: absolute; left: -1rem; top: .66em;
+  width: 5px; height: 5px; border-radius: var(--r-full);
+  background: rgb(var(--c-brand) / .55);
+}
+.msg-assistant > .md ol { list-style: none; counter-reset: idx; padding-left: 1.6rem; }
+.msg-assistant > .md ol > li { position: relative; counter-increment: idx; }
+.msg-assistant > .md ol > li::before {
+  content: counter(idx) ".";
+  position: absolute; left: -1.6rem; top: 0;
+  min-width: 1.3rem; text-align: right;
+  color: rgb(var(--c-brand) / .7);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Blockquote: a gentle brand rail (its soft tint comes from the base rule);
+   no oversized decorative quote mark. */
+.msg-assistant > .md blockquote { border-left-color: rgb(var(--c-brand) / .45); }
+
+/* ============================================================================
+   Responsive layout — phone, tablet, and desktop.
+   On desktop the two-pane layout can collapse the sidebar to the left (the
+   top-bar toggle adds `nav-collapsed`). On narrow screens the sidebar instead
+   becomes an off-canvas drawer (same toggle, `nav-open`), the top bar sheds its
+   version/meta text, the viewport switches to dvh so mobile Safari's collapsing
+   toolbar can't clip the input, and safe-area insets keep content clear of the
+   notch / Dynamic Island / home indicator.
+   ============================================================================ */
+
+/* Dynamic viewport height: the input bar stays visible as Safari's toolbar
+   collapses. Falls back to the h-screen 100vh where dvh is unsupported.
+   overflow:hidden keeps the desktop collapse slide from spawning a scrollbar. */
+body.app-body { height: 100dvh; overflow: hidden; }
+
+/* Keep chat content clear of the notch in landscape (0 where there's none). */
+main { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* Hold the fixed chrome off the status bar and the home indicator. */
+.app-topbar { padding-top: max(.5rem, env(safe-area-inset-top)); }
+.app-inputbar { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+
+/* The sidebar toggle is always visible: on desktop it collapses the sidebar to
+   the left, on mobile it opens the drawer. The scrim is mobile-only. */
+.nav-btn { display: inline-flex; align-items: center; margin-left: -.25rem; }
+#navBackdrop { display: none; }
+
+/* Sidebar width is a CSS variable so the drag handle can resize it live; the
+   value is restored from localStorage on load, and the collapse animation
+   tracks the current width. */
+:root { --sidebar-w: 18rem; }
+.app-sidebar { position: relative; width: var(--sidebar-w); }
+.sidebar-resize {
+  position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+  cursor: col-resize; z-index: 6; touch-action: none;
+  background: transparent; transition: background .15s ease;
+}
+.sidebar-resize:hover,
+body.sidebar-resizing .sidebar-resize { background: rgb(var(--c-brand) / .35); }
+body.sidebar-resizing { cursor: col-resize; user-select: none; }
+body.sidebar-resizing .app-sidebar { transition: none; } /* no lag while dragging */
+
+/* ---- Desktop: collapse the sidebar to the left (toggle adds `nav-collapsed`). ---- */
+@media (min-width: 769px) {
+  .app-sidebar { transition: margin-left .24s cubic-bezier(.2, .7, .2, 1); }
+  body.nav-collapsed .app-sidebar { margin-left: calc(-1 * var(--sidebar-w)); } /* slides fully off-screen left */
+}
+@media (min-width: 769px) and (prefers-reduced-motion: reduce) {
+  .app-sidebar { transition: none; }
+}
+
+/* ---- Phones & small tablets (incl. iPad mini portrait): the sidebar slides
+        in over the conversation; the rest of the UI goes full-width. ---- */
+@media (max-width: 768px) {
+  /* Declutter the top bar on phones: drop the version + verbose meta, and show
+     the New button as icon-only. */
+  #hdrVersion, #hdrMeta { display: none; }
+
+  #sidebarResize { display: none; } /* drawer mode: no drag-resize */
+
+  .app-sidebar {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: min(82vw, 20rem);
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .24s cubic-bezier(.2, .7, .2, 1);
+    box-shadow: var(--shadow-lg);
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+  }
+  body.nav-open .app-sidebar { transform: none; }
+
+  #navBackdrop {
+    display: block;
+    position: fixed; inset: 0; z-index: 55;
+    background: rgb(var(--c-shadow) / .55);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .24s ease;
+  }
+  body.nav-open #navBackdrop { opacity: 1; pointer-events: auto; }
+
+  /* 16px input text keeps iOS Safari from zooming the page on focus. */
+  #input { font-size: 16px; }
+
+  /* A touch tighter so messages get more room on a phone. */
+  #transcript { padding: .75rem; }
+
+  /* Composer: trim the side padding + Send button so the textarea gets more
+     room on a narrow phone; tap targets stay ≥44px (see the pointer:coarse rule
+     below). The long desktop placeholder is swapped for a short one in app.js. */
+  .app-inputbar { padding-left: .55rem; padding-right: .55rem; gap: .45rem; }
+  #attachBtn { padding-left: .72rem; padding-right: .72rem; }
+
+  /* Status bar while answering: the activity text (running tool · step) and the
+     stats (tokens · cost · ctx) together overflow a phone's width, pushing the
+     context indicator off-screen. Let the bar wrap so the stats fall to a second
+     line instead; the flex-1 spacer fills line 1, so status stays on top. Idle
+     content is short enough to stay on one line. */
+  .app-statusbar { flex-wrap: wrap; row-gap: .3rem; }
+
+  /* Use the DYNAMIC viewport height so the composer isn't hidden behind mobile
+     Safari's URL bar (100vh includes it; 100dvh tracks the visible area). */
+  .app-body { height: 100dvh; }
+
+  /* The composer's notched legends (agent left, model·reasoning right) eat a
+     narrow textarea — shrink them, tighten their caps so they can't collide in
+     the middle, and let the model name ellipsize (full value stays in the title). */
+  .composer-agent { font-size: .74rem; left: .7rem; max-width: 42%; padding: 0 .4rem; }
+  .composer-meta  { font-size: .7rem;  right: .7rem; max-width: 52%; gap: .3rem; }
+  /* On a phone the notch is tight, so drop just the session-memory pill and the
+     "·" separators (the flex gap spaces what's left) — but KEEP provider + model +
+     reasoning, since the backend/model/reasoning are the metadata worth seeing.
+     The model name ellipsizes (base rule) so provider + reasoning stay readable. */
+  .composer-meta .cm-mem,
+  .composer-meta .cm-sep { display: none; }
+
+  /* Keep long URLs/paths/identifiers from forcing horizontal page scroll. */
+  .msg .md, .msg .md p, .msg .md li { overflow-wrap: anywhere; }
+  .turn-meta, .user-meta { flex-wrap: wrap; }
+
+  /* The shared header/composer picker (approval, reasoning): give it real width
+     and room from the screen edge on a phone. */
+  .hdr-menu { min-width: 12rem; max-width: calc(100vw - 1.5rem); }
+
+  /* Manage/Plugins/Skills/etc. overlay modal: near-fullscreen on a phone for
+     usability (its size is set inline in index.html, so override with !important).
+     Honors the safe-area at the bottom so its footer/actions clear the home bar. */
+  .app-modal {
+    width: 100vw !important; max-width: 100vw !important;
+    height: 100dvh; max-height: 100dvh !important;
+    border-radius: 0 !important; border: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .app-overlay { align-items: stretch !important; }
+}
+
+/* Drawer + scrim motion is decorative — honor reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar, #navBackdrop { transition: none; }
+}
+
+/* Comfortable tap targets on touch devices (no effect on a mouse/trackpad). */
+@media (pointer: coarse) {
+  #navBtn, #new { min-height: 44px; }
+  #navBtn { min-width: 44px; justify-content: center; }
+  /* The composer's send/attach are the primary touch controls — keep them ≥44px. */
+  .composer-send { width: 44px; height: 44px; margin-top: -22px; }
+  .composer-attach { width: 42px; height: 42px; margin-top: -21px; }
+  .composer-input { padding-left: 3.1rem; padding-right: 3.7rem; } /* clear the larger buttons */
+  /* Roomier rows in the menus/pickers so options are easy to tap. */
+  .hdr-menu-item, .attach-menu-item, .user-menu-item { min-height: 40px; }
+  /* The avatar and theme toggle are touch controls too. */
+  #userAvatar, #themeToggle { min-width: 40px; min-height: 40px; }
+}
+
+/* Center the empty-state placeholder in the transcript; reverts to normal
+   top-aligned scrolling once a session replaces #empty (clearView wipes it). */
+#transcript:has(#empty) { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* ---- Empty-state placeholder: a composed onboarding panel — a large, faint
+        icon that gently floats, a headline (one brand accent word; semantic
+        colors are reserved for status, not decoration), and a quiet subtext.
+        The whole block fades in once. ---- */
+#empty {
+  margin-top: 0; /* override the mt-20 utility so the centering is true */
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: .55rem;
+  max-width: 30rem; padding: 0 1.5rem;
+  animation: empty-fade .5s ease both;
+}
+.empty-icon {
+  font-size: 46px;
+  color: rgb(var(--c-brand));
+  filter: drop-shadow(0 2px 12px rgb(var(--c-brand) / .35));
+  margin-bottom: .15rem;
+  animation: empty-wave 4s ease-in-out infinite;
+}
+.empty-title {
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+  font-weight: 650;
+  letter-spacing: -.01em;
+  color: rgb(var(--c-ink));
+}
+.empty-sub { font-size: .9rem; line-height: 1.5; color: rgb(var(--c-faint)); }
+@keyframes empty-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes empty-wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  #empty { animation: none; opacity: 1; }
+  .empty-icon { animation: none; }
+}
+
+/* Connecting loader: a centered jumping Claude shown in the transcript while a
+   newly-selected session connects (cleared by the first replayed event). Centered
+   the same way as #empty. The SVG self-animates. */
+#transcript:has(#connLoader) { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.conn-loader { display: flex; flex-direction: column; align-items: center; gap: .6rem; animation: empty-fade .4s ease both; }
+.conn-art { width: 96px; height: auto; }
+.conn-label { font-size: .9rem; color: rgb(var(--c-faint)); }
+/* Small jumping Claude before a sidebar "Loading…" row. */
+.tree-loading { display: inline-flex; align-items: center; gap: .4rem; }
+.tree-loading-art { width: 18px; height: 18px; flex: 0 0 auto; }
+/* Jumping Claude as the status-bar "working…" activity indicator (replaces the
+   spinning icon + text while the agent is busy with no named tool). */
+.status-art { height: 20px; width: auto; flex: 0 0 auto; }
+
+/* Jumping Claude loader inside the bottom #menu picker while its data is fetched
+   (e.g. /models). Replaced by the menu rows when the "menu" event arrives. */
+.menu-loading { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: 1.1rem; }
+.menu-loading-art { width: 28px; height: auto; }
+
+/* ===== Agent Builder (visual workflow canvas, Phase 1) ===================== */
+.wf-builder {
+  position: absolute; inset: 0; z-index: 30; /* fills .transcript-wrap (the main panel) */
+  grid-template-columns: 1fr auto; grid-template-rows: auto 1fr;
+  background: rgb(var(--c-base));
+}
+/* While the Agent Builder is open it owns the whole main panel, so the chat bars
+   below it — status, input, and the plan/todos artifact bars — are irrelevant;
+   hide them. */
+body.wf-active .app-statusbar,
+body.wf-active .app-inputbar,
+body.wf-active #plan,
+body.wf-active #todos { display: none; }
+/* The builder overlay (.wf-builder, z-index 30) lives in .transcript-wrap, which
+   has no stacking context of its own, so it competes with the topbar (z-index 20)
+   in the shared parent context and wins — hiding the topbar's user-menu dropdown
+   (which drops down into the builder's area) behind it. Lift the topbar above the
+   builder while it's open so the avatar dropdown shows on top. */
+body.wf-active .app-topbar { z-index: 40; }
+/* display lives on :not(.hidden) so the `.hidden` utility (display:none) always
+   wins regardless of stylesheet order. */
+.wf-builder:not(.hidden) { display: grid; }
+.wf-toolbar {
+  grid-column: 1 / -1; display: flex; flex-direction: column; align-items: stretch; gap: .45rem;
+  padding: .5rem .75rem; border-bottom: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-surface));
+}
+/* Each toolbar row is its own flex line: row 1 = name + actions, row 2 = palette. */
+.wf-toolbar-row { display: flex; align-items: center; gap: .6rem; }
+.wf-toolbar-palette { flex-wrap: wrap; }
+.wf-btn {
+  display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .6rem;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); cursor: pointer; font: inherit; font-size: 13px;
+}
+.wf-btn:hover { background: rgb(var(--c-edge) / .5); }
+/* Runtime switcher: a toolbar button showing the active model + a popover with
+   provider / model / reasoning selects. */
+.wf-runtime-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-runtime-caret { opacity: .55; font-size: 10px; }
+.wf-runtime-menu {
+  position: absolute; top: 48px; right: 12px; z-index: 45; width: 290px;
+  background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
+  box-shadow: 0 8px 30px rgb(0 0 0 / .35); padding: .7rem .8rem;
+}
+.wf-runtime-menu .wf-field { margin-bottom: .55rem; }
+.wf-runtime-menu .wf-field:last-child { margin-bottom: 0; }
+.wf-runtime-msg { font-size: 11px; color: rgb(var(--c-faint)); margin-top: .45rem; }
+.wf-runtime-msg.is-ok { color: rgb(var(--c-ok)); }
+.wf-name {
+  font-size: 14px; font-weight: 600; color: rgb(var(--c-ink-bright));
+  background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
+  padding: .25rem .4rem; min-width: 150px; font-family: inherit;
+}
+.wf-name:hover { border-color: rgb(var(--c-edge)); }
+.wf-name:focus { outline: none; border-color: rgb(var(--c-brand)); background: rgb(var(--c-base)); }
+.wf-palette-label { font-size: 11px; color: rgb(var(--c-faint)); }
+.wf-palette { display: flex; gap: .3rem; flex-wrap: wrap; }
+.wf-pal-btn {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .5rem;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  background: rgb(var(--c-raised)); color: rgb(var(--c-ink)); cursor: pointer; font: inherit; font-size: 12px;
+}
+.wf-pal-btn:hover { border-color: rgb(var(--c-brand)); color: rgb(var(--c-ink-bright)); }
+.wf-spacer { flex: 1; }
+.wf-save { font-size: 11px; color: rgb(var(--c-faint)); min-width: 60px; text-align: right; }
+
+.wf-stage {
+  grid-column: 1; grid-row: 2; position: relative; overflow: hidden; cursor: grab;
+  background-color: rgb(var(--c-base));
+  background-image: radial-gradient(rgb(var(--c-edge) / .6) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.wf-stage:active { cursor: grabbing; }
+.wf-stage-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 2rem; text-align: center; color: rgb(var(--c-faint)); font-size: 13px; pointer-events: none; }
+.wf-world { position: absolute; inset: 0; transform-origin: 0 0; }
+.wf-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.wf-edge { fill: none; stroke: rgb(var(--c-faint)); stroke-width: 2; pointer-events: none; }
+.wf-edge.selected { stroke: rgb(var(--c-brand)); stroke-width: 2.5; }
+/* Invisible wide hit area so the thin edge is easy to click; it carries the
+   pointer events and brightens the visible edge on hover. */
+.wf-edge-hit { fill: none; stroke: transparent; stroke-width: 20; pointer-events: stroke; cursor: pointer; }
+.wf-edge-hit:hover + .wf-edge { stroke: rgb(var(--c-ink)); }
+.wf-edge-temp { stroke: rgb(var(--c-brand)); stroke-dasharray: 4 4; pointer-events: none; }
+/* Click-to-delete badge shown at a selected edge's midpoint. */
+.wf-edge-del { pointer-events: all; cursor: pointer; }
+.wf-edge-del circle { fill: rgb(var(--c-danger)); }
+.wf-edge-del path { stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+.wf-edge-del:hover circle { fill: rgb(var(--c-danger) / .82); }
+
+.wf-node {
+  position: absolute; width: 180px; box-sizing: border-box;
+  background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-md); padding: .5rem .6rem; cursor: grab; user-select: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .15);
+}
+.wf-node:active { cursor: grabbing; }
+.wf-node.selected { border-color: rgb(var(--c-brand)); box-shadow: 0 0 0 2px rgb(var(--c-brand) / .3); }
+.wf-node-head { display: flex; align-items: center; gap: .4rem; font-size: 13px; font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.wf-node-icon { color: rgb(var(--c-brand)); }
+.wf-node-start .wf-node-icon { color: rgb(var(--c-ok)); }
+.wf-node-end .wf-node-icon { color: rgb(var(--c-faint)); }
+.wf-node-sub { margin-top: .25rem; font-size: 11px; color: rgb(var(--c-faint)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.wf-handle {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  background: rgb(var(--c-base)); border: 2px solid rgb(var(--c-brand)); box-sizing: border-box;
+}
+/* Side-anchored handles: left/right sit at the header row; top/bottom center
+   horizontally so edges can route vertically (top-down layouts). */
+.wf-handle.side-left   { left: -6px;  top: 16px; }
+.wf-handle.side-right  { right: -6px; top: 16px; cursor: crosshair; }
+.wf-handle.side-top    { top: -6px;   left: 50%; transform: translateX(-50%); }
+.wf-handle.side-bottom { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: crosshair; }
+.wf-handle-out:hover { background: rgb(var(--c-brand)); }
+/* Branching nodes expose two labeled output ports (if/else, loop/done) stacked
+   on the right edge; their handle name becomes the edge's sourceHandle. */
+.wf-handle-out.branch-1 { top: 38%; }
+.wf-handle-out.branch-2 { top: 70%; }
+.wf-handle-out.branch-2 { border-color: rgb(var(--c-faint)); }
+.wf-handle-label { position: absolute; right: 14px; top: -6px; font-size: 9px; line-height: 1; color: rgb(var(--c-faint)); white-space: nowrap; pointer-events: none; }
+.wf-edge-label { fill: rgb(var(--c-faint)); font-size: 10px; font-family: ui-monospace, monospace; pointer-events: none; }
+
+/* Zoom controls (bottom-left) + minimap (bottom-right), overlaid on the stage. */
+.wf-zoom { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 4px; z-index: 5; }
+.wf-zoom-btn {
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); background: rgb(var(--c-surface));
+  color: rgb(var(--c-ink)); cursor: pointer; font-size: 15px; line-height: 1;
+}
+.wf-zoom-btn:hover { background: rgb(var(--c-raised)); border-color: rgb(var(--c-brand)); }
+.wf-minimap {
+  position: absolute; right: 10px; bottom: 10px; width: 160px; height: 110px; z-index: 5;
+  background: rgb(var(--c-surface) / .85); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+}
+.wf-mini-node { fill: rgb(var(--c-faint) / .7); }
+.wf-mini-view { fill: rgb(var(--c-brand) / .15); stroke: rgb(var(--c-brand)); stroke-width: 1; }
+
+/* Small inline hint under a config field. */
+.wf-hint { font-size: 11px; color: rgb(var(--c-faint)); margin: -.3rem 0 .7rem; line-height: 1.35; }
+
+/* Variable picker: a header row with an "Insert variable" button above a textarea,
+   and a dropdown of available {{refs}} that insert at the caret. */
+.wf-field-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .25rem; }
+.wf-varbtn {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .12rem .45rem;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  background: rgb(var(--c-raised)); color: rgb(var(--c-brand)); cursor: pointer; font: inherit; font-size: 11px;
+}
+.wf-varbtn:hover { border-color: rgb(var(--c-brand)); }
+.wf-varmenu {
+  margin-top: .35rem; max-height: 190px; overflow-y: auto;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); background: rgb(var(--c-surface));
+}
+.wf-varrow {
+  display: flex; align-items: baseline; gap: .5rem; width: 100%; text-align: left;
+  padding: .35rem .55rem; border: none; border-bottom: 1px solid rgb(var(--c-edge) / .6);
+  background: transparent; cursor: pointer; font: inherit;
+}
+.wf-varrow:last-child { border-bottom: none; }
+.wf-varrow:hover { background: rgb(var(--c-raised)); }
+.wf-varref { font-family: ui-monospace, monospace; font-size: 12px; color: rgb(var(--c-brand)); white-space: nowrap; }
+.wf-vardesc { font-size: 11px; color: rgb(var(--c-faint)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Agent node tool allowlist: a scrollable checkbox list of the connector's tools. */
+.wf-toolpick { max-height: 160px; overflow-y: auto; border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); padding: .4rem .5rem; background: rgb(var(--c-base)); }
+.wf-toolpick .wf-check { margin-bottom: .3rem; font-size: 12px; }
+
+.wf-config {
+  grid-column: 2; grid-row: 2; width: 300px; overflow-y: auto;
+  border-left: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-surface)); padding: .75rem;
+}
+.wf-config-head { display: flex; align-items: center; gap: .4rem; font-weight: 600; color: rgb(var(--c-ink-bright)); margin-bottom: .75rem; }
+.wf-config-del { margin-left: auto; border: none; background: transparent; color: rgb(var(--c-faint)); cursor: pointer; }
+.wf-config-del:hover { color: rgb(var(--c-danger)); }
+.wf-field { display: block; margin-bottom: .7rem; }
+.wf-field-label { display: block; font-size: 11px; color: rgb(var(--c-faint)); margin-bottom: .25rem; }
+.wf-input, .wf-area {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  color: rgb(var(--c-ink)); background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-sm); padding: .35rem .5rem;
+}
+.wf-input:focus, .wf-area:focus { outline: none; border-color: rgb(var(--c-brand)); }
+.wf-area { min-height: 80px; resize: vertical; }
+
+/* Run / Preview: button states, live node status, and the trace panel. */
+.wf-run-btn { color: #fff; background: rgb(var(--c-brand)); border-color: rgb(var(--c-brand)); }
+.wf-run-btn:hover { background: rgb(var(--c-brand-strong)); }
+.wf-run-btn.is-running { background: rgb(var(--c-danger)); border-color: rgb(var(--c-danger)); }
+.wf-node.is-running { border-color: rgb(var(--c-brand)); }
+/* Rainbow breathing on the node currently executing in a run: a glow layer
+   (::after) whose hue rotates continuously (the rainbow) while its opacity
+   pulses (the breathing) — two independent animations on separate properties,
+   which a single box-shadow can't do. The halo is drawn OUTSIDE the node (the
+   ::after is transparent), so it never covers the node's content, and nothing
+   scales, so the bezier edges (anchored to handle rects) stay attached. */
+.wf-node.is-running::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 2px hsl(265 90% 62% / .7), 0 0 18px 4px hsl(265 90% 62% / .55);
+  animation: wf-rainbow 5s linear infinite, wf-node-breathe 1.8s ease-in-out infinite;
+}
+@keyframes wf-rainbow { to { filter: hue-rotate(360deg); } }
+@keyframes wf-node-breathe { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .wf-node.is-running::after { animation: none; opacity: .6; }
+}
+.wf-node.is-done { border-color: rgb(var(--c-ok)); }
+.wf-node.is-failed { border-color: rgb(var(--c-danger)); box-shadow: 0 0 0 2px rgb(var(--c-danger) / .35); }
+.wf-trace {
+  grid-column: 1 / -1; grid-row: 4; max-height: 30vh; overflow-y: auto;
+  background: rgb(var(--c-surface)); padding: .5rem .75rem;
+}
+/* Full-width drag bar in its own grid row just above the trace panel, shown only
+   when the trace is open. The whole bar is the grab target (outside the scroll
+   area, always visible) with a centered grip line — easy to hit and drag. */
+.wf-trace-handle {
+  display: none; grid-column: 1 / -1; grid-row: 3; height: 11px; cursor: row-resize; touch-action: none;
+  border-top: 1px solid rgb(var(--c-edge));
+  background: linear-gradient(rgb(var(--c-faint)), rgb(var(--c-faint))) center / 36px 3px no-repeat, rgb(var(--c-surface));
+}
+.wf-trace-handle:hover { background: linear-gradient(rgb(var(--c-brand)), rgb(var(--c-brand))) center / 46px 3px no-repeat, rgb(var(--c-raised)); }
+.wf-builder:not(.hidden):has(.wf-trace:not(.hidden)) { grid-template-rows: auto 1fr auto auto; }
+.wf-builder:not(.hidden):has(.wf-trace:not(.hidden)) .wf-trace-handle { display: block; }
+.wf-trace-title { font-size: 11px; font-weight: 600; color: rgb(var(--c-faint)); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem; }
+.wf-trace-row { border-left: 2px solid rgb(var(--c-ok)); padding: .3rem .5rem; margin-bottom: .35rem; background: rgb(var(--c-base)); border-radius: var(--r-sm); }
+.wf-trace-row.wf-trace-fail { border-left-color: rgb(var(--c-danger)); }
+/* Live "running" row: brand accent, a spinning marker, and a streamed-output body. */
+.wf-trace-row.wf-trace-running { border-left-color: rgb(var(--c-brand)); }
+.wf-trace-spin { flex: none; align-self: center; color: rgb(var(--c-brand)); animation: todo-spin 1s linear infinite; }
+.wf-trace-stream { white-space: pre-wrap; word-break: break-word; color: rgb(var(--c-faint)); max-height: 200px; overflow-y: auto; }
+@media (prefers-reduced-motion: reduce) { .wf-trace-spin { animation: none; } }
+/* Collapsible step rows: the header toggles the body; default collapsed shows
+   just the header, expanded reveals the full (scrollable) response. */
+.wf-trace-collapsible > .wf-trace-head { cursor: pointer; }
+.wf-trace-caret { flex: none; font-size: 10px; color: rgb(var(--c-faint)); transition: transform .15s ease; align-self: center; }
+.wf-trace-collapsible:not(.is-collapsed) > .wf-trace-head .wf-trace-caret { transform: rotate(90deg); }
+.wf-trace-collapsible.is-collapsed > .wf-trace-body { display: none; }
+.wf-trace-collapsible:not(.is-collapsed) > .wf-trace-body { max-height: 340px; overflow-y: auto; }
+.wf-trace-head { display: flex; align-items: baseline; gap: .5rem; }
+.wf-trace-name { font-size: 12px; font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.wf-trace-detail { font-size: 11px; color: rgb(var(--c-brand)); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.wf-trace-meta { font-size: 11px; color: rgb(var(--c-faint)); font-family: ui-monospace, monospace; margin-left: auto; }
+.wf-trace-body { margin-top: .2rem; font-size: 12px; color: rgb(var(--c-ink)); white-space: pre-wrap; word-break: break-word; }
+/* Markdown-rendered trace body: reuse the global .md styles but drop the
+   pre-wrap (block HTML handles its own spacing) and tighten margins for the
+   compact trace panel. */
+.wf-trace-md { white-space: normal; line-height: 1.5; }
+.wf-trace-md p { margin: .35rem 0; }
+.wf-trace-md ul, .wf-trace-md ol { margin: .35rem 0; }
+.wf-trace-md pre { margin: .4rem 0; padding: .5rem .6rem; }
+.wf-trace-md h1, .wf-trace-md h2, .wf-trace-md h3, .wf-trace-md h4 { margin: .5rem 0 .3rem; font-size: 1em; }
+.wf-trace-done { font-size: 12px; font-weight: 600; color: rgb(var(--c-ok)); padding: .2rem .5rem; }
+.wf-trace-done.wf-trace-fail { color: rgb(var(--c-danger)); }
+
+/* Parallel region: a titled group box holding one column per concurrent branch,
+   so fan-out branches render side-by-side instead of interleaving in the trace. */
+.wf-trace-group { border: 1px dashed rgb(var(--c-edge)); border-left: 2px solid rgb(var(--c-brand)); border-radius: var(--r-sm); padding: .3rem .4rem .4rem; margin-bottom: .35rem; background: rgba(var(--c-brand), .03); }
+.wf-trace-group.is-done { border-left-color: rgb(var(--c-ok)); }
+.wf-trace-group-head { display: flex; align-items: center; gap: .35rem; font-size: 11px; font-weight: 600; color: rgb(var(--c-brand)); margin-bottom: .35rem; }
+.wf-trace-group.is-done .wf-trace-group-head { color: rgb(var(--c-ok)); }
+.wf-trace-group-title { letter-spacing: .02em; }
+/* Columns: an auto-fit grid so 2–4 branches share the width; wraps narrow. */
+.wf-trace-group-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .4rem; }
+.wf-trace-col { min-width: 0; }
+.wf-trace-col > .wf-trace-row { margin-bottom: .3rem; }
+
+/* Guardrails config checkboxes */
+.wf-check { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; font-size: 13px; color: rgb(var(--c-ink)); cursor: pointer; }
+.wf-check input { accent-color: rgb(var(--c-brand)); }
+
+/* Evals panel (shares the bottom dock with the trace panel) */
+.wf-evals {
+  grid-column: 1 / -1; grid-row: 3; max-height: 36vh; overflow-y: auto;
+  border-top: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-surface)); padding: .5rem .75rem;
+}
+.wf-builder:not(.hidden):has(.wf-evals:not(.hidden)) { grid-template-rows: auto 1fr auto; }
+.wf-evals-input {
+  width: 100%; box-sizing: border-box; min-height: 70px; resize: vertical; font: 12px ui-monospace, monospace;
+  color: rgb(var(--c-ink)); background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); padding: .4rem .5rem;
+}
+.wf-evals-bar { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
+.wf-evals-summary { font-size: 12px; color: rgb(var(--c-faint)); }
+.wf-evals-results { display: flex; flex-direction: column; gap: .35rem; }
+.wf-eval-row { border-left: 2px solid rgb(var(--c-ok)); padding: .3rem .5rem; background: rgb(var(--c-base)); border-radius: var(--r-sm); }
+.wf-eval-row.wf-eval-fail { border-left-color: rgb(var(--c-danger)); }
+.wf-eval-row .wf-trace-head sf-symbol { color: rgb(var(--c-ok)); }
+.wf-eval-row.wf-eval-fail .wf-trace-head sf-symbol { color: rgb(var(--c-danger)); }
+.wf-eval-reason { margin-top: .15rem; font-size: 11px; color: rgb(var(--c-faint)); font-style: italic; }
+
+/* HITL approval pause row in the run trace */
+.wf-approval { border-left: 2px solid rgb(var(--c-warn)); background: rgb(var(--c-warn) / .08); }
+.wf-approval-bar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; font-size: 12px; color: rgb(var(--c-faint)); }
+.wf-approval-diff { margin: .4rem 0 0; max-height: 200px; overflow: auto; padding: .5rem .6rem; border-radius: var(--r-sm); background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge)); font-family: ui-monospace, monospace; font-size: 11px; white-space: pre-wrap; }
+.wf-approval-input { margin-top: .45rem; min-height: 60px; }
+.wf-approval-opt { flex-direction: column; align-items: flex-start; gap: .1rem; text-align: left; max-width: 100%; }
+.wf-approval-opt .wf-opt-label { font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.wf-approval-opt .wf-opt-desc { font-size: 11px; color: rgb(var(--c-faint)); }
+
+/* Template picker overlay (shown on New workflow) */
+.wf-tpl-overlay { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / .4); }
+.wf-tpl-card { width: min(520px, 92%); max-height: 80%; overflow-y: auto; background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md); box-shadow: 0 8px 30px rgb(0 0 0 / .35); }
+.wf-tpl-head { display: flex; align-items: center; justify-content: space-between; padding: .7rem .9rem; border-bottom: 1px solid rgb(var(--c-edge)); font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.wf-tpl-close { border: none; background: transparent; color: rgb(var(--c-faint)); cursor: pointer; }
+.wf-tpl-close:hover { color: rgb(var(--c-ink)); }
+.wf-tpl-list { display: flex; flex-direction: column; padding: .5rem; gap: .35rem; }
+.wf-tpl-item { text-align: left; padding: .6rem .7rem; border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); background: rgb(var(--c-base)); color: rgb(var(--c-ink)); cursor: pointer; }
+.wf-tpl-item:hover { border-color: rgb(var(--c-brand)); background: rgb(var(--c-raised)); }
+.wf-tpl-name { font-size: 13px; font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.wf-tpl-desc { font-size: 11px; color: rgb(var(--c-faint)); margin-top: .15rem; }
+
+/* Create agent/skill form (reuses .wf-tpl-overlay / .wf-tpl-card / .wf-tpl-head). */
+.wf-create-card { width: min(560px, 94%); }
+/* Run-input modal (reuses the same chrome). */
+.wf-run-card { width: min(520px, 94%); }
+.wf-run-card .wf-area { min-height: 96px; }
+.wf-create-tabs { display: flex; gap: .4rem; padding: .7rem .9rem 0; }
+.wf-create-tab {
+  display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .75rem;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  background: rgb(var(--c-base)); color: rgb(var(--c-faint)); cursor: pointer; font: inherit; font-size: 12px;
+}
+.wf-create-tab:hover { border-color: rgb(var(--c-brand)); color: rgb(var(--c-ink)); }
+.wf-create-tab.active { background: rgb(var(--c-brand) / .15); border-color: rgb(var(--c-brand)); color: rgb(var(--c-ink-bright)); }
+.wf-create-body { padding: .8rem .9rem .2rem; }
+.wf-create-body .wf-area { min-height: 120px; }
+.wf-create-msg { font-size: 12px; color: rgb(var(--c-danger)); margin: .2rem 0 .4rem; line-height: 1.35; }
+.wf-create-msg.is-ok { color: rgb(var(--c-ok)); }
+.wf-create-actions { display: flex; justify-content: flex-end; gap: .5rem; padding: .3rem .9rem .9rem; }
+/* Generate-with-AI block at the top of the create form. */
+.wf-gen { margin-bottom: .5rem; padding: .55rem .65rem; border: 1px solid rgb(var(--c-brand) / .25); background: rgb(var(--c-brand) / .06); border-radius: var(--r-sm); }
+.wf-create-body .wf-gen-input { min-height: 52px; margin-top: .25rem; }
+.wf-gen-bar { display: flex; align-items: center; gap: .6rem; margin-top: .4rem; }
+.wf-gen-msg { display: inline-flex; align-items: center; gap: .35rem; font-size: 11px; color: rgb(var(--c-faint)); }
+.wf-gen-art { height: 18px; width: auto; flex: 0 0 auto; }
+.wf-gen-or { text-align: center; font-size: 11px; color: rgb(var(--c-faint)); margin: .1rem 0 .55rem; }
+
+/* Inline "+ New agent/skill" link under an agent/skill node combo. */
+.wf-newcap { margin: -.45rem 0 .7rem; }
+.wf-newcap-btn {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .1rem .15rem;
+  border: none; background: transparent; color: rgb(var(--c-brand)); cursor: pointer; font: inherit; font-size: 11px;
+}
+.wf-newcap-btn:hover { color: rgb(var(--c-brand-strong)); text-decoration: underline; }
+
+
+/* Run history rows */
+.wf-hist-row { border-bottom: 1px solid rgb(var(--c-edge)); }
+.wf-hist-head { display: flex; align-items: center; gap: .5rem; padding: .4rem .2rem; cursor: pointer; }
+.wf-hist-head:hover { background: rgb(var(--c-raised)); }
+.wf-hist-icon { color: rgb(var(--c-faint)); }
+.wf-hist-completed .wf-hist-icon { color: rgb(var(--c-ok)); }
+.wf-hist-failed .wf-hist-icon { color: rgb(var(--c-danger)); }
+.wf-hist-paused .wf-hist-icon { color: rgb(var(--c-warn)); }
+.wf-hist-body { padding: .3rem 0 .5rem 1.5rem; display: flex; flex-direction: column; gap: .3rem; }
+
+/* Agent Builder sidebar list */
+.wf-list { display: flex; flex-direction: column; }
+.wf-row, .wf-new-row {
+  display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+  padding: .5rem .75rem; border: none; border-bottom: 1px solid rgb(var(--c-edge));
+  background: transparent; color: rgb(var(--c-ink)); cursor: pointer; font: inherit; font-size: 13px;
+}
+.wf-row:hover, .wf-new-row:hover { background: rgb(var(--c-raised)); }
+.wf-row-name { flex: 1; min-width: 0; }
+.wf-row-meta { font-size: 11px; color: rgb(var(--c-faint)); }
+.wf-new-row { color: rgb(var(--c-brand)); font-weight: 600; }
+/* Offline laptop note: the same mascot, desaturated + dimmed so it reads as a
+   faded "waiting" Claude alongside the greyed offline row (not celebrating). */
+.tree-offline { display: inline-flex; align-items: center; gap: .4rem; }
+.tree-offline-art { width: 16px; height: 16px; flex: 0 0 auto; filter: grayscale(1); opacity: .45; }
+
+/* ---- In-progress todo: the half-circle icon spins like a loader and its label
+        gently pulses, so the active task reads as "working". ---- */
+@keyframes todo-spin { to { transform: rotate(360deg); } }
+@keyframes todo-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.todo-spin { animation: todo-spin 1.1s linear infinite; transform-origin: center; }
+.todo-active > span { color: rgb(var(--c-ink-bright)); animation: todo-pulse 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-spin, .todo-active > span { animation: none; }
+}
+
+/* ---- Per-question phase timeline: the turn's todos rendered as a checkmark
+        checklist on a vertical green rail (image-style). Status nodes mask the
+        rail; per-phase timing (client-side) shows on the right when known. ---- */
+.phase-timeline { position: relative; }
+.phase-timeline::before {
+  content: ""; position: absolute; left: 8px; top: .85em; bottom: .85em; width: 2px;
+  background: linear-gradient(180deg, rgb(var(--c-ok)), rgb(var(--c-ok) / .3));
+  border-radius: var(--r-xs);
+}
+.phase { position: relative; display: flex; align-items: center; gap: .5rem; padding: .26rem 0 .26rem 1.6rem; }
+.phase-marker {
+  position: absolute; left: 1px; top: 50%; transform: translateY(-50%);
+  width: 15px; height: 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgb(var(--c-base)); border-radius: var(--r-full); /* opaque node masks the rail behind it */
+}
+.phase-marker sf-symbol { font-size: 14px; }
+.phase-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: rgb(var(--c-ink)); }
+.phase.is-active .phase-name { color: rgb(var(--c-ink-bright)); }
+.phase:not(.is-done):not(.is-active) .phase-name { color: rgb(var(--c-faint)); font-weight: 500; }
+.phase.is-cancelled .phase-name { text-decoration: line-through; }
+.phase-time { flex-shrink: 0; color: rgb(var(--c-faint)); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ---- Account avatar + menu (adapted from the hybrid-assistant UI). The circle
+        shows the host machine's initials; clicking it opens a dropdown. ---- */
+.user-avatar-wrapper { position: relative; display: inline-flex; align-items: center; margin-left: .25rem; }
+.user-avatar {
+  width: 30px; height: 30px; border-radius: var(--r-full);
+  background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  border: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-appearance: none; -webkit-tap-highlight-color: transparent;
+  transition: box-shadow .16s ease, transform .12s ease;
+}
+.user-avatar:hover { box-shadow: 0 0 0 2px var(--accent-glow); transform: scale(1.05); }
+.user-avatar:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* ---- Theme toggle: a quiet ghost button (left of the avatar) that swaps the
+        sun/moon icon; app.js flips html.light / html.dark and persists it. ---- */
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--r-full);
+  background: transparent; border: 1px solid transparent;
+  color: rgb(var(--c-faint)); cursor: pointer;
+  -webkit-appearance: none; -webkit-tap-highlight-color: transparent;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, transform .12s ease;
+}
+.theme-toggle:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); border-color: rgb(var(--c-edge)); }
+.theme-toggle:active { transform: scale(.94); }
+.theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+.theme-toggle sf-symbol { font-size: 16px; }
+
+/* Special-user flair (adapted from the hybrid-assistant's is-admin avatar): a
+   slow rainbow ring spinning around the avatar. app.js adds .is-special to the
+   wrapper when the signed-in AppleConnect user matches. */
+.user-avatar-wrapper.is-special::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: var(--r-full);
+  background: conic-gradient(#f59e0b, #ef4444, #a855f7, #3b82f6, #10b981, #f59e0b);
+  animation: avatar-ring-spin 2.5s linear infinite;
+  z-index: 0;
+}
+.user-avatar-wrapper.is-special .user-avatar { position: relative; z-index: 1; } /* sit above the ring */
+@keyframes avatar-ring-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .user-avatar-wrapper.is-special::before { animation: none; } }
+
+.user-menu {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  min-width: 210px; max-width: 78vw;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: .35rem;
+  opacity: 0; transform: translateY(-4px) scale(.98); pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 70;
+}
+.user-menu.open { opacity: 1; transform: none; pointer-events: auto; }
+.user-menu-name { padding: .4rem .55rem .1rem; font-weight: 600; font-size: 13px; color: rgb(var(--c-ink)); }
+.user-menu-sub {
+  padding: 0 .55rem .4rem; font-size: 11px; color: rgb(var(--c-faint));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-menu-divider { height: 1px; background: rgb(var(--c-edge)); margin: .25rem 0; }
+.user-menu-item {
+  width: 100%; box-sizing: border-box; text-align: left;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .55rem .6rem; border-radius: var(--r-md);
+  background: none; border: none; cursor: pointer;
+  color: rgb(var(--c-ink)); font-size: 13px; text-decoration: none;
+  transition: background-color .1s ease;
+}
+.user-menu-item:hover { background: rgb(var(--c-raised)); }
+.user-menu-item sf-symbol { font-size: 13px; color: rgb(var(--c-faint)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .user-avatar, .user-menu, .theme-toggle { transition: none; }
+}
+
+/* ---- Attachments: composer chips, thumbnails, and the drag-drop highlight. ---- */
+/* Staged previews above the composer: taller icon/thumbnail tiles with a corner
+   close button, no filename label (it's the tile's title tooltip). */
+.attach-tile {
+  position: relative;
+  width: 60px; height: 60px; /* document tiles stay square */
+  border-radius: var(--r-lg);
+  border: 1px solid rgb(var(--c-edge));
+  background: rgb(var(--c-surface));
+  overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* Image tiles take the picture's aspect ratio (fixed height, width follows the
+   image) so the thumbnail keeps the image's shape instead of a square crop;
+   bounded so a very wide / tall image stays a sensible tile. object-fit: contain
+   keeps the ratio (no distortion) if a bound clamps the box. */
+.attach-tile:has(img) { width: auto; min-width: 44px; max-width: 132px; }
+.attach-tile img { display: block; height: 100%; width: auto; max-width: 132px; object-fit: contain; }
+.attach-tile .attach-doc-icon { font-size: 26px; color: rgb(var(--c-faint)); }
+.attach-remove {
+  position: absolute; top: 3px; right: 3px;
+  width: 20px; height: 20px; border-radius: var(--r-full);
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer; border: 0;
+  background: rgb(var(--c-base) / .72); color: rgb(var(--c-ink));
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  transition: color .12s ease, background-color .12s ease;
+}
+.attach-remove:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-base) / .9); }
+.attach-remove sf-symbol { font-size: 12px; }
+.attach-thumb-lg { max-width: 220px; max-height: 220px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); object-fit: contain; display: block; }
+.attach-chip { max-width: 260px; }
+.tool-image { max-width: 320px; max-height: 320px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); object-fit: contain; display: block; cursor: zoom-in; }
+.tool-image-link { display: inline-block; line-height: 0; }
+#inputArea.drop-active { outline: 2px dashed rgb(var(--c-brand)); outline-offset: 3px; border-radius: var(--r-lg); }
+
+/* ---- Queued-message strip: pending messages typed while the agent is busy,
+        shown above the composer (mirrors the terminal's busy-time queue). ---- */
+#queueStrip { border-top: 1px solid rgb(var(--c-edge) / .6); }
+.queue-head { font-weight: 600; opacity: .85; }
+.queue-row {
+  background: rgb(var(--c-raised) / .5);
+  border: 1px solid rgb(var(--c-edge) / .7);
+  border-radius: var(--r-md);
+  padding: .25rem .5rem;
+}
+.queue-idx { color: rgb(var(--c-faint)); font-variant-numeric: tabular-nums; }
+.queue-text { color: rgb(var(--c-ink) / .85); white-space: pre-wrap; overflow-wrap: anywhere; }
+.queue-remove {
+  width: 18px; height: 18px; border-radius: var(--r-full);
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer; border: 0;
+  background: transparent; color: rgb(var(--c-faint));
+  transition: color .12s ease, background-color .12s ease;
+}
+.queue-remove:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-base) / .6); }
+.queue-remove sf-symbol { font-size: 11px; }
+
+/* ---- Composer: the textarea grows to fill the row; the attach button is tucked
+        into its lower-left (the textarea gets left padding to clear it), and the
+        Image / Document chooser opens upward over the composer. ---- */
+.composer { position: relative; flex: 1 1 auto; min-width: 0; }
+/* Per-agent color resolution. renderComposerAgent sets, on .composer:
+   --agent-base (a token color, for the built-ins build/plan) OR --agent-hue (a
+   stable 0–359 hue, for custom agents), plus the .has-agent class. We resolve
+   both into --agent-color here so the legend + textarea border read it uniformly.
+   Custom-agent shade is theme-aware: brighter/more saturated on dark, deeper on
+   light — so toggling the theme recolors custom agents with NO JS re-render. */
+.composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agent-hue, 220) 70% 60%)); }
+html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agent-hue, 220) 62% 42%)); }
+/* Active primary-agent name notched into the composer's top border (the
+   fieldset/legend look), sitting on the LEFT of the top edge. translateY(-50%)
+   with top:0 straddles the border regardless of font size; the textarea's own
+   surface fill makes the border read as "broken" around the label. left:1rem
+   clears the rounded corner. Clickable (role=button) to open the /agent picker;
+   hidden when no name is set. */
+.composer-agent {
+  position: absolute; top: 0; left: 1rem; transform: translateY(-50%); z-index: 2;
+  padding: 0 .55rem;
+  font-size: .85rem; line-height: 1.2; font-weight: 600; letter-spacing: .01em;
+  color: var(--agent-color, rgb(var(--c-brand)));
+  background: rgb(var(--c-surface));
+  border-radius: var(--r-sm);
+  cursor: pointer; white-space: nowrap; user-select: none;
+  max-width: calc(45% - 1rem); overflow: hidden; text-overflow: ellipsis;
+  transition: color .15s ease, background-color .15s ease;
+}
+.composer-agent:empty { display: none; }
+.composer-agent:hover { filter: brightness(1.12); background: rgb(var(--c-raised)); }
+.composer-agent:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Model · reasoning, notched into the composer's top-RIGHT border — mirrors the
+   agent legend on the left, same surface-fill "broken border" look but neutral
+   (faint) toned since it's metadata, not the agent identity. right:1rem clears the
+   rounded corner and stays inboard of the send button. Clickable → change model. */
+.composer-meta {
+  position: absolute; top: 0; right: 1rem; transform: translateY(-50%); z-index: 2;
+  padding: 0 .55rem;
+  font-size: .78rem; line-height: 1.2; font-weight: 600; letter-spacing: .01em;
+  display: inline-flex; align-items: center; gap: .4rem;
+  color: rgb(var(--c-faint));
+  background: rgb(var(--c-surface));
+  border-radius: var(--r-sm);
+  cursor: pointer; white-space: nowrap; user-select: none;
+  max-width: calc(60% - 1rem); overflow: hidden;
+  transition: color .15s ease, background-color .15s ease;
+}
+.composer-meta:empty { display: none; }
+.composer-meta:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.composer-meta:focus-visible { outline: none; box-shadow: var(--ring); }
+/* Only the model name shrinks + ellipsizes when the notch is tight (iPad / narrow
+   window); the provider, reasoning, and memory pills + the "·" separators stay
+   full-width (flex:none) so they never garble. Fixes a long model name clipping
+   or shoving the meta toward the agent legend. */
+.composer-meta > * { flex: none; }
+.composer-meta .cm-model { color: rgb(var(--c-brand)); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.composer-meta .cm-provider { color: rgb(var(--c-faint)); font-weight: 600; }
+.composer-meta .cm-sep { opacity: .45; font-weight: 400; }
+/* Session-memory pill in composer-meta: a brain glyph + rule count, clickable to
+   open the AGENTS.md rules editor. Hover/focus mirror the reasoning pill. */
+.composer-meta .cm-mem {
+  display: inline-flex; align-items: center; gap: .2rem;
+  color: rgb(var(--c-faint)); cursor: pointer; border-radius: var(--r-sm);
+  padding: 0 .2rem; margin: 0 -.05rem; transition: color .12s ease, background-color .12s ease;
+}
+.composer-meta .cm-mem:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.composer-meta .cm-mem:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Session-memory editor rows (in the manage modal). Each bullet is a full-width
+   auto-growing textarea so the whole rule is visible (the AGENTS.md bullets are
+   long paragraphs); Save/delete sit to the right, top-aligned with the textarea. */
+.mem-row {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding: .4rem 0; border-bottom: 1px solid rgb(var(--c-edge) / .5);
+}
+.mem-row:last-child { border-bottom: 0; }
+.mem-input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
+  padding: .45rem .55rem; font-size: 13px; line-height: 1.45;
+  resize: vertical; overflow: hidden; min-height: 2.1rem;
+  font-family: inherit;
+}
+.mem-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.mem-actions { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; padding-top: .15rem; }
+.mem-add .mem-input { color: rgb(var(--c-ink)); }
+.mem-add .mem-input::placeholder { color: rgb(var(--c-faint)); }
+/* Per-section block: content view / edit textarea / actions stacked vertically. */
+.mem-section { flex-direction: column; align-items: stretch; gap: .45rem; }
+.mem-view { font-size: 13px; }
+.mem-view > :first-child { margin-top: 0; }
+.mem-view > :last-child { margin-bottom: 0; }
+.mem-section .mem-actions { justify-content: flex-end; padding-top: 0; }
+/* Taller, softer resting composer. app.css loads after tailwind.css so these win
+   on equal specificity (no rebuild). Extra top padding keeps the first line clear
+   of the notched agent legend; the side padding leaves room for the attach (left)
+   and send (right) buttons. */
+.composer-input { display: block; width: 100%; min-height: 72px; padding: .8rem 3.4rem .65rem 2.85rem; border-radius: var(--r-xl); line-height: 1.5; }
+/* Backtick code highlighting. A <textarea> can't style its own substrings, so
+   #inputHighlight mirrors the text in an overlay laid ON TOP of the textarea
+   (pointer-events:none, transparent text) and paints a translucent tint behind
+   each `...` span. Because the tint is semi-transparent and sits over the
+   textarea's still-visible text, we never touch the textarea's own background —
+   which avoids fighting the themed #input / .bg-surface background rules.
+   syncInputHighlight() copies the textarea's box metrics onto the mirror so the
+   tint rectangles line up with the text. */
+.composer-highlight {
+  position: absolute; inset: 0; z-index: 1; margin: 0; overflow: hidden;
+  pointer-events: none; user-select: none;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  background: transparent; color: transparent;
+  border: 1px solid transparent; border-radius: var(--r-xl);
+}
+.composer-highlight .ihl-code {
+  background: rgb(var(--c-brand) / .28); border-radius: 4px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+/* Attach: a circular ghost icon button on the left — faint at rest, lifting to a
+   raised disc + ink icon on hover, with a press-scale and focus ring. */
+.composer-attach {
+  position: absolute; left: .45rem; top: 50%; margin-top: -18px; z-index: 2; /* center: half of 36px */
+  width: 36px; height: 36px; border-radius: var(--r-full);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: rgb(var(--c-faint));
+  background: transparent; border: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .15s ease, background-color .15s ease, transform .12s ease;
+}
+.composer-attach:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.composer-attach:active { transform: scale(.9); }
+.composer-attach:focus-visible { outline: none; box-shadow: var(--ring); }
+/* The glyph rotates 45° while the attach menu is open, turning the + into an ×
+   (a recognizable "close" affordance). Animate the inner sf-symbol so the disc's
+   :active scale and hover don't fight the rotation. */
+.composer-attach sf-symbol { transition: transform .18s ease; }
+.composer-attach.menu-open { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
+.composer-attach.menu-open sf-symbol { transform: rotate(45deg); }
+/* Frozen while a turn is in flight (setState disables it): dim, no hover, default
+   cursor — attachments can only be staged on an idle composer. */
+.composer-attach:disabled { opacity: .4; cursor: default; }
+.composer-attach:disabled:hover { background: transparent; color: rgb(var(--c-faint)); transform: none; }
+
+/* Send: a circular brand button mirroring attach on the right, with a soft brand
+   glow that swells on hover. margin-top centers it (not transform) so brand-btn's
+   press/disabled transforms still apply cleanly. */
+.composer-send {
+  position: absolute; right: .5rem; top: 50%; margin-top: -19px; z-index: 2; /* center: half of 38px */
+  width: 38px; height: 38px; padding: 0;
+  border-radius: var(--r-full);
+  box-shadow: 0 2px 9px -3px rgb(var(--c-brand) / .55);
+}
+.composer-send:hover:not(:disabled) { box-shadow: 0 4px 14px -3px rgb(var(--c-brand) / .65); }
+.composer-send:disabled { box-shadow: none; }
+
+/* Header pill (approval: …) and the composer-meta reasoning value — clickable
+   tokens that open a small picker. Hover/focus give a raised affordance without
+   shifting layout. */
+.hdr-approval, .hdr-think-pill, .stat-quota, .stat-context {
+  cursor: pointer; border-radius: var(--r-sm); padding: 0 .25rem; margin: 0 -.05rem;
+  transition: background-color .12s ease;
+}
+.hdr-approval:hover, .hdr-think-pill:hover, .stat-quota:hover, .stat-context:hover { background: rgb(var(--c-raised)); }
+.hdr-approval:focus-visible, .hdr-think-pill:focus-visible, .stat-quota:focus-visible, .stat-context:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Project/git token in hdrMeta — clickable to open the git modal. */
+.hdr-git { cursor: pointer; border-radius: var(--r-sm); padding: 0 .25rem; margin: 0 -.05rem; transition: background-color .12s ease; }
+.hdr-git:hover { background: rgb(var(--c-raised)); }
+.hdr-git:focus-visible { outline: none; box-shadow: var(--ring); }
+.hdr-git-dirty { color: rgb(var(--c-warn)); font-variant-numeric: tabular-nums; }
+.hdr-git-dot { width: 6px; height: 6px; border-radius: var(--r-full); background: rgb(var(--c-warn)); display: inline-block; }
+.hdr-git-ahead { color: rgb(var(--c-ok)); font-variant-numeric: tabular-nums; }
+.hdr-git-behind { color: rgb(var(--c-warn)); font-variant-numeric: tabular-nums; }
+
+/* Git modal (read-only). */
+/* Two columns: left = working state (head, change groups, commit box, diff),
+   right = recent-commits history. Each column scrolls within the modal body.
+   Collapses to a single column on narrow screens. */
+.git-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+  gap: 1rem; align-items: start;
+}
+.git-col { min-width: 0; display: flex; flex-direction: column; }
+/* The first section head in a column shouldn't add top margin (keeps the right
+   column's "Recent commits" aligned with the left column's head row). */
+.git-col > .msg-label:first-child { margin-top: 0; }
+.git-col-side {
+  position: sticky; top: 0; align-self: start;
+  max-height: calc(82dvh - 6rem); overflow-y: auto;
+  padding-left: 1rem; border-left: 1px solid rgb(var(--c-edge));
+}
+@media (max-width: 760px) {
+  .git-grid { grid-template-columns: 1fr; }
+  .git-col-side { position: static; max-height: none; padding-left: 0; border-left: 0; border-top: 1px solid rgb(var(--c-edge)); padding-top: .5rem; margin-top: .5rem; }
+}
+.git-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: 13px; padding: .25rem 0 .5rem; }
+.git-branch { font-weight: 600; color: rgb(var(--c-ink)); }
+.git-up { color: rgb(var(--c-faint)); font-size: 12px; }
+.git-ahead { color: rgb(var(--c-ok)); font-variant-numeric: tabular-nums; }
+.git-behind { color: rgb(var(--c-warn)); font-variant-numeric: tabular-nums; }
+.git-clean { margin-left: auto; font-size: 12px; }
+.git-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .35rem .5rem; border-radius: var(--r-md); min-width: 0;
+  transition: background-color .12s ease;
+}
+.git-row:hover { background: rgb(var(--c-raised)); }
+.git-commit { cursor: pointer; }
+.git-badge {
+  flex: 0 0 auto; width: 1.4rem; text-align: center; border-radius: var(--r-xs);
+  font-size: 11px; font-weight: 700; padding: .05rem 0;
+  background: rgb(var(--c-edge)); color: rgb(var(--c-faint));
+}
+.git-badge.is-add { background: rgb(var(--c-ok) / .18); color: rgb(var(--c-ok)); }
+.git-badge.is-del { background: rgb(var(--c-danger) / .18); color: rgb(var(--c-danger)); }
+.git-badge.is-mod { background: rgb(var(--c-brand) / .18); color: rgb(var(--c-brand)); }
+.git-badge.is-ren { background: rgb(var(--c-violet) / .18); color: rgb(var(--c-violet)); }
+.git-badge.is-conflict { background: rgb(var(--c-warn) / .2); color: rgb(var(--c-warn)); }
+.git-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: rgb(var(--c-ink)); min-width: 0; cursor: pointer; flex: 1 1 auto; }
+.git-path:hover { color: rgb(var(--c-brand)); }
+/* Per-file stage/unstage/discard actions — revealed on row hover/focus to keep
+   the list calm; always shown on touch (no hover). */
+.git-actions { flex: 0 0 auto; display: flex; gap: .3rem; opacity: 0; transition: opacity .12s ease; }
+.git-row:hover .git-actions, .git-row:focus-within .git-actions { opacity: 1; }
+@media (pointer: coarse) { .git-actions { opacity: 1; } }
+.git-act {
+  font-size: 11px; font-weight: 600; padding: .15rem .45rem; border-radius: var(--r-sm);
+  border: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-surface)); color: rgb(var(--c-ink));
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .12s ease, color .12s ease;
+}
+.git-act:hover { background: rgb(var(--c-raised)); }
+.git-act:focus-visible { outline: none; box-shadow: var(--ring); }
+.git-act.is-danger { color: rgb(var(--c-danger)); border-color: rgb(var(--c-danger) / .4); }
+.git-act.is-danger:hover { background: rgb(var(--c-danger) / .12); }
+.git-commit .git-hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: rgb(var(--c-brand)); flex: 0 0 auto; }
+.git-commit .git-subject { color: rgb(var(--c-ink)); font-size: 12.5px; min-width: 0; flex: 1 1 auto; }
+.git-commit .git-when { flex: 0 0 auto; font-size: 11px; }
+.git-diff {
+  margin: .5rem 0; max-height: 42dvh; overflow: auto;
+  background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
+  padding: .5rem .6rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre; color: rgb(var(--c-faint));
+}
+
+/* Push button in the git modal head (Phase 3). */
+.git-push {
+  flex: 0 0 auto; font: inherit; font-size: 12px; font-weight: 600;
+  padding: .2rem .6rem; border-radius: var(--r-pill); cursor: pointer;
+  color: rgb(var(--c-brand));
+  background: rgb(var(--c-brand) / .12); border: 1px solid rgb(var(--c-brand) / .4);
+  -webkit-tap-highlight-color: transparent;
+}
+.git-push:hover { background: rgb(var(--c-brand) / .2); border-color: rgb(var(--c-brand) / .6); }
+.git-push:focus-visible { outline: none; box-shadow: var(--ring); }
+.git-push:disabled { opacity: .6; cursor: default; }
+
+/* Commit composer in the git modal (Phase 3). */
+.git-commit-box {
+  margin: .5rem 0 .25rem; padding: .55rem .6rem;
+  background: rgb(var(--c-raised) / .5); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
+}
+.git-commit-msg {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 2.4rem;
+  background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md); padding: .4rem .55rem;
+  font: inherit; font-size: 13px; line-height: 1.4;
+}
+.git-commit-msg:focus-visible { outline: none; box-shadow: var(--ring); border-color: rgb(var(--c-brand) / .6); }
+.git-commit-actions { display: flex; align-items: center; gap: .6rem; margin-top: .45rem; }
+.git-commit-hint { font-size: 11px; flex: 1 1 auto; min-width: 0; }
+.git-commit-actions .manage-install { flex: 0 0 auto; }
+
+/* Body-level fixed picker opened from a header/composer token (approval level,
+   reasoning level). Positioned in JS under the clicked token; toggled via .hidden. */
+.hdr-menu {
+  position: fixed; z-index: 80;
+  min-width: 184px;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: .3rem;
+}
+.hdr-menu.hidden { display: none; }
+.hdr-menu-item {
+  width: 100%; box-sizing: border-box; text-align: left;
+  display: flex; flex-direction: column; gap: .1rem;
+  padding: .4rem .55rem; border: 0; border-radius: var(--r-md);
+  background: transparent; color: rgb(var(--c-ink)); cursor: pointer;
+  font: inherit; -webkit-tap-highlight-color: transparent;
+}
+.hdr-menu-item:hover { background: rgb(var(--c-raised)); }
+.hdr-menu-item:focus-visible { outline: none; box-shadow: var(--ring); }
+.hdr-menu-item.is-current { background: rgb(var(--c-brand) / .14); }
+.hdr-menu-item.is-current .hdr-menu-label { color: rgb(var(--c-brand)); }
+/* Read-only rows in an info popover (e.g. the quota name/usage): not selectable,
+   so no pointer/hover affordance. */
+.hdr-menu-item.is-info { cursor: default; }
+.hdr-menu-item.is-info:hover { background: transparent; }
+.hdr-menu-label { font-weight: 600; font-size: .82rem; }
+.hdr-menu-desc { font-size: .72rem; color: rgb(var(--c-faint)); }
+
+.attach-menu {
+  position: absolute; left: .3rem; bottom: calc(100% + .45rem);
+  min-width: 168px;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: .3rem;
+  opacity: 0; transform: translateY(4px) scale(.98); pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 70;
+}
+.attach-menu.open { opacity: 1; transform: none; pointer-events: auto; }
+.attach-menu-item {
+  width: 100%; box-sizing: border-box; text-align: left;
+  display: flex; align-items: center; gap: .55rem;
+  padding: .45rem .55rem; border-radius: var(--r-md);
+  background: none; border: 0; cursor: pointer;
+  color: rgb(var(--c-ink)); font-size: 13px;
+  transition: background-color .1s ease;
+}
+.attach-menu-item:hover { background: rgb(var(--c-raised)); }
+.attach-menu-item sf-symbol { font-size: 15px; color: rgb(var(--c-faint)); }
+@media (prefers-reduced-motion: reduce) { .attach-menu { transition: none; } }
+
+/* ---- Delegate tool calls hand a task to an external worker agent (Claude Code /
+        Optimus) — give them a striking violet identity, distinct from ordinary
+        tool cards. The header icon still shows running / ok / error. Appended
+        last so its rail color wins over .tool-card.tool-ok / .tool-err. ---- */
+.tool-card.tool-delegate {
+  background: linear-gradient(180deg, rgb(var(--c-violet) / .12), rgb(var(--c-violet) / .04));
+  border-color: rgb(var(--c-violet) / .35);
+  border-left-color: rgb(var(--c-violet));
+  box-shadow: inset 0 1px 0 rgb(var(--c-hi) / .04), -1px 0 14px -7px rgb(var(--c-violet) / .5);
+}
+.tool-card.tool-delegate:hover {
+  background: linear-gradient(180deg, rgb(var(--c-violet) / .18), rgb(var(--c-violet) / .06));
+  box-shadow: inset 0 1px 0 rgb(var(--c-hi) / .05), -1px 0 18px -7px rgb(var(--c-violet) / .65), 0 8px 20px -14px rgb(var(--c-shadow) / .9);
+}
+.tool-card.tool-delegate .text-warn { color: rgb(var(--c-violet)); } /* violet running header, not amber */
+
+/* ---- While answering, Send becomes a red Stop button (setSendMode adds .bg-danger).
+        Flat solid red to match the new button style; the .brand-btn.bg-danger
+        specificity overrides the base brand fill. ---- */
+.brand-btn.bg-danger { background: rgb(var(--c-danger)); }
+.brand-btn.bg-danger:hover { background: rgb(var(--c-danger) / .86); }
+
+/* ---- Diff preview (approval prompt + tool-call cards): GitHub-style colored
+        rows so added / removed code is obvious at a glance. renderDiff() in
+        app.js wraps each line in .diff-line + a state class. Backgrounds/rails
+        are tokenized; the brighter text colors get a light-theme override. ---- */
+pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 0; }
+.diff-line {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 .55rem;
+  line-height: 1.5;
+  border-left: 2px solid transparent;
+}
+.diff-add { background: rgb(var(--c-ok) / .15);  color: #aff5b4; border-left-color: rgb(var(--c-ok)); }
+.diff-del { background: rgb(var(--c-danger) / .14);   color: #ffc1bc; border-left-color: rgb(var(--c-danger)); }
+.diff-hunk { color: #79c0ff; background: rgb(var(--c-brand) / .07); }
+.diff-meta { color: rgb(var(--c-faint)); }
+
+/* +N −N badge in the approval header (counts derived from the diff). */
+.diff-count { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; font-size: .9em; font-variant-numeric: tabular-nums; }
+.diff-count-add { color: rgb(var(--c-ok) / .85); margin-left: .5rem; }
+.diff-count-del { color: rgb(var(--c-danger) / .85); margin-left: .35rem; }
+
+/* ---- Sidebar per-project actions: a brand pill for "New session" and a ghost
+        "Clear all" that turns red (destructive) on hover. Single row, indented
+        to align with the session rows; "New session" ellipsis-truncates before
+        it could push "Clear all" out of the narrow sidebar. ---- */
+.tree-actions { display: flex; align-items: center; gap: .2rem; min-width: 0; }
+.tree-action {
+  display: inline-flex; align-items: center; gap: .15rem;
+  white-space: nowrap;
+  padding: .15rem .25rem; border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.tree-action sf-symbol { font-size: 11px; } /* trim icon width to help both labels fit one row */
+.tree-action-new { flex: 0 1 auto; min-width: 0; } /* may shrink + ellipsis */
+.tree-action-new > span { overflow: hidden; text-overflow: ellipsis; }
+.tree-action-clear { flex: none; } /* never shrinks — stays fully labeled on the right */
+.tree-action-new { color: var(--accent); background: rgb(var(--c-brand) / .1); border-color: rgb(var(--c-brand) / .22); }
+.tree-action-new:hover { background: rgb(var(--c-brand) / .18); border-color: rgb(var(--c-brand) / .4); }
+.tree-action-clear { color: rgb(var(--c-faint)); }
+.tree-action-clear:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-danger) / .12); border-color: rgb(var(--c-danger) / .3); }
+
+/* ---- Approval action buttons: flat, calm, and clearly ranked — a filled green
+        primary (Approve), a red "ghost" Deny, and a neutral ghost Always allow
+        (warms to brand on hover). No glossy gradients: just a subtle press + a
+        focus ring, matching the rest of the UI. Colors live in the .b-* rules,
+        so the buttons no longer carry bg-* / text-white utilities in the markup. ---- */
+.b-yes, .b-no, .b-always {
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap; /* keep the label on one line; the row wraps instead (mobile) */
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+}
+.b-yes:active, .b-no:active, .b-always:active { transform: translateY(1px); }
+.b-yes:focus-visible, .b-no:focus-visible, .b-always:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Approve — the primary action: green fill (slight alpha at rest so it shares the
+   translucent feel of the other two), going fully solid on hover. White text. */
+.b-yes { background: rgb(var(--c-ok) / .9); color: #fff; }
+.b-yes:hover { background: rgb(var(--c-ok)); }
+
+/* Deny — a red-tinted ghost button. */
+.b-no { background: rgb(var(--c-danger) / .12); color: rgb(var(--c-danger)); border-color: rgb(var(--c-danger) / .35); }
+.b-no:hover { background: rgb(var(--c-danger) / .2); border-color: rgb(var(--c-danger) / .55); }
+
+/* Always allow — a brand-blue tint (parallel to Deny's red tint) so it reads at
+   a glance as the persistent "allow", distinct from the green allow-once. */
+.b-always { background: rgb(var(--c-brand) / .14); color: rgb(var(--c-brand)); border-color: rgb(var(--c-brand) / .4); }
+.b-always:hover { background: rgb(var(--c-brand) / .24); border-color: rgb(var(--c-brand) / .6); }
+
+/* The shortcut keycap: a small raised key — squared off with a min-width, a 1px
+   "depth" line under it and a faint top sheen. Neutral on the ghost buttons
+   (inherits the button's text color), white-on-translucent on filled Approve. */
+.app-approval kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.35em;
+  margin-left: .15rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .76em; line-height: 1; font-weight: 700;
+  padding: .24em .42em; border-radius: var(--r-sm);
+  background: rgb(var(--c-ink) / .07);
+  border: 1px solid rgb(var(--c-ink) / .2);
+  box-shadow: 0 1px 0 rgb(var(--c-ink) / .2), inset 0 1px 0 rgb(255 255 255 / .14);
+  color: inherit;
+}
+.b-yes kbd {
+  background: rgb(255 255 255 / .2);
+  border-color: rgb(255 255 255 / .5);
+  box-shadow: 0 1px 0 rgb(0 0 0 / .18), inset 0 1px 0 rgb(255 255 255 / .3);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b-yes, .b-no, .b-always { transition: none; }
+}
+
+/* ============================================================================
+   Transcript reorg (step 1): collapse consecutive tool calls into one
+   "N tool calls" disclosure, flatten the assistant prose, amber inline code, a
+   per-turn meta footer, and a floating scroll-to-bottom button.
+   ============================================================================ */
+
+/* Positioning context so the scroll button can float over the scrolling list. */
+.transcript-wrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* Inline code as warm amber chips (matches the reference) — same in the user
+   bubble. The text color gets a light-theme override below (the bright #e3b341
+   is unreadable on white). */
+.msg-assistant > .md :not(pre) > code,
+.msg-user > .md :not(pre) > code { background: rgb(var(--c-warn) / .13); border-color: rgb(var(--c-warn) / .3); color: #e3b341; }
+
+/* Consecutive tool calls collapse into one disclosure row. */
+.tool-group { margin: .4rem 0; }
+/* Disclosure heads read as real controls: a chip that hugs its label, a rotating
+   chevron, a hover surface, and a brighter (ink-soft, semibold) label so the
+   summary row sits above body prose instead of looking like a stray log line. */
+.tool-group-head, .worker-group-head {
+  display: flex; align-items: center; gap: .45rem; width: fit-content;
+  padding: .28rem .6rem; border-radius: var(--r-md);
+  font-size: 12.5px; user-select: none; cursor: pointer;
+  color: rgb(var(--c-faint));
+  transition: color .12s ease, background-color .12s ease;
+}
+.tool-group-head:hover, .worker-group-head:hover { color: rgb(var(--c-ink-soft)); background: rgb(var(--c-surface)); }
+.tool-group-chevron, .worker-group-chevron { font-size: 10px; transition: transform .15s ease; }
+.tool-group-head.is-open .tool-group-chevron, .worker-group-head.is-open .worker-group-chevron { transform: rotate(90deg); }
+.tool-group-label, .worker-group-label { color: rgb(var(--c-ink-soft)); font-weight: 600; }
+.tool-group-dot { font-size: 12px; } /* SF Symbol; inherits the head's faint color (brightens on hover) */
+.tool-group-body { margin-top: .25rem; }
+.tool-group-body.hidden { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tool-group-chevron, .worker-group-chevron { transition: none; }
+}
+
+.worker-group { margin: .4rem 0; }
+.worker-group-dot { font-size: 12px; color: rgb(var(--c-violet)); } /* violet: delegated-worker identity (matches delegate cards) */
+.worker-group-body { margin-top: .3rem; padding-left: .65rem; display: flex; flex-direction: column; gap: .25rem; }
+.worker-group-body.hidden { display: none; }
+/* Worker rows pick up the tool-row family look — a raised pill with a violet left
+   accent — so a delegated worker's activity reads as first-class, not bare text. */
+.worker-row {
+  display: flex; align-items: baseline; gap: .5rem;
+  padding: .3rem .55rem; border-radius: var(--r-md);
+  background: rgb(var(--c-surface));
+  border-left: 2px solid rgb(var(--c-violet) / .55);
+  line-height: 1.5;
+}
+.worker-row-name { color: rgb(var(--c-violet)); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; font-weight: 600; }
+
+/* A workflow node's actual model response (the "output" kind): a fuller, inked
+   block (not the faint status lines) so you can read what each block produced. */
+.worker-row-output { display: block; color: rgb(var(--c-ink)); background: rgb(var(--c-base)); border-left-color: rgb(var(--c-brand) / .55); }
+.worker-row-output .worker-row-body { font-size: 1rem; }
+
+/* Per-turn footer: duration · cost · model, mirroring the reference. */
+.turn-meta { margin-top: .4rem; opacity: .85; }
+
+/* Per-delegation footer inside a `task` card: indented under the header text and
+   separated by a hairline so it reads as the card's own summary line. */
+.file-card > .task-meta {
+  margin: .1rem 0 .2rem;
+  padding: .3rem 0 0 1.55rem;
+  border-top: 1px solid rgb(var(--c-edge) / .55);
+  opacity: .8;
+}
+
+/* Floating scroll-to-bottom button, centered near the transcript's bottom. */
+.scroll-btn {
+  position: absolute; left: 50%; bottom: .85rem; transform: translateX(-50%);
+  width: 34px; height: 34px; border-radius: var(--r-full);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgb(var(--c-raised)); color: rgb(var(--c-ink-soft)); border: 1px solid rgb(var(--c-edge));
+  box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
+  cursor: pointer; z-index: 5;
+  transition: background-color .12s ease, transform .12s ease;
+}
+.scroll-btn:hover { background: rgb(var(--c-edge)); transform: translateX(-50%) translateY(-1px); }
+.scroll-btn[hidden] { display: none; }
+.scroll-btn sf-symbol { font-size: 15px; }
+
+/* ---- Tool-call viewer: every tool in a group renders as a code card — a header
+        bar (collapse + state + "tool  summary" + diff badge + copy) over a
+        collapsible, line-numbered body (diff-colored for diffs, syntax-
+        highlighted otherwise). The left rail tracks running/ok/error. ---- */
+.file-card {
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md); background: rgb(var(--c-base));
+  margin: .4rem 0; overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-left: 3px solid rgb(var(--c-warn)); /* running (amber) → green/red on completion */
+}
+.file-card.tool-ok { border-left-color: rgb(var(--c-ok)); }
+.file-card.tool-err { border-left-color: rgb(var(--c-danger)); }
+.file-card.tool-delegate { border-left-color: rgb(var(--c-violet)); background: linear-gradient(180deg, rgb(var(--c-violet) / .08), rgb(var(--c-base))); }
+.file-card-head {
+  display: flex; align-items: center; gap: .45rem;
+  padding: .35rem .55rem; background: rgb(var(--c-surface)); border-bottom: 1px solid rgb(var(--c-edge-soft));
+  cursor: pointer; font-size: 12.5px;
+}
+.file-card-head:hover { background: rgb(var(--c-raised)); }
+.file-chevron { font-size: 11px; color: rgb(var(--c-faint)); }
+.tool-state { display: inline-flex; align-items: center; }
+.tool-state sf-symbol { font-size: 13px; }
+.tool-run-art { height: 16px; width: auto; flex: 0 0 auto; }
+.file-path { color: rgb(var(--c-ink-soft)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-copy { display: inline-flex; align-items: center; color: rgb(var(--c-faint)); background: none; border: 0; padding: 2px; cursor: pointer; }
+.file-copy:hover { color: rgb(var(--c-ink)); }
+.user-meta { opacity: .85; }
+.user-copy { display: inline-flex; align-items: center; color: rgb(var(--c-faint)); background: none; border: 0; padding: 1px; cursor: pointer; line-height: 0; }
+.user-copy:hover { color: rgb(var(--c-ink)); }
+.user-copy sf-symbol { font-size: 12px; }
+.file-card-body { overflow: auto; max-height: 26rem; }
+.file-card-body.hidden { display: none; }
+/* file-args: a tool's JSON input shown as an indented, wrapping key/value block
+   (the task tool) instead of a one-line blob. */
+.file-args {
+  margin: 0; padding: .55rem .8rem; white-space: pre-wrap; word-break: break-word;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgb(var(--c-ink-soft));
+}
+/* file-args-block: the model's tool parameters pinned at the top of a tool card
+   body (above the output/diff), under a small "parameters" label, so what the
+   model asked for stays visible after the body swaps to the result. */
+.file-args-block { border-bottom: 1px solid rgb(var(--c-faint) / .2); }
+.file-args-label {
+  padding: .4rem .8rem 0; font-size: 10px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: rgb(var(--c-faint));
+}
+.file-args-block .file-args { padding-top: .2rem; }
+/* file-md: a sub-agent's task result rendered as markdown inside the card body.
+   Reset the card's monospace face back to the UI sans so prose reads naturally. */
+.file-md {
+  padding: .55rem .8rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-size: 13px;
+}
+/* Nested sub-agent (task) tool calls: a delegated persona's tool cards rendered
+   inside the parent task card, set off by an indented brand rail. */
+.tool-children {
+  display: flex; flex-direction: column; gap: 5px;
+  margin: 6px 8px 8px 8px; padding-left: 10px;
+  border-left: 2px solid rgb(var(--c-brand) / .35);
+  max-height: 32rem; overflow-y: auto; /* scroll a long delegation instead of growing the page */
+}
+.tool-children.hidden { display: none; }
+/* Keep each nested card at its natural height: as a flex column with a capped
+   height, the cards would otherwise shrink to fit (flex-shrink:1) and the
+   container wouldn't scroll. flex:0 0 auto makes them keep their height so the
+   tool-children list scrolls instead. */
+.file-card.tool-child { background: rgb(var(--c-base) / .6); flex: 0 0 auto; }
+.file-code { display: flex; font-size: 12px; line-height: 1.55; }
+.file-gutter {
+  margin: 0; padding: .5rem .5rem .5rem .7rem; text-align: right;
+  color: rgb(var(--c-faint-2)); background: rgb(var(--c-base)); border-right: 1px solid rgb(var(--c-edge-soft));
+  white-space: pre; user-select: none; flex-shrink: 0;
+}
+.file-pre { margin: 0; padding: .5rem .8rem; overflow-x: auto; white-space: pre; flex: 1; min-width: 0; color: rgb(var(--c-ink-soft)); }
+.file-pre code { font-family: inherit; }
+.file-pre .diff-line { white-space: pre; word-break: normal; padding: 0; border-left: 0; } /* align with the gutter */
+/* Syntax token palette (themeable: GitHub-dark / GitHub-light via --tok-*). */
+.tok-c { color: rgb(var(--tok-c)); font-style: italic; }  /* comments */
+.tok-s { color: rgb(var(--tok-s)); }                       /* strings  */
+.tok-n { color: rgb(var(--tok-n)); }                       /* numbers  */
+.tok-k { color: rgb(var(--tok-k)); }                       /* keywords */
+
+/* ============================================================================
+   Tailwind custom-color utilities → tokens.
+   The prebuilt tailwind.css emits these as rgb(<channels> / var(--tw-*-opacity))
+   with hardcoded channels. app.css loads after it, so re-declaring the same
+   selectors with rgb(var(--c-*) / …) wins by source order at equal specificity
+   — the dark output is byte-identical, and light follows the token swap. This is
+   what lets the whole UI theme without regenerating tailwind.css. Opacity
+   modifiers (e.g. bg-base/50) keep working via the preserved --tw-*-opacity var.
+   ============================================================================ */
+.bg-base { background-color: rgb(var(--c-base) / var(--tw-bg-opacity, 1)); }
+.bg-surface { background-color: rgb(var(--c-surface) / var(--tw-bg-opacity, 1)); }
+.bg-raised, .hover\:bg-raised:hover { background-color: rgb(var(--c-raised) / var(--tw-bg-opacity, 1)); }
+.bg-brand { background-color: rgb(var(--c-brand) / var(--tw-bg-opacity, 1)); }
+.bg-ok { background-color: rgb(var(--c-ok) / var(--tw-bg-opacity, 1)); }
+.bg-danger { background-color: rgb(var(--c-danger) / var(--tw-bg-opacity, 1)); }
+.text-ink, .hover\:text-ink:hover { color: rgb(var(--c-ink) / var(--tw-text-opacity, 1)); }
+.text-faint { color: rgb(var(--c-faint) / var(--tw-text-opacity, 1)); }
+.text-brand { color: rgb(var(--c-brand) / var(--tw-text-opacity, 1)); }
+.text-ok { color: rgb(var(--c-ok) / var(--tw-text-opacity, 1)); }
+.text-warn { color: rgb(var(--c-warn) / var(--tw-text-opacity, 1)); }
+.text-danger, .hover\:text-danger:hover { color: rgb(var(--c-danger) / var(--tw-text-opacity, 1)); }
+.border-edge { border-color: rgb(var(--c-edge) / var(--tw-border-opacity, 1)); }
+.border-warn { border-color: rgb(var(--c-warn) / var(--tw-border-opacity, 1)); }
+.border-l-brand { border-left-color: rgb(var(--c-brand) / var(--tw-border-opacity, 1)); }
+.hover\:border-brand:hover, .focus\:border-brand:focus { border-color: rgb(var(--c-brand) / var(--tw-border-opacity, 1)); }
+
+/* ============================================================================
+   Light-theme overrides — the few spots a pure token swap can't cover: text
+   that was a fixed bright color on a dark tint (selection, amber inline code,
+   diff/hunk text), and the body's bottom vignette (a near-black wash that would
+   muddy a white page). Everything else themes through the tokens above.
+   ============================================================================ */
+html.light ::selection { background: rgb(var(--c-brand) / .18); color: inherit; }
+
+/* The bottom vignette is a dark wash in dark mode; in light, make the backdrop a
+   clean, faint cool wash instead of a gray smudge. */
+html.light body.app-body {
+  background-image:
+    radial-gradient(1100px 620px at 10% -10%, rgb(var(--c-brand) / .06), transparent 60%),
+    radial-gradient(900px 680px at 100% -4%, rgb(var(--c-ok) / .05), transparent 55%),
+    radial-gradient(1300px 900px at 50% 118%, rgb(var(--c-surface)), transparent 62%);
+}
+
+/* Amber inline code: the dark theme's bright #e3b341 is illegible on a light
+   chip — use the darker amber token instead. */
+html.light .msg-assistant > .md :not(pre) > code,
+html.light .msg-user > .md :not(pre) > code { color: rgb(var(--c-warn)); }
+
+/* Diff/hunk text: the dark theme uses pale tints (good on dark, washed out on
+   light). Swap to saturated GitHub-light diff colors. */
+html.light .diff-add { color: #116329; }
+html.light .diff-del { color: #a40e26; }
+html.light .diff-hunk { color: #0550ae; }
+
+/* ============================================================================
+   /context usage breakdown card — a color-coded stacked bar + legend showing
+   how the next turn's context window is apportioned (System / AGENTS.md / Tools
+   / Checkpoint / History). Mirrors the terminal's inline bar; segment colors are
+   set inline from the theme tokens in app.js.
+   ============================================================================ */
+.ctx-card {
+  display: block;
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-lg);
+  background: rgb(var(--c-surface));
+  padding: 0.7em 0.9em;
+  margin: 0.4em 0;
+  max-width: 32rem;
+}
+.ctx-head { margin-bottom: 0.55em; }
+.ctx-title { font-weight: 600; color: rgb(var(--c-ink)); }
+.ctx-bar {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: rgb(var(--c-edge-soft));
+}
+.ctx-bar-seg { height: 100%; }
+.ctx-bar-seg + .ctx-bar-seg { box-shadow: inset 1px 0 0 rgb(var(--c-surface) / .6); }
+.ctx-legend { margin-top: 0.6em; display: flex; flex-direction: column; gap: 0.2em; }
+.ctx-legend-row { font-size: 0.85em; }
+.ctx-legend-row-toggle { cursor: pointer; border-radius: var(--r-xs); }
+.ctx-legend-row-toggle:hover { background: rgb(var(--c-ink) / .05); }
+.ctx-chevron { font-size: 0.7em; transition: transform .12s ease; }
+.ctx-chevron.rotate-90 { transform: rotate(90deg); }
+.ctx-chevron-spacer { width: 0.7em; display: inline-block; }
+.ctx-legend-count { font-size: 0.75em; padding: 0 0.4em; border-radius: var(--r-md); background: rgb(var(--c-ink) / .08); font-variant-numeric: tabular-nums; }
+.ctx-swatch { width: 10px; height: 10px; border-radius: var(--r-xs); display: inline-block; }
+.ctx-legend-label { color: rgb(var(--c-ink)); }
+.ctx-legend-tok { font-variant-numeric: tabular-nums; }
+.ctx-legend-pct { font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: right; }
+.ctx-items { margin: 0.15em 0 0.35em 5px; padding-left: 12px; border-left: 2px solid rgb(var(--c-faint-2)); display: flex; flex-direction: column; gap: 0.12em; }
+.ctx-items.hidden { display: none; }
+.ctx-item-row { font-size: 0.8em; color: rgb(var(--c-faint)); }
+.ctx-item-label { color: rgb(var(--c-faint)); font-family: var(--font-mono, monospace); }
+.ctx-item-tok { font-variant-numeric: tabular-nums; }
+.ctx-foot { margin-top: 0.55em; }
+
+/* ---- confirmBox(): in-app modal replacing the native confirm() dialog ---- */
+.msgbox-back {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  background: rgb(var(--c-base) / .6);
+  backdrop-filter: blur(2px);
+  animation: msgbox-fade .12s ease;
+}
+@keyframes msgbox-fade { from { opacity: 0; } to { opacity: 1; } }
+.msgbox {
+  width: min(420px, 100%);
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-xl);
+  box-shadow: 0 16px 48px -12px rgb(var(--c-shadow) / .6);
+  padding: 1.1rem 1.2rem;
+  animation: msgbox-pop .14s ease;
+}
+@keyframes msgbox-pop { from { transform: translateY(6px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.msgbox-title { font-size: 1rem; font-weight: 600; color: rgb(var(--c-ink)); margin-bottom: .5rem; }
+.msgbox-body { font-size: .9rem; color: rgb(var(--c-faint)); line-height: 1.5; white-space: pre-wrap; }
+.msgbox-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.1rem; }
+.msgbox-btn {
+  padding: .45rem .9rem; border-radius: var(--r-md); cursor: pointer;
+  font-size: .85rem; font-weight: 500;
+  background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
+  color: rgb(var(--c-ink)); transition: background .12s ease, border-color .12s ease;
+}
+.msgbox-btn:hover { background: rgb(var(--c-ink) / .08); border-color: rgb(var(--c-brand) / .5); }
+.msgbox-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.msgbox-ok { background: rgb(var(--c-brand)); border-color: rgb(var(--c-brand)); color: #fff; }
+.msgbox-ok:hover { background: rgb(var(--c-brand) / .86); border-color: rgb(var(--c-brand) / .86); }
+.msgbox-danger { background: rgb(var(--c-danger)); border-color: rgb(var(--c-danger)); color: #fff; }
+.msgbox-danger:hover { background: rgb(var(--c-danger) / .86); border-color: rgb(var(--c-danger) / .86); }
+
+/* Maintainer announcements (userMenu → Announcement panel). */
+.app-announce { flex-direction: column; gap: .4rem; padding: .5rem .75rem; background: linear-gradient(180deg, rgb(var(--c-brand) / .12), rgb(var(--c-brand) / .04)); border-bottom: 1px solid rgb(var(--c-edge)); }
+.app-announce:not(.hidden) { display: flex; } /* display gated on :not(.hidden) so the .hidden utility (display:none) always wins */
+.announce-list { display: flex; flex-direction: column; gap: .5rem; }
+.announce-empty { font-size: 12px; color: rgb(var(--c-faint)); padding: .4rem 0; }
+.announce-item { display: flex; align-items: flex-start; gap: .6rem; padding: .5rem .6rem; border-radius: var(--r-sm); border: 1px solid rgb(var(--c-edge)); border-left: 3px solid rgb(var(--c-brand)); }
+.announce-warn { border-left-color: #d08700; }
+.announce-critical { border-left-color: rgb(var(--c-danger)); }
+.announce-main { flex: 1 1 auto; min-width: 0; }
+.announce-title { font-weight: 600; font-size: 13px; color: rgb(var(--c-ink)); }
+.announce-body { font-size: 12px; color: rgb(var(--c-ink-soft)); margin-top: .15rem; }
+/* Markdown body (.announce-body.md): tighten block spacing so a short notice
+   isn't dominated by paragraph margins; the .md rules supply list/code styling. */
+.announce-body.md > :first-child { margin-top: 0; }
+.announce-body.md > :last-child { margin-bottom: 0; }
+.announce-meta { font-size: 11px; color: rgb(var(--c-faint)); margin-top: .2rem; }
+.announce-actions { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
+.announce-close { background: none; border: none; color: rgb(var(--c-faint)); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 .2rem; }
+.announce-btn { font-size: 11px; padding: .15rem .45rem; border-radius: var(--r-sm); border: 1px solid rgb(var(--c-edge)); background: rgb(var(--c-surface)); color: rgb(var(--c-ink-soft)); cursor: pointer; }
+.announce-compose { display: flex; flex-direction: column; gap: .4rem; align-items: flex-start; }
+.announce-form { display: flex; flex-direction: column; gap: .35rem; width: 100%; max-width: 480px; margin-top: .3rem; }
+.announce-input { width: 100%; }
+.announce-textarea { min-height: 3.2rem; resize: vertical; }
+
+/* Free-text answer field for ask_user (allow_text). */
+.app-question-text { width: 100%; padding: .5rem .65rem; border-radius: var(--r-md); resize: vertical; background: rgb(var(--c-surface) / .6); border: 1px solid rgb(var(--c-edge) / .6); color: rgb(var(--c-ink)); font: inherit; }
+.app-question-text:focus { outline: none; border-color: rgb(var(--c-brand)); }
