@@ -2,7 +2,7 @@
    Extracted from index.html; served from the embedded static dir at
    /static/app.css. Tailwind utility classes come from the prebuilt
    tailwind.css — these are the rules Tailwind's preflight can't cover
-   (markdown typography, scrollbars, the sf-symbol glyph, etc.). */
+   (markdown typography, scrollbars, the app-icon glyph, etc.). */
 
 /* ============================================================================
    Theme tokens (light + dark).
@@ -113,32 +113,44 @@ body.app-body,
   transition: background-color .25s ease, border-color .25s ease, color .25s ease;
 }
 
-/* sf-symbol renders an inline glyph sized by font-size and colored by the
-   inherited `color`; these defaults keep it aligned with adjacent text. */
-sf-symbol { display: inline-flex; align-items: center; line-height: 0; }
+/* app-icon renders a Material Symbols glyph (see app-state.js: it writes the
+   ligature as its text content). Sized by font-size and colored by the inherited
+   `color`, so it aligns with adjacent text. */
+app-icon {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  display: inline-flex;
+  align-items: center;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
 
-/* SF Symbols load from Apple's CDN (the sf-symbol.js in index.html). If that
-   script fails to load — or during its async load window — the <sf-symbol>
-   custom element never becomes :defined, so it renders NOTHING and the icon-only
-   controls (Send, attach, theme toggle, sidebar, close ×, scroll) go blank and
-   unusable. Render a Unicode fallback glyph while undefined; the moment the
-   component upgrades, `:not(:defined)` stops matching and the real symbol takes
-   over (no double glyph). Only icon-only / high-signal controls get a fallback —
-   labeled controls already read fine on their text. */
-sf-symbol:not(:defined) { line-height: 1; font-style: normal; }
-sf-symbol:not(:defined)[name="arrow.up"]::after                      { content: "\2191"; }   /* ↑ send */
-sf-symbol:not(:defined)[name="plus"]::after                          { content: "+"; }       /* attach */
-sf-symbol:not(:defined)[name="xmark"]::after                         { content: "\2715"; }   /* ✕ close */
-sf-symbol:not(:defined)[name="chevron.down"]::after                  { content: "\2304"; }   /* ⌄ scroll */
-sf-symbol:not(:defined)[name="sidebar.left"]::after                  { content: "\2630"; }   /* ☰ nav */
-sf-symbol:not(:defined)[name="moon.stars.fill"]::after               { content: "\263E"; }   /* ☾ theme */
-sf-symbol:not(:defined)[name="sun.max.fill"]::after                  { content: "\2600"; }   /* ☀ theme */
-sf-symbol:not(:defined)[name="arrow.down.circle"]::after             { content: "\2913"; }   /* ⤓ download */
-sf-symbol:not(:defined)[name="checkmark"]::after                     { content: "\2713"; }   /* ✓ approve */
-sf-symbol:not(:defined)[name="hand.raised.fill"]::after              { content: "\270B"; }   /* ✋ permission */
-sf-symbol:not(:defined)[name="questionmark.bubble.fill"]::after      { content: "?"; }       /* ask_user */
-sf-symbol:not(:defined)[name="exclamationmark.triangle.fill"]::after { content: "\26A0"; }   /* ⚠ warning */
-sf-symbol:not(:defined)[name="sparkles"]::after                      { content: "\2728"; }   /* ✨ empty state */
+/* Before app-state.js runs, <app-icon> isn't yet a defined custom element and
+   renders NOTHING — so icon-only controls (Send, attach, theme toggle, sidebar,
+   close ×, scroll) would briefly go blank. Render a Unicode fallback glyph while
+   undefined; the moment the element upgrades, `:not(:defined)` stops matching and
+   the real glyph takes over. Only icon-only / high-signal controls get one. */
+app-icon:not(:defined) { font-family: inherit; line-height: 1; font-style: normal; }
+app-icon:not(:defined)[name="arrow.up"]::after                      { content: "\2191"; }   /* ↑ send */
+app-icon:not(:defined)[name="plus"]::after                          { content: "+"; }       /* attach */
+app-icon:not(:defined)[name="xmark"]::after                         { content: "\2715"; }   /* ✕ close */
+app-icon:not(:defined)[name="chevron.down"]::after                  { content: "\2304"; }   /* ⌄ scroll */
+app-icon:not(:defined)[name="sidebar.left"]::after                  { content: "\2630"; }   /* ☰ nav */
+app-icon:not(:defined)[name="moon.stars.fill"]::after               { content: "\263E"; }   /* ☾ theme */
+app-icon:not(:defined)[name="sun.max.fill"]::after                  { content: "\2600"; }   /* ☀ theme */
+app-icon:not(:defined)[name="arrow.down.circle"]::after             { content: "\2913"; }   /* ⤓ download */
+app-icon:not(:defined)[name="checkmark"]::after                     { content: "\2713"; }   /* ✓ approve */
+app-icon:not(:defined)[name="hand.raised.fill"]::after              { content: "\270B"; }   /* ✋ permission */
+app-icon:not(:defined)[name="questionmark.bubble.fill"]::after      { content: "?"; }       /* ask_user */
+app-icon:not(:defined)[name="exclamationmark.triangle.fill"]::after { content: "\26A0"; }   /* ⚠ warning */
+app-icon:not(:defined)[name="sparkles"]::after                      { content: "\2728"; }   /* ✨ empty state */
 
 /* App sans font stack — overrides Tailwind's .font-sans on the body without a
    rebuild (body.app-body beats the utility by specificity). Mono text keeps its
@@ -257,12 +269,12 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 /* Speaker label above each message: small-caps with the speaker's accent color
    (inherited from a text-ok / text-brand / text-faint utility on the element). */
 .msg-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .92; }
-.msg-label sf-symbol { font-size: 13px; }
+.msg-label app-icon { font-size: 13px; }
 /* Soften the agent's speaker label to a quiet, faint eyebrow (not a loud blue
    one) so it doesn't out-shout the now-bubbled, label-less user turn — balancing
    the two sides. Overrides the text-brand utility the label carries. */
 .msg-assistant .msg-label { color: rgb(var(--c-faint)); font-weight: 500; opacity: 1; padding-left: .9rem; } /* align with the prose, which is offset by the rail's left padding */
-.msg-assistant .msg-label sf-symbol { color: rgb(var(--c-faint)); }
+.msg-assistant .msg-label app-icon { color: rgb(var(--c-faint)); }
 
 /* ---------- Per-turn message scheme ----------
    Every turn is a .msg block; a modifier class tints its accent and gives
@@ -392,7 +404,7 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
 .code-wrap:hover .code-copy { opacity: 1; }
 .code-copy:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
 .code-copy.copied { color: rgb(var(--c-ok)); border-color: rgb(var(--c-ok) / .5); opacity: 1; }
-.code-copy sf-symbol { font-size: 12px; }
+.code-copy app-icon { font-size: 12px; }
 .md blockquote { border-left: 3px solid rgb(var(--c-edge)); padding-left: .9rem; margin: .65rem 0; color: rgb(var(--c-faint)); }
 .md hr { border: 0; border-top: 1px solid rgb(var(--c-edge)); margin: 1.1rem 0; }
 .md table { border-collapse: collapse; margin: .65rem 0; display: block; overflow-x: auto; font-size: .9em; }
@@ -406,7 +418,7 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
 .md a:hover { color: rgb(var(--c-brand-strong)); }
 .md blockquote { background: rgb(var(--c-brand) / .04); border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: .5rem .9rem; }
 
-/* ---- Inline icons: emoji + task-list checkboxes rendered as SF Symbols
+/* ---- Inline icons: emoji + task-list checkboxes rendered as Material Symbols icons
         (iconizeEmoji / iconizeChecklists in app.js). Sized to sit on the text
         baseline; they inherit the surrounding text color unless tinted with a
         themed text-* class. ---- */
@@ -751,7 +763,7 @@ body.agent-awaiting .app-statusbar::after {
   background: linear-gradient(180deg, rgb(var(--c-warn) / .14), rgb(var(--c-warn) / .05));
   border-bottom: 1px solid rgb(var(--c-warn) / .35);
 }
-.app-version-warn > sf-symbol { color: rgb(var(--c-warn)); font-size: 14px; }
+.app-version-warn > app-icon { color: rgb(var(--c-warn)); font-size: 14px; }
 .app-version-warn-text b { color: rgb(var(--c-ink-bright)); font-weight: 600; }
 .app-version-warn-link {
   color: rgb(var(--c-ink-bright));
@@ -1548,8 +1560,8 @@ body.wf-active .app-topbar { z-index: 40; }
 .wf-evals-results { display: flex; flex-direction: column; gap: .35rem; }
 .wf-eval-row { border-left: 2px solid rgb(var(--c-ok)); padding: .3rem .5rem; background: rgb(var(--c-base)); border-radius: var(--r-sm); }
 .wf-eval-row.wf-eval-fail { border-left-color: rgb(var(--c-danger)); }
-.wf-eval-row .wf-trace-head sf-symbol { color: rgb(var(--c-ok)); }
-.wf-eval-row.wf-eval-fail .wf-trace-head sf-symbol { color: rgb(var(--c-danger)); }
+.wf-eval-row .wf-trace-head app-icon { color: rgb(var(--c-ok)); }
+.wf-eval-row.wf-eval-fail .wf-trace-head app-icon { color: rgb(var(--c-danger)); }
 .wf-eval-reason { margin-top: .15rem; font-size: 11px; color: rgb(var(--c-faint)); font-style: italic; }
 
 /* HITL approval pause row in the run trace */
@@ -1661,7 +1673,7 @@ body.wf-active .app-topbar { z-index: 40; }
   display: inline-flex; align-items: center; justify-content: center;
   background: rgb(var(--c-base)); border-radius: var(--r-full); /* opaque node masks the rail behind it */
 }
-.phase-marker sf-symbol { font-size: 14px; }
+.phase-marker app-icon { font-size: 14px; }
 .phase-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: rgb(var(--c-ink)); }
 .phase.is-active .phase-name { color: rgb(var(--c-ink-bright)); }
 .phase:not(.is-done):not(.is-active) .phase-name { color: rgb(var(--c-faint)); font-weight: 500; }
@@ -1696,7 +1708,7 @@ body.wf-active .app-topbar { z-index: 40; }
 .theme-toggle:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); border-color: rgb(var(--c-edge)); }
 .theme-toggle:active { transform: scale(.94); }
 .theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
-.theme-toggle sf-symbol { font-size: 16px; }
+.theme-toggle app-icon { font-size: 16px; }
 
 .user-menu {
   position: absolute; top: calc(100% + 8px); right: 0;
@@ -1726,7 +1738,7 @@ body.wf-active .app-topbar { z-index: 40; }
   transition: background-color .1s ease;
 }
 .user-menu-item:hover { background: rgb(var(--c-raised)); }
-.user-menu-item sf-symbol { font-size: 13px; color: rgb(var(--c-faint)); }
+.user-menu-item app-icon { font-size: 13px; color: rgb(var(--c-faint)); }
 
 @media (prefers-reduced-motion: reduce) {
   .user-avatar, .user-menu, .theme-toggle { transition: none; }
@@ -1761,7 +1773,7 @@ body.wf-active .app-topbar { z-index: 40; }
   transition: color .12s ease, background-color .12s ease;
 }
 .attach-remove:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-base) / .9); }
-.attach-remove sf-symbol { font-size: 12px; }
+.attach-remove app-icon { font-size: 12px; }
 .attach-thumb-lg { max-width: 220px; max-height: 220px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); object-fit: contain; display: block; }
 .attach-chip { max-width: 260px; }
 .tool-image { max-width: 320px; max-height: 320px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); object-fit: contain; display: block; cursor: zoom-in; }
@@ -1788,7 +1800,7 @@ body.wf-active .app-topbar { z-index: 40; }
   transition: color .12s ease, background-color .12s ease;
 }
 .queue-remove:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-base) / .6); }
-.queue-remove sf-symbol { font-size: 11px; }
+.queue-remove app-icon { font-size: 11px; }
 
 /* ---- Composer: the textarea grows to fill the row; the attach button is tucked
         into its lower-left (the textarea gets left padding to clear it), and the
@@ -1925,11 +1937,11 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
 .composer-attach:active { transform: scale(.9); }
 .composer-attach:focus-visible { outline: none; box-shadow: var(--ring); }
 /* The glyph rotates 45° while the attach menu is open, turning the + into an ×
-   (a recognizable "close" affordance). Animate the inner sf-symbol so the disc's
+   (a recognizable "close" affordance). Animate the inner app-icon so the disc's
    :active scale and hover don't fight the rotation. */
-.composer-attach sf-symbol { transition: transform .18s ease; }
+.composer-attach app-icon { transition: transform .18s ease; }
 .composer-attach.menu-open { color: rgb(var(--c-ink)); background: rgb(var(--c-raised)); }
-.composer-attach.menu-open sf-symbol { transform: rotate(45deg); }
+.composer-attach.menu-open app-icon { transform: rotate(45deg); }
 /* Frozen while a turn is in flight (setState disables it): dim, no hover, default
    cursor — attachments can only be staged on an idle composer. */
 .composer-attach:disabled { opacity: .4; cursor: default; }
@@ -2114,7 +2126,7 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
   transition: background-color .1s ease;
 }
 .attach-menu-item:hover { background: rgb(var(--c-raised)); }
-.attach-menu-item sf-symbol { font-size: 15px; color: rgb(var(--c-faint)); }
+.attach-menu-item app-icon { font-size: 15px; color: rgb(var(--c-faint)); }
 @media (prefers-reduced-motion: reduce) { .attach-menu { transition: none; } }
 
 /* ---- Delegate tool calls hand a task to an external worker agent (Claude Code /
@@ -2175,7 +2187,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   cursor: pointer;
   transition: background-color .12s ease, border-color .12s ease, color .12s ease;
 }
-.tree-action sf-symbol { font-size: 11px; } /* trim icon width to help both labels fit one row */
+.tree-action app-icon { font-size: 11px; } /* trim icon width to help both labels fit one row */
 .tree-action-new { flex: 0 1 auto; min-width: 0; } /* may shrink + ellipsis */
 .tree-action-new > span { overflow: hidden; text-overflow: ellipsis; }
 .tree-action-clear { flex: none; } /* never shrinks — stays fully labeled on the right */
@@ -2269,7 +2281,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .tool-group-chevron, .worker-group-chevron { font-size: 10px; transition: transform .15s ease; }
 .tool-group-head.is-open .tool-group-chevron, .worker-group-head.is-open .worker-group-chevron { transform: rotate(90deg); }
 .tool-group-label, .worker-group-label { color: rgb(var(--c-ink-soft)); font-weight: 600; }
-.tool-group-dot { font-size: 12px; } /* SF Symbol; inherits the head's faint color (brightens on hover) */
+.tool-group-dot { font-size: 12px; } /* Material Symbols icon; inherits the head's faint color (brightens on hover) */
 .tool-group-body { margin-top: .25rem; }
 .tool-group-body.hidden { display: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -2320,7 +2332,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 }
 .scroll-btn:hover { background: rgb(var(--c-edge)); transform: translateX(-50%) translateY(-1px); }
 .scroll-btn[hidden] { display: none; }
-.scroll-btn sf-symbol { font-size: 15px; }
+.scroll-btn app-icon { font-size: 15px; }
 
 /* ---- Tool-call viewer: every tool in a group renders as a code card — a header
         bar (collapse + state + "tool  summary" + diff badge + copy) over a
@@ -2343,7 +2355,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .file-card-head:hover { background: rgb(var(--c-raised)); }
 .file-chevron { font-size: 11px; color: rgb(var(--c-faint)); }
 .tool-state { display: inline-flex; align-items: center; }
-.tool-state sf-symbol { font-size: 13px; }
+.tool-state app-icon { font-size: 13px; }
 .tool-run-art { height: 16px; width: auto; flex: 0 0 auto; }
 .file-path { color: rgb(var(--c-ink-soft)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-copy { display: inline-flex; align-items: center; color: rgb(var(--c-faint)); background: none; border: 0; padding: 2px; cursor: pointer; }
@@ -2351,7 +2363,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .user-meta { opacity: .85; }
 .user-copy { display: inline-flex; align-items: center; color: rgb(var(--c-faint)); background: none; border: 0; padding: 1px; cursor: pointer; line-height: 0; }
 .user-copy:hover { color: rgb(var(--c-ink)); }
-.user-copy sf-symbol { font-size: 12px; }
+.user-copy app-icon { font-size: 12px; }
 .file-card-body { overflow: auto; max-height: 26rem; }
 .file-card-body.hidden { display: none; }
 /* file-args: a tool's JSON input shown as an indented, wrapping key/value block

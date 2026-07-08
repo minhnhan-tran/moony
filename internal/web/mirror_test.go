@@ -24,10 +24,9 @@ func TestMirrorServesIndex(t *testing.T) {
 	}
 	body := rec.Body.String()
 	// The UI is styled with locally-vendored Tailwind, renders answers as
-	// markdown via locally-vendored marked, and draws icons with Apple's SF
-	// Symbols web component. Non-Apple CDNs must NOT be referenced (the Apple
-	// network blocks them).
-	for _, want := range []string{"/static/tailwind.css", "/static/marked.min.js", "/static/app.css", "/static/app-state.js", "/static/app-core.js", `id="transcript"`, `id="stats"`, `id="hdrMeta"`, "sf-saas.cdn-apple.com", "<sf-symbol", "/static/icon/favicon"} {
+	// markdown via locally-vendored marked, and draws icons with the Material
+	// Symbols font (Google Fonts) via the <app-icon> element.
+	for _, want := range []string{"/static/tailwind.css", "/static/marked.min.js", "/static/app.css", "/static/app-state.js", "/static/app-core.js", `id="transcript"`, `id="stats"`, `id="hdrMeta"`, "fonts.googleapis.com", "Material+Symbols", "<app-icon", "/static/icon/favicon"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("index page missing %q", want)
 		}

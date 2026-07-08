@@ -29,19 +29,18 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/static/icon/favicon-16.png" />
 <link rel="apple-touch-icon" href="/static/icon/apple-touch-icon.png" />
 
-<!-- Apple SF Symbols web component (Apple's own CDN — reachable on the Apple
-     network and the license-appropriate way to use SF Symbols on the web).
-     Usage: <sf-symbol name="arrow.up"></sf-symbol>; size via font-size, color
-     via the inherited CSS `color`. Degrades to empty if the script can't load. -->
-<script src="https://sf-saas.cdn-apple.com/7.1.1/sf-symbol.js" async
-        onerror="console.error('[sf-symbol] CDN script failed to load — icons will be blank.', event);"></script>
-<link href="https://sf-saas.cdn-apple.com/7.1.1/colors/default.css" rel="stylesheet"
-      onerror="console.warn('[sf-symbol] colors stylesheet failed to load.', event);" />
+<!-- Material Symbols icon font (Google Fonts). The <app-icon> element (defined in
+     app-state.js) writes a Material Symbols ligature as its text content and this
+     font renders it as a glyph. Usage: <app-icon name="arrow.up"></app-icon>;
+     size via font-size, color via the inherited CSS `color`. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0" />
 
 <!-- TailwindCSS and marked are vendored locally and served from the binary, not
-     a CDN: the Apple network blocks non-Apple CDNs. tailwind.css is prebuilt
-     from internal/web/tailwind/ (see `make tailwind`); regenerate it if you add
-     new utility classes to this file. -->
+     a CDN. tailwind.css is prebuilt from internal/web/tailwind/ (see
+     `make tailwind`); regenerate it if you add new utility classes to this file. -->
 <link rel="stylesheet" href="/static/tailwind.css" />
 <script src="/static/marked.min.js"></script>
 
@@ -68,7 +67,7 @@
     <!-- Top header, mirroring the terminal banner: app + version on the left,
          model · think · dir · approval-mode on the right. -->
     <div class="app-topbar shrink-0 px-4 py-2 border-b border-edge flex items-center gap-2 text-xs">
-      <button id="navBtn" type="button" aria-label="Toggle sidebar" class="nav-btn text-faint hover:text-ink"><sf-symbol name="sidebar.left" style="font-size:18px"></sf-symbol></button>
+      <button id="navBtn" type="button" aria-label="Toggle sidebar" class="nav-btn text-faint hover:text-ink"><app-icon name="sidebar.left" style="font-size:18px"></app-icon></button>
       <img src="/static/icon/favicon-32.png" alt="" class="w-5 h-5 rounded" />
       <span class="app-wordmark font-semibold text-ink">Moony Coding Agent</span>
       <span id="hdrVersion" class="text-faint" title="web UI (relay) version"></span>
@@ -78,13 +77,13 @@
       <!-- Light/dark theme toggle. The icon (sun/moon) and persistence are wired
            in app.js; the <head> bootstrap applies the saved choice before paint. -->
       <button class="theme-toggle shrink-0" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle light/dark theme">
-        <sf-symbol name="moon.stars.fill"></sf-symbol>
+        <app-icon name="moon.stars.fill"></app-icon>
       </button>
       <!-- Completion-sound toggle: plays a short chime when a turn finishes in this
            browser session (the web equivalent of the TUI's afplay chime). Icon and
            persistence (localStorage "sqe-sound") are wired in app-core.js. -->
       <button class="theme-toggle shrink-0" id="soundToggle" type="button" title="Toggle completion sound" aria-label="Toggle completion sound">
-        <sf-symbol name="speaker.wave.2.fill"></sf-symbol>
+        <app-icon name="speaker.wave.2.fill"></app-icon>
       </button>
       <!-- Account avatar (adapted from the hybrid-assistant UI). This tool has no
            auth, so it reflects the host machine the agent runs on; the menu shows
@@ -94,14 +93,14 @@
         <div class="user-menu" id="userMenu" role="menu">
           <div class="user-menu-name" id="authUser" style="display:none"></div>
           <div class="user-menu-divider" id="authDivider" style="display:none"></div>
-          <button class="user-menu-item" id="umManage" type="button" role="menuitem"><sf-symbol name="slider.horizontal.3"></sf-symbol> Workers</button>
-          <button class="user-menu-item" id="umConfig" type="button" role="menuitem"><sf-symbol name="gearshape"></sf-symbol> Config</button>
-          <button class="user-menu-item" id="umPlugins" type="button" role="menuitem"><sf-symbol name="shippingbox"></sf-symbol> Plugins</button>
-          <button class="user-menu-item" id="umPersona" type="button" role="menuitem"><sf-symbol name="person.text.rectangle"></sf-symbol> Persona</button>
-          <button class="user-menu-item" id="umAdmin" type="button" role="menuitem" style="display:none"><sf-symbol name="shield.fill"></sf-symbol> Admin</button>
-          <a class="user-menu-item" id="umDownload" href="/download" target="_blank" rel="noopener noreferrer" role="menuitem" style="display:none"><sf-symbol name="arrow.down.circle"></sf-symbol> Download terminal app</a>
-          <a class="user-menu-item" id="umRepo" href="https://github.com/pysty1995/moony" target="_blank" rel="noopener noreferrer" role="menuitem"><sf-symbol name="chevron.left.forwardslash.chevron.right"></sf-symbol> Repository</a>
-          <a class="user-menu-item" id="umLogout" href="/auth/logout" role="menuitem" style="display:none"><sf-symbol name="rectangle.portrait.and.arrow.right"></sf-symbol> Sign out</a>
+          <button class="user-menu-item" id="umManage" type="button" role="menuitem"><app-icon name="slider.horizontal.3"></app-icon> Workers</button>
+          <button class="user-menu-item" id="umConfig" type="button" role="menuitem"><app-icon name="gearshape"></app-icon> Config</button>
+          <button class="user-menu-item" id="umPlugins" type="button" role="menuitem"><app-icon name="shippingbox"></app-icon> Plugins</button>
+          <button class="user-menu-item" id="umPersona" type="button" role="menuitem"><app-icon name="person.text.rectangle"></app-icon> Persona</button>
+          <button class="user-menu-item" id="umAdmin" type="button" role="menuitem" style="display:none"><app-icon name="shield.fill"></app-icon> Admin</button>
+          <a class="user-menu-item" id="umDownload" href="/download" target="_blank" rel="noopener noreferrer" role="menuitem" style="display:none"><app-icon name="arrow.down.circle"></app-icon> Download terminal app</a>
+          <a class="user-menu-item" id="umRepo" href="https://github.com/pysty1995/moony" target="_blank" rel="noopener noreferrer" role="menuitem"><app-icon name="chevron.left.forwardslash.chevron.right"></app-icon> Repository</a>
+          <a class="user-menu-item" id="umLogout" href="/auth/logout" role="menuitem" style="display:none"><app-icon name="rectangle.portrait.and.arrow.right"></app-icon> Sign out</a>
         </div>
       </div>
     </div>
@@ -111,13 +110,13 @@
          UI's version (GET /api/relay). shrink-0 keeps it from squeezing the
          transcript; dismissible for the page session. -->
     <div id="versionWarn" class="app-version-warn hidden shrink-0 flex items-center gap-2 px-4 py-2 text-xs">
-      <sf-symbol id="versionWarnIcon" name="exclamationmark.triangle.fill"></sf-symbol>
+      <app-icon id="versionWarnIcon" name="exclamationmark.triangle.fill"></app-icon>
       <img id="versionWarnArt" class="app-version-warn-art" src="/static/icon/claude-jumping.svg" alt="" hidden />
       <span id="versionWarnText" class="app-version-warn-text flex-1 min-w-0"></span>
       <button id="versionWarnUpgrade" type="button" class="app-version-warn-link shrink-0">Upgrade</button>
       <a id="versionWarnDownload" href="/download" target="_blank" rel="noopener noreferrer" class="app-version-warn-link shrink-0">Download</a>
       <button id="versionWarnClose" type="button" class="app-version-warn-close" aria-label="Dismiss this notice">
-        <sf-symbol name="xmark"></sf-symbol>
+        <app-icon name="xmark"></app-icon>
       </button>
     </div>
 
@@ -129,13 +128,13 @@
     <div class="transcript-wrap">
       <div id="transcript" class="flex-1 overflow-y-auto p-4 space-y-3">
         <div id="empty">
-          <sf-symbol name="sparkles" class="empty-icon"></sf-symbol>
+          <app-icon name="sparkles" class="empty-icon"></app-icon>
           <div class="empty-title">Pick a <span class="text-brand">session</span> to start</div>
           <div class="empty-sub">Choose a session from the sidebar — or create a new one — to begin a conversation.</div>
         </div>
       </div>
       <button id="scrollBtn" class="scroll-btn" type="button" aria-label="Scroll to bottom" hidden>
-        <sf-symbol name="chevron.down"></sf-symbol>
+        <app-icon name="chevron.down"></app-icon>
       </button>
     </div>
 
@@ -156,7 +155,7 @@
       <!-- Header: an amber icon chip, an eyebrow + the tool/summary line (.q,
            filled by the "approval" handler), and a +N −N diff badge on the right. -->
       <div class="app-approval-head">
-        <span class="app-approval-badge"><sf-symbol name="hand.raised.fill"></sf-symbol></span>
+        <span class="app-approval-badge"><app-icon name="hand.raised.fill"></app-icon></span>
         <div class="app-approval-titles">
           <div class="app-approval-eyebrow">Permission required</div>
           <div class="q"></div>
@@ -165,9 +164,9 @@
       </div>
       <pre class="app-approval-pre"></pre>
       <div class="app-approval-actions">
-        <button class="b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="approve"><sf-symbol name="checkmark"></sf-symbol> Approve </button>
-        <button class="b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="deny"><sf-symbol name="xmark"></sf-symbol> Deny </button>
-        <button class="b-always inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="always"><sf-symbol name="checkmark.shield.fill"></sf-symbol> Always allow </button>
+        <button class="b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="approve"><app-icon name="checkmark"></app-icon> Approve </button>
+        <button class="b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="deny"><app-icon name="xmark"></app-icon> Deny </button>
+        <button class="b-always inline-flex items-center gap-1.5 rounded-md px-3 py-1.5" data-d="always"><app-icon name="checkmark.shield.fill"></app-icon> Always allow </button>
       </div>
     </div>
 
@@ -175,7 +174,7 @@
          terminal's chooser. Options + actions are filled by the "question" handler. -->
     <div id="question" class="app-approval app-question hidden shrink-0 px-4 py-3">
       <div class="app-approval-head">
-        <span class="app-approval-badge"><sf-symbol name="questionmark.bubble.fill"></sf-symbol></span>
+        <span class="app-approval-badge"><app-icon name="questionmark.bubble.fill"></app-icon></span>
         <div class="app-approval-titles">
           <div class="app-approval-eyebrow">Your input needed</div>
           <div class="q"></div>
@@ -228,14 +227,14 @@
           class="composer-input resize-none bg-surface text-ink border border-edge rounded-lg min-h-[44px] focus:outline-none focus:border-brand disabled:opacity-50"
           placeholder="Ask sqe to build, fix, or explain something…  (Enter to send, / for commands, paste or drop an image)"></textarea>
         <button id="attachBtn" type="button" title="Attach a file" aria-label="Attach a file" class="composer-attach text-faint hover:text-ink">
-          <sf-symbol name="plus" style="font-size:20px"></sf-symbol>
+          <app-icon name="plus" style="font-size:20px"></app-icon>
         </button>
         <div id="attachMenu" class="attach-menu" role="menu">
-          <button class="attach-menu-item" data-kind="image" type="button" role="menuitem"><sf-symbol name="photo"></sf-symbol> Image</button>
-          <button class="attach-menu-item" data-kind="doc" type="button" role="menuitem"><sf-symbol name="doc.text"></sf-symbol> Document</button>
+          <button class="attach-menu-item" data-kind="image" type="button" role="menuitem"><app-icon name="photo"></app-icon> Image</button>
+          <button class="attach-menu-item" data-kind="doc" type="button" role="menuitem"><app-icon name="doc.text"></app-icon> Document</button>
         </div>
         <button id="send" title="Send" aria-label="Send" class="brand-btn composer-send inline-flex items-center justify-center bg-brand text-white disabled:opacity-50">
-          <sf-symbol name="arrow.up" style="font-size:18px"></sf-symbol>
+          <app-icon name="arrow.up" style="font-size:18px"></app-icon>
         </button>
       </div>
     </div>
@@ -254,10 +253,10 @@
   <div id="manageOverlay" class="app-overlay" style="display:none;position:fixed;inset:0;background:rgba(1,4,9,.55);-webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%);z-index:50;align-items:center;justify-content:center">
     <div class="app-modal bg-surface border border-edge rounded-lg" style="width:min(640px,92vw);max-height:82dvh;display:flex;flex-direction:column">
       <div class="px-4 py-3 border-b border-edge flex items-center gap-2">
-        <sf-symbol id="manageIcon" name="slider.horizontal.3" class="text-faint"></sf-symbol>
+        <app-icon id="manageIcon" name="slider.horizontal.3" class="text-faint"></app-icon>
         <span id="manageTitle" class="font-semibold text-ink text-sm">Manage</span>
         <span class="flex-1"></span>
-        <button id="manageClose" class="text-faint hover:text-ink" aria-label="Close"><sf-symbol name="xmark"></sf-symbol></button>
+        <button id="manageClose" class="text-faint hover:text-ink" aria-label="Close"><app-icon name="xmark"></app-icon></button>
       </div>
       <!-- Tab strip for the consolidated Config modal (Skills/MCP/Agents/Tools/
            Domains/LSP/Schedule); hidden for the other panels sharing this shell

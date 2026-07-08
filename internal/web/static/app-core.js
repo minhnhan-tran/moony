@@ -1015,7 +1015,7 @@ function selectSession(id) {
 // and accent bar made that churn show up as a visible "blinking" header.
 //
 // Reconciliation compares against the KEYS of the previous render (serialized
-// before insertion), NOT the live DOM: <sf-symbol> is a custom element that
+// before insertion), NOT the live DOM: <app-icon> is a custom element that
 // upgrades and rewrites its own subtree once connected, so a finalized block
 // that contains an iconized emoji/checklist no longer equals a fresh parse.
 // Comparing live nodes (isEqualNode) therefore diverged at the first icon and
@@ -1078,7 +1078,7 @@ function endAssistant() {
   thinkBody = null;
 }
 
-// startMsg builds a message block with an SF Symbol + speaker label header.
+// startMsg builds a message block with an Material Symbols icon + speaker label header.
 // cls is an optional modifier (msg-user / msg-assistant) used by the stylesheet
 // to tint each turn's accent rail and label.
 function startMsg(label, labelCls, iconName, cls) {
@@ -1966,7 +1966,7 @@ function renderStats() {
   // tokens · cost · context read as scannable, distinct fields instead of one run.
   const parts = [];
 
-  // token usage (in / out) — SF Symbol arrows + counts, kept tight per pair.
+  // token usage (in / out) — Material Symbols icon arrows + counts, kept tight per pair.
   // Prefer the running sum of the per-turn meta footers (cumTurnIn/Out) so the
   // status bar matches the turn history; fall back to the server's live counters
   // (e.g. before any turn completes this view).
@@ -3434,7 +3434,7 @@ if (userAvatarEl && userMenuEl) {
 const manageOverlay = $("#manageOverlay"), manageBody = $("#manageBody");
 const manageTitleEl = $("#manageTitle"), manageIconEl = $("#manageIcon");
 
-// setPanel opens the shared modal with a title + SF Symbol icon and a fresh body.
+// setPanel opens the shared modal with a title + Material Symbols icon icon and a fresh body.
 function setPanel(title, icon) {
   if (manageTitleEl) manageTitleEl.textContent = title;
   if (manageIconEl) manageIconEl.setAttribute("name", icon);

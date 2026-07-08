@@ -13,7 +13,7 @@
 
   var SVGNS = "http://www.w3.org/2000/svg";
 
-  // Palette: the node types you can drop on the canvas → label + SF Symbol.
+  // Palette: the node types you can drop on the canvas → label + Material Symbols icon.
   // (Start is seeded by the server; Note is added from the palette too.)
   var NODE_TYPES = [
     { type: "agent",         label: "Agent",     icon: "sparkles" },
@@ -1254,7 +1254,7 @@
     if (!dom) return;
     dom.runBtn.classList.toggle("is-running", on);
     dom.runBtn.querySelector("span").textContent = on ? "Stop" : "Run";
-    var ic = dom.runBtn.querySelector("sf-symbol");
+    var ic = dom.runBtn.querySelector("app-icon");
     if (ic) ic.setAttribute("name", on ? "stop.fill" : "play.fill");
   }
 

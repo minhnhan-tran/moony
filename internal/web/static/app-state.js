@@ -52,9 +52,97 @@ let curStep = 0, maxStep = 0;            // turn progress (tool-call loop)
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-// sym builds an SF Symbol icon element. Size it via font-size (inline style or
-// a text-* class) and color it via the inherited `color`.
-const sym = (name, cls) => { const s = document.createElement("sf-symbol"); s.setAttribute("name", name); if (cls) s.className = cls; return s; };
+
+// Icons are Material Symbols (Google), rendered by an <app-icon name="…"> custom
+// element. Call sites still use the legacy SF-Symbol names; SF_TO_MATERIAL maps
+// each to its Material Symbols ligature, which the element writes as its text so
+// the Material Symbols font renders the glyph. Unmapped names fall back to "help".
+const SF_TO_MATERIAL = {
+  "alarm.fill": "alarm", "antenna.radiowaves.left.and.right": "sensors",
+  "arrow.clockwise": "refresh", "arrow.counterclockwise": "refresh",
+  "arrow.down": "arrow_downward", "arrow.down.circle": "arrow_circle_down",
+  "arrow.left": "arrow_back", "arrow.right": "arrow_forward",
+  "arrow.right.to.line": "east", "arrow.triangle.2.circlepath": "autorenew",
+  "arrow.triangle.branch": "call_split", "arrow.trianglehead.branch": "call_split",
+  "arrow.turn.down.right": "subdirectory_arrow_right", "arrow.up": "arrow_upward",
+  "arrow.up.left.and.arrow.down.right": "open_in_full", "arrow.up.to.line": "north",
+  "arrow.uturn.left": "undo", "arrow.uturn.right": "redo",
+  "backward.end.fill": "skip_previous", "backward.fill": "fast_rewind",
+  "battery.100": "battery_full", "bell.fill": "notifications", "bolt.fill": "bolt",
+  "book.closed.fill": "book", "book.fill": "book", "books.vertical.fill": "library_books",
+  "brain": "psychology", "brain.head.profile": "psychology",
+  "bubble.left.and.bubble.right": "forum", "bubble.left.fill": "chat",
+  "building.2.fill": "apartment", "calendar": "calendar_month",
+  "calendar.badge.plus": "edit_calendar", "camera.fill": "photo_camera",
+  "cart.fill": "shopping_cart", "chart.bar.fill": "bar_chart",
+  "chart.line.downtrend.xyaxis": "trending_down", "chart.line.uptrend.xyaxis": "trending_up",
+  "checklist": "checklist", "checkmark": "check", "checkmark.circle": "check_circle",
+  "checkmark.circle.fill": "check_circle", "checkmark.shield.fill": "verified_user",
+  "checkmark.square.fill": "check_box", "chevron.down": "expand_more",
+  "chevron.left.forwardslash.chevron.right": "code", "chevron.right": "chevron_right",
+  "chevron.up": "expand_less", "circle": "circle", "circle.dotted": "circle",
+  "circle.fill": "circle", "circle.lefthalf.filled": "contrast", "clock": "schedule",
+  "clock.arrow.circlepath": "history", "cloud.fill": "cloud", "cpu": "memory",
+  "creditcard.fill": "credit_card", "curlybraces": "data_object", "desktopcomputer": "computer",
+  "doc.on.clipboard": "content_paste", "doc.on.doc": "content_copy", "doc.text": "description",
+  "dollarsign.circle.fill": "paid", "drop.fill": "water_drop", "envelope.fill": "mail",
+  "exclamationmark": "priority_high", "exclamationmark.circle": "error",
+  "exclamationmark.circle.fill": "error", "exclamationmark.triangle.fill": "warning",
+  "eye.fill": "visibility", "flame.fill": "local_fire_department", "flowchart": "schema",
+  "folder": "folder", "folder.fill": "folder", "forward.end.fill": "skip_next",
+  "forward.fill": "fast_forward", "gauge.with.dots.needle.33percent": "speed",
+  "gearshape": "settings", "gearshape.fill": "settings", "gift.fill": "card_giftcard",
+  "globe": "public", "graduationcap.fill": "school", "hammer.fill": "build",
+  "hand.raised.fill": "pan_tool", "hand.thumbsdown.fill": "thumb_down",
+  "hand.thumbsup.fill": "thumb_up", "heart.fill": "favorite", "hourglass": "hourglass_empty",
+  "house.fill": "home", "info.circle.fill": "info", "internaldrive.fill": "storage",
+  "iphone": "smartphone", "key.fill": "key", "ladybug.fill": "bug_report",
+  "laptopcomputer": "laptop", "lightbulb.fill": "lightbulb", "link": "link",
+  "lock.fill": "lock", "lock.open.fill": "lock_open", "magnifyingglass": "search",
+  "map.fill": "map", "mappin": "place", "megaphone.fill": "campaign", "minus": "remove",
+  "moon.fill": "dark_mode", "moon.stars.fill": "dark_mode", "nosign": "block",
+  "note.text": "note", "paintbrush.fill": "brush", "paintbrush.pointed.fill": "brush",
+  "paperclip": "attach_file", "paperplane": "send", "paperplane.fill": "send",
+  "pause.fill": "pause", "pencil": "edit", "person.2.fill": "group", "person.fill": "person",
+  "person.text.rectangle": "badge", "phone.fill": "call", "photo": "image",
+  "pin.fill": "push_pin", "play.fill": "play_arrow", "plus": "add",
+  "plus.circle": "add_circle", "plus.circle.fill": "add_circle", "powerplug.fill": "power",
+  "puzzlepiece.extension": "extension", "questionmark": "question_mark",
+  "questionmark.bubble.fill": "quiz", "questionmark.circle": "help",
+  "questionmark.circle.fill": "help", "rectangle.3.group": "dashboard",
+  "rectangle.portrait.and.arrow.right": "logout", "scissors": "content_cut",
+  "shield.fill": "shield", "shippingbox": "inventory_2", "shippingbox.fill": "inventory_2",
+  "sidebar.left": "menu", "slash.circle": "block", "slider.horizontal.3": "tune",
+  "smallcircle.filled.circle": "radio_button_checked", "sparkle": "auto_awesome",
+  "sparkles": "auto_awesome", "speaker.wave.2.fill": "volume_up", "square": "crop_square",
+  "square.and.arrow.down": "download", "square.and.arrow.up": "upload",
+  "square.and.pencil": "edit_square", "square.fill": "square", "star.fill": "star",
+  "stop.fill": "stop", "sun.max.fill": "light_mode", "tag.fill": "label",
+  "target": "my_location", "timer": "timer", "trash": "delete", "trash.fill": "delete",
+  "tray.full": "inbox", "trophy.fill": "emoji_events", "video.fill": "videocam",
+  "wifi": "wifi", "wrench.and.screwdriver.fill": "handyman", "wrench.fill": "build",
+  "xmark": "close", "xmark.circle": "cancel", "xmark.circle.fill": "cancel",
+};
+
+// AppIcon renders a Material Symbols glyph from a legacy SF-Symbol `name`. It
+// keeps the name→glyph mapping in one place, so call sites (and the dynamic
+// setAttribute("name", …) swaps) are unchanged.
+class AppIcon extends HTMLElement {
+  static get observedAttributes() { return ["name"]; }
+  connectedCallback() { this._render(); }
+  attributeChangedCallback() { this._render(); }
+  _render() {
+    const n = this.getAttribute("name") || "";
+    this.textContent = SF_TO_MATERIAL[n] || "help";
+    // SF ".fill" names → Material Symbols filled variant (FILL axis = 1).
+    this.style.fontVariationSettings = `'FILL' ${n.indexOf(".fill") !== -1 ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24`;
+  }
+}
+if (!customElements.get("app-icon")) customElements.define("app-icon", AppIcon);
+
+// sym builds an icon element. Size it via font-size (inline style or a text-*
+// class) and color it via the inherited `color`.
+const sym = (name, cls) => { const s = document.createElement("app-icon"); s.setAttribute("name", name); if (cls) s.className = cls; return s; };
 // themeColor reads a palette token (e.g. "--c-brand") from the active theme and
 // returns it as an rgb() string, so colors set via inline styles in JS follow
 // the light/dark switch. The tokens are space-separated channels (see app.css);

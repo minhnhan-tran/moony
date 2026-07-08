@@ -38,9 +38,9 @@ function sanitizeHTML(html) {
   }
 }
 
-// --- inline icons: emoji + task-list checkboxes → SF Symbols ----------------
+// --- inline icons: emoji + task-list checkboxes → Material Symbols icons ----------------
 // Agent (and user) markdown routinely carries emoji (✅ ⚠️ 🔧 …) and GFM task
-// lists (- [ ] / - [x]); we swap both for SF Symbols so the conversation reads
+// lists (- [ ] / - [x]); we swap both for Material Symbols icons so the conversation reads
 // as native to the rest of the UI. Conversions happen on the parsed-markdown DOM
 // before it's sanitized: the checkbox <input> must be replaced before the
 // sanitizer (which drops <input>) removes it, and emoji are swapped inside text
@@ -245,13 +245,13 @@ const EMOJI_RE = new RegExp(
   "gu"
 );
 
-// iconizeChecklists swaps GFM task-list <input type=checkbox> for an SF Symbol
+// iconizeChecklists swaps GFM task-list <input type=checkbox> for an Material Symbols icon
 // (checked → filled box) and tags the row so the list marker is dropped. Runs on
 // the parsed DOM before sanitizeHTML strips the <input>.
 function iconizeChecklists(root) {
   root.querySelectorAll('input[type="checkbox"]').forEach((box) => {
     const checked = box.checked || box.hasAttribute("checked");
-    const s = document.createElement("sf-symbol");
+    const s = document.createElement("app-icon");
     s.setAttribute("name", checked ? "checkmark.square.fill" : "square");
     s.className = "md-task" + (checked ? " md-task-done" : "");
     box.replaceWith(s);
@@ -260,7 +260,7 @@ function iconizeChecklists(root) {
   });
 }
 
-// iconizeEmoji replaces mapped emoji in text nodes with SF Symbols, skipping code
+// iconizeEmoji replaces mapped emoji in text nodes with Material Symbols icons, skipping code
 // spans/blocks (and any symbol we just made). Collects nodes first, then rewrites,
 // so the live tree isn't mutated mid-walk.
 function iconizeEmoji(root) {
@@ -269,7 +269,7 @@ function iconizeEmoji(root) {
   let n;
   while ((n = walker.nextNode())) {
     const p = n.parentNode;
-    if (p && p.closest && p.closest("code, pre, sf-symbol")) continue;
+    if (p && p.closest && p.closest("code, pre, app-icon")) continue;
     EMOJI_RE.lastIndex = 0;
     if (EMOJI_RE.test(n.nodeValue)) targets.push(n);
   }
@@ -280,7 +280,7 @@ function iconizeEmoji(root) {
     while ((m = EMOJI_RE.exec(text))) {
       if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
       const spec = EMOJI_ICONS[m[1]];
-      const s = document.createElement("sf-symbol");
+      const s = document.createElement("app-icon");
       s.setAttribute("name", spec.name);
       s.className = "md-emoji" + (spec.cls ? " " + spec.cls : "");
       s.setAttribute("aria-label", m[0]);
@@ -332,12 +332,12 @@ transcript.addEventListener("click", (e) => {
   if (!code) return;
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code.textContent || "").catch(() => {});
   btn.classList.add("copied");
-  const ic = btn.querySelector("sf-symbol"); if (ic) ic.setAttribute("name", "checkmark");
-  setTimeout(() => { btn.classList.remove("copied"); const i2 = btn.querySelector("sf-symbol"); if (i2) i2.setAttribute("name", "doc.on.doc"); }, 1200);
+  const ic = btn.querySelector("app-icon"); if (ic) ic.setAttribute("name", "checkmark");
+  setTimeout(() => { btn.classList.remove("copied"); const i2 = btn.querySelector("app-icon"); if (i2) i2.setAttribute("name", "doc.on.doc"); }, 1200);
 });
 
 // renderMD turns markdown into sanitized HTML, with emoji + task-list checkboxes
-// rendered as SF Symbols and fenced code blocks syntax-highlighted. Falls back to
+// rendered as Material Symbols icons and fenced code blocks syntax-highlighted. Falls back to
 // escaped plain text if marked didn't load, so the UI degrades gracefully.
 // EMOJI_ANY_RE matches a whole emoji grapheme (base + skin-tone / VS16 / keycap /
 // ZWJ-joined parts). \p{Emoji_Presentation} = default-colorful emoji (excludes
@@ -346,10 +346,10 @@ transcript.addEventListener("click", (e) => {
 const EMOJI_ANY_RE = /(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F)(?:\u200D(?:\p{Emoji_Presentation}|\p{Emoji})|[\u{1F3FB}-\u{1F3FF}\uFE0F\u20E3])*/gu;
 
 // iconizeUnknownEmoji is the catch-all: after iconizeEmoji has swapped every
-// mapped emoji for its SF Symbol, any emoji NOT in EMOJI_ICONS still renders as a
-// native glyph. Replace each remaining one with a neutral SF Symbol so the UI
+// mapped emoji for its Material Symbols icon, any emoji NOT in EMOJI_ICONS still renders as a
+// native glyph. Replace each remaining one with a neutral Material Symbols icon so the UI
 // never shows a native emoji. Runs after iconizeEmoji (mapped ones are already
-// <sf-symbol>, so the walker skips them); meaning is lost for the long tail, which
+// <app-icon>, so the walker skips them); meaning is lost for the long tail, which
 // is the accepted trade-off for full visual consistency.
 function iconizeUnknownEmoji(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -357,7 +357,7 @@ function iconizeUnknownEmoji(root) {
   let n;
   while ((n = walker.nextNode())) {
     const p = n.parentNode;
-    if (p && p.closest && p.closest("code, pre, sf-symbol")) continue;
+    if (p && p.closest && p.closest("code, pre, app-icon")) continue;
     EMOJI_ANY_RE.lastIndex = 0;
     if (EMOJI_ANY_RE.test(n.nodeValue)) targets.push(n);
   }
@@ -367,7 +367,7 @@ function iconizeUnknownEmoji(root) {
     EMOJI_ANY_RE.lastIndex = 0;
     while ((m = EMOJI_ANY_RE.exec(text))) {
       if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      const s = document.createElement("sf-symbol");
+      const s = document.createElement("app-icon");
       s.setAttribute("name", "sparkle");
       s.className = "md-emoji text-faint";
       s.setAttribute("aria-label", m[0]);
@@ -384,8 +384,8 @@ function renderMD(text) {
     const tpl = document.createElement("template");
     tpl.innerHTML = marked.parse(text, { breaks: true, gfm: true });
     iconizeChecklists(tpl.content); // before the sanitizer drops <input>
-    iconizeEmoji(tpl.content);      // mapped emoji → their SF Symbol (skips code/pre)
-    iconizeUnknownEmoji(tpl.content); // any remaining emoji → a neutral SF Symbol
+    iconizeEmoji(tpl.content);      // mapped emoji → their Material Symbols icon (skips code/pre)
+    iconizeUnknownEmoji(tpl.content); // any remaining emoji → a neutral Material Symbols icon
     highlightCodeBlocks(tpl.content);
     return sanitizeHTML(tpl.innerHTML);
   }
