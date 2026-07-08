@@ -64,6 +64,7 @@ type Rules struct {
 	workingDir string
 	global     set
 	project    set
+	malformed  bool // a permissions file existed but could not be read/parsed
 }
 
 // Load reads the global and project rules for workingDir. Missing or malformed
@@ -71,10 +72,13 @@ type Rules struct {
 // are materialized by EnsureGlobalDefaults at startup, not synthesized here, so
 // the files stay the single source of truth.
 func Load(workingDir string) *Rules {
+	global, gOK := read(globalPath())
+	project, pOK := read(projectPath(workingDir))
 	return &Rules{
 		workingDir: workingDir,
-		global:     read(globalPath()),
-		project:    read(projectPath(workingDir)),
+		global:     global,
+		project:    project,
+		malformed:  !gOK || !pOK,
 	}
 }
 
@@ -106,14 +110,63 @@ func (r *Rules) Check(tool, command string) Decision {
 	if r == nil {
 		return Default
 	}
-	// Deny wins, so check all deny rules across both scopes first.
-	for _, rule := range append(append([]string{}, r.project.Deny...), r.global.Deny...) {
-		if matches(rule, tool, command) {
+	denies := append(append([]string{}, r.project.Deny...), r.global.Deny...)
+	allows := append(append([]string{}, r.project.Allow...), r.global.Allow...)
+	if tool == "bash" {
+		return checkBash(command, denies, allows)
+	}
+	// Non-bash tools match by exact tool name. Deny wins.
+	for _, rule := range denies {
+		if rule == tool {
 			return Deny
 		}
 	}
-	for _, rule := range append(append([]string{}, r.project.Allow...), r.global.Allow...) {
-		if matches(rule, tool, command) {
+	for _, rule := range allows {
+		if rule == tool {
+			return Allow
+		}
+	}
+	return Default
+}
+
+// checkBash resolves a bash command against the rules with awareness of shell
+// operators. The command is split into its top-level simple-command segments
+// (on ; | && ||): a deny rule fires when its prefix matches ANY segment — so a
+// denied command can't be smuggled behind "true; …" or "… && …" — while a
+// prefix ALLOW fires only when the command is a shape we can vet (no command
+// substitution, redirection, or backgrounding) AND every segment is covered by
+// some allow prefix, so an allowlisted prefix ("git ") can't carry a second
+// command ("git status; rm -rf ~"). A bare "bash" rule allows/denies the tool
+// outright. Deny always wins.
+//
+// Note: prefixes are still textual, so a deny like "rm -rf" can be evaded by an
+// equivalent spelling ("/bin/rm …", "rm --recursive"). Deny rules are a
+// convenience gate, not a sandbox; combine with the OS sandbox for real
+// confinement.
+func checkBash(command string, denies, allows []string) Decision {
+	segments, vettable := bashSegments(command)
+
+	for _, rule := range denies {
+		if rule == "bash" {
+			return Deny
+		}
+		if prefix, ok := bashRulePrefix(rule); ok && anyHasPrefix(segments, prefix) {
+			return Deny
+		}
+	}
+	for _, rule := range allows {
+		if rule == "bash" {
+			return Allow
+		}
+	}
+	if vettable && len(segments) > 0 {
+		var allowPrefixes []string
+		for _, rule := range allows {
+			if prefix, ok := bashRulePrefix(rule); ok {
+				allowPrefixes = append(allowPrefixes, prefix)
+			}
+		}
+		if len(allowPrefixes) > 0 && allCovered(segments, allowPrefixes) {
 			return Allow
 		}
 	}
@@ -131,16 +184,63 @@ func normalizeRule(rule string) string {
 	return strings.TrimSpace(rule)
 }
 
-// matches reports whether a single rule applies to a tool/command.
-func matches(rule, tool, command string) bool {
-	if strings.HasPrefix(rule, bashPrefix) {
-		if tool != "bash" {
+// bashRulePrefix returns the command prefix of a "bash:<prefix>" rule.
+func bashRulePrefix(rule string) (string, bool) {
+	if !strings.HasPrefix(rule, bashPrefix) {
+		return "", false
+	}
+	return strings.TrimPrefix(rule, bashPrefix), true
+}
+
+// bashSegments splits command into its top-level simple-command segments,
+// breaking on the shell control operators ; | && ||. vettable is false when the
+// command contains constructs this package can't reason about — command
+// substitution ($(...) or backticks), redirection (>), or backgrounding (&) — in
+// which case a prefix ALLOW must not fire (fail toward prompting), though a DENY
+// may still match an individual segment. Mirrors config.SafeBashCommand's
+// tokenization.
+func bashSegments(command string) (segments []string, vettable bool) {
+	vettable = !strings.ContainsAny(command, ">`") && !strings.Contains(command, "$(")
+	norm := strings.ReplaceAll(command, "&&", "\x00")
+	norm = strings.ReplaceAll(norm, "||", "\x00")
+	if strings.Contains(norm, "&") {
+		vettable = false
+	}
+	norm = strings.ReplaceAll(norm, "|", "\x00")
+	norm = strings.ReplaceAll(norm, ";", "\x00")
+	for _, seg := range strings.Split(norm, "\x00") {
+		if s := strings.TrimSpace(seg); s != "" {
+			segments = append(segments, s)
+		}
+	}
+	return segments, vettable
+}
+
+// anyHasPrefix reports whether any segment starts with prefix.
+func anyHasPrefix(segments []string, prefix string) bool {
+	for _, seg := range segments {
+		if strings.HasPrefix(seg, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// allCovered reports whether every segment starts with at least one of prefixes.
+func allCovered(segments, prefixes []string) bool {
+	for _, seg := range segments {
+		covered := false
+		for _, p := range prefixes {
+			if strings.HasPrefix(seg, p) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
 			return false
 		}
-		prefix := strings.TrimPrefix(rule, bashPrefix)
-		return strings.HasPrefix(strings.TrimSpace(command), prefix)
 	}
-	return rule == tool
+	return true
 }
 
 // Allowed/Denied expose the merged rule lists (project first, then global) for
@@ -151,6 +251,11 @@ func (r *Rules) Allowed() []string {
 func (r *Rules) Denied() []string {
 	return append(append([]string{}, r.project.Deny...), r.global.Deny...)
 }
+
+// Malformed reports whether a permissions file existed but could not be read or
+// parsed, so the merged rule set may be missing deny rules. Callers should fail
+// closed — never auto-run a mutating tool — when this is true.
+func (r *Rules) Malformed() bool { return r != nil && r.malformed }
 
 // Lists returns the allow and deny rules for a single scope, for editors that
 // target one file (e.g. the web UI's Tools menu, which writes the global scope).
@@ -216,17 +321,26 @@ func projectPath(workingDir string) string {
 	return filepath.Join(workingDir, ".sqe", "permissions.json")
 }
 
-func read(path string) set {
+// read loads one scope's rules. The bool is false only when the file EXISTS but
+// can't be read or parsed — a missing file (or empty path) is a normal empty
+// scope and returns true. A parse failure must not silently drop deny rules, so
+// callers treat false as "rules untrusted" and fail closed.
+func read(path string) (set, bool) {
 	var st set
 	if path == "" {
-		return st
+		return st, true
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return st
+		if os.IsNotExist(err) {
+			return st, true // no file yet — a legitimately empty scope
+		}
+		return st, false // exists but unreadable — don't trust an empty rule set
 	}
-	_ = json.Unmarshal(data, &st)
-	return st
+	if err := json.Unmarshal(data, &st); err != nil {
+		return set{}, false // malformed — deny rules may be missing; fail closed
+	}
+	return st, true
 }
 
 func write(path string, st set) error {

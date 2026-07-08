@@ -25,6 +25,7 @@ import (
 	"github.com/pysty1995/moony/internal/llm"
 	"github.com/pysty1995/moony/internal/manage"
 	"github.com/pysty1995/moony/internal/mcp"
+	"github.com/pysty1995/moony/internal/permissions"
 	"github.com/pysty1995/moony/internal/tools"
 	"github.com/pysty1995/moony/internal/worker"
 	"github.com/pysty1995/moony/internal/workflow"
@@ -612,6 +613,28 @@ func (wr *workflowRunner) runTool(ctx context.Context, d workflow.NodeData, in w
 	}
 	if onDelta != nil {
 		onDelta("calling " + name + "…")
+	}
+	// Workflow nodes run unattended, but must still honor the same non-interactive
+	// gate as the task/agent path: a deny rule blocks the call, the git commit/push
+	// hard gate never auto-runs without a user, and malformed rules fail closed for
+	// mutating tools. (There's no way to prompt for approval mid-workflow.)
+	rules := permissions.Load(wr.cfg.WorkingDir)
+	var permCmd string
+	if name == "bash" {
+		var ba struct {
+			Command string `json:"command"`
+		}
+		_ = json.Unmarshal([]byte(argStr), &ba)
+		permCmd = ba.Command
+	}
+	if rules.Check(name, permCmd) == permissions.Deny {
+		return workflow.NodeOutput{}, fmt.Errorf("tool %q is denied by a permission rule", name)
+	}
+	if agent.HardApprovalRequired(name, json.RawMessage(argStr)) {
+		return workflow.NodeOutput{}, fmt.Errorf("tool %q needs interactive approval (git commit/push) and cannot run unattended in a workflow", name)
+	}
+	if rules.Malformed() && reg.Mutates(name) {
+		return workflow.NodeOutput{}, fmt.Errorf("the permissions file is malformed; refusing to run the mutating tool %q unattended — fix permissions.json", name)
 	}
 	out, err := reg.Execute(ctx, name, json.RawMessage(argStr))
 	if err != nil {

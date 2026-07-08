@@ -186,6 +186,8 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		tools:       subRegistry,
 		system:      persona.SystemPrompt,
 		alwaysAllow: map[string]bool{},
+		perms:       t.parent.perms, // inherit deny/allow rules so delegated work is gated too
+		interactive: false,          // headless: the git commit/push hard gate denies rather than auto-running
 	}
 
 	// Drain events into a buffer; we return the final assistant text as the tool

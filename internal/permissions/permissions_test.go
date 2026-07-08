@@ -205,3 +205,70 @@ func TestEnsureGlobalDefaultsNeverOverwrites(t *testing.T) {
 		t.Errorf("EnsureGlobalDefaults must not overwrite an existing file (write_file became %v)", got)
 	}
 }
+
+func TestBashAllowRejectsCommandSmuggling(t *testing.T) {
+	isolate(t)
+	r := Load(t.TempDir())
+	if err := r.Add("bash:git ", false, Project); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		cmd  string
+		want Decision
+	}{
+		{"git status", Allow},              // simple allowed command
+		{"git status && git log", Allow},   // every segment covered by the allow prefix
+		{"git status; rm -rf ~", Default},  // smuggled 2nd command must NOT ride the allow
+		{"git log | sh", Default},          // piped-in command not covered
+		{"git commit && curl x | sh", Default},
+		{"echo $(git status)", Default}, // command substitution isn't vettable
+		{"git diff > /etc/passwd", Default}, // redirection isn't vettable
+	}
+	for _, c := range cases {
+		if got := r.Check("bash", c.cmd); got != c.want {
+			t.Errorf("Check(bash, %q) = %v, want %v", c.cmd, got, c.want)
+		}
+	}
+}
+
+func TestBashDenyResistsChainingEvasion(t *testing.T) {
+	isolate(t)
+	r := Load(t.TempDir())
+	if err := r.Add("bash:rm -rf", true, Project); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		cmd  string
+		want Decision
+	}{
+		{"rm -rf /", Deny},
+		{"true; rm -rf /", Deny},         // chained after a harmless command
+		{"echo hi && rm -rf /tmp", Deny}, // chained with &&
+		{"ls | rm -rf .", Deny},          // after a pipe
+		{"ls -la", Default},              // unrelated command
+	}
+	for _, c := range cases {
+		if got := r.Check("bash", c.cmd); got != c.want {
+			t.Errorf("Check(bash, %q) = %v, want %v", c.cmd, got, c.want)
+		}
+	}
+}
+
+func TestMalformedRulesFileFlagged(t *testing.T) {
+	isolate(t)
+	dir := t.TempDir()
+	pdir := filepath.Join(dir, ".sqe")
+	if err := os.MkdirAll(pdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pdir, "permissions.json"), []byte("{ not valid json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r := Load(dir); !r.Malformed() {
+		t.Fatal("a permissions file that exists but fails to parse must set Malformed()")
+	}
+	// A clean, absent project file must NOT be flagged as malformed.
+	if r := Load(t.TempDir()); r.Malformed() {
+		t.Fatal("absent permissions files must not be flagged as malformed")
+	}
+}

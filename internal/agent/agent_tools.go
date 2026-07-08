@@ -373,6 +373,26 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 		Model:    model,
 	})
 
+	// If a permissions file existed but couldn't be parsed, we can't trust the
+	// absence of a matching deny rule. Fail closed: never auto-run a mutating tool
+	// on untrusted rules — require interactive approval, or deny outright when
+	// there's no interactive user (headless run / sub-agent). Read-only tools are
+	// unaffected. This deliberately overrides the danger-skip/auto short-circuits
+	// below.
+	if mutating && a.perms != nil && a.perms.Malformed() {
+		if !a.interactive {
+			msg := "The permissions file is malformed, so deny rules can't be trusted; refusing to auto-run the mutating " + call.Name + " tool. Fix permissions.json (see /permissions) and retry."
+			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
+			return false, llm.ToolResultBlock(call.ID, msg, true)
+		}
+		if a.requestApproval(ctx, emit, call.Name, summary, diff) == Deny {
+			msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
+			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
+			return false, llm.ToolResultBlock(call.ID, msg, true)
+		}
+		return true, llm.ContentBlock{}
+	}
+
 	// danger-skip-permission: auto-approve every remaining gate, including the
 	// git commit/push hard gate below. The structural gates above still apply —
 	// plan mode / a pending plan draft still block edits until the plan is
@@ -499,6 +519,14 @@ func hardApproval(name string, input json.RawMessage) bool {
 		return bashRunsGitCommitOrPush(bashCommandField(input))
 	}
 	return false
+}
+
+// HardApprovalRequired reports whether a tool call is subject to the git
+// commit/push hard gate — it must always be user-confirmed and is never auto-run
+// without an interactive approver. Exported for out-of-loop executors (e.g. the
+// workflow runner) that invoke tools outside the normal agent approval loop.
+func HardApprovalRequired(name string, input json.RawMessage) bool {
+	return hardApproval(name, input)
 }
 
 // bashRunsGitCommitOrPush reports whether a shell command invokes `git commit`
