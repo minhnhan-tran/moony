@@ -80,3 +80,93 @@ func TestLoadDotEnvMissingFileIsNoop(t *testing.T) {
 	_ = os.Chdir(t.TempDir())
 	LoadDotEnv() // must not panic or error
 }
+
+// TestUpsertDotEnv: new keys are appended (sorted), existing keys are updated in
+// place, empty-valued keys are deleted, and unrelated lines/comments survive.
+func TestUpsertDotEnv(t *testing.T) {
+	envPath := filepath.Join(t.TempDir(), ".env")
+	t.Setenv("MOONY_ENV_FILE", envPath)
+	if err := os.WriteFile(envPath, []byte(
+		"# my secrets\n"+
+			"MOONY_OPENAI_API_KEY=old-key\n"+
+			"MOONY_OTHER=keepme\n",
+	), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := UpsertDotEnv(map[string]string{
+		"MOONY_OPENAI_API_KEY":    "new-key", // update in place
+		"MOONY_ANTHROPIC_API_KEY": "sk-ant",  // append
+		"MOONY_OPENAI_BASE_URL":   "",        // empty → not written / deleted
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	// Parse the result back to assert on effective values.
+	kv := map[string]string{}
+	for _, line := range splitLines(got) {
+		if k, v, ok := parseEnvLine(line); ok {
+			kv[k] = v
+		}
+	}
+	if kv["MOONY_OPENAI_API_KEY"] != "new-key" {
+		t.Errorf("update failed: %q", kv["MOONY_OPENAI_API_KEY"])
+	}
+	if kv["MOONY_ANTHROPIC_API_KEY"] != "sk-ant" {
+		t.Errorf("append failed: %q", kv["MOONY_ANTHROPIC_API_KEY"])
+	}
+	if kv["MOONY_OTHER"] != "keepme" {
+		t.Errorf("unrelated key not preserved: %q", kv["MOONY_OTHER"])
+	}
+	if _, ok := kv["MOONY_OPENAI_BASE_URL"]; ok {
+		t.Errorf("empty-valued key should not be written")
+	}
+	if !containsLine(got, "# my secrets") {
+		t.Errorf("comment not preserved:\n%s", got)
+	}
+
+	// Deleting an existing key removes its line.
+	if err := UpsertDotEnv(map[string]string{"MOONY_ANTHROPIC_API_KEY": ""}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(envPath)
+	if containsLine(string(data), "MOONY_ANTHROPIC_API_KEY=sk-ant") {
+		t.Errorf("delete failed, key still present:\n%s", string(data))
+	}
+
+	// Empty upsert map is a no-op (no error).
+	if err := UpsertDotEnv(nil); err != nil {
+		t.Errorf("nil upsert should be a no-op: %v", err)
+	}
+}
+
+func splitLines(s string) []string {
+	var out []string
+	cur := ""
+	for _, r := range s {
+		if r == '\n' {
+			out = append(out, cur)
+			cur = ""
+			continue
+		}
+		cur += string(r)
+	}
+	if cur != "" {
+		out = append(out, cur)
+	}
+	return out
+}
+
+func containsLine(content, want string) bool {
+	for _, line := range splitLines(content) {
+		if line == want {
+			return true
+		}
+	}
+	return false
+}

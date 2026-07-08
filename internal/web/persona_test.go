@@ -317,3 +317,31 @@ func TestApplyPersonaEditProviderKeys(t *testing.T) {
 		}
 	}
 }
+
+// TestProviderEnvPersist verifies which env vars an edit persists to the dotenv:
+// non-blank keys are included, blank keys are skipped (keep existing), and a
+// base-URL edit is always included (empty value = delete the override).
+func TestProviderEnvPersist(t *testing.T) {
+	up := providerEnvPersist(personaEdit{
+		OpenAIAPIKey:    strptr("sk-openai"),
+		AnthropicAPIKey: strptr(""), // blank → keep existing, not persisted
+		OpenAIBaseURL:   strptr("https://proxy/v1"),
+		GroqBaseURL:     strptr(""), // submitted-but-empty → delete override
+	})
+	if up["MOONY_OPENAI_API_KEY"] != "sk-openai" {
+		t.Errorf("openai key = %q, want sk-openai", up["MOONY_OPENAI_API_KEY"])
+	}
+	if _, ok := up["MOONY_ANTHROPIC_API_KEY"]; ok {
+		t.Error("blank key must not be persisted (keeps existing)")
+	}
+	if up["MOONY_OPENAI_BASE_URL"] != "https://proxy/v1" {
+		t.Errorf("openai base = %q, want https://proxy/v1", up["MOONY_OPENAI_BASE_URL"])
+	}
+	if v, ok := up["MOONY_GROQ_BASE_URL"]; !ok || v != "" {
+		t.Errorf("blanked base URL must map to \"\" (delete), got %q ok=%v", v, ok)
+	}
+	// Untouched providers contribute nothing.
+	if _, ok := up["MOONY_XAI_API_KEY"]; ok {
+		t.Error("untouched provider must not appear")
+	}
+}

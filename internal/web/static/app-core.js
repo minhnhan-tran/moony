@@ -3823,7 +3823,7 @@ function openPersona() {
 async function renderPersona() {
   const body = manageBody;
   body.innerHTML = "";
-  body.append(el("p", "access-intro", "Runtime environment for the connected terminal. Changes apply immediately; settings with a saved slot (like auto-plan) persist, while connection/limit overrides reset to the deployed config on restart. Secrets show only their last 4 characters — type a new value to replace, or leave blank to keep the current one."));
+  body.append(el("p", "access-intro", "Runtime environment for the connected terminal. Changes apply immediately. Provider API keys and base URLs are saved to ~/.config/moony/.env and settings with a saved slot (like auto-plan) persist; other connection/limit overrides reset to the deployed config on restart. Secrets show only their last 4 characters — type a new value to replace, or leave blank to keep the current one."));
   let fields = [];
   try { const r = await fetch(api(`/api/sessions/${current}/persona`)); if (r.ok) fields = (await r.json()).fields || []; } catch (_) {}
   const form = el("div", "persona-form");
