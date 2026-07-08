@@ -365,10 +365,10 @@ var logoGlyphs = map[rune][5]string{
 	' ': {"  ", "  ", "  ", "  ", "  "},
 }
 
-// asciiLogo renders "MOONY CODING AGENT" in the compact block font with a
-// vertical blue→pink gradient.
+// asciiLogo renders "MOONY" in the compact block font with a vertical
+// blue→pink gradient.
 func asciiLogo() string {
-	const word = "MOONY CODING AGENT"
+	const word = "MOONY"
 	var rows [5]strings.Builder
 	for i, r := range word {
 		g, ok := logoGlyphs[r]
