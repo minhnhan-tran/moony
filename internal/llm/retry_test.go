@@ -72,10 +72,16 @@ func TestParseRetryAfter(t *testing.T) {
 }
 
 // fastRetryClient returns a stubbed client with negligible backoff so retry
-// tests don't actually sleep.
+// tests don't actually sleep. It uses a hosted (OpenAI) provider so the shared
+// stream-retry machinery is exercised through the OpenAI SSE parser (which the
+// retry fixtures below are written in); the Ollama path uses native NDJSON and
+// is covered separately in ollama_test.go.
 func fastRetryClient(t *testing.T, rt http.RoundTripper) *Client {
 	t.Helper()
 	c := newTestClient(rt)
+	c.cfg.LLMProvider = provider.OpenAI
+	c.cfg.OpenAIBaseURL = "https://openai.test/v1"
+	c.cfg.OpenAIAPIKey = "test-key"
 	c.maxRetries = 4
 	c.maxStreamRetries = 4
 	c.retryBase = time.Millisecond

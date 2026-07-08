@@ -1,12 +1,13 @@
 package llm
 
-// Ollama backend: talks to a local/remote Ollama server through its OpenAI-
-// compatible Chat Completions API (POST <host>/v1/chat/completions). Ollama's
-// wire shape matches OpenAI's, so this reuses the openai.go request builder,
-// message/tool serialization, and SSE stream parser; the only differences are
-// the base URL (config.OllamaBaseURL, from MOONY_OLLAMA_HOST / OLLAMA_HOST), an
-// optional bearer token via MOONY_OLLAMA_TOKEN instead of any hosted-provider auth,
-// and no extended-thinking / prompt-cache fields (Ollama doesn't support them).
+// Ollama backend: talks to a local/remote Ollama server through its NATIVE chat
+// API (POST <host>/api/chat). The native API (not the OpenAI-compatible /v1) is
+// used because only it honors runtime options — notably options.num_ctx, which
+// moony must raise so its large system prompt + tool schemas don't overflow the
+// model's default context. The request/response wire shapes and NDJSON stream
+// parser live in ollama_native.go. Config: the base URL (config.OllamaBaseURL,
+// from MOONY_OLLAMA_HOST / OLLAMA_HOST; its "/v1" suffix is stripped for the
+// native path) and an optional bearer token via MOONY_OLLAMA_TOKEN.
 //
 // Tool-name translation to a wire-safe form is handled by the caller
 // (StreamMessages), so this file deals only in already-translated names.
@@ -18,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,16 +67,31 @@ func IsCloudModel(m string) bool {
 	return strings.HasPrefix(m, "anthropic.") || strings.HasPrefix(m, "gcp:") || strings.HasPrefix(m, "aws:")
 }
 
-// ollamaRequest is the OpenAI-compatible chat body plus Ollama's keep_alive
-// extension, which asks the server to keep the model resident between turns
-// (default is a few minutes; "30m" avoids a multi-minute reload of a large model
-// on every turn), plus its "think" flag. Ollama only streams reasoning
-// ("thinking") deltas when think=true is sent — otherwise a thinking-capable
-// model answers directly and no reasoning shows — so we always request it.
-type ollamaRequest struct {
-	oaiRequest
-	KeepAlive string `json:"keep_alive,omitempty"`
-	Think     *bool  `json:"think,omitempty"`
+// ollamaOptions carries Ollama runtime options (native /api/chat). num_ctx sets
+// the context window the model is (re)loaded with; num_predict caps output tokens.
+type ollamaOptions struct {
+	NumCtx     int `json:"num_ctx,omitempty"`
+	NumPredict int `json:"num_predict,omitempty"`
+}
+
+// defaultOllamaNumCtx is the context window moony asks Ollama to load the model
+// with. moony's system prompt + tool schemas run several thousand tokens, so the
+// common Ollama default (num_ctx=4096) overflows and truncates the prompt —
+// which drops the model's thinking output and often halts generation after a
+// token or two. Requesting a larger window makes Ollama reload the model with
+// room to actually respond.
+const defaultOllamaNumCtx = 32768
+
+// ollamaNumCtx is the context window sent as options.num_ctx. Override with
+// MOONY_OLLAMA_NUM_CTX; set it to 0 to omit the option and inherit whatever
+// context the server already loaded the model with.
+func ollamaNumCtx() int {
+	if v := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_NUM_CTX")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return defaultOllamaNumCtx
 }
 
 // ollamaKeepAlive is how long the server should keep the model loaded after a
@@ -89,35 +106,41 @@ func ollamaKeepAlive() string {
 // userAgent is the HTTP User-Agent sent to the Ollama server.
 func userAgent() string { return "moony/" + config.Version }
 
-// streamOllama sends one turn to the Ollama server and assembles the streamed
-// reply into a Response. Reuses the OpenAI request/stream machinery. Thinking is
-// always requested via Ollama's "think" flag so a thinking-capable model's
-// reasoning is shown whenever it produces any (a model that doesn't think ignores
-// the flag); it is independent of the reasoning level. Prompt caching is omitted
-// (unsupported by Ollama).
+// streamOllama sends one turn to the Ollama server via its NATIVE /api/chat
+// endpoint and assembles the streamed NDJSON reply into a Response. The native
+// API (not the OpenAI-compatible /v1) is used so options.num_ctx is honored —
+// see ollamaNumCtx. Thinking is always requested via the "think" flag so a
+// thinking-capable model's reasoning shows whenever it produces any (a model that
+// doesn't think ignores the flag).
 func (c *Client) streamOllama(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	think := true
-	body := ollamaRequest{
-		oaiRequest: oaiRequest{
-			Model:         c.resolveOllamaModel(ctx),
-			Messages:      toOpenAIMessages(system, messages),
-			Tools:         toOpenAITools(tools),
-			Stream:        true,
-			StreamOptions: &oaiStreamOptions{IncludeUsage: true},
-			MaxTokens:     c.cfg.MaxTokens,
-		},
-		KeepAlive: ollamaKeepAlive(),
+	body := ollamaNativeReq{
+		Model:     c.resolveOllamaModel(ctx),
+		Messages:  toOllamaMessages(system, messages),
+		Tools:     toOpenAITools(tools),
+		Stream:    true,
 		Think:     &think,
+		KeepAlive: ollamaKeepAlive(),
+	}
+	opts := ollamaOptions{}
+	if n := ollamaNumCtx(); n > 0 {
+		opts.NumCtx = n
+	}
+	if c.cfg != nil && c.cfg.MaxTokens > 0 {
+		opts.NumPredict = c.cfg.MaxTokens
+	}
+	if opts != (ollamaOptions{}) {
+		body.Options = &opts
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
-	dbg(">>> ollama request: %s", raw)
+	dbg(">>> ollama native request: %s", raw)
 
-	url := c.ollamaBaseURL() + "/chat/completions"
+	url := strings.TrimSuffix(c.ollamaBaseURL(), "/v1") + "/api/chat"
 	newReq := func() (*http.Request, error) { return c.newOllamaRequest(ctx, url, raw) }
-	return c.streamWithRetry(ctx, newReq, "ollama", parseOpenAIStream, h)
+	return c.streamWithRetry(ctx, newReq, "ollama", parseOllamaNativeStream, h)
 }
 
 // newOllamaRequest builds a streaming POST to the Ollama server. Unlike the
@@ -129,7 +152,7 @@ func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Accept", "application/x-ndjson") // native /api/chat streams NDJSON, not SSE
 	req.Header.Set("User-Agent", userAgent())
 	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)

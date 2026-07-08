@@ -90,24 +90,23 @@ func TestOllamaListModelsEmptyIsError(t *testing.T) {
 	}
 }
 
-// TestStreamOllamaEndToEnd drives a full turn against a fake Ollama OpenAI-compat
-// endpoint that streams text + a tool call, verifying the request shape and the
-// assembled Response (the OpenAI machinery is reused, so this also covers wiring).
+// TestStreamOllamaEndToEnd drives a full turn against a fake Ollama native
+// /api/chat endpoint that streams text + a tool call, verifying the request shape
+// and the assembled Response.
 func TestStreamOllamaEndToEnd(t *testing.T) {
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat/completions" {
+		if r.URL.Path != "/api/chat" {
 			http.NotFound(w, r)
 			return
 		}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &gotBody)
-		w.Header().Set("Content-Type", "text/event-stream")
-		// Stream: a text delta, then a tool call, then finish + usage.
-		io.WriteString(w, `data: {"choices":[{"delta":{"content":"Hi"}}]}`+"\n\n")
-		io.WriteString(w, `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file","arguments":"{\"path\":\"a.go\"}"}}]}}]}`+"\n\n")
-		io.WriteString(w, `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":12,"completion_tokens":5}}`+"\n\n")
-		io.WriteString(w, "data: [DONE]\n\n")
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		// Stream (NDJSON): a text delta, then a tool call, then done + usage.
+		io.WriteString(w, `{"message":{"content":"Hi"},"done":false}`+"\n")
+		io.WriteString(w, `{"message":{"content":"","tool_calls":[{"function":{"name":"read_file","arguments":{"path":"a.go"}}}]},"done":false}`+"\n")
+		io.WriteString(w, `{"message":{"content":""},"done":true,"done_reason":"stop","prompt_eval_count":12,"eval_count":5}`+"\n")
 	}))
 	defer srv.Close()
 
@@ -139,7 +138,7 @@ func TestStreamOllamaEndToEnd(t *testing.T) {
 		t.Errorf("stop reason = %q, want tool_use", resp.StopReason)
 	}
 	calls := resp.ToolCalls()
-	if len(calls) != 1 || calls[0].Name != "read_file" || calls[0].ID != "call_1" {
+	if len(calls) != 1 || calls[0].Name != "read_file" || calls[0].ID != "call_0" {
 		t.Fatalf("unexpected tool calls: %+v", calls)
 	}
 	if resp.Usage.InputTokens != 12 || resp.Usage.OutputTokens != 5 {
@@ -173,9 +172,8 @@ func TestStreamOllamaSendsKeepAlive(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &gotBody)
-		w.Header().Set("Content-Type", "text/event-stream")
-		io.WriteString(w, `data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}`+"\n\n")
-		io.WriteString(w, "data: [DONE]\n\n")
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		io.WriteString(w, `{"message":{"content":"ok"},"done":true,"done_reason":"stop"}`+"\n")
 	}))
 	defer srv.Close()
 
@@ -193,6 +191,35 @@ func TestStreamOllamaSendsKeepAlive(t *testing.T) {
 	if gotBody["think"] != true {
 		t.Errorf("request think = %v, want true (always request thinking)", gotBody["think"])
 	}
+	// options.num_ctx is sent (default 32768) so the model reloads with room for
+	// the large system prompt + tools instead of overflowing a tiny default.
+	opts, _ := gotBody["options"].(map[string]any)
+	if opts == nil {
+		t.Fatalf("request should carry an options block, got %v", gotBody["options"])
+	}
+	if nc, _ := opts["num_ctx"].(float64); int(nc) != 32768 {
+		t.Errorf("request options.num_ctx = %v, want 32768 (default)", opts["num_ctx"])
+	}
+}
+
+// TestOllamaNumCtx covers the MOONY_OLLAMA_NUM_CTX override and its default.
+func TestOllamaNumCtx(t *testing.T) {
+	t.Setenv("MOONY_OLLAMA_NUM_CTX", "")
+	if got := ollamaNumCtx(); got != 32768 {
+		t.Errorf("default num_ctx = %d, want 32768", got)
+	}
+	t.Setenv("MOONY_OLLAMA_NUM_CTX", "8192")
+	if got := ollamaNumCtx(); got != 8192 {
+		t.Errorf("override num_ctx = %d, want 8192", got)
+	}
+	t.Setenv("MOONY_OLLAMA_NUM_CTX", "0") // 0 → omit the option, inherit the server's context
+	if got := ollamaNumCtx(); got != 0 {
+		t.Errorf("num_ctx=0 = %d, want 0 (omit)", got)
+	}
+	t.Setenv("MOONY_OLLAMA_NUM_CTX", "garbage") // invalid → fall back to default
+	if got := ollamaNumCtx(); got != 32768 {
+		t.Errorf("invalid num_ctx = %d, want the default 32768", got)
+	}
 }
 
 // c0 builds a fresh Ollama client pointed at srv (helper for the keep-alive test).
@@ -200,15 +227,14 @@ func c0(srv *httptest.Server) *Client {
 	return &Client{cfg: &config.Config{LLMProvider: provider.Ollama, OllamaBaseURL: srv.URL + "/v1", Model: "gemma4:31b", MaxTokens: 64}, http: srv.Client()}
 }
 
-// TestStreamOllamaThinkingDeltas confirms reasoning deltas from the OpenAI-compat
-// stream are surfaced via OnThinkingDelta and collected into a thinking block.
+// TestStreamOllamaThinkingDeltas confirms reasoning deltas from the native stream
+// are surfaced via OnThinkingDelta and collected into a thinking block.
 func TestStreamOllamaThinkingDeltas(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		io.WriteString(w, `data: {"choices":[{"delta":{"reasoning":"Let me think. "}}]}`+"\n\n")
-		io.WriteString(w, `data: {"choices":[{"delta":{"reasoning":"2+2 is 4."}}]}`+"\n\n")
-		io.WriteString(w, `data: {"choices":[{"delta":{"content":"4"},"finish_reason":"stop"}]}`+"\n\n")
-		io.WriteString(w, "data: [DONE]\n\n")
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		io.WriteString(w, `{"message":{"thinking":"Let me think. "},"done":false}`+"\n")
+		io.WriteString(w, `{"message":{"thinking":"2+2 is 4."},"done":false}`+"\n")
+		io.WriteString(w, `{"message":{"content":"4"},"done":true,"done_reason":"stop"}`+"\n")
 	}))
 	defer srv.Close()
 	c := &Client{cfg: &config.Config{LLMProvider: provider.Ollama, OllamaBaseURL: srv.URL + "/v1", Model: "gemma4:31b", MaxTokens: 64, ReasoningLevel: "auto"}, http: srv.Client()}
