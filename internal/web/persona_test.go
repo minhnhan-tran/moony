@@ -201,3 +201,75 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 		t.Errorf("blanked plain field should clear, got %q", got)
 	}
 }
+
+// TestPersonaProviderKeyFields verifies each provider credential is surfaced as a
+// masked secret field, that an already-set key (from the config struct) reports
+// set=true with a last-4 hint, and that unset keys report set=false.
+func TestPersonaProviderKeyFields(t *testing.T) {
+	c := &config.Config{OpenAIAPIKey: "sk-live-abcd1234"} // pre-set one key
+	byKey := map[string]personaField{}
+	for _, f := range personaFields(c, config.AllKnownModels()) {
+		byKey[f.Key] = f
+	}
+	// Every providerCreds row must appear as a secret field.
+	for _, pc := range providerCreds {
+		f, ok := byKey[pc.key]
+		if !ok {
+			t.Fatalf("missing provider field %q", pc.key)
+		}
+		if f.Type != "secret" {
+			t.Errorf("%s type = %q, want secret", pc.key, f.Type)
+		}
+		if f.Value != nil {
+			t.Errorf("%s must not expose a value (secret), got %v", pc.key, f.Value)
+		}
+	}
+	if f := byKey["openaiApiKey"]; !f.Set || f.Hint != "1234" {
+		t.Errorf("openaiApiKey set=%v hint=%q, want set=true hint=1234", f.Set, f.Hint)
+	}
+	if f := byKey["anthropicApiKey"]; f.Set {
+		t.Error("anthropicApiKey should report set=false when unset")
+	}
+}
+
+// TestApplyPersonaEditProviderKeys verifies a provider key edit sets both the env
+// var and the live config field, and that a blank secret keeps the existing key.
+func TestApplyPersonaEditProviderKeys(t *testing.T) {
+	for _, pc := range providerCreds {
+		os.Unsetenv(pc.env)
+	}
+	c := &config.Config{}
+
+	applyPersonaEdit(c, personaEdit{
+		OpenAIAPIKey: strptr("sk-openai-xyz"),
+		OllamaToken:  strptr("ollama-bearer"),
+	})
+	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
+		t.Errorf("MOONY_OPENAI_API_KEY = %q, want sk-openai-xyz", got)
+	}
+	if c.OpenAIAPIKey != "sk-openai-xyz" {
+		t.Errorf("c.OpenAIAPIKey = %q, want live update sk-openai-xyz", c.OpenAIAPIKey)
+	}
+	if got := os.Getenv("MOONY_OLLAMA_TOKEN"); got != "ollama-bearer" || c.OllamaToken != "ollama-bearer" {
+		t.Errorf("ollama token env=%q field=%q, want ollama-bearer", got, c.OllamaToken)
+	}
+
+	// Blank secret keeps the existing key (neither env nor field is wiped).
+	applyPersonaEdit(c, personaEdit{OpenAIAPIKey: strptr("")})
+	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
+		t.Errorf("blank secret cleared env, got %q", got)
+	}
+	if c.OpenAIAPIKey != "sk-openai-xyz" {
+		t.Errorf("blank secret cleared config field, got %q", c.OpenAIAPIKey)
+	}
+
+	// A nil (absent) field leaves everything unchanged.
+	applyPersonaEdit(c, personaEdit{})
+	if c.OpenAIAPIKey != "sk-openai-xyz" {
+		t.Errorf("nil field mutated config, got %q", c.OpenAIAPIKey)
+	}
+
+	for _, pc := range providerCreds {
+		os.Unsetenv(pc.env)
+	}
+}

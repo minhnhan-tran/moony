@@ -5,7 +5,7 @@ package web
 // hint — the full token never leaves the server); POST applies edits to the live
 // config (immediate effect, since the LLM client reads these per-request via its
 // shared *config.Config pointer). Edits are runtime-only: not persisted, so a
-// restart reverts to the deployed env/Kube config. Mirrors the /provider + /model
+// restart reverts to the deployed env. Mirrors the /provider + /model
 // pattern of mutating the session config and s.cfg together.
 
 import (
@@ -75,6 +75,75 @@ type personaEdit struct {
 	SessionKeyCmd     *string `json:"sqeSessionKeyCmd"`
 	SessionKeyFile    *string `json:"sqeSessionKeyFile"`
 	SessionPassphrase *string `json:"sqeSessionPassphrase"`
+	// Provider API keys (MOONY_*_API_KEY) + the optional Ollama bearer token.
+	// Secrets: an empty string means "keep the existing key". JSON tags match the
+	// providerCreds table below (the single source of truth wiring these to their
+	// env var and config field). Applied live and re-read per request via s.cfg.
+	OpenAIAPIKey     *string `json:"openaiApiKey"`
+	AnthropicAPIKey  *string `json:"anthropicApiKey"`
+	OpenRouterAPIKey *string `json:"openrouterApiKey"`
+	GeminiAPIKey     *string `json:"geminiApiKey"`
+	DeepSeekAPIKey   *string `json:"deepseekApiKey"`
+	GroqAPIKey       *string `json:"groqApiKey"`
+	XAIAPIKey        *string `json:"xaiApiKey"`
+	MistralAPIKey    *string `json:"mistralApiKey"`
+	TogetherAPIKey   *string `json:"togetherApiKey"`
+	FireworksAPIKey  *string `json:"fireworksApiKey"`
+	OllamaToken      *string `json:"ollamaToken"`
+}
+
+// providerCred ties one provider credential's Persona field to its env var, the
+// config struct field it feeds, and the personaEdit field the browser posts
+// back. One row per provider keeps personaFields/applyPersonaEdit/
+// personaEditedFields in sync — adding a provider means adding a personaEdit
+// field, a config field, and one row here.
+type providerCred struct {
+	key   string                       // Persona field key (== personaEdit JSON tag)
+	label string                       // display label
+	env   string                       // MOONY_*_API_KEY (or MOONY_OLLAMA_TOKEN) env var
+	desc  string                       // help text shown under the field
+	cfg   func(*config.Config) *string // pointer to the live config field
+	edit  func(personaEdit) *string    // the posted value (nil = field absent = unchanged)
+}
+
+// providerCreds is the credential registry for the Persona panel, in display
+// order (matching the /provider list). Keys mirror config.Load's MOONY_*_API_KEY
+// reads; the bare-name fallbacks (OPENAI_API_KEY, …) are deployment env only and
+// not editable here.
+var providerCreds = []providerCred{
+	{"openaiApiKey", "OpenAI API key", "MOONY_OPENAI_API_KEY",
+		"MOONY_OPENAI_API_KEY: authenticates api.openai.com. Applied live; resets to the deployed env on restart.",
+		func(c *config.Config) *string { return &c.OpenAIAPIKey }, func(e personaEdit) *string { return e.OpenAIAPIKey }},
+	{"anthropicApiKey", "Anthropic API key", "MOONY_ANTHROPIC_API_KEY",
+		"MOONY_ANTHROPIC_API_KEY: authenticates api.anthropic.com (Claude). Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.AnthropicAPIKey }, func(e personaEdit) *string { return e.AnthropicAPIKey }},
+	{"openrouterApiKey", "OpenRouter API key", "MOONY_OPENROUTER_API_KEY",
+		"MOONY_OPENROUTER_API_KEY: authenticates openrouter.ai. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.OpenRouterAPIKey }, func(e personaEdit) *string { return e.OpenRouterAPIKey }},
+	{"geminiApiKey", "Gemini API key", "MOONY_GEMINI_API_KEY",
+		"MOONY_GEMINI_API_KEY: authenticates Google's OpenAI-compatible endpoint. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.GeminiAPIKey }, func(e personaEdit) *string { return e.GeminiAPIKey }},
+	{"deepseekApiKey", "DeepSeek API key", "MOONY_DEEPSEEK_API_KEY",
+		"MOONY_DEEPSEEK_API_KEY: authenticates api.deepseek.com. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.DeepSeekAPIKey }, func(e personaEdit) *string { return e.DeepSeekAPIKey }},
+	{"groqApiKey", "Groq API key", "MOONY_GROQ_API_KEY",
+		"MOONY_GROQ_API_KEY: authenticates api.groq.com. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.GroqAPIKey }, func(e personaEdit) *string { return e.GroqAPIKey }},
+	{"xaiApiKey", "xAI API key", "MOONY_XAI_API_KEY",
+		"MOONY_XAI_API_KEY: authenticates api.x.ai (Grok). Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.XAIAPIKey }, func(e personaEdit) *string { return e.XAIAPIKey }},
+	{"mistralApiKey", "Mistral API key", "MOONY_MISTRAL_API_KEY",
+		"MOONY_MISTRAL_API_KEY: authenticates api.mistral.ai. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.MistralAPIKey }, func(e personaEdit) *string { return e.MistralAPIKey }},
+	{"togetherApiKey", "Together.ai API key", "MOONY_TOGETHER_API_KEY",
+		"MOONY_TOGETHER_API_KEY: authenticates api.together.xyz. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.TogetherAPIKey }, func(e personaEdit) *string { return e.TogetherAPIKey }},
+	{"fireworksApiKey", "Fireworks.ai API key", "MOONY_FIREWORKS_API_KEY",
+		"MOONY_FIREWORKS_API_KEY: authenticates api.fireworks.ai. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.FireworksAPIKey }, func(e personaEdit) *string { return e.FireworksAPIKey }},
+	{"ollamaToken", "Ollama token", "MOONY_OLLAMA_TOKEN",
+		"MOONY_OLLAMA_TOKEN: optional bearer token for a secured Ollama server. Applied live; resets on restart.",
+		func(c *config.Config) *string { return &c.OllamaToken }, func(e personaEdit) *string { return e.OllamaToken }},
 }
 
 // personaEditedFields returns the names of the fields this edit touched, for
@@ -125,6 +194,11 @@ func personaEditedFields(e personaEdit) []string {
 	}
 	if e.SessionPassphrase != nil {
 		f = append(f, "sqeSessionPassphrase") // name only, never the secret
+	}
+	for _, pc := range providerCreds {
+		if pc.edit(e) != nil {
+			f = append(f, pc.key) // name only, never the secret
+		}
 	}
 	if len(f) == 0 {
 		return []string{"no fields"}
@@ -268,6 +342,20 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 	setEnvSecret("MOONY_SESSION_PASSPHRASE", e.SessionPassphrase)
 	setEnvPlain("MOONY_SESSION_KEY_FILE", e.SessionKeyFile)
 	setEnvPlain("MOONY_SESSION_ENCRYPT", e.SessionEncrypt)
+	// Provider API keys / Ollama token. Unlike the session vars (read from env at
+	// startup), the LLM client reads these from the config struct per request, so
+	// update the live field too — the change reaches the running terminal at once.
+	// Secret semantics: blank keeps the existing key (never wipes it on empty submit).
+	for _, pc := range providerCreds {
+		v := pc.edit(e)
+		if v == nil {
+			continue
+		}
+		if t := strings.TrimSpace(*v); t != "" {
+			_ = os.Setenv(pc.env, t)
+			*pc.cfg(c) = t
+		}
+	}
 }
 
 // setEnvSecret updates a secret env var: nil = unchanged, empty = keep existing
@@ -321,6 +409,11 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 			Options: auxModelSelectOptions(models),
 			Desc:    "Model for self-review diffs, checkpoint distillation, goal-judge, and session titling — all tool-less 'quick answer' calls. 'Auto' falls back to Fast model, else the built-in Haiku default. Runtime override — resets on restart."},
 	}
+	// Provider API keys (+ the optional Ollama token). Secrets masked to a last-4
+	// hint; leaving one blank on save keeps the existing key. Read from the live
+	// config field, which config.Load populated from MOONY_*_API_KEY (or the
+	// bare-name fallback), so a key already in the env shows as set.
+	fields = append(fields, providerKeyFields(c)...)
 	// Session-history encryption at rest (AES-256-GCM). Read from the env by
 	// session.NewStore; edits here are runtime overrides that apply on next
 	// restart. Default (no key set) auto-generates a local key.
@@ -345,6 +438,22 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 	// personal tokens (GitHub, …) appear without hardcoding.
 	fields = append(fields, tokenEnvFields(c.WorkingDir)...)
 	return fields
+}
+
+// providerKeyFields builds a masked secret field for each provider credential in
+// providerCreds. The current value is read from the live config field (which
+// config.Load populated from MOONY_*_API_KEY or the bare-name fallback), so a
+// key already present in the env shows as set with a last-4 hint.
+func providerKeyFields(c *config.Config) []personaField {
+	out := make([]personaField, 0, len(providerCreds))
+	for _, pc := range providerCreds {
+		cur := strings.TrimSpace(*pc.cfg(c))
+		out = append(out, personaField{
+			Key: pc.key, Label: pc.label, Type: "secret",
+			Set: cur != "", Hint: lastFour(cur), Desc: pc.desc,
+		})
+	}
+	return out
 }
 
 // tokenEnvFields builds a secret Persona field for each token-like env var the
