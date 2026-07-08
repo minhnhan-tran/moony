@@ -1,11 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 90" width="140" height="126">
   <style>
+    /* SVG elements need transform-box: fill-box so CSS transform/transform-origin
+       animate against each element's OWN bounding box; without it browsers pivot
+       around the SVG viewport origin (0,0) and the scales/rotations break. */
+    .claude-body, .shadow, .left-arm, .right-arm, .left-ear, .right-ear {
+      transform-box: fill-box;
+    }
     .claude-body {
       animation: jump 0.5s ease-in-out infinite;
       transform-origin: center bottom;
     }
     .shadow {
       animation: shadow-scale 0.5s ease-in-out infinite;
+      transform-origin: center;
     }
     .left-arm {
       animation: wave-left 0.5s ease-in-out infinite;
