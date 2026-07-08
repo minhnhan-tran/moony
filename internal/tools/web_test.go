@@ -318,7 +318,7 @@ func TestWebFetchNetrcNoMatchNoAuth(t *testing.T) {
 func TestWebFetchNetrcDisabled(t *testing.T) {
 	isolateDomains(t)
 	writeNetrc(t, "machine example.com login u password NETRCTOK\n")
-	t.Setenv("SQE_NETRC", "0")
+	t.Setenv("MOONY_NETRC", "0")
 	var auth string
 	tool := &webFetchTool{client: &http.Client{Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		auth = r.Header.Get("Authorization")
@@ -329,7 +329,7 @@ func TestWebFetchNetrcDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	if auth != "" {
-		t.Fatalf("SQE_NETRC=0 should disable netrc auth, got %q", auth)
+		t.Fatalf("MOONY_NETRC=0 should disable netrc auth, got %q", auth)
 	}
 }
 

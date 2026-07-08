@@ -312,11 +312,11 @@ func TestRunAutoContinue(t *testing.T) {
 }
 
 // TestRunTurnGuardWarnsOnCalls checks the runaway-cost guard's call-count
-// warning: once a single turn crosses SQE_TURN_WARN_CALLS model calls it emits a
+// warning: once a single turn crosses MOONY_TURN_WARN_CALLS model calls it emits a
 // one-time advisory Info (and never stops the turn — the ceiling does that).
 func TestRunTurnGuardWarnsOnCalls(t *testing.T) {
-	t.Setenv("SQE_TURN_WARN_CALLS", "2")
-	t.Setenv("SQE_TURN_WARN_COST", "0") // isolate the call guard
+	t.Setenv("MOONY_TURN_WARN_CALLS", "2")
+	t.Setenv("MOONY_TURN_WARN_COST", "0") // isolate the call guard
 
 	dir := t.TempDir()
 	reg := tools.NewRegistry(dir)
@@ -345,10 +345,10 @@ func TestRunTurnGuardWarnsOnCalls(t *testing.T) {
 }
 
 // TestRunTurnGuardWarnsOnCost checks the cost warning: once a turn's accumulated
-// cost crosses SQE_TURN_WARN_COST it emits a one-time advisory Info.
+// cost crosses MOONY_TURN_WARN_COST it emits a one-time advisory Info.
 func TestRunTurnGuardWarnsOnCost(t *testing.T) {
-	t.Setenv("SQE_TURN_WARN_CALLS", "0") // isolate the cost guard
-	t.Setenv("SQE_TURN_WARN_COST", "0.50")
+	t.Setenv("MOONY_TURN_WARN_CALLS", "0") // isolate the cost guard
+	t.Setenv("MOONY_TURN_WARN_COST", "0.50")
 
 	// Give the test model a known price so accumulated cost is deterministic.
 	const model = "guard-cost-test-model"
@@ -385,14 +385,14 @@ func TestRunTurnGuardWarnsOnCost(t *testing.T) {
 }
 
 // TestRunTurnHardStopOnCalls checks the opt-in hard per-turn stop: once a turn
-// reaches SQE_TURN_MAX_CALLS model calls the agent ends the turn cleanly
+// reaches MOONY_TURN_MAX_CALLS model calls the agent ends the turn cleanly
 // (emitting a stop Info and returning nil) instead of running on to the ceiling.
 // The check runs after the model call but before that step's tools execute, so
 // with a limit of 2 the model is called exactly twice and the second step's
 // tools never run.
 func TestRunTurnHardStopOnCalls(t *testing.T) {
-	t.Setenv("SQE_TURN_MAX_CALLS", "2")
-	t.Setenv("SQE_TURN_MAX_COST", "0") // isolate the call limit
+	t.Setenv("MOONY_TURN_MAX_CALLS", "2")
+	t.Setenv("MOONY_TURN_MAX_COST", "0") // isolate the call limit
 
 	dir := t.TempDir()
 	reg := tools.NewRegistry(dir)
@@ -421,7 +421,7 @@ func TestRunTurnHardStopOnCalls(t *testing.T) {
 		t.Fatalf("hard stop should end the turn cleanly, got err %v", err)
 	}
 	if fake.calls != 2 {
-		t.Errorf("model turns = %d, want 2 (SQE_TURN_MAX_CALLS)", fake.calls)
+		t.Errorf("model turns = %d, want 2 (MOONY_TURN_MAX_CALLS)", fake.calls)
 	}
 	if stops != 1 {
 		t.Errorf("hard-stop notices = %d, want exactly 1", stops)
@@ -436,10 +436,10 @@ func TestRunTurnHardStopOnCalls(t *testing.T) {
 }
 
 // TestRunTurnHardStopOnCost checks the cost-based hard stop: once a turn's
-// accumulated cost crosses SQE_TURN_MAX_COST the agent ends the turn cleanly.
+// accumulated cost crosses MOONY_TURN_MAX_COST the agent ends the turn cleanly.
 func TestRunTurnHardStopOnCost(t *testing.T) {
-	t.Setenv("SQE_TURN_MAX_CALLS", "0") // isolate the cost limit
-	t.Setenv("SQE_TURN_MAX_COST", "0.50")
+	t.Setenv("MOONY_TURN_MAX_CALLS", "0") // isolate the cost limit
+	t.Setenv("MOONY_TURN_MAX_COST", "0.50")
 
 	const model = "hardstop-cost-test-model"
 	config.OverlayRuntimePricing(model, 0.00001, 0.00003, 0, 0) // $/token
@@ -477,7 +477,7 @@ func TestRunTurnHardStopOnCost(t *testing.T) {
 }
 
 func TestRunDispatchesToolsInParallel(t *testing.T) {
-	t.Setenv("SQE_PARALLEL_TOOLS", "") // enabled
+	t.Setenv("MOONY_PARALLEL_TOOLS", "") // enabled
 	var active, maxSeen, soloFail int32
 	dir := t.TempDir()
 	reg := tools.NewRegistry(dir)

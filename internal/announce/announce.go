@@ -1,7 +1,7 @@
 // Package announce is a small persisted store of maintainer announcements shown
 // as an update banner in the web UI and TUI. It mirrors internal/members: the
 // relay owns the authoritative store (persisted to its mounted volume via
-// SQE_ANNOUNCEMENTS_FILE), and the admin-gated web handler is the only writer.
+// MOONY_ANNOUNCEMENTS_FILE), and the admin-gated web handler is the only writer.
 package announce
 
 import (
@@ -42,7 +42,7 @@ type wire struct {
 }
 
 // OpenAt loads announcements from an explicit path (the relay persists to its
-// mounted volume, e.g. SQE_ANNOUNCEMENTS_FILE=/data/announcements.json). An empty
+// mounted volume, e.g. MOONY_ANNOUNCEMENTS_FILE=/data/announcements.json). An empty
 // path yields an in-memory-only store. Best effort: a missing/malformed file
 // yields an empty store.
 func OpenAt(path string) *Store {

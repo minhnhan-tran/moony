@@ -126,7 +126,7 @@ func (s *Server) emitSkillsMenu(sess *session) {
 	mgmt := manage.Load(cfg.WorkingDir)
 	found := skills.Load(cfg.WorkingDir)
 	if len(found) == 0 {
-		sess.publishEvent(wireEvent{Type: "info", Text: "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (SQE_SKILLS=0 disables discovery)."})
+		sess.publishEvent(wireEvent{Type: "info", Text: "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MOONY_SKILLS=0 disables discovery)."})
 		return
 	}
 	items := make([]menuItemWire, 0, len(found))
@@ -192,7 +192,7 @@ func (s *Server) emitMcpsMenu(sess *session) {
 	mgmt := manage.Load(cfg.WorkingDir)
 	cfgs, err := mcp.LoadConfigs(cfg.WorkingDir)
 	if err != nil || len(cfgs) == 0 {
-		sess.publishEvent(wireEvent{Type: "info", Text: "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; SQE_MCP_CLAUDE=0 disables)."})
+		sess.publishEvent(wireEvent{Type: "info", Text: "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MOONY_MCP_CLAUDE=0 disables)."})
 		return
 	}
 	items := make([]menuItemWire, 0, len(cfgs))

@@ -80,7 +80,7 @@ type Registry struct {
 	order     []string
 	ignore    *IgnoreSet
 	// sandbox, when non-nil, is the explicit bash-sandbox setting; nil falls
-	// back to the SQE_SANDBOX/SQE_SANDBOX_NET environment variables.
+	// back to the MOONY_SANDBOX/MOONY_SANDBOX_NET environment variables.
 	sandbox *sandboxSetting
 	// jobs tracks background bash commands (the bash `background` flag plus the
 	// bash_output/bash_kill tools). KillAll reaps survivors on shutdown.

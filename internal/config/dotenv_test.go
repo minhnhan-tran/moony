@@ -20,7 +20,7 @@ func TestParseEnvLine(t *testing.T) {
 		{`# comment`, "", "", false},
 		{``, "", "", false},
 		{`novalue`, "", "", false},
-		{`SQE_AUTH_SECRET=abc=def`, "SQE_AUTH_SECRET", "abc=def", true}, // value may contain '='
+		{`MOONY_AUTH_SECRET=abc=def`, "MOONY_AUTH_SECRET", "abc=def", true}, // value may contain '='
 	}
 	for _, c := range cases {
 		k, v, ok := parseEnvLine(c.line)
@@ -34,20 +34,20 @@ func TestLoadDotEnvDoesNotOverride(t *testing.T) {
 	dir := t.TempDir()
 	envPath := filepath.Join(dir, "secrets.env")
 	if err := os.WriteFile(envPath, []byte(
-		"SQE_OIDC_CLIENT_ID=from-file\n"+
-			"SQE_AUTH_SECRET=file-secret\n"+
+		"MOONY_OIDC_CLIENT_ID=from-file\n"+
+			"MOONY_AUTH_SECRET=file-secret\n"+
 			"# a comment\n"+
-			"export SQE_OIDC_ENV=uat\n",
+			"export MOONY_OIDC_ENV=uat\n",
 	), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("SQE_ENV_FILE", envPath)
+	t.Setenv("MOONY_ENV_FILE", envPath)
 	// The "loads from file" cases must start UNSET so the file value applies.
 	// On a machine that exports these (e.g. a relay's real OIDC config) they'd
 	// otherwise win, since LoadDotEnv never overrides an already-set var. Unset
 	// them for the test and restore afterward so the test is hermetic. (t.Setenv
 	// can only set, not unset, so we manage these directly.)
-	for _, k := range []string{"SQE_OIDC_CLIENT_ID", "SQE_OIDC_ENV"} {
+	for _, k := range []string{"MOONY_OIDC_CLIENT_ID", "MOONY_OIDC_ENV"} {
 		if old, ok := os.LookupEnv(k); ok {
 			t.Cleanup(func() { _ = os.Setenv(k, old) })
 		} else {
@@ -56,23 +56,23 @@ func TestLoadDotEnvDoesNotOverride(t *testing.T) {
 		_ = os.Unsetenv(k)
 	}
 	// A value already in the real environment must win over the file (Whisper/prod).
-	t.Setenv("SQE_AUTH_SECRET", "real-env-wins")
+	t.Setenv("MOONY_AUTH_SECRET", "real-env-wins")
 
 	LoadDotEnv()
 
-	if got := os.Getenv("SQE_OIDC_CLIENT_ID"); got != "from-file" {
+	if got := os.Getenv("MOONY_OIDC_CLIENT_ID"); got != "from-file" {
 		t.Errorf("unset var should load from file: got %q", got)
 	}
-	if got := os.Getenv("SQE_OIDC_ENV"); got != "uat" {
+	if got := os.Getenv("MOONY_OIDC_ENV"); got != "uat" {
 		t.Errorf("export-prefixed var should load: got %q", got)
 	}
-	if got := os.Getenv("SQE_AUTH_SECRET"); got != "real-env-wins" {
+	if got := os.Getenv("MOONY_AUTH_SECRET"); got != "real-env-wins" {
 		t.Errorf("real env must NOT be overridden by .env: got %q", got)
 	}
 }
 
 func TestLoadDotEnvMissingFileIsNoop(t *testing.T) {
-	t.Setenv("SQE_ENV_FILE", filepath.Join(t.TempDir(), "does-not-exist.env"))
+	t.Setenv("MOONY_ENV_FILE", filepath.Join(t.TempDir(), "does-not-exist.env"))
 	t.Setenv("HOME", t.TempDir()) // no ~/.config/.../.env
 	// Run from a dir with no ./.env.
 	wd, _ := os.Getwd()

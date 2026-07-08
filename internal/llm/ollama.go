@@ -4,8 +4,8 @@ package llm
 // compatible Chat Completions API (POST <host>/v1/chat/completions). Ollama's
 // wire shape matches OpenAI's, so this reuses the openai.go request builder,
 // message/tool serialization, and SSE stream parser; the only differences are
-// the base URL (config.OllamaBaseURL, from SQE_OLLAMA_HOST / OLLAMA_HOST), no
-// Floodgate AppleConnect auth (an optional bearer token via SQE_OLLAMA_TOKEN),
+// the base URL (config.OllamaBaseURL, from MOONY_OLLAMA_HOST / OLLAMA_HOST), no
+// Floodgate AppleConnect auth (an optional bearer token via MOONY_OLLAMA_TOKEN),
 // and no extended-thinking / prompt-cache fields (Ollama doesn't support them).
 //
 // Tool-name translation to a wire-safe form is handled by the caller
@@ -79,9 +79,9 @@ type ollamaRequest struct {
 }
 
 // ollamaKeepAlive is how long the server should keep the model loaded after a
-// request. Overridable via SQE_OLLAMA_KEEP_ALIVE (e.g. "60m", "-1" for forever).
+// request. Overridable via MOONY_OLLAMA_KEEP_ALIVE (e.g. "60m", "-1" for forever).
 func ollamaKeepAlive() string {
-	if v := strings.TrimSpace(os.Getenv("SQE_OLLAMA_KEEP_ALIVE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_KEEP_ALIVE")); v != "" {
 		return v
 	}
 	return "30m"
@@ -123,7 +123,7 @@ func (c *Client) streamOllama(ctx context.Context, system string, messages []Mes
 
 // newOllamaRequest builds a streaming POST to the Ollama server. Unlike the
 // Floodgate routes it does not mint an AppleConnect token; an optional bearer
-// token (SQE_OLLAMA_TOKEN) is sent when set, for servers behind a proxy.
+// token (MOONY_OLLAMA_TOKEN) is sent when set, for servers behind a proxy.
 func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(raw)))
 	if err != nil {
@@ -132,7 +132,7 @@ func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("User-Agent", userAgent())
-	if tok := strings.TrimSpace(os.Getenv("SQE_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	return req, nil
@@ -155,7 +155,7 @@ func (c *Client) listOllamaModels(ctx context.Context) ([]config.ModelInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	if tok := strings.TrimSpace(os.Getenv("SQE_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.http.Do(req)
@@ -196,7 +196,7 @@ func (c *Client) listOllamaModels(ctx context.Context) ([]config.ModelInfo, erro
 // finish a turn within any reasonable timeout.
 func (c *Client) checkOllamaAuth(ctx context.Context) error {
 	if _, err := c.listOllamaModels(ctx); err != nil {
-		return fmt.Errorf("cannot reach the Ollama server at %s — set SQE_OLLAMA_HOST to your server (e.g. http://host:11434): %w",
+		return fmt.Errorf("cannot reach the Ollama server at %s — set MOONY_OLLAMA_HOST to your server (e.g. http://host:11434): %w",
 			strings.TrimSuffix(c.ollamaBaseURL(), "/v1"), err)
 	}
 	if msg := c.ollamaLoadWarning(ctx); msg != "" {
@@ -232,7 +232,7 @@ func (c *Client) ollamaPS(ctx context.Context) ([]ollamaPSModel, bool) {
 	if err != nil {
 		return nil, false
 	}
-	if tok := strings.TrimSpace(os.Getenv("SQE_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.http.Do(req)

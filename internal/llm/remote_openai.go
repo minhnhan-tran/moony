@@ -58,7 +58,7 @@ func (c *Client) remoteBackend() remoteBackend {
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.OpenRouterBaseURL, "https://openrouter.ai/api/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.OpenRouterAPIKey),
-			keyEnv:  "SQE_OPENROUTER_API_KEY",
+			keyEnv:  "MOONY_OPENROUTER_API_KEY",
 			extra: map[string]string{
 				"HTTP-Referer": "https://github.com/pysty1995/moony",
 				"X-Title":      "moony",
@@ -69,56 +69,56 @@ func (c *Client) remoteBackend() remoteBackend {
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.GeminiBaseURL, "https://generativelanguage.googleapis.com/v1beta/openai"),
 			apiKey:  strings.TrimSpace(c.cfg.GeminiAPIKey),
-			keyEnv:  "SQE_GEMINI_API_KEY",
+			keyEnv:  "MOONY_GEMINI_API_KEY",
 		}
 	case provider.DeepSeek:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.DeepSeekBaseURL, "https://api.deepseek.com"),
 			apiKey:  strings.TrimSpace(c.cfg.DeepSeekAPIKey),
-			keyEnv:  "SQE_DEEPSEEK_API_KEY",
+			keyEnv:  "MOONY_DEEPSEEK_API_KEY",
 		}
 	case provider.Groq:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.GroqBaseURL, "https://api.groq.com/openai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.GroqAPIKey),
-			keyEnv:  "SQE_GROQ_API_KEY",
+			keyEnv:  "MOONY_GROQ_API_KEY",
 		}
 	case provider.XAI:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.XAIBaseURL, "https://api.x.ai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.XAIAPIKey),
-			keyEnv:  "SQE_XAI_API_KEY",
+			keyEnv:  "MOONY_XAI_API_KEY",
 		}
 	case provider.Mistral:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.MistralBaseURL, "https://api.mistral.ai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.MistralAPIKey),
-			keyEnv:  "SQE_MISTRAL_API_KEY",
+			keyEnv:  "MOONY_MISTRAL_API_KEY",
 		}
 	case provider.Together:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.TogetherBaseURL, "https://api.together.xyz/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.TogetherAPIKey),
-			keyEnv:  "SQE_TOGETHER_API_KEY",
+			keyEnv:  "MOONY_TOGETHER_API_KEY",
 		}
 	case provider.Fireworks:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.FireworksBaseURL, "https://api.fireworks.ai/inference/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.FireworksAPIKey),
-			keyEnv:  "SQE_FIREWORKS_API_KEY",
+			keyEnv:  "MOONY_FIREWORKS_API_KEY",
 		}
 	default: // provider.OpenAI
 		return remoteBackend{
 			id:      provider.OpenAI,
 			baseURL: firstNonEmpty(c.cfg.OpenAIBaseURL, "https://api.openai.com/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.OpenAIAPIKey),
-			keyEnv:  "SQE_OPENAI_API_KEY",
+			keyEnv:  "MOONY_OPENAI_API_KEY",
 		}
 	}
 }

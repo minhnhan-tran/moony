@@ -15,7 +15,7 @@ Initial public release.
   rendering, tool activity, token/cost counters, a todo/files sidebar, mouse
   scroll, and slash commands.
 - **Eleven model providers**, selectable at runtime with `/provider` (or
-  `SQE_PROVIDER`):
+  `MOONY_PROVIDER`):
   - **Ollama** (default) — a local or remote server, no API key.
   - **OpenAI**, **Anthropic** (native Messages API), **OpenRouter** (one key,
     hundreds of models), **Google Gemini**, **DeepSeek**, **Groq**, **xAI**

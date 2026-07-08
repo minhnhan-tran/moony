@@ -1,6 +1,6 @@
 // Package app wires the shared agent stack — the on-disk session store plus a
 // per-project agent factory — into a ready-to-serve web.Server. The terminal
-// builds its relay-served app through here (see SQE_RELAY in main.go) so the
+// builds its relay-served app through here (see MOONY_RELAY in main.go) so the
 // agent/tool/session wiring stays identical to the rest of the app.
 package app
 

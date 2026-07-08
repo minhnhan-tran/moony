@@ -7,7 +7,7 @@ package agent
 // once so the agent fixes it before stopping. Complementary to the verify loop
 // (which runs the build/test) — this catches logic bugs a green build wouldn't.
 //
-// Off by default (SQE_SELF_REVIEW=1 / cfg.SelfReview). Gated on the turn actually
+// Off by default (MOONY_SELF_REVIEW=1 / cfg.SelfReview). Gated on the turn actually
 // changing code, bounded to a single feedback cycle, and skipped for sub-agents
 // (subConfig clears cfg.SelfReview). Mirrors the verify gate's wiring in RunWith.
 

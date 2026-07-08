@@ -118,7 +118,7 @@ func TestBuiltinPersonasAlwaysPresent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "0") // isolate from any host agents
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0") // isolate from any host agents
 
 	got := Load(t.TempDir()) // empty project + empty global → only built-ins
 	for _, name := range []string{"explore", "code-reviewer", "planner"} {
@@ -218,7 +218,7 @@ func TestImportExternalAgentsDisabled(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
 
 	claude := filepath.Join(home, ".claude", "agents")
 	if err := os.MkdirAll(claude, 0o755); err != nil {
@@ -425,7 +425,7 @@ func TestPersonaEnvVars(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
 	wd := t.TempDir()
 	dir := filepath.Join(home, ".config", "moony", "agents")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

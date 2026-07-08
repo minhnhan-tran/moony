@@ -34,7 +34,7 @@ func (c *Client) Embed(ctx context.Context, model string, inputs []string) ([][]
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", userAgent())
-	if tok := strings.TrimSpace(os.Getenv("SQE_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 

@@ -69,19 +69,19 @@ func TestStreamingEntryNotCached(t *testing.T) {
 }
 
 func TestMouseWheelDeltaDefault(t *testing.T) {
-	t.Setenv("SQE_WHEEL_DELTA", "")
+	t.Setenv("MOONY_WHEEL_DELTA", "")
 	if got := mouseWheelDelta(); got != 2 {
 		t.Errorf("default wheel delta = %d, want 2", got)
 	}
-	t.Setenv("SQE_WHEEL_DELTA", "5")
+	t.Setenv("MOONY_WHEEL_DELTA", "5")
 	if got := mouseWheelDelta(); got != 5 {
 		t.Errorf("env override = %d, want 5", got)
 	}
-	t.Setenv("SQE_WHEEL_DELTA", "999")
+	t.Setenv("MOONY_WHEEL_DELTA", "999")
 	if got := mouseWheelDelta(); got != 2 {
 		t.Errorf("out-of-range should fall back to default, got %d", got)
 	}
-	t.Setenv("SQE_WHEEL_DELTA", "abc")
+	t.Setenv("MOONY_WHEEL_DELTA", "abc")
 	if got := mouseWheelDelta(); got != 2 {
 		t.Errorf("non-numeric should fall back to default, got %d", got)
 	}

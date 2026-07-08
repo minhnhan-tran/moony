@@ -389,10 +389,10 @@ func (s *session) waitMCPReady(d time.Duration) {
 }
 
 // mcpReadyTimeout bounds how long a session's first turn waits for MCP servers
-// to finish connecting. Default 10s; override with SQE_MCP_READY_WAIT (a Go
+// to finish connecting. Default 10s; override with MOONY_MCP_READY_WAIT (a Go
 // duration such as "20s", or "0" to disable waiting).
 func mcpReadyTimeout() time.Duration {
-	if v := strings.TrimSpace(os.Getenv("SQE_MCP_READY_WAIT")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_MCP_READY_WAIT")); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
 			return d
 		}

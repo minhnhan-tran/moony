@@ -96,7 +96,7 @@ func TestServeInstallScript(t *testing.T) {
 	body := rec.Body.String()
 	// The base URL is woven in from the request; the script maps both OSes and
 	// arch aliases, then builds the filename from $goos/$goarch.
-	for _, want := range []string{"http://example.com", "Darwin", "Linux", "aarch64", "moony_${goos}_${goarch}", "/download/$file", "--progress-bar", "uname -m", ".zshrc", "SQE_NO_MODIFY_PATH"} {
+	for _, want := range []string{"http://example.com", "Darwin", "Linux", "aarch64", "moony_${goos}_${goarch}", "/download/$file", "--progress-bar", "uname -m", ".zshrc", "MOONY_NO_MODIFY_PATH"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("install.sh missing %q", want)
 		}

@@ -33,7 +33,7 @@ const (
 
 // DefaultRelay is the production relay's public connector-tunnel address. The
 // daemon falls back to it when no relay is otherwise configured (--relay /
-// SQE_RELAY / saved /relay), so `moony daemon install` works with no
+// MOONY_RELAY / saved /relay), so `moony daemon install` works with no
 // arguments. Only the daemon uses this default; the interactive TUI never
 // auto-connects to a relay.
 const DefaultRelay = "code.sqeqct.ops.apple.com:8771"
@@ -51,7 +51,7 @@ func relayAddrFor(cfg *config.Config) string {
 
 // Serve runs the relay connector headlessly until ctx is canceled. It builds the
 // full multi-project app server for this machine and keeps a best-effort
-// outbound connection to the relay (cfg.RelayAddr, i.e. SQE_RELAY / saved
+// outbound connection to the relay (cfg.RelayAddr, i.e. MOONY_RELAY / saved
 // /relay; DefaultRelay when unset), auto-reconnecting on drops. logf receives
 // human-readable status lines (the service redirects them to a log file / journal).
 func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) error {

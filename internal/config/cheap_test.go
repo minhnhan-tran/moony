@@ -26,32 +26,32 @@ func TestApplyCheapPreset(t *testing.T) {
 
 func TestCheapModeEnabled(t *testing.T) {
 	for _, on := range []string{"1", "on", "true", "yes", "YES", " On "} {
-		t.Setenv("SQE_CHEAP", on)
+		t.Setenv("MOONY_CHEAP", on)
 		if !cheapModeEnabled() {
-			t.Errorf("SQE_CHEAP=%q should enable cheap mode", on)
+			t.Errorf("MOONY_CHEAP=%q should enable cheap mode", on)
 		}
 	}
 	for _, off := range []string{"", "0", "off", "false", "no"} {
-		t.Setenv("SQE_CHEAP", off)
+		t.Setenv("MOONY_CHEAP", off)
 		if cheapModeEnabled() {
-			t.Errorf("SQE_CHEAP=%q should NOT enable cheap mode", off)
+			t.Errorf("MOONY_CHEAP=%q should NOT enable cheap mode", off)
 		}
 	}
 }
 
-// SQE_CHEAP applies the preset, but an explicit individual knob parsed afterward
+// MOONY_CHEAP applies the preset, but an explicit individual knob parsed afterward
 // still wins — you can opt into cheap mode and tune one dimension back.
 func TestCheapPresetOverriddenByExplicitEnv(t *testing.T) {
-	t.Setenv("SQE_CHEAP", "1")
-	t.Setenv("SQE_ADAPTIVE_MODEL", "0") // explicit: keep the full model
+	t.Setenv("MOONY_CHEAP", "1")
+	t.Setenv("MOONY_ADAPTIVE_MODEL", "0") // explicit: keep the full model
 	c := Load()
 	if c.AdaptiveModel {
-		t.Error("explicit SQE_ADAPTIVE_MODEL=0 should override the cheap preset")
+		t.Error("explicit MOONY_ADAPTIVE_MODEL=0 should override the cheap preset")
 	}
 	if !c.ConciseToolSchemas {
-		t.Error("SQE_CHEAP should still enable ConciseToolSchemas when not individually overridden")
+		t.Error("MOONY_CHEAP should still enable ConciseToolSchemas when not individually overridden")
 	}
 	if c.ToolResultKeepRounds != 4 {
-		t.Errorf("SQE_CHEAP should still set ToolResultKeepRounds=4, got %d", c.ToolResultKeepRounds)
+		t.Errorf("MOONY_CHEAP should still set ToolResultKeepRounds=4, got %d", c.ToolResultKeepRounds)
 	}
 }

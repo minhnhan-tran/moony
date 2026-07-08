@@ -261,42 +261,42 @@ func TestClassifyInvestigation(t *testing.T) {
 
 // TestFastModel / TestAuxModel: with Ollama as the only provider (which does
 // not serve a hosted model catalog), the cheap-model resolvers keep the session
-// model unless the user pins SQE_FAST_MODEL / SQE_AUX_MODEL.
+// model unless the user pins MOONY_FAST_MODEL / MOONY_AUX_MODEL.
 func TestFastModel(t *testing.T) {
 	ClearRuntimePricing()
 	const oll = provider.Ollama
 	if got := FastModel("gemma4:31b", oll); got != "gemma4:31b" {
 		t.Errorf("FastModel on ollama = %q, want the session model gemma4:31b", got)
 	}
-	t.Setenv("SQE_FAST_MODEL", "gemma4:8b")
+	t.Setenv("MOONY_FAST_MODEL", "gemma4:8b")
 	if got := FastModel("gemma4:31b", oll); got != "gemma4:8b" {
-		t.Errorf("FastModel with SQE_FAST_MODEL = %q, want gemma4:8b", got)
+		t.Errorf("FastModel with MOONY_FAST_MODEL = %q, want gemma4:8b", got)
 	}
 }
 
 func TestAuxModel(t *testing.T) {
 	ClearRuntimePricing()
 	const oll = provider.Ollama
-	t.Setenv("SQE_AUX_MODEL", "")
-	t.Setenv("SQE_FAST_MODEL", "")
+	t.Setenv("MOONY_AUX_MODEL", "")
+	t.Setenv("MOONY_FAST_MODEL", "")
 	if got := AuxModel("gemma4:31b", oll); got != "gemma4:31b" {
 		t.Errorf("AuxModel on ollama = %q, want gemma4:31b", got)
 	}
-	// SQE_AUX_MODEL pins the aux model explicitly.
-	t.Setenv("SQE_AUX_MODEL", "gemma4:8b")
+	// MOONY_AUX_MODEL pins the aux model explicitly.
+	t.Setenv("MOONY_AUX_MODEL", "gemma4:8b")
 	if got := AuxModel("gemma4:31b", oll); got != "gemma4:8b" {
-		t.Errorf("AuxModel with SQE_AUX_MODEL = %q, want gemma4:8b", got)
+		t.Errorf("AuxModel with MOONY_AUX_MODEL = %q, want gemma4:8b", got)
 	}
 }
 
-// TestAuxModelFallsBackToFastEnv verifies a lone SQE_FAST_MODEL pin also steers
+// TestAuxModelFallsBackToFastEnv verifies a lone MOONY_FAST_MODEL pin also steers
 // aux calls, so one env var covers both the fast and aux tiers.
 func TestAuxModelFallsBackToFastEnv(t *testing.T) {
 	ClearRuntimePricing()
-	t.Setenv("SQE_AUX_MODEL", "")
-	t.Setenv("SQE_FAST_MODEL", "gemma4:8b")
+	t.Setenv("MOONY_AUX_MODEL", "")
+	t.Setenv("MOONY_FAST_MODEL", "gemma4:8b")
 	if got := AuxModel("gemma4:31b", provider.Ollama); got != "gemma4:8b" {
-		t.Errorf("AuxModel with only SQE_FAST_MODEL = %q, want gemma4:8b", got)
+		t.Errorf("AuxModel with only MOONY_FAST_MODEL = %q, want gemma4:8b", got)
 	}
 }
 
@@ -436,10 +436,10 @@ func TestSaveAndLoadPrefs(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	// Make sure no env overrides interfere with the round-trip.
-	t.Setenv("SQE_MODEL", "")
-	t.Setenv("SQE_REASONING", "")
-	t.Setenv("SQE_APPROVAL", "")
-	t.Setenv("SQE_RELAY", "")
+	t.Setenv("MOONY_MODEL", "")
+	t.Setenv("MOONY_REASONING", "")
+	t.Setenv("MOONY_APPROVAL", "")
+	t.Setenv("MOONY_RELAY", "")
 
 	c := &Config{
 		LLMProvider:    provider.Anthropic,
@@ -488,7 +488,7 @@ func TestSaveAndLoadPrefs(t *testing.T) {
 // TestPersonaAutoPlanSelfReviewSurviveEnvOverride is the regression test for
 // the bug where AutoPlan/SelfReview were plain bools applied from prefs BEFORE
 // their env vars were read (unlike CheapReads/FastModel/AuxModel), so a
-// deployment's SQE_AUTO_PLAN=0 / SQE_SELF_REVIEW=0 silently clobbered a saved
+// deployment's MOONY_AUTO_PLAN=0 / MOONY_SELF_REVIEW=0 silently clobbered a saved
 // persona "on" choice on every restart. They're persona-pointer fields now,
 // applied LAST, so the explicit persona save must win over the env var.
 func TestPersonaAutoPlanSelfReviewSurviveEnvOverride(t *testing.T) {
@@ -504,106 +504,106 @@ func TestPersonaAutoPlanSelfReviewSurviveEnvOverride(t *testing.T) {
 	}
 
 	// Simulate a deployment env that tries to force both off.
-	t.Setenv("SQE_AUTO_PLAN", "0")
-	t.Setenv("SQE_SELF_REVIEW", "0")
+	t.Setenv("MOONY_AUTO_PLAN", "0")
+	t.Setenv("MOONY_SELF_REVIEW", "0")
 
 	got := Load()
 	if !got.AutoPlan {
-		t.Error("AutoPlan = false, want the persisted persona choice (true) to win over SQE_AUTO_PLAN=0")
+		t.Error("AutoPlan = false, want the persisted persona choice (true) to win over MOONY_AUTO_PLAN=0")
 	}
 	if !got.SelfReview {
-		t.Error("SelfReview = false, want the persisted persona choice (true) to win over SQE_SELF_REVIEW=0")
+		t.Error("SelfReview = false, want the persisted persona choice (true) to win over MOONY_SELF_REVIEW=0")
 	}
 }
 
-// TestRelayEnvOverride confirms SQE_RELAY overrides the saved relay address.
+// TestRelayEnvOverride confirms MOONY_RELAY overrides the saved relay address.
 func TestRelayEnvOverride(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	(&Config{RelayAddr: "saved.example:1"}).Save()
-	t.Setenv("SQE_RELAY", "env.example:2")
+	t.Setenv("MOONY_RELAY", "env.example:2")
 	if got := Load(); got.RelayAddr != "env.example:2" {
-		t.Errorf("RelayAddr = %q, want the SQE_RELAY override env.example:2", got.RelayAddr)
+		t.Errorf("RelayAddr = %q, want the MOONY_RELAY override env.example:2", got.RelayAddr)
 	}
 }
 
-// TestBatchContextEnvOverride covers the SQE_BATCH_CONTEXT toggle: on by
+// TestBatchContextEnvOverride covers the MOONY_BATCH_CONTEXT toggle: on by
 // default, disabled when set to a falsey value.
 func TestBatchContextEnvOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	t.Setenv("SQE_BATCH_CONTEXT", "")
+	t.Setenv("MOONY_BATCH_CONTEXT", "")
 	if !Load().BatchContext {
-		t.Error("BatchContext should default to true when SQE_BATCH_CONTEXT is unset")
+		t.Error("BatchContext should default to true when MOONY_BATCH_CONTEXT is unset")
 	}
-	t.Setenv("SQE_BATCH_CONTEXT", "off")
+	t.Setenv("MOONY_BATCH_CONTEXT", "off")
 	if Load().BatchContext {
-		t.Error("SQE_BATCH_CONTEXT=off should disable BatchContext")
+		t.Error("MOONY_BATCH_CONTEXT=off should disable BatchContext")
 	}
-	t.Setenv("SQE_BATCH_CONTEXT", "on")
+	t.Setenv("MOONY_BATCH_CONTEXT", "on")
 	if !Load().BatchContext {
-		t.Error("SQE_BATCH_CONTEXT=on should enable BatchContext")
+		t.Error("MOONY_BATCH_CONTEXT=on should enable BatchContext")
 	}
 }
 
-// TestTerseEnvOverride covers the SQE_TERSE toggle: on by default, disabled when
+// TestTerseEnvOverride covers the MOONY_TERSE toggle: on by default, disabled when
 // set to a falsey value.
 func TestTerseEnvOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	t.Setenv("SQE_TERSE", "")
+	t.Setenv("MOONY_TERSE", "")
 	if !Load().Terse {
-		t.Error("Terse should default to true when SQE_TERSE is unset")
+		t.Error("Terse should default to true when MOONY_TERSE is unset")
 	}
-	t.Setenv("SQE_TERSE", "off")
+	t.Setenv("MOONY_TERSE", "off")
 	if Load().Terse {
-		t.Error("SQE_TERSE=off should disable Terse")
+		t.Error("MOONY_TERSE=off should disable Terse")
 	}
-	t.Setenv("SQE_TERSE", "on")
+	t.Setenv("MOONY_TERSE", "on")
 	if !Load().Terse {
-		t.Error("SQE_TERSE=on should enable Terse")
+		t.Error("MOONY_TERSE=on should enable Terse")
 	}
 }
 
-// TestCodeOutlineEnvOverride covers the SQE_CODE_OUTLINE toggle: on by default,
+// TestCodeOutlineEnvOverride covers the MOONY_CODE_OUTLINE toggle: on by default,
 // disabled when set to a falsey value.
 func TestCodeOutlineEnvOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	t.Setenv("SQE_CODE_OUTLINE", "")
+	t.Setenv("MOONY_CODE_OUTLINE", "")
 	if !Load().CodeOutline {
-		t.Error("CodeOutline should default to true when SQE_CODE_OUTLINE is unset")
+		t.Error("CodeOutline should default to true when MOONY_CODE_OUTLINE is unset")
 	}
-	t.Setenv("SQE_CODE_OUTLINE", "off")
+	t.Setenv("MOONY_CODE_OUTLINE", "off")
 	if Load().CodeOutline {
-		t.Error("SQE_CODE_OUTLINE=off should disable CodeOutline")
+		t.Error("MOONY_CODE_OUTLINE=off should disable CodeOutline")
 	}
-	t.Setenv("SQE_CODE_OUTLINE", "on")
+	t.Setenv("MOONY_CODE_OUTLINE", "on")
 	if !Load().CodeOutline {
-		t.Error("SQE_CODE_OUTLINE=on should enable CodeOutline")
+		t.Error("MOONY_CODE_OUTLINE=on should enable CodeOutline")
 	}
 }
 
-// TestDynamicEffortEnvOverride covers the SQE_DYNAMIC_EFFORT toggle: on by
+// TestDynamicEffortEnvOverride covers the MOONY_DYNAMIC_EFFORT toggle: on by
 // default, disabled when set to a falsey value.
 func TestDynamicEffortEnvOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	t.Setenv("SQE_DYNAMIC_EFFORT", "")
+	t.Setenv("MOONY_DYNAMIC_EFFORT", "")
 	if !Load().DynamicEffort {
-		t.Error("DynamicEffort should default to true when SQE_DYNAMIC_EFFORT is unset")
+		t.Error("DynamicEffort should default to true when MOONY_DYNAMIC_EFFORT is unset")
 	}
-	t.Setenv("SQE_DYNAMIC_EFFORT", "off")
+	t.Setenv("MOONY_DYNAMIC_EFFORT", "off")
 	if Load().DynamicEffort {
-		t.Error("SQE_DYNAMIC_EFFORT=off should disable DynamicEffort")
+		t.Error("MOONY_DYNAMIC_EFFORT=off should disable DynamicEffort")
 	}
-	t.Setenv("SQE_DYNAMIC_EFFORT", "on")
+	t.Setenv("MOONY_DYNAMIC_EFFORT", "on")
 	if !Load().DynamicEffort {
-		t.Error("SQE_DYNAMIC_EFFORT=on should enable DynamicEffort")
+		t.Error("MOONY_DYNAMIC_EFFORT=on should enable DynamicEffort")
 	}
 }
 
@@ -627,8 +627,8 @@ func TestLowerReasoning(t *testing.T) {
 func TestPerModelReasoningPersistsAndResolves(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("SQE_MODEL", "")
-	t.Setenv("SQE_REASONING", "")
+	t.Setenv("MOONY_MODEL", "")
+	t.Setenv("MOONY_REASONING", "")
 
 	opus := "anthropic.claude-opus-4-8"
 	gemini := "gcp:gemini-2.5-pro"
@@ -662,7 +662,7 @@ func TestPerModelReasoningPersistsAndResolves(t *testing.T) {
 	// Forcing the gemini id via env should resolve the active level to the
 	// remembered "medium" without touching the legacy single value, and derive
 	// the OpenAI endpoint from the id.
-	t.Setenv("SQE_MODEL", gemini)
+	t.Setenv("MOONY_MODEL", gemini)
 	got = Load()
 	if got.Model != gemini {
 		t.Fatalf("env model not honored: %q", got.Model)
@@ -704,15 +704,15 @@ func TestSetReasoningForUpdatesActive(t *testing.T) {
 func TestEnvOverridesPrefs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("SQE_MODEL", "")
-	t.Setenv("SQE_REASONING", "")
+	t.Setenv("MOONY_MODEL", "")
+	t.Setenv("MOONY_REASONING", "")
 
 	c := &Config{Model: "saved.model:0", ReasoningLevel: ReasoningLow}
 	if err := c.Save(); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	t.Setenv("SQE_MODEL", "env.model:0")
+	t.Setenv("MOONY_MODEL", "env.model:0")
 	if got := Load(); got.Model != "env.model:0" {
 		t.Errorf("env should override saved model, got %q", got.Model)
 	}
@@ -743,8 +743,8 @@ func TestSetModelDerivesRoute(t *testing.T) {
 // provider) determines the route on reload.
 func TestModelPersistenceDerivesProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SQE_MODEL", "")
-	t.Setenv("SQE_PROVIDER", "")
+	t.Setenv("MOONY_MODEL", "")
+	t.Setenv("MOONY_PROVIDER", "")
 
 	// Save an anthropic backend + model; a reload derives the anthropic route.
 	c := &Config{Model: "claude-sonnet-4-5", LLMProvider: provider.Anthropic, ReasoningByModel: map[string]string{}}
@@ -760,7 +760,7 @@ func TestModelPersistenceDerivesProvider(t *testing.T) {
 	}
 
 	// Switching the backend to OpenAI derives the openai route.
-	t.Setenv("SQE_PROVIDER", "openai")
+	t.Setenv("MOONY_PROVIDER", "openai")
 	got = Load()
 	if got.Provider != ProviderOpenAI {
 		t.Errorf("openai backend should derive the openai route, got %q", got.Provider)
@@ -769,11 +769,11 @@ func TestModelPersistenceDerivesProvider(t *testing.T) {
 
 // TestLLMProviderSelection verifies the backend provider preference round-trips
 // Load always reports "ollama" regardless of any legacy saved preference or the
-// (now-ignored) SQE_PROVIDER env var.
+// (now-ignored) MOONY_PROVIDER env var.
 func TestLLMProviderSelection(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SQE_MODEL", "")
-	t.Setenv("SQE_PROVIDER", "")
+	t.Setenv("MOONY_MODEL", "")
+	t.Setenv("MOONY_PROVIDER", "")
 
 	// A saved provider preference round-trips.
 	c := &Config{Model: DefaultModel, LLMProvider: "openai", ReasoningByModel: map[string]string{}}
@@ -784,11 +784,11 @@ func TestLLMProviderSelection(t *testing.T) {
 		t.Errorf("saved provider = %q, want openai", got.LLMProvider)
 	}
 
-	// SQE_PROVIDER overrides the saved value.
-	t.Setenv("SQE_PROVIDER", "anthropic")
+	// MOONY_PROVIDER overrides the saved value.
+	t.Setenv("MOONY_PROVIDER", "anthropic")
 	got := Load()
 	if got.LLMProvider != "anthropic" {
-		t.Errorf("SQE_PROVIDER override = %q, want anthropic", got.LLMProvider)
+		t.Errorf("MOONY_PROVIDER override = %q, want anthropic", got.LLMProvider)
 	}
 	// The wire route follows the backend.
 	if got.Provider != ProviderAnthropic {
@@ -796,7 +796,7 @@ func TestLLMProviderSelection(t *testing.T) {
 	}
 
 	// An unknown provider normalizes to the default (ollama).
-	t.Setenv("SQE_PROVIDER", "bogus")
+	t.Setenv("MOONY_PROVIDER", "bogus")
 	if got := Load(); got.LLMProvider != "ollama" {
 		t.Errorf("unknown provider = %q, want ollama", got.LLMProvider)
 	}

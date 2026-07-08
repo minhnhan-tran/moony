@@ -78,11 +78,11 @@ func TestProjectOverridesGlobal(t *testing.T) {
 func TestSkillsOptOut(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("SQE_SKILLS", "0")
+	t.Setenv("MOONY_SKILLS", "0")
 	writeSkill(t, filepath.Join(home, ".claude", "skills", "docx"),
 		"---\nname: docx\ndescription: x\n---\nbody")
 	if got := Load(t.TempDir()); got != nil {
-		t.Errorf("SQE_SKILLS=0 should discover nothing; got %d", len(got))
+		t.Errorf("MOONY_SKILLS=0 should discover nothing; got %d", len(got))
 	}
 }
 

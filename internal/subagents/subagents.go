@@ -10,7 +10,7 @@
 // They're also auto-discovered from neighboring agent tools so personas defined
 // for Optimus or Claude Code show up here without copying files (lowest
 // precedence — an sqe persona of the same name always wins). Set
-// SQE_IMPORT_EXTERNAL_AGENTS=0 to disable this:
+// MOONY_IMPORT_EXTERNAL_AGENTS=0 to disable this:
 //   - ~/.config/optimus/agents/<name>.md, ./.optimus/agents/<name>.md  (Optimus)
 //   - ~/.claude/agents/<name>.md                                       (Claude Code)
 //
@@ -212,7 +212,7 @@ func (p Persona) ReadOnly() bool {
 }
 
 // Load reads personas from the global config dir and the project `.sqe/agents`
-// dir, plus (unless SQE_IMPORT_EXTERNAL_AGENTS=0) any agents defined for Optimus
+// dir, plus (unless MOONY_IMPORT_EXTERNAL_AGENTS=0) any agents defined for Optimus
 // or Claude Code, plus the always-on read-only built-ins (BuiltinPersonas).
 // Precedence, low → high: built-ins, external imports, sqe global, sqe project —
 // so an sqe persona always overrides an imported or built-in one of the same name.
@@ -277,9 +277,9 @@ func externalAgentSources(workingDir string) []agentSource {
 }
 
 // importExternalAgents reports whether to auto-discover Optimus/Claude agents
-// (on by default; set SQE_IMPORT_EXTERNAL_AGENTS=0/false/no/off to disable).
+// (on by default; set MOONY_IMPORT_EXTERNAL_AGENTS=0/false/no/off to disable).
 func importExternalAgents() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_IMPORT_EXTERNAL_AGENTS"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_IMPORT_EXTERNAL_AGENTS"))) {
 	case "0", "false", "no", "off":
 		return false
 	}

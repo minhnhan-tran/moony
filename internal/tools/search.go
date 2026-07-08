@@ -386,7 +386,7 @@ func (t *grepTool) search(ctx context.Context, in grepInput) (string, error) {
 		searchTarget = "."
 	}
 
-	// Fast path: ripgrep when it's installed and not disabled (SQE_RG=0). It's
+	// Fast path: ripgrep when it's installed and not disabled (MOONY_RG=0). It's
 	// far faster on large trees; on any failure we fall back to the pure-Go scan
 	// below, which is the correctness reference. Both feed the same formatter.
 	if rgEnabled() {
@@ -695,9 +695,9 @@ func isGeneratedPath(p string) bool {
 const maxRgOutputBytes = 16 << 20
 
 // rgEnabled reports whether the ripgrep fast path is allowed (default yes;
-// SQE_RG=0/off/false/no forces the pure-Go scanner).
+// MOONY_RG=0/off/false/no forces the pure-Go scanner).
 func rgEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_RG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_RG"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

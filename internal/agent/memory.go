@@ -165,9 +165,9 @@ func (a *Agent) Remember(text, category string, global bool) (string, error) {
 // directive (always…/never…/prefer…/we use…), saves it to project memory
 // additively — the prompt is still processed normally by the caller. It returns
 // a short info message and true when something was captured. Disabled when the
-// SQE_MEMORY_AUTOCAPTURE env var is set to "0".
+// MOONY_MEMORY_AUTOCAPTURE env var is set to "0".
 func (a *Agent) AutoCaptureRule(prompt string) (string, bool) {
-	if os.Getenv("SQE_MEMORY_AUTOCAPTURE") == "0" {
+	if os.Getenv("MOONY_MEMORY_AUTOCAPTURE") == "0" {
 		return "", false
 	}
 	cat, ok := detectStandaloneRule(prompt)

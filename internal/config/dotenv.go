@@ -10,14 +10,14 @@ import (
 // environment, but ONLY for variables that aren't already set — so real
 // environment variables (and prod secret injectors like Whisper) always win.
 //
-// It's a LOCAL-DEV convenience for things like the auth secrets (SQE_AUTH_SECRET,
-// SQE_OIDC_*). Keep .env out of git (it's .gitignored). Note: a .env in the
+// It's a LOCAL-DEV convenience for things like the auth secrets (MOONY_AUTH_SECRET,
+// MOONY_OIDC_*). Keep .env out of git (it's .gitignored). Note: a .env in the
 // project root is readable by the agent's own shell/file tools, so for real
 // secrets prefer ~/.config/moony/.env (outside the project) or Whisper
 // in prod. The bash/job tools also strip these secrets from agent subprocesses.
 //
 // The first existing file wins, in priority order:
-//  1. $SQE_ENV_FILE          (explicit path)
+//  1. $MOONY_ENV_FILE          (explicit path)
 //  2. ~/.config/moony/.env
 //  3. ./.env                 (project root)
 //
@@ -32,7 +32,7 @@ func LoadDotEnv() {
 }
 
 func dotEnvCandidates() []string {
-	paths := []string{strings.TrimSpace(os.Getenv("SQE_ENV_FILE"))}
+	paths := []string{strings.TrimSpace(os.Getenv("MOONY_ENV_FILE"))}
 	if p, err := GlobalConfigPath(".env"); err == nil {
 		paths = append(paths, p)
 	}

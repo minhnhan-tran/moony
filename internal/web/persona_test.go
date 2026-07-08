@@ -99,23 +99,23 @@ func TestApplyPersonaEdit(t *testing.T) {
 }
 
 // TestApplyPersonaEditAuxModel verifies the Self-review model persona field
-// sets SQE_AUX_MODEL and remembers the choice as an explicit persona override
+// sets MOONY_AUX_MODEL and remembers the choice as an explicit persona override
 // (AuxModelPersona), mirroring the existing Fast-model field's behavior.
 func TestApplyPersonaEditAuxModel(t *testing.T) {
-	defer os.Unsetenv("SQE_AUX_MODEL")
+	defer os.Unsetenv("MOONY_AUX_MODEL")
 	c := &config.Config{}
 
 	applyPersonaEdit(c, personaEdit{SqeAuxModel: strptr("anthropic.claude-sonnet-5")})
-	if got := os.Getenv("SQE_AUX_MODEL"); got != "anthropic.claude-sonnet-5" {
-		t.Errorf("SQE_AUX_MODEL = %q, want the pinned model", got)
+	if got := os.Getenv("MOONY_AUX_MODEL"); got != "anthropic.claude-sonnet-5" {
+		t.Errorf("MOONY_AUX_MODEL = %q, want the pinned model", got)
 	}
 	if c.AuxModelPersona == nil || *c.AuxModelPersona != "anthropic.claude-sonnet-5" {
 		t.Errorf("AuxModelPersona = %v, want pinned model remembered", c.AuxModelPersona)
 	}
 
 	applyPersonaEdit(c, personaEdit{SqeAuxModel: strptr("")}) // back to Auto
-	if got := os.Getenv("SQE_AUX_MODEL"); got != "" {
-		t.Errorf("SQE_AUX_MODEL after clearing = %q, want unset", got)
+	if got := os.Getenv("MOONY_AUX_MODEL"); got != "" {
+		t.Errorf("MOONY_AUX_MODEL after clearing = %q, want unset", got)
 	}
 	if c.AuxModelPersona == nil || *c.AuxModelPersona != "" {
 		t.Errorf("AuxModelPersona after clearing = %v, want empty string (explicit auto)", c.AuxModelPersona)
@@ -148,11 +148,11 @@ func TestPersonaFieldsIncludesAuxModel(t *testing.T) {
 }
 
 func TestPersonaSessionEncryptionFields(t *testing.T) {
-	for _, k := range []string{"SQE_SESSION_ENCRYPT", "SQE_SESSION_KEY", "SQE_SESSION_KEY_CMD", "SQE_SESSION_KEY_FILE", "SQE_SESSION_PASSPHRASE"} {
+	for _, k := range []string{"MOONY_SESSION_ENCRYPT", "MOONY_SESSION_KEY", "MOONY_SESSION_KEY_CMD", "MOONY_SESSION_KEY_FILE", "MOONY_SESSION_PASSPHRASE"} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
 	}
-	// The five SQE_SESSION_* fields are surfaced, with the right secret/text types.
+	// The five MOONY_SESSION_* fields are surfaced, with the right secret/text types.
 	fields := personaFields(&config.Config{}, config.AllKnownModels())
 	byKey := map[string]personaField{}
 	for _, f := range fields {
@@ -173,19 +173,19 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 	}
 
 	// Edits push into the env: plain applies as-is, secret keeps existing when blank.
-	os.Setenv("SQE_SESSION_KEY", "existing-secret")
+	os.Setenv("MOONY_SESSION_KEY", "existing-secret")
 	applyPersonaEdit(&config.Config{}, personaEdit{
 		SessionEncrypt: strptr("required"),
 		SessionKeyFile: strptr("/tmp/k.key"),
 		SessionKey:     strptr(""), // blank → keep existing
 	})
-	if got := os.Getenv("SQE_SESSION_ENCRYPT"); got != "required" {
-		t.Errorf("SQE_SESSION_ENCRYPT = %q, want required", got)
+	if got := os.Getenv("MOONY_SESSION_ENCRYPT"); got != "required" {
+		t.Errorf("MOONY_SESSION_ENCRYPT = %q, want required", got)
 	}
-	if got := os.Getenv("SQE_SESSION_KEY_FILE"); got != "/tmp/k.key" {
-		t.Errorf("SQE_SESSION_KEY_FILE = %q", got)
+	if got := os.Getenv("MOONY_SESSION_KEY_FILE"); got != "/tmp/k.key" {
+		t.Errorf("MOONY_SESSION_KEY_FILE = %q", got)
 	}
-	if got := os.Getenv("SQE_SESSION_KEY"); got != "existing-secret" {
+	if got := os.Getenv("MOONY_SESSION_KEY"); got != "existing-secret" {
 		t.Errorf("blank secret should keep existing, got %q", got)
 	}
 
@@ -194,10 +194,10 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 		SessionKey:     strptr("new-secret"),
 		SessionKeyFile: strptr(""),
 	})
-	if got := os.Getenv("SQE_SESSION_KEY"); got != "new-secret" {
+	if got := os.Getenv("MOONY_SESSION_KEY"); got != "new-secret" {
 		t.Errorf("non-empty secret should replace, got %q", got)
 	}
-	if got := os.Getenv("SQE_SESSION_KEY_FILE"); got != "" {
+	if got := os.Getenv("MOONY_SESSION_KEY_FILE"); got != "" {
 		t.Errorf("blanked plain field should clear, got %q", got)
 	}
 }

@@ -14,13 +14,13 @@ import (
 )
 
 // parallelToolConfig reports whether independent tool calls in a turn may run
-// concurrently, and the maximum concurrency. Controlled by SQE_PARALLEL_TOOLS:
+// concurrently, and the maximum concurrency. Controlled by MOONY_PARALLEL_TOOLS:
 //
 //	unset / "on" / "true"   → enabled at the default limit
 //	"0" / "off" / "false"   → disabled (calls run sequentially)
 //	a positive integer N    → enabled with a limit of N (capped at 64)
 func parallelToolConfig() (enabled bool, limit int) {
-	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("SQE_PARALLEL_TOOLS"))); v {
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_PARALLEL_TOOLS"))); v {
 	case "", "on", "true", "yes":
 		return true, defaultParallelToolLimit
 	case "0", "off", "false", "no":
@@ -39,18 +39,18 @@ func parallelToolConfig() (enabled bool, limit int) {
 
 // turnWarnThresholds returns the per-turn soft budgets at which the agent warns
 // about a possibly-runaway turn: a model-call count and a USD cost. Defaults are
-// 50 calls and $5.00; override with SQE_TURN_WARN_CALLS / SQE_TURN_WARN_COST
+// 50 calls and $5.00; override with MOONY_TURN_WARN_CALLS / MOONY_TURN_WARN_COST
 // (set either to 0 to disable that warning). The warnings are advisory — they
 // never stop the turn (the step ceiling does that); they just surface a long,
 // expensive turn so the user can interrupt before it burns more budget.
 func turnWarnThresholds() (calls int, cost float64) {
 	calls, cost = 50, 5.0
-	if v := strings.TrimSpace(os.Getenv("SQE_TURN_WARN_CALLS")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_TURN_WARN_CALLS")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			calls = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("SQE_TURN_WARN_COST")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_TURN_WARN_COST")); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil && f >= 0 {
 			cost = f
 		}
@@ -60,15 +60,15 @@ func turnWarnThresholds() (calls int, cost float64) {
 
 // turnHardLimits returns the per-turn HARD budgets at which the agent STOPS the
 // turn (unlike turnWarnThresholds, which only warns). Both are OFF by default
-// (0); set SQE_TURN_MAX_CALLS (model calls) and/or SQE_TURN_MAX_COST (USD) to
+// (0); set MOONY_TURN_MAX_CALLS (model calls) and/or MOONY_TURN_MAX_COST (USD) to
 // enable. A hit ends the turn cleanly — the session resumes with "continue".
 func turnHardLimits() (calls int, cost float64) {
-	if v := strings.TrimSpace(os.Getenv("SQE_TURN_MAX_CALLS")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_TURN_MAX_CALLS")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			calls = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("SQE_TURN_MAX_COST")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_TURN_MAX_COST")); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil && f >= 0 {
 			cost = f
 		}
@@ -83,10 +83,10 @@ func turnHardLimits() (calls int, cost float64) {
 // served it, not the session model's rate for every token).
 func (a *Agent) turnHardStopReason(maxCalls int, maxCost float64, rounds int, cost float64) string {
 	if maxCalls > 0 && rounds >= maxCalls {
-		return fmt.Sprintf("Stopping this turn: reached the hard limit of %d model calls (SQE_TURN_MAX_CALLS). Send \"continue\" to resume, or raise/clear the limit.", maxCalls)
+		return fmt.Sprintf("Stopping this turn: reached the hard limit of %d model calls (MOONY_TURN_MAX_CALLS). Send \"continue\" to resume, or raise/clear the limit.", maxCalls)
 	}
 	if maxCost > 0 && cost >= maxCost {
-		return fmt.Sprintf("Stopping this turn: reached the hard cost limit of $%.2f (SQE_TURN_MAX_COST) — ~$%.2f spent over %d calls. Send \"continue\" to resume, or raise/clear the limit.", maxCost, cost, rounds)
+		return fmt.Sprintf("Stopping this turn: reached the hard cost limit of $%.2f (MOONY_TURN_MAX_COST) — ~$%.2f spent over %d calls. Send \"continue\" to resume, or raise/clear the limit.", maxCost, cost, rounds)
 	}
 	return ""
 }

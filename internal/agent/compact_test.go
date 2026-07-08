@@ -409,7 +409,7 @@ func TestPruneDropsReadCacheOnElide(t *testing.T) {
 // keepRounds=8 and 5 carriers, no general pruning happens, but a read beyond the
 // 3-deep read window is elided while a bash result in the same range survives.
 func TestPruneReadResultsTighterWindow(t *testing.T) {
-	t.Setenv("SQE_READ_RESULT_KEEP", "") // default 3
+	t.Setenv("MOONY_READ_RESULT_KEEP", "") // default 3
 	big := strings.Repeat("x", 800)
 	msgs := []llm.Message{llm.UserText("start")}
 	msgs = append(msgs, toolRound("b1", "bash", big)...)      // idx 2 — not a read tool

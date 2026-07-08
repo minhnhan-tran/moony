@@ -239,35 +239,35 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		c.AdaptiveModel = *e.AdaptiveModel
 	}
 	if e.MaxAgentSteps != nil {
-		setEnvPlain("SQE_MAX_STEPS", e.MaxAgentSteps)
+		setEnvPlain("MOONY_MAX_STEPS", e.MaxAgentSteps)
 		if n, err := strconv.Atoi(strings.TrimSpace(*e.MaxAgentSteps)); err == nil && n > 0 {
 			c.MaxAgentSteps = n
 		}
 	}
 	if e.AutoContinue != nil {
-		setEnvPlain("SQE_AUTO_CONTINUE", e.AutoContinue)
+		setEnvPlain("MOONY_AUTO_CONTINUE", e.AutoContinue)
 		if n, err := strconv.Atoi(strings.TrimSpace(*e.AutoContinue)); err == nil && n >= 0 {
 			c.AutoContinue = n
 		}
 	}
 	if e.SqeFastModel != nil {
-		setEnvPlain("SQE_FAST_MODEL", e.SqeFastModel)
+		setEnvPlain("MOONY_FAST_MODEL", e.SqeFastModel)
 		fm := strings.TrimSpace(*e.SqeFastModel)
 		c.FastModelPersona = &fm // remember as explicit persona choice
 	}
 	if e.SqeAuxModel != nil {
-		setEnvPlain("SQE_AUX_MODEL", e.SqeAuxModel)
+		setEnvPlain("MOONY_AUX_MODEL", e.SqeAuxModel)
 		am := strings.TrimSpace(*e.SqeAuxModel)
 		c.AuxModelPersona = &am // remember as explicit persona choice
 	}
 	// Session-encryption vars live only in the process env (session.NewStore reads
 	// them). Secrets keep their existing value when submitted empty; plain fields
 	// (mode/path) apply as given and clear when blanked.
-	setEnvSecret("SQE_SESSION_KEY", e.SessionKey)
-	setEnvSecret("SQE_SESSION_KEY_CMD", e.SessionKeyCmd)
-	setEnvSecret("SQE_SESSION_PASSPHRASE", e.SessionPassphrase)
-	setEnvPlain("SQE_SESSION_KEY_FILE", e.SessionKeyFile)
-	setEnvPlain("SQE_SESSION_ENCRYPT", e.SessionEncrypt)
+	setEnvSecret("MOONY_SESSION_KEY", e.SessionKey)
+	setEnvSecret("MOONY_SESSION_KEY_CMD", e.SessionKeyCmd)
+	setEnvSecret("MOONY_SESSION_PASSPHRASE", e.SessionPassphrase)
+	setEnvPlain("MOONY_SESSION_KEY_FILE", e.SessionKeyFile)
+	setEnvPlain("MOONY_SESSION_ENCRYPT", e.SessionEncrypt)
 }
 
 // setEnvSecret updates a secret env var: nil = unchanged, empty = keep existing
@@ -297,27 +297,27 @@ func setEnvPlain(name string, v *string) {
 func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 	fields := []personaField{
 		{Key: "ollamaHost", Label: "Ollama host", Type: "text", Value: c.OllamaBaseURL,
-			Desc: "Ollama server (SQE_OLLAMA_HOST), used by the ollama backend."},
+			Desc: "Ollama server (MOONY_OLLAMA_HOST), used by the ollama backend."},
 		{Key: "autoDelegate", Label: "Auto-delegate subtasks", Type: "bool", Value: c.AutoDelegate,
 			Desc: "Let the agent spin up sub-agents for large multi-step tasks."},
 		{Key: "autoPlan", Label: "Auto-plan large tasks", Type: "bool", Value: c.AutoPlan,
 			Desc: "Auto-enter read-only plan mode for big/multi-step tasks before touching files (persists)."},
-		{Key: "cheapReads", Label: "Cheap reads (SQE_CHEAP_READS)", Type: "bool", Value: c.CheapReads,
+		{Key: "cheapReads", Label: "Cheap reads (MOONY_CHEAP_READS)", Type: "bool", Value: c.CheapReads,
 			Desc: "Route pure-read rounds (grep / read_file / find_symbol / …) to the cheaper FastModel automatically. Reverts to the full model the moment writing starts, bash runs, or friction is detected. Persists across sessions."},
-		{Key: "selfReview", Label: "Self-review diffs (SQE_SELF_REVIEW)", Type: "bool", Value: c.SelfReview,
+		{Key: "selfReview", Label: "Self-review diffs (MOONY_SELF_REVIEW)", Type: "bool", Value: c.SelfReview,
 			Desc: "After each turn that edits code, run a cheap fast-model review of the diff for logic bugs. One feedback cycle per turn; skipped for sub-agents. Persists across sessions."},
-		{Key: "adaptiveModel", Label: "Adaptive model (SQE_ADAPTIVE_MODEL)", Type: "bool", Value: c.AdaptiveModel,
+		{Key: "adaptiveModel", Label: "Adaptive model (MOONY_ADAPTIVE_MODEL)", Type: "bool", Value: c.AdaptiveModel,
 			Desc: "Start turns on the cheaper FastModel; escalate to the full model only when friction (errors/retries) is detected. Runtime override — resets on restart."},
-		{Key: "maxAgentSteps", Label: "Max agent steps (SQE_MAX_STEPS)", Type: "text", Value: fmt.Sprintf("%d", c.MaxAgentSteps),
+		{Key: "maxAgentSteps", Label: "Max agent steps (MOONY_MAX_STEPS)", Type: "text", Value: fmt.Sprintf("%d", c.MaxAgentSteps),
 			Desc: "Max tool-call iterations per turn (default 80). A guard against runaway loops — raise for complex tasks, lower for tighter control. Runtime override — resets on restart."},
-		{Key: "autoContinue", Label: "Auto-continue extensions (SQE_AUTO_CONTINUE)", Type: "text", Value: fmt.Sprintf("%d", c.AutoContinue),
+		{Key: "autoContinue", Label: "Auto-continue extensions (MOONY_AUTO_CONTINUE)", Type: "text", Value: fmt.Sprintf("%d", c.AutoContinue),
 			Desc: "How many times a turn auto-extends past the step limit when the model is still working (default 1). Hard ceiling = MaxAgentSteps × (1 + AutoContinue). Runtime override — resets on restart."},
-		{Key: "sqeFastModel", Label: "Fast model (SQE_FAST_MODEL)", Type: "select",
-			Value:   os.Getenv("SQE_FAST_MODEL"),
+		{Key: "sqeFastModel", Label: "Fast model (MOONY_FAST_MODEL)", Type: "select",
+			Value:   os.Getenv("MOONY_FAST_MODEL"),
 			Options: fastModelSelectOptions(models),
 			Desc:    "Model used for cheap-reads rounds, AdaptiveModel exploration, and sub-agent aux calls. 'Auto' uses the built-in default. Runtime override — resets on restart."},
-		{Key: "sqeAuxModel", Label: "Self-review model (SQE_AUX_MODEL)", Type: "select",
-			Value:   os.Getenv("SQE_AUX_MODEL"),
+		{Key: "sqeAuxModel", Label: "Self-review model (MOONY_AUX_MODEL)", Type: "select",
+			Value:   os.Getenv("MOONY_AUX_MODEL"),
 			Options: auxModelSelectOptions(models),
 			Desc:    "Model for self-review diffs, checkpoint distillation, goal-judge, and session titling — all tool-less 'quick answer' calls. 'Auto' falls back to Fast model, else the built-in Haiku default. Runtime override — resets on restart."},
 	}
@@ -326,20 +326,20 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 	// restart. Default (no key set) auto-generates a local key.
 	fields = append(fields,
 		personaField{Key: "sqeSessionEncrypt", Label: "Session encryption mode", Type: "text",
-			Value: os.Getenv("SQE_SESSION_ENCRYPT"),
-			Desc:  "SQE_SESSION_ENCRYPT: auto (default, encrypt with auto/BYOK key) · required (refuse without a key) · off (plaintext). Takes effect on next restart."},
+			Value: os.Getenv("MOONY_SESSION_ENCRYPT"),
+			Desc:  "MOONY_SESSION_ENCRYPT: auto (default, encrypt with auto/BYOK key) · required (refuse without a key) · off (plaintext). Takes effect on next restart."},
 		personaField{Key: "sqeSessionKey", Label: "Session key (BYOK)", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("SQE_SESSION_KEY")) != "", Hint: lastFour(os.Getenv("SQE_SESSION_KEY")),
-			Desc: "SQE_SESSION_KEY: your own 32-byte key (base64 or hex). Highest priority. Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_KEY")),
+			Desc: "MOONY_SESSION_KEY: your own 32-byte key (base64 or hex). Highest priority. Restart to apply."},
 		personaField{Key: "sqeSessionKeyCmd", Label: "Session key command", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("SQE_SESSION_KEY_CMD")) != "", Hint: lastFour(os.Getenv("SQE_SESSION_KEY_CMD")),
-			Desc: "SQE_SESSION_KEY_CMD: shell command whose stdout is the key (KMS/Keychain/1Password/Vault). Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY_CMD")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_KEY_CMD")),
+			Desc: "MOONY_SESSION_KEY_CMD: shell command whose stdout is the key (KMS/Keychain/1Password/Vault). Restart to apply."},
 		personaField{Key: "sqeSessionKeyFile", Label: "Session key file", Type: "text",
-			Value: os.Getenv("SQE_SESSION_KEY_FILE"),
-			Desc:  "SQE_SESSION_KEY_FILE: path to a file containing the key. Restart to apply."},
+			Value: os.Getenv("MOONY_SESSION_KEY_FILE"),
+			Desc:  "MOONY_SESSION_KEY_FILE: path to a file containing the key. Restart to apply."},
 		personaField{Key: "sqeSessionPassphrase", Label: "Session passphrase", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("SQE_SESSION_PASSPHRASE")) != "", Hint: lastFour(os.Getenv("SQE_SESSION_PASSPHRASE")),
-			Desc: "SQE_SESSION_PASSPHRASE: a passphrase stretched to a key via PBKDF2. Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_PASSPHRASE")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_PASSPHRASE")),
+			Desc: "MOONY_SESSION_PASSPHRASE: a passphrase stretched to a key via PBKDF2. Restart to apply."},
 	)
 	// Auto-discover credential env vars any MCP/tool declares or references, so
 	// personal tokens (GitHub, Radar, …) appear without hardcoding.
@@ -448,11 +448,11 @@ func fastModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 
 // auxModelSelectOptions builds the Self-review-model dropdown. The empty-value
 // entry means "auto", which resolves via config.AuxModel's own fallback chain:
-// SQE_FAST_MODEL if set (matches the persisted Fast-model field's current
+// MOONY_FAST_MODEL if set (matches the persisted Fast-model field's current
 // value, read live so the label stays correct if that field is edited first),
 // else config.AuxDefaultModel (Haiku).
 func auxModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
-	fallbackID := strings.TrimSpace(os.Getenv("SQE_FAST_MODEL"))
+	fallbackID := strings.TrimSpace(os.Getenv("MOONY_FAST_MODEL"))
 	if fallbackID == "" {
 		fallbackID = config.AuxDefaultModel
 	}

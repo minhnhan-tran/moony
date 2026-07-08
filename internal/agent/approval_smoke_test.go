@@ -17,10 +17,10 @@ import (
 // model is asked to create a file, the agent must request approval (with a
 // non-empty diff), and after approval the file is written.
 //
-//	SQE_SMOKE=1 go test ./internal/agent -run TestApprovalSmoke -v
+//	MOONY_SMOKE=1 go test ./internal/agent -run TestApprovalSmoke -v
 func TestApprovalSmoke(t *testing.T) {
-	if os.Getenv("SQE_SMOKE") != "1" {
-		t.Skip("set SQE_SMOKE=1 to run the live Floodgate approval smoke test")
+	if os.Getenv("MOONY_SMOKE") != "1" {
+		t.Skip("set MOONY_SMOKE=1 to run the live Floodgate approval smoke test")
 	}
 
 	dir := t.TempDir()

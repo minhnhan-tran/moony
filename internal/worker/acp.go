@@ -88,7 +88,7 @@ func openACP(ctx context.Context, opts Options) (Session, error) {
 	}
 	// Capture the worker's stderr instead of letting it inherit ours: writing to
 	// our os.Stderr would paint over the alt-screen TUI (the same class of bug as
-	// the MCP connect logs). Drained and discarded unless SQE_WORKER_DEBUG is set.
+	// the MCP connect logs). Drained and discarded unless MOONY_WORKER_DEBUG is set.
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, err
@@ -108,8 +108,8 @@ func openACP(ctx context.Context, opts Options) (Session, error) {
 
 // drainWorkerStderr consumes the worker's stderr so it can never reach the
 // controlling terminal (where it would corrupt an alt-screen TUI). Lines are
-// discarded unless SQE_WORKER_DEBUG is set — the rare case of debugging a worker
-// outside the TUI — mirroring SQE_LSP_DEBUG.
+// discarded unless MOONY_WORKER_DEBUG is set — the rare case of debugging a worker
+// outside the TUI — mirroring MOONY_LSP_DEBUG.
 func drainWorkerStderr(name string, r io.Reader) {
 	debug := workerDebug()
 	scanner := bufio.NewScanner(r)
@@ -121,9 +121,9 @@ func drainWorkerStderr(name string, r io.Reader) {
 	}
 }
 
-// workerDebug reports whether SQE_WORKER_DEBUG enables forwarding worker stderr.
+// workerDebug reports whether MOONY_WORKER_DEBUG enables forwarding worker stderr.
 func workerDebug() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_WORKER_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_WORKER_DEBUG"))) {
 	case "1", "on", "true", "yes":
 		return true
 	}

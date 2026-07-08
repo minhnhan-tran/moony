@@ -19,19 +19,19 @@ Highlights:
 - **Configurable approval policy** (`prompt`/`safe`/`auto` via `/approval`), **persisted permission rules** (`/permissions`, allow/deny), **diff previews**, **session persistence** (`--continue`/`--session`), and **auto-compaction**.
 - **Headless mode** — `-p`/`--print "prompt"` (and/or piped stdin) runs a single prompt non-interactively and exits; add `--json` for a machine-readable result. Great for scripts, pipelines, and CI.
 - **Multimodal input** — attach **images** (vision), **PDFs** (read natively by Claude), and **Office files** (docx/xlsx/pptx, text-extracted locally). Terminal: `@photo.png`, `/attach <path>`, or `/paste` (macOS clipboard). Browser: the paperclip button, drag-drop, or paste. Works on both the Anthropic and OpenAI routes.
-- **Path sandboxing** for file tools, plus an optional **OS-level `bash` sandbox** that confines shell writes to the working directory (`SQE_SANDBOX`; `sandbox-exec` on macOS, `bwrap` on Linux).
+- **Path sandboxing** for file tools, plus an optional **OS-level `bash` sandbox** that confines shell writes to the working directory (`MOONY_SANDBOX`; `sandbox-exec` on macOS, `bwrap` on Linux).
 - **`AGENTS.md`** ingestion (global + per-project, with `CLAUDE.md` fallback) + **`@file` mentions**.
 - **`.sqeignore`** + `.gitignore` honored by `glob`/`grep`/`list_dir`.
 - **Custom slash commands** via `.md` files; **sub-agents** via `task` tool + `.md` personas, which can run **in parallel**.
 - **Worker agents** — `delegate` to other coding agents running out-of-process (**Claude Code** and **Optimus**) as workers via `workers.json`. Each worker keeps its own context across dispatches (multi-turn) and is read-only by default — good for exploration, review, and a second opinion.
-- **Parallel tool execution** — independent read-only calls (and sub-agents) in a turn run concurrently; mutating file/shell tools stay sequential (`SQE_PARALLEL_TOOLS`).
-- **Repository map in system prompt** (`SQE_REPO_MAP`) — a compact ignore-aware structural overview is prepended to the prompt so the model immediately understands the repository structure and layout.
-- **Verbosity steering** (`SQE_TERSE`) — an "OUTPUT BUDGET" directive steers the model away from spending pricey output tokens on ceremony (preambles, sign-offs, restated context, re-printed unchanged code), trimming cost/latency without skipping actual work.
+- **Parallel tool execution** — independent read-only calls (and sub-agents) in a turn run concurrently; mutating file/shell tools stay sequential (`MOONY_PARALLEL_TOOLS`).
+- **Repository map in system prompt** (`MOONY_REPO_MAP`) — a compact ignore-aware structural overview is prepended to the prompt so the model immediately understands the repository structure and layout.
+- **Verbosity steering** (`MOONY_TERSE`) — an "OUTPUT BUDGET" directive steers the model away from spending pricey output tokens on ceremony (preambles, sign-offs, restated context, re-printed unchanged code), trimming cost/latency without skipping actual work.
 - **Smart tool-output truncation** — oversized tool output is clipped on line boundaries (never mid-line or mid-UTF-8-rune), and oversized JSON is shrunk first — losslessly (whitespace) then by dropping empty/null fields — so structured payloads often fit in full instead of being hard-truncated mid-token.
-- **Code-aware `read_file` outline** (`SQE_CODE_OUTLINE`) — when a `read_file` result on a source file is over budget, it's compressed into a signatures/declarations outline (kept with line numbers; bodies collapsed into `… (N lines elided)`) instead of a blunt byte clip, so the model keeps the file's shape and can re-read a specific range on demand.
-- **Dynamic effort routing** (`SQE_DYNAMIC_EFFORT`) — in `auto` reasoning mode, steps that just digest a routine tool batch (edits, a listing, a todo update) run at a lower thinking budget, while new requests and tool errors still get full effort — spending reasoning tokens where they matter.
+- **Code-aware `read_file` outline** (`MOONY_CODE_OUTLINE`) — when a `read_file` result on a source file is over budget, it's compressed into a signatures/declarations outline (kept with line numbers; bodies collapsed into `… (N lines elided)`) instead of a blunt byte clip, so the model keeps the file's shape and can re-read a specific range on demand.
+- **Dynamic effort routing** (`MOONY_DYNAMIC_EFFORT`) — in `auto` reasoning mode, steps that just digest a routine tool batch (edits, a listing, a todo update) run at a lower thinking budget, while new requests and tool errors still get full effort — spending reasoning tokens where they matter.
 - **Automatic verification loop** (`/verify`) — configures a build or test command run automatically after file edits; if the command fails, the output is fed back so the agent self-corrects.
-- **Optional self-review** (`SQE_SELF_REVIEW=1`) — runs a cheap, fast-model review of the turn's own diff to find and fix bugs (logic errors, off-by-one, missed errors) before ending a turn.
+- **Optional self-review** (`MOONY_SELF_REVIEW=1`) — runs a cheap, fast-model review of the turn's own diff to find and fix bugs (logic errors, off-by-one, missed errors) before ending a turn.
 - **Agent-to-agent messaging** — sub-agents concurrently spawned via `task` can communicate over a shared concurrency-safe message board (`post_message`/`read_messages`) and coordinate during a turn.
 - **Hooks** (`pre/post_turn`, `pre/post_tool`).
 - **MCP client** (stdio + HTTP/SSE) with **tools**, **resources** (read), and **prompts** (auto-registered as `/mcp.<server>.<name>` slash commands).
@@ -94,7 +94,7 @@ user message ─► model (stream) ─► tool_use? ─► run tools ─► tool
 | `internal/attach` | Resolves images/PDFs/Office files into model content blocks (vision, document, or locally-extracted text) for both UIs |
 | `internal/worker` | Drives external worker agents (Claude Code via `-p`/JSON; Optimus via the ACP protocol) behind the `delegate` tool |
 | `internal/web` · `internal/bridge` | Browser UI — the multi-project app and the live terminal mirror — and the hub that syncs the live session to/from web viewers |
-| `internal/relay` · `cmd/relay` | Relay that fronts the web UI; the terminal dials out to it (`SQE_RELAY`) to reach the agent remotely without opening a local port |
+| `internal/relay` · `cmd/relay` | Relay that fronts the web UI; the terminal dials out to it (`MOONY_RELAY`) to reach the agent remotely without opening a local port |
 | `internal/app` · `cmd/release` | Shared server builder and the release tool |
 
 ### Built-in tools
@@ -109,11 +109,11 @@ The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash
 
 `apply_patch` applies one textual patch envelope (`*** Begin Patch` … `*** End Patch`) that can **add, update, and delete several files atomically** — useful for cross-file refactors in a single approved step. Update hunks match by exact context (not line numbers): each hunk's context + removed lines must appear exactly once in the file. The whole patch is validated before anything is written, its combined multi-file diff is shown in the approval prompt, and every touched file is snapshotted so `/undo` reverts the entire patch.
 
-`web_fetch` retrieves a URL over HTTP(S) GET and routes the response by content type: JSON is pretty-printed, HTML is reduced to readable **markdown** (or plain `text`/raw `html` via the `format` option), and plain text / XML / JavaScript are returned as-is; **binary** responses are streamed to a temp file and reported by path instead of flooding the context. Pass `headers` for custom request headers and `max_bytes` to cap the body. `batch_web_fetch` fetches many URLs **concurrently** (bounded parallelism, results in request order, per-item errors inline), each item taking the same options. Both honour the **Domains** allow/deny rules and read `~/.netrc` (or `$NETRC`): when the target host has a `machine` entry, the `password` is sent as `Authorization: Bearer <token>` (so internal endpoints like Artifactory work without the model handling secrets) — a caller-supplied `Authorization` header always wins, the token is only sent to hosts you listed, Go drops it on cross-host redirects, and you can disable the behaviour with `SQE_NETRC=0`. Neither tool executes JavaScript — use the browser tool for JS-heavy pages.
+`web_fetch` retrieves a URL over HTTP(S) GET and routes the response by content type: JSON is pretty-printed, HTML is reduced to readable **markdown** (or plain `text`/raw `html` via the `format` option), and plain text / XML / JavaScript are returned as-is; **binary** responses are streamed to a temp file and reported by path instead of flooding the context. Pass `headers` for custom request headers and `max_bytes` to cap the body. `batch_web_fetch` fetches many URLs **concurrently** (bounded parallelism, results in request order, per-item errors inline), each item taking the same options. Both honour the **Domains** allow/deny rules and read `~/.netrc` (or `$NETRC`): when the target host has a `machine` entry, the `password` is sent as `Authorization: Bearer <token>` (so internal endpoints like Artifactory work without the model handling secrets) — a caller-supplied `Authorization` header always wins, the token is only sent to hosts you listed, Go drops it on cross-host redirects, and you can disable the behaviour with `MOONY_NETRC=0`. Neither tool executes JavaScript — use the browser tool for JS-heavy pages.
 
 ### Feature details
 
-- **Approval policy** — controls when a mutating tool is gated behind a confirmation prompt. Three levels (`/approval <level>`, persisted; or `--approval`/`SQE_APPROVAL`):
+- **Approval policy** — controls when a mutating tool is gated behind a confirmation prompt. Three levels (`/approval <level>`, persisted; or `--approval`/`MOONY_APPROVAL`):
   - **`prompt`** (default) — confirm every `write_file`/`edit_file`/`bash`/`task`.
   - **`safe`** — additionally auto-run *read-only* bash (e.g. `ls`, `cat`, `grep`, `git status`/`diff`/`log`, `go test`/`build`/`vet`); still prompt for writes, edits, `task`, and any bash with redirection, command substitution, backgrounding, or an unrecognized program.
   - **`auto`** — never prompt (equivalent to `--no-approval`).
@@ -130,7 +130,7 @@ The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash
 
 ## Requirements
 
-- One of: a running **[Ollama](https://ollama.com)** server (default; local `http://localhost:11434` or remote via `SQE_OLLAMA_HOST`) with a model pulled, **or** an API key for a hosted provider (OpenAI, Anthropic, OpenRouter, Gemini, DeepSeek, Groq, xAI, Mistral, Together.ai, or Fireworks.ai).
+- One of: a running **[Ollama](https://ollama.com)** server (default; local `http://localhost:11434` or remote via `MOONY_OLLAMA_HOST`) with a model pulled, **or** an API key for a hosted provider (OpenAI, Anthropic, OpenRouter, Gemini, DeepSeek, Groq, xAI, Mistral, Together.ai, or Fireworks.ai).
 - **Go 1.26+** (to build from source).
 - Network access to your chosen provider.
 
@@ -174,11 +174,11 @@ make publish                  # cross-compile darwin arm64+amd64, upload the Git
 
 ```bash
 make relay                               # terminal 1 — the web UI on http://127.0.0.1:8770
-SQE_RELAY=127.0.0.1:8771 moony  # terminal 2 — connect this machine to the relay
+MOONY_RELAY=127.0.0.1:8771 moony  # terminal 2 — connect this machine to the relay
 # open http://127.0.0.1:8770
 ```
 
-Save the relay address so every launch auto-connects in the background: run `/relay host:port` in the TUI (persisted to your config); `/relay off` disables it, `/relay` shows the current state. `SQE_RELAY` overrides the saved value for a single run. While a relay is configured the status bar shows a **relay pill** — green when connected, amber while connecting/retrying — and the same state is mirrored to the web header.
+Save the relay address so every launch auto-connects in the background: run `/relay host:port` in the TUI (persisted to your config); `/relay off` disables it, `/relay` shows the current state. `MOONY_RELAY` overrides the saved value for a single run. While a relay is configured the status bar shows a **relay pill** — green when connected, amber while connecting/retrying — and the same state is mirrored to the web header.
 
 The browser replays each conversation from the start (history is kept), so a viewer can open the page mid-session and catch up, then follow live. The terminal stays the single owner of the agent, so remote actions are delivered into its normal input loop — one conversation, one history, one approval at a time. See *Relay mode* for the multi-laptop tree, and *Authentication* for login + HTTPS.
 
@@ -188,11 +188,11 @@ A **relay** fronts the web UI while the agent stays on your machine. One or more
 
 ```bash
 make relay                               # terminal 1 — web on http://127.0.0.1:8770, connectors dial :8771
-SQE_RELAY=127.0.0.1:8771 moony  # terminal 2 — connect THIS machine to the relay
+MOONY_RELAY=127.0.0.1:8771 moony  # terminal 2 — connect THIS machine to the relay
 # open http://127.0.0.1:8770
 ```
 
-`make relay ADDR=… TUNNEL=…` overrides the relay's browser/connector addresses. The terminal connects with `SQE_RELAY=host:port` (or a saved `/relay`), serving the full multi-project app over the relay while the TUI keeps running; it auto-reconnects.
+`make relay ADDR=… TUNNEL=…` overrides the relay's browser/connector addresses. The terminal connects with `MOONY_RELAY=host:port` (or a saved `/relay`), serving the full multi-project app over the relay while the TUI keeps running; it auto-reconnects.
 
 **The live terminal session is part of it — and the whole project is drivable.** Over the relay, this terminal's active session appears in its project (flagged *live*); opening it drives the **exact in-terminal conversation** bidirectionally — the hub-backed live mirror — so a remote browser and the terminal stay in sync (messages, approvals, interrupts). Opening **any other session of the terminal's project** switches the terminal to it (the terminal follows the browser, just as the browser follows a terminal-side `/sessions` switch) and then drives it the same way — so the whole project is controllable from the browser, one active session at a time (mirroring the single-session terminal). Switching only happens while the terminal is idle. Sessions in **other projects** open normally (store-backed and independent), since the single-project terminal can't host them. Multiple browser viewers can share the live session.
 
@@ -209,9 +209,9 @@ moony daemon stop | start                                 # without removing the
 moony daemon uninstall                                    # stop + remove the unit
 ```
 
-It registers under the local OS user that installed it, so the relay's per-user connector namespacing applies. With no `--relay`, it defaults to the built-in relay tunnel; pass `--relay host:port` (or set the saved `/relay` / `SQE_RELAY`) to point it elsewhere. macOS logs go to `~/Library/Logs/moony/daemon.log`; Linux logs to the user journal (`journalctl --user -u moony`). The daemon serves the full multi-project app (each browser-opened session runs its own agent, store-backed) — it's the connector half without the live in-terminal mirror.
+It registers under the local OS user that installed it, so the relay's per-user connector namespacing applies. With no `--relay`, it defaults to the built-in relay tunnel; pass `--relay host:port` (or set the saved `/relay` / `MOONY_RELAY`) to point it elsewhere. macOS logs go to `~/Library/Logs/moony/daemon.log`; Linux logs to the user journal (`journalctl --user -u moony`). The daemon serves the full multi-project app (each browser-opened session runs its own agent, store-backed) — it's the connector half without the live in-terminal mirror.
 
-**Auto-install on `curl … | install.sh | sh`.** The installer always installs the daemon — with the relay's advertised tunnel (`-tunnel-public` / `SQE_RELAY_TUNNEL`) when set, else the built-in default — **and** saves that relay as the interactive default, so a hand-run `moony` connects to the same relay. Since the relay keeps only one connector per machine, the TUI claims it while open (its live in-terminal session is the drivable one) and the **daemon stands down and resumes when you quit** (coordinated via a `connector.lock` with a stale-pid check). To start a session anywhere on a machine, click **New session** under a project in the web sidebar — it opens a folder picker (rooted at that project), so you can start there or browse to any directory.
+**Auto-install on `curl … | install.sh | sh`.** The installer always installs the daemon — with the relay's advertised tunnel (`-tunnel-public` / `MOONY_RELAY_TUNNEL`) when set, else the built-in default — **and** saves that relay as the interactive default, so a hand-run `moony` connects to the same relay. Since the relay keeps only one connector per machine, the TUI claims it while open (its live in-terminal session is the drivable one) and the **daemon stands down and resumes when you quit** (coordinated via a `connector.lock` with a stale-pid check). To start a session anywhere on a machine, click **New session** under a project in the web sidebar — it opens a folder picker (rooted at that project), so you can start there or browse to any directory.
 
 ### Authentication
 
@@ -231,18 +231,18 @@ per-user separation.
 
 #### Keeping secrets out of the repo (and out of the agent)
 
-Don't `export` secrets (e.g. a provider API key like `SQE_OPENAI_API_KEY` or `SQE_OLLAMA_TOKEN`) by hand — they land in shell
+Don't `export` secrets (e.g. a provider API key like `MOONY_OPENAI_API_KEY` or `MOONY_OLLAMA_TOKEN`) by hand — they land in shell
 history and the process environment. Instead:
 
-- **Local dev — a `.env` file.** Copy `.env.example` to `.env` (git-ignored) and fill it in; it's loaded at startup for any variable that isn't already set. For stronger isolation keep it outside the repo: `export SQE_ENV_FILE=~/.config/moony/.env`. Load order is `$SQE_ENV_FILE` → `~/.config/moony/.env` → `./.env`.
+- **Local dev — a `.env` file.** Copy `.env.example` to `.env` (git-ignored) and fill it in; it's loaded at startup for any variable that isn't already set. For stronger isolation keep it outside the repo: `export MOONY_ENV_FILE=~/.config/moony/.env`. Load order is `$MOONY_ENV_FILE` → `~/.config/moony/.env` → `./.env`.
 - **Prod — a secret store.** Inject the same variables via env or a mounted file. Real environment variables always win over `.env`.
 
-The `bash` and background-job tools **strip these secrets** (every provider API key — `SQE_OPENAI_API_KEY`, `SQE_ANTHROPIC_API_KEY`, `SQE_GEMINI_API_KEY`, etc. and their conventional fallbacks — plus `SQE_OLLAMA_TOKEN` and `SQE_ENV_FILE`) from the environment of commands the agent runs, so the model can't read them via `$VAR`/`env`. (A `.env` in the project root is still readable by the agent's shell by path — prefer `SQE_ENV_FILE` outside the tree for anything truly sensitive.)
+The `bash` and background-job tools **strip these secrets** (every provider API key — `MOONY_OPENAI_API_KEY`, `MOONY_ANTHROPIC_API_KEY`, `MOONY_GEMINI_API_KEY`, etc. and their conventional fallbacks — plus `MOONY_OLLAMA_TOKEN` and `MOONY_ENV_FILE`) from the environment of commands the agent runs, so the model can't read them via `$VAR`/`env`. (A `.env` in the project root is still readable by the agent's shell by path — prefer `MOONY_ENV_FILE` outside the tree for anything truly sensitive.)
 
 #### Serving the relay over HTTPS
 
 TLS is optional. Pass a cert/key with `-tls-cert`/`-tls-key` (or
-`SQE_RELAY_TLS_CERT`/`SQE_RELAY_TLS_KEY`) and the relay serves HTTPS on its
+`MOONY_RELAY_TLS_CERT`/`MOONY_RELAY_TLS_KEY`) and the relay serves HTTPS on its
 `-addr`; otherwise it serves plain HTTP. Privileged ports (`<1024`) need `sudo`.
 
 ```bash
@@ -252,8 +252,8 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
   -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost"
 
 make build-relay                 # -> bin/relay
-SQE_RELAY_TLS_CERT=cert.pem SQE_RELAY_TLS_KEY=key.pem bin/relay -addr localhost:8443
-# then connect this machine's terminal:  SQE_RELAY=127.0.0.1:8771 moony
+MOONY_RELAY_TLS_CERT=cert.pem MOONY_RELAY_TLS_KEY=key.pem bin/relay -addr localhost:8443
+# then connect this machine's terminal:  MOONY_RELAY=127.0.0.1:8771 moony
 ```
 
 Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays plain TCP on loopback.
@@ -278,7 +278,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 - `/reasoning [level]` — set the extended-thinking level; available levels depend on the model (Opus: `low`/`medium`/`high`/`x-high`/`max`; Gemini: `minimal`/`low`/`medium`/`high`; others: `low`/`medium`/`high`). With no argument it opens a picker showing what the current model supports; saved per model and clamped when you switch models
 - `/compact` — summarize older history into a single synthetic exchange to free up context
 - `/goal [description|clear]` — set a stop-condition the agent must satisfy before it stops. With no argument it shows the current goal. When a goal is set, the agent doesn't end a turn just because the model emitted no tool calls — an independent **judge model** evaluates the conversation against the goal and, if it isn't fully met, the judge's feedback is injected and the agent keeps working (bounded per turn). Persisted with the session, so it survives `--continue`. `/goal clear` removes it
-- `/checkpoint [now|clear]` — show, refresh, or clear the session **checkpoint**: a model-distilled snapshot of the session's state (goal, key decisions, files created/modified, findings, what's done vs. in progress, next steps). It is refreshed automatically as the session grows (every ~12 messages; tune with `SQE_CHECKPOINT_EVERY`, `0` disables) and re-injected into the model's context every turn, so the distilled state survives `/compact` and `--continue` without the agent relearning it. Unlike `/compact`, the checkpoint never discards history — it augments it
+- `/checkpoint [now|clear]` — show, refresh, or clear the session **checkpoint**: a model-distilled snapshot of the session's state (goal, key decisions, files created/modified, findings, what's done vs. in progress, next steps). It is refreshed automatically as the session grows (every ~12 messages; tune with `MOONY_CHECKPOINT_EVERY`, `0` disables) and re-injected into the model's context every turn, so the distilled state survives `/compact` and `--continue` without the agent relearning it. Unlike `/compact`, the checkpoint never discards history — it augments it
 - `/clear` — clear the screen
 - `/reset` — clear screen and start a **new** session (forgets history)
 - `/undo` — revert the files written or edited in the most recent turn (snapshots are recorded automatically)
@@ -290,7 +290,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 - `/verify [command\|off]` — configure a build or test command run automatically at the end of a turn that edited files; if the command fails, the output is fed back so the agent self-corrects before stopping (e.g. `/verify go test ./...` or `/verify off`)
 - `/permissions [allow\|deny\|remove <rule>] [--global]` — list or edit persisted allow/deny rules (deny wins; rules are tool names like `write_file` or bash prefixes like `bash:git `; `--global` targets the user-level file, default is this project)
 - `/sandbox [on\|off]` — macOS: confine `bash` writes to the working directory + build caches (saved)
-- `/relay [addr\|off]` — auto-connect to a relay (`host:port`) in the background on every launch so a remote browser can reach this machine's full multi-project app (with this terminal's live session wired in); shows a status pill (saved; `SQE_RELAY` overrides; applies on next start)
+- `/relay [addr\|off]` — auto-connect to a relay (`host:port`) in the background on every launch so a remote browser can reach this machine's full multi-project app (with this terminal's live session wired in); shows a status pill (saved; `MOONY_RELAY` overrides; applies on next start)
 - `/skills [enable\|disable\|new\|remove <name>]` — list discovered skills with `[on]`/`[off]` state, toggle one (re-attached to the model live), scaffold a new `SKILL.md`, or delete one (`--global` targets the user-level setting; defaults to this project)
 - `/mcps [enable\|disable\|add\|remove\|reload]` — list MCP servers with `[on]`/`[off]` state, toggle one, add (`/mcps add <name> -- <cmd> [args]` or `<name> <url>`), remove, or `reload` to reconnect the enabled servers without a restart (`--global` for the user-level setting; defaults to this project)
 - `/agents [enable\|disable\|new\|remove <name>]` — list subagent personas (used by the `task` tool) with `[on]`/`[off]` state, toggle one (re-attached live), scaffold a new `.md`, or delete one (`--global` targets the user-level setting; defaults to this project)
@@ -311,54 +311,54 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `SQE_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, or `fireworks`. Overrides the saved `/provider` choice for the run |
-| `SQE_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
-| `SQE_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
-| `SQE_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
-| `SQE_OPENAI_API_KEY` | _(unset)_ | OpenAI API key for the `openai` provider (falls back to `OPENAI_API_KEY`) |
-| `SQE_ANTHROPIC_API_KEY` | _(unset)_ | Anthropic API key for the `anthropic` provider (falls back to `ANTHROPIC_API_KEY`) |
-| `SQE_OPENROUTER_API_KEY` | _(unset)_ | OpenRouter API key for the `openrouter` provider (falls back to `OPENROUTER_API_KEY`) |
-| `SQE_GEMINI_API_KEY` | _(unset)_ | Google Gemini API key for the `gemini` provider (falls back to `GEMINI_API_KEY`) |
-| `SQE_DEEPSEEK_API_KEY` | _(unset)_ | DeepSeek API key for the `deepseek` provider (falls back to `DEEPSEEK_API_KEY`) |
-| `SQE_GROQ_API_KEY` | _(unset)_ | Groq API key for the `groq` provider (falls back to `GROQ_API_KEY`) |
-| `SQE_XAI_API_KEY` | _(unset)_ | xAI API key for the `xai` provider (falls back to `XAI_API_KEY`) |
-| `SQE_MISTRAL_API_KEY` | _(unset)_ | Mistral API key for the `mistral` provider (falls back to `MISTRAL_API_KEY`) |
-| `SQE_TOGETHER_API_KEY` | _(unset)_ | Together.ai API key for the `together` provider (falls back to `TOGETHER_API_KEY`) |
-| `SQE_FIREWORKS_API_KEY` | _(unset)_ | Fireworks.ai API key for the `fireworks` provider (falls back to `FIREWORKS_API_KEY`) |
-| `SQE_<PROVIDER>_BASE_URL` | provider default | override any provider's API base URL (e.g. `SQE_OPENAI_BASE_URL`, `SQE_GEMINI_BASE_URL`) — useful for proxies or self-hosted gateways |
-| `SQE_REASONING` | `off` | extended-thinking level (model-dependent: `off`/`minimal`/`low`/`medium`/`high`/`x-high`/`max`; clamped to what the model supports) |
-| `SQE_MAX_STEPS` | `150` | max model↔tool rounds per turn before the agent stops (raise for long, todo-driven tasks; a runaway-loop guard, not a budget) |
-| `SQE_AUTO_CONTINUE` | `3` | how many times a turn auto-extends past `SQE_MAX_STEPS` when the model is still working (so long tasks finish without a manual "continue"); `0` disables. Hard ceiling = `SQE_MAX_STEPS × (1 + SQE_AUTO_CONTINUE)` |
-| `SQE_APPROVAL` | `prompt` | approval policy: `prompt`/`safe`/`auto` |
-| `SQE_MOUSE` | _(on)_ | mouse-wheel scrolling is on by default; set to `0` to disable it (enables native text selection; scroll with the keyboard) |
-| `SQE_WHEEL_DELTA` | `2` | lines scrolled per mouse-wheel tick; non-numeric or out-of-range values fall back to 2 |
-| `SQE_CTX_BAR` | _(on)_ | show the graphical context-window usage gauge in the status bar; set to `0`/`off` for a text-only readout |
-| `SQE_STREAM_MARKDOWN` | _(on)_ | render the assistant's reply as markdown live while it streams; set to `0` to stream raw text and render markdown only on completion |
-| `SQE_SOUND` | _(on)_ | play a short chime when the agent finishes a turn (macOS); set to `0` to silence it |
-| `SQE_AUTO_TITLE` | _(on)_ | after a new session's first turn, ask the model for a short session title (replacing the first-message heuristic); set to `0`/`off` to keep the heuristic and skip the extra call |
-| `SQE_PROMPT_CACHE` | _(on)_ | Anthropic prompt caching: cache the system prompt, tools, and conversation prefix so repeated agentic steps bill at the much cheaper cache-read rate; set to `0` to disable |
-| `SQE_REPO_MAP` | _(on)_ | when true, prepends a compact, ignore-aware structural overview of the repository (detected stack, key files, a depth-2 directory tree with file counts) to the system prompt; `0`/`off` disables |
-| `SQE_TERSE` | _(on)_ | verbosity steering: add an "OUTPUT BUDGET" directive to the system prompt so the model spends fewer (pricier) output tokens on ceremony — preambles, sign-offs, restated context, re-printed unchanged code — without skipping actual work; `0`/`off` disables |
-| `SQE_CODE_OUTLINE` | _(on)_ | compress oversized `read_file` output on source files into a signatures/declarations outline (line numbers kept, bodies collapsed into `… (N lines elided)`) instead of a blunt byte clip, so the model keeps the file's shape and can re-read a range; `0`/`off` disables |
-| `SQE_DYNAMIC_EFFORT` | _(on)_ | dynamic effort routing (`auto` reasoning only): run steps that just digest a routine/benign tool batch (edits, a listing, a todo update — no errors) at a lower reasoning floor, while new requests and tool errors still get full effort; `0`/`off` disables |
-| `SQE_PARALLEL_TOOLS` | _(on)_ | run independent tool calls in a turn concurrently (read-only tools and sub-agents); set to `0` to force sequential execution, or a number to cap concurrency (default 8) |
-| `SQE_AGENT_MESSAGING` | _(on)_ | enable agent-to-agent message board for concurrent sub-agents; `0`/`off` disables |
-| `SQE_RG` | _(on)_ | use `ripgrep` (`rg`) for the `grep` tool when it's installed (faster on large trees); set to `0`/`off` to always use the built-in Go scanner. Output is identical either way |
-| `SQE_SKILLS` | _(on)_ | discover Agent Skills (`SKILL.md`); set to `0`/`off` to turn skill discovery off entirely |
-| `SQE_MCP` | _(on)_ | connect to configured MCP servers; set to `0`/`off` to skip connecting (config discovery and the `/mcps` listing still work) |
-| `SQE_MCP_CLAUDE` | _(on)_ | auto-discover MCP servers from Claude's config (`claude_desktop_config.json`, `~/.claude.json`); set to `0`/`off` to skip |
-| `SQE_RELAY` | _(unset)_ | `host:port` of a relay (see `cmd/relay`) to dial out to; the terminal serves the full multi-project app over it (so a remote browser can browse and run all this machine's sessions), with this terminal's **live session wired in through the hub** — opening it drives the exact in-terminal conversation. Best-effort + auto-reconnecting, and the TUI runs normally whether or not it connects. Overrides the saved `/relay` address for the run |
-| `SQE_SANDBOX` | _(off)_ | confine `bash` writes to the working directory (plus temp and common build caches) via `sandbox-exec` (macOS) or `bwrap` (Linux). Set `on`/`1` to enable. Reads, process execution, and network are unaffected. No-op on other platforms or if the confinement tool isn't installed. |
-| `SQE_SANDBOX_NET` | _(on)_ | when the sandbox is on, set `0`/`off` to also deny network access to sandboxed commands |
-| `SQE_NETRC` | _(on)_ | `web_fetch`/`batch_web_fetch` read `~/.netrc` (or `$NETRC`) and send the matching host's `password` as `Authorization: Bearer <token>`; set `0`/`off` to disable. A caller-supplied `Authorization` header always wins |
-| `SQE_VERIFY_CMD` | _(unset)_ | shell command (e.g. `go test ./...`) run automatically on file edits to feed failures back for self-correction |
-| `SQE_VERIFY_MAX` | `2` | max verify retries per turn before stopping for review |
-| `SQE_VERIFY_TIMEOUT` | `120` | timeout in seconds for a single verify command run |
-| `SQE_SELF_REVIEW` | `0` (off) | set to `1`/`on`/`true` to run a cheap fast-model self-review on changed diffs to detect and fix bugs before ending a turn |
-| `SQE_ENV_FILE` | _(unset)_ | path to a `.env` file loaded at startup for any **unset** variables (real env always wins). Defaults to `~/.config/moony/.env` then `./.env` when unset. Local-dev convenience — never use in prod |
-| `SQE_RELAY_TLS_CERT` | _(unset)_ | PEM certificate file so the relay serves **HTTPS** (also `-tls-cert`). Pair with the key below |
-| `SQE_RELAY_TLS_KEY` | _(unset)_ | PEM private-key file for the relay's HTTPS cert (also `-tls-key`) |
-| `SQE_DEBUG_FILE` | _(unset)_ | debugging: on the OpenAI route, append the request body and every raw SSE chunk to this file (useful for inspecting how the proxy streams) |
+| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, or `fireworks`. Overrides the saved `/provider` choice for the run |
+| `MOONY_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
+| `MOONY_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
+| `MOONY_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
+| `MOONY_OPENAI_API_KEY` | _(unset)_ | OpenAI API key for the `openai` provider (falls back to `OPENAI_API_KEY`) |
+| `MOONY_ANTHROPIC_API_KEY` | _(unset)_ | Anthropic API key for the `anthropic` provider (falls back to `ANTHROPIC_API_KEY`) |
+| `MOONY_OPENROUTER_API_KEY` | _(unset)_ | OpenRouter API key for the `openrouter` provider (falls back to `OPENROUTER_API_KEY`) |
+| `MOONY_GEMINI_API_KEY` | _(unset)_ | Google Gemini API key for the `gemini` provider (falls back to `GEMINI_API_KEY`) |
+| `MOONY_DEEPSEEK_API_KEY` | _(unset)_ | DeepSeek API key for the `deepseek` provider (falls back to `DEEPSEEK_API_KEY`) |
+| `MOONY_GROQ_API_KEY` | _(unset)_ | Groq API key for the `groq` provider (falls back to `GROQ_API_KEY`) |
+| `MOONY_XAI_API_KEY` | _(unset)_ | xAI API key for the `xai` provider (falls back to `XAI_API_KEY`) |
+| `MOONY_MISTRAL_API_KEY` | _(unset)_ | Mistral API key for the `mistral` provider (falls back to `MISTRAL_API_KEY`) |
+| `MOONY_TOGETHER_API_KEY` | _(unset)_ | Together.ai API key for the `together` provider (falls back to `TOGETHER_API_KEY`) |
+| `MOONY_FIREWORKS_API_KEY` | _(unset)_ | Fireworks.ai API key for the `fireworks` provider (falls back to `FIREWORKS_API_KEY`) |
+| `MOONY_<PROVIDER>_BASE_URL` | provider default | override any provider's API base URL (e.g. `MOONY_OPENAI_BASE_URL`, `MOONY_GEMINI_BASE_URL`) — useful for proxies or self-hosted gateways |
+| `MOONY_REASONING` | `off` | extended-thinking level (model-dependent: `off`/`minimal`/`low`/`medium`/`high`/`x-high`/`max`; clamped to what the model supports) |
+| `MOONY_MAX_STEPS` | `150` | max model↔tool rounds per turn before the agent stops (raise for long, todo-driven tasks; a runaway-loop guard, not a budget) |
+| `MOONY_AUTO_CONTINUE` | `3` | how many times a turn auto-extends past `MOONY_MAX_STEPS` when the model is still working (so long tasks finish without a manual "continue"); `0` disables. Hard ceiling = `MOONY_MAX_STEPS × (1 + MOONY_AUTO_CONTINUE)` |
+| `MOONY_APPROVAL` | `prompt` | approval policy: `prompt`/`safe`/`auto` |
+| `MOONY_MOUSE` | _(on)_ | mouse-wheel scrolling is on by default; set to `0` to disable it (enables native text selection; scroll with the keyboard) |
+| `MOONY_WHEEL_DELTA` | `2` | lines scrolled per mouse-wheel tick; non-numeric or out-of-range values fall back to 2 |
+| `MOONY_CTX_BAR` | _(on)_ | show the graphical context-window usage gauge in the status bar; set to `0`/`off` for a text-only readout |
+| `MOONY_STREAM_MARKDOWN` | _(on)_ | render the assistant's reply as markdown live while it streams; set to `0` to stream raw text and render markdown only on completion |
+| `MOONY_SOUND` | _(on)_ | play a short chime when the agent finishes a turn (macOS); set to `0` to silence it |
+| `MOONY_AUTO_TITLE` | _(on)_ | after a new session's first turn, ask the model for a short session title (replacing the first-message heuristic); set to `0`/`off` to keep the heuristic and skip the extra call |
+| `MOONY_PROMPT_CACHE` | _(on)_ | Anthropic prompt caching: cache the system prompt, tools, and conversation prefix so repeated agentic steps bill at the much cheaper cache-read rate; set to `0` to disable |
+| `MOONY_REPO_MAP` | _(on)_ | when true, prepends a compact, ignore-aware structural overview of the repository (detected stack, key files, a depth-2 directory tree with file counts) to the system prompt; `0`/`off` disables |
+| `MOONY_TERSE` | _(on)_ | verbosity steering: add an "OUTPUT BUDGET" directive to the system prompt so the model spends fewer (pricier) output tokens on ceremony — preambles, sign-offs, restated context, re-printed unchanged code — without skipping actual work; `0`/`off` disables |
+| `MOONY_CODE_OUTLINE` | _(on)_ | compress oversized `read_file` output on source files into a signatures/declarations outline (line numbers kept, bodies collapsed into `… (N lines elided)`) instead of a blunt byte clip, so the model keeps the file's shape and can re-read a range; `0`/`off` disables |
+| `MOONY_DYNAMIC_EFFORT` | _(on)_ | dynamic effort routing (`auto` reasoning only): run steps that just digest a routine/benign tool batch (edits, a listing, a todo update — no errors) at a lower reasoning floor, while new requests and tool errors still get full effort; `0`/`off` disables |
+| `MOONY_PARALLEL_TOOLS` | _(on)_ | run independent tool calls in a turn concurrently (read-only tools and sub-agents); set to `0` to force sequential execution, or a number to cap concurrency (default 8) |
+| `MOONY_AGENT_MESSAGING` | _(on)_ | enable agent-to-agent message board for concurrent sub-agents; `0`/`off` disables |
+| `MOONY_RG` | _(on)_ | use `ripgrep` (`rg`) for the `grep` tool when it's installed (faster on large trees); set to `0`/`off` to always use the built-in Go scanner. Output is identical either way |
+| `MOONY_SKILLS` | _(on)_ | discover Agent Skills (`SKILL.md`); set to `0`/`off` to turn skill discovery off entirely |
+| `MOONY_MCP` | _(on)_ | connect to configured MCP servers; set to `0`/`off` to skip connecting (config discovery and the `/mcps` listing still work) |
+| `MOONY_MCP_CLAUDE` | _(on)_ | auto-discover MCP servers from Claude's config (`claude_desktop_config.json`, `~/.claude.json`); set to `0`/`off` to skip |
+| `MOONY_RELAY` | _(unset)_ | `host:port` of a relay (see `cmd/relay`) to dial out to; the terminal serves the full multi-project app over it (so a remote browser can browse and run all this machine's sessions), with this terminal's **live session wired in through the hub** — opening it drives the exact in-terminal conversation. Best-effort + auto-reconnecting, and the TUI runs normally whether or not it connects. Overrides the saved `/relay` address for the run |
+| `MOONY_SANDBOX` | _(off)_ | confine `bash` writes to the working directory (plus temp and common build caches) via `sandbox-exec` (macOS) or `bwrap` (Linux). Set `on`/`1` to enable. Reads, process execution, and network are unaffected. No-op on other platforms or if the confinement tool isn't installed. |
+| `MOONY_SANDBOX_NET` | _(on)_ | when the sandbox is on, set `0`/`off` to also deny network access to sandboxed commands |
+| `MOONY_NETRC` | _(on)_ | `web_fetch`/`batch_web_fetch` read `~/.netrc` (or `$NETRC`) and send the matching host's `password` as `Authorization: Bearer <token>`; set `0`/`off` to disable. A caller-supplied `Authorization` header always wins |
+| `MOONY_VERIFY_CMD` | _(unset)_ | shell command (e.g. `go test ./...`) run automatically on file edits to feed failures back for self-correction |
+| `MOONY_VERIFY_MAX` | `2` | max verify retries per turn before stopping for review |
+| `MOONY_VERIFY_TIMEOUT` | `120` | timeout in seconds for a single verify command run |
+| `MOONY_SELF_REVIEW` | `0` (off) | set to `1`/`on`/`true` to run a cheap fast-model self-review on changed diffs to detect and fix bugs before ending a turn |
+| `MOONY_ENV_FILE` | _(unset)_ | path to a `.env` file loaded at startup for any **unset** variables (real env always wins). Defaults to `~/.config/moony/.env` then `./.env` when unset. Local-dev convenience — never use in prod |
+| `MOONY_RELAY_TLS_CERT` | _(unset)_ | PEM certificate file so the relay serves **HTTPS** (also `-tls-cert`). Pair with the key below |
+| `MOONY_RELAY_TLS_KEY` | _(unset)_ | PEM private-key file for the relay's HTTPS cert (also `-tls-key`) |
+| `MOONY_DEBUG_FILE` | _(unset)_ | debugging: on the OpenAI route, append the request body and every raw SSE chunk to this file (useful for inspecting how the proxy streams) |
 
 Flags:
 
@@ -367,7 +367,7 @@ Flags:
 | `--model <id>` | override the model |
 | `--reasoning <level>` | extended-thinking level (model-dependent; clamped to what the model supports) |
 | `--approval <level>` | approval policy: `prompt`/`safe`/`auto` |
-| `--sandbox <on\|off>` | macOS/Linux: confine `bash` writes to the working dir (also `/sandbox`, `SQE_SANDBOX`) |
+| `--sandbox <on\|off>` | macOS/Linux: confine `bash` writes to the working dir (also `/sandbox`, `MOONY_SANDBOX`) |
 | `-C <dir>` | working directory for the agent |
 | `--continue` | resume the most recent session for this directory |
 | `--session <id>` | resume a specific session by id |
@@ -402,21 +402,21 @@ Behavior:
 
 
 
-The agent supports eleven backends, selected with `/provider` (or `SQE_PROVIDER`):
+The agent supports eleven backends, selected with `/provider` (or `MOONY_PROVIDER`):
 
-- **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `SQE_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `SQE_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
-- **OpenAI** — `api.openai.com`, `SQE_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
-- **Anthropic** — the native Claude Messages API at `api.anthropic.com`, `SQE_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`). `/reasoning` maps to Anthropic's extended-thinking token budget, and prompt caching is on by default (`SQE_PROMPT_CACHE=0` to disable).
-- **OpenRouter** — `openrouter.ai`, `SQE_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`); one key reaches hundreds of models via `vendor/model` slugs (e.g. `anthropic/claude-sonnet-4.5`).
-- **Google Gemini** — Google's OpenAI-compatible endpoint, `SQE_GEMINI_API_KEY` (or `GEMINI_API_KEY`).
-- **DeepSeek** — `api.deepseek.com`, `SQE_DEEPSEEK_API_KEY`; `/reasoning` engages on `deepseek-reasoner`.
-- **Groq** — `api.groq.com`, `SQE_GROQ_API_KEY`; very fast inference for open models.
-- **xAI (Grok)** — `api.x.ai`, `SQE_XAI_API_KEY`.
-- **Mistral** — `api.mistral.ai`, `SQE_MISTRAL_API_KEY`.
-- **Together.ai** — `api.together.xyz`, `SQE_TOGETHER_API_KEY`; hosted open models.
-- **Fireworks.ai** — `api.fireworks.ai`, `SQE_FIREWORKS_API_KEY`; hosted open models.
+- **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MOONY_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MOONY_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
+- **OpenAI** — `api.openai.com`, `MOONY_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
+- **Anthropic** — the native Claude Messages API at `api.anthropic.com`, `MOONY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`). `/reasoning` maps to Anthropic's extended-thinking token budget, and prompt caching is on by default (`MOONY_PROMPT_CACHE=0` to disable).
+- **OpenRouter** — `openrouter.ai`, `MOONY_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`); one key reaches hundreds of models via `vendor/model` slugs (e.g. `anthropic/claude-sonnet-4.5`).
+- **Google Gemini** — Google's OpenAI-compatible endpoint, `MOONY_GEMINI_API_KEY` (or `GEMINI_API_KEY`).
+- **DeepSeek** — `api.deepseek.com`, `MOONY_DEEPSEEK_API_KEY`; `/reasoning` engages on `deepseek-reasoner`.
+- **Groq** — `api.groq.com`, `MOONY_GROQ_API_KEY`; very fast inference for open models.
+- **xAI (Grok)** — `api.x.ai`, `MOONY_XAI_API_KEY`.
+- **Mistral** — `api.mistral.ai`, `MOONY_MISTRAL_API_KEY`.
+- **Together.ai** — `api.together.xyz`, `MOONY_TOGETHER_API_KEY`; hosted open models.
+- **Fireworks.ai** — `api.fireworks.ai`, `MOONY_FIREWORKS_API_KEY`; hosted open models.
 
-Every provider except Anthropic speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**. Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted provider's base URL can be overridden with `SQE_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `SQE_MODEL`) selects one.
+Every provider except Anthropic speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**. Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
 
 Sessions are stored under `~/.config/moony/sessions/`. Your model and reasoning-level choices (set via `/model`, `/models`, or `/reasoning`) persist to `~/.config/moony/config.json` and are restored on the next launch. Precedence is **flags > environment variables > saved config > built-in defaults**. Approval and compaction thresholds (`ApprovalEnabled`, `CompactThresholdTokens`, `CompactKeepTokens`) live in `internal/config`.
 
@@ -477,7 +477,7 @@ Never write or run anything; you have read-only tools.
 
 The optional `tools:` allowlist restricts which built-in tools the persona can use (omit for full access).
 
-When the model dispatches several `task` calls in one turn, they run concurrently (you approve each up front, then they execute in parallel). Set `SQE_PARALLEL_TOOLS=0` to run them one at a time.
+When the model dispatches several `task` calls in one turn, they run concurrently (you approve each up front, then they execute in parallel). Set `MOONY_PARALLEL_TOOLS=0` to run them one at a time.
 
 **Invoke a subagent directly with `@<name>`.** Typing `@explore find the auth flow` in a message — where `explore` is an enabled persona — appends a directive telling the model to carry out the request via the `task` tool with that agent. The same works for [worker agents](#worker-agents-delegate-to-claude-code--optimus) (`@claude review this`), which route to the `delegate` tool instead. You still approve the dispatch like any other tool call, and the model summarizes what the agent returned. A `@token` that resolves to a real file stays a file mention, and `@tokens` that don't match any agent (or look like paths) are left untouched.
 
@@ -494,7 +494,7 @@ Run user scripts at lifecycle points by adding either `~/.config/moony/hooks.jso
 }
 ```
 
-Hooks run via `sh -c` with these env vars: `SQE_HOOK`, `SQE_WORKING_DIR`, plus `SQE_TOOL_NAME` / `SQE_TOOL_INPUT` (pre_tool) / `SQE_TOOL_OUTPUT` / `SQE_TOOL_ERROR` (post_tool). 10-second timeout; failures are logged to stderr but never block the agent.
+Hooks run via `sh -c` with these env vars: `MOONY_HOOK`, `MOONY_WORKING_DIR`, plus `MOONY_TOOL_NAME` / `MOONY_TOOL_INPUT` (pre_tool) / `MOONY_TOOL_OUTPUT` / `MOONY_TOOL_ERROR` (post_tool). 10-second timeout; failures are logged to stderr but never block the agent.
 
 ### Agent Skills
 
@@ -515,7 +515,7 @@ description: fill PDF form fields from a JSON map; use when asked to fill a PDF
 Read `references/fields.md` for the field map, then run `scripts/fill.py …`.
 ```
 
-Discovery uses **progressive disclosure**: only the catalog of names + descriptions is added to the system prompt, and the model pulls in a skill's full body on demand via the built-in `skill` tool — so a large library of skills costs almost no context until one is used. A skill with no `description` is skipped (it can't be advertised usefully). Set `SQE_SKILLS=0` to turn discovery off entirely.
+Discovery uses **progressive disclosure**: only the catalog of names + descriptions is added to the system prompt, and the model pulls in a skill's full body on demand via the built-in `skill` tool — so a large library of skills costs almost no context until one is used. A skill with no `description` is skipped (it can't be advertised usefully). Set `MOONY_SKILLS=0` to turn discovery off entirely.
 
 ### MCP servers
 
@@ -543,7 +543,7 @@ Add `~/.config/moony/mcp.json` or `./.sqe/mcp.json` to connect to any [Model Con
 
 Both the **stdio** transport (`command`+`args`) and **HTTP+SSE** transport (`url`+`headers`) are supported; servers that don't implement resources or prompts are detected automatically and skipped without errors.
 
-Claude's own MCP config is **auto-discovered** too (the `mcpServers` key of `claude_desktop_config.json` and `~/.claude.json`, including its per-project scope), so servers you already configured for Claude work here without copying them. Set `SQE_MCP_CLAUDE=0` to skip that, or `SQE_MCP=0` to skip connecting to MCP servers altogether (discovery and the listings below still work).
+Claude's own MCP config is **auto-discovered** too (the `mcpServers` key of `claude_desktop_config.json` and `~/.claude.json`, including its per-project scope), so servers you already configured for Claude work here without copying them. Set `MOONY_MCP_CLAUDE=0` to skip that, or `MOONY_MCP=0` to skip connecting to MCP servers altogether (discovery and the listings below still work).
 
 ### Managing skills, MCP servers & subagents
 
@@ -688,7 +688,7 @@ make smoke   # live end-to-end tests against your Ollama server (needs `ollama s
 make eval    # run the live agent regression/eval harness on task fixtures
 ```
 
-Unit tests cover the pure logic (diff generation, session persistence, safe compaction boundaries). The live tests in `internal/agent` are skipped unless `SQE_SMOKE=1`:
+Unit tests cover the pure logic (diff generation, session persistence, safe compaction boundaries). The live tests in `internal/agent` are skipped unless `MOONY_SMOKE=1`:
 - `TestAgentSmoke` — drives a real turn that calls `list_dir` and verifies a response.
 - `TestApprovalSmoke` — asks the model to create a file, asserts an approval request with a non-empty diff is raised, approves it, and verifies the file is written.
 

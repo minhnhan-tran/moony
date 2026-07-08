@@ -56,16 +56,16 @@ const (
 // list is the fixed registry, in the order shown by /provider.
 var list = []Provider{
 	{ID: Ollama, Label: "Ollama", Desc: "local (or remote) Ollama server — no API key, no cost"},
-	{ID: OpenAI, Label: "OpenAI", Desc: "api.openai.com — needs SQE_OPENAI_API_KEY"},
-	{ID: Anthropic, Label: "Anthropic", Desc: "api.anthropic.com (Claude) — needs SQE_ANTHROPIC_API_KEY"},
-	{ID: OpenRouter, Label: "OpenRouter", Desc: "openrouter.ai — one key, hundreds of models — needs SQE_OPENROUTER_API_KEY"},
-	{ID: Gemini, Label: "Gemini", Desc: "Google's OpenAI-compatible endpoint — needs SQE_GEMINI_API_KEY"},
-	{ID: DeepSeek, Label: "DeepSeek", Desc: "api.deepseek.com — strong, cheap coding models — needs SQE_DEEPSEEK_API_KEY"},
-	{ID: Groq, Label: "Groq", Desc: "api.groq.com — very fast inference for open models — needs SQE_GROQ_API_KEY"},
-	{ID: XAI, Label: "xAI", Desc: "api.x.ai (Grok) — needs SQE_XAI_API_KEY"},
-	{ID: Mistral, Label: "Mistral", Desc: "api.mistral.ai — needs SQE_MISTRAL_API_KEY"},
-	{ID: Together, Label: "Together.ai", Desc: "api.together.xyz — hosted open models — needs SQE_TOGETHER_API_KEY"},
-	{ID: Fireworks, Label: "Fireworks.ai", Desc: "api.fireworks.ai — hosted open models — needs SQE_FIREWORKS_API_KEY"},
+	{ID: OpenAI, Label: "OpenAI", Desc: "api.openai.com — needs MOONY_OPENAI_API_KEY"},
+	{ID: Anthropic, Label: "Anthropic", Desc: "api.anthropic.com (Claude) — needs MOONY_ANTHROPIC_API_KEY"},
+	{ID: OpenRouter, Label: "OpenRouter", Desc: "openrouter.ai — one key, hundreds of models — needs MOONY_OPENROUTER_API_KEY"},
+	{ID: Gemini, Label: "Gemini", Desc: "Google's OpenAI-compatible endpoint — needs MOONY_GEMINI_API_KEY"},
+	{ID: DeepSeek, Label: "DeepSeek", Desc: "api.deepseek.com — strong, cheap coding models — needs MOONY_DEEPSEEK_API_KEY"},
+	{ID: Groq, Label: "Groq", Desc: "api.groq.com — very fast inference for open models — needs MOONY_GROQ_API_KEY"},
+	{ID: XAI, Label: "xAI", Desc: "api.x.ai (Grok) — needs MOONY_XAI_API_KEY"},
+	{ID: Mistral, Label: "Mistral", Desc: "api.mistral.ai — needs MOONY_MISTRAL_API_KEY"},
+	{ID: Together, Label: "Together.ai", Desc: "api.together.xyz — hosted open models — needs MOONY_TOGETHER_API_KEY"},
+	{ID: Fireworks, Label: "Fireworks.ai", Desc: "api.fireworks.ai — hosted open models — needs MOONY_FIREWORKS_API_KEY"},
 }
 
 // List returns a copy of the provider registry, in display order.

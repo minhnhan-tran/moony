@@ -315,11 +315,11 @@ func (s *Server) write(msg rpcMessage) error {
 	return err
 }
 
-// lspDebug reports whether verbose LSP debug logging is enabled (SQE_LSP_DEBUG
+// lspDebug reports whether verbose LSP debug logging is enabled (MOONY_LSP_DEBUG
 // set to 1/on/true/yes). Off by default — the diagnostics logging it guards is
 // extremely chatty (publishDiagnostics fires on nearly every edit).
 func lspDebug() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_LSP_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_LSP_DEBUG"))) {
 	case "1", "on", "true", "yes":
 		return true
 	}
@@ -386,7 +386,7 @@ func (s *Server) readLoop() {
 				s.mu.Lock()
 				s.diags[p.URI] = p.Diagnostics
 				s.mu.Unlock()
-				// Debug (SQE_LSP_DEBUG): log what this server reported — error/warning
+				// Debug (MOONY_LSP_DEBUG): log what this server reported — error/warning
 				// counts, then each diagnostic's 1-based line:col + severity label +
 				// message. Off by default: publishDiagnostics fires on nearly every
 				// edit, so this is far too chatty for normal use.

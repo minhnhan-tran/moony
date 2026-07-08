@@ -309,9 +309,9 @@ func TestAutoCaptureRule(t *testing.T) {
 	}
 
 	// Opt-out via env disables capture.
-	t.Setenv("SQE_MEMORY_AUTOCAPTURE", "0")
+	t.Setenv("MOONY_MEMORY_AUTOCAPTURE", "0")
 	if _, ok := ag.AutoCaptureRule("never delete the database"); ok {
-		t.Error("auto-capture should be disabled when SQE_MEMORY_AUTOCAPTURE=0")
+		t.Error("auto-capture should be disabled when MOONY_MEMORY_AUTOCAPTURE=0")
 	}
 }
 

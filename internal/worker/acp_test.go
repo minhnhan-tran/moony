@@ -180,10 +180,10 @@ func TestACPPermissionDecisionHelper(t *testing.T) {
 // TestACPLiveHandshake validates the client against the real `optimus acp`
 // binary: it confirms the NDJSON framing, protocol version, and
 // initialize+session/new handshake actually interoperate. Skipped unless
-// SQE_ACP_LIVE=1 (needs optimus installed + AppleConnect).
+// MOONY_ACP_LIVE=1 (needs optimus installed + AppleConnect).
 func TestACPLiveHandshake(t *testing.T) {
-	if os.Getenv("SQE_ACP_LIVE") != "1" {
-		t.Skip("set SQE_ACP_LIVE=1 to run the live optimus acp handshake test")
+	if os.Getenv("MOONY_ACP_LIVE") != "1" {
+		t.Skip("set MOONY_ACP_LIVE=1 to run the live optimus acp handshake test")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

@@ -7,12 +7,12 @@ import { runConversation } from '../src/driver';
 import { scriptedDecider, Script } from '../src/decider';
 
 // Advanced real-human interactions: approvals, interrupting a turn, and
-// type-ahead queueing. All run against your live stack (SQE_BASE_URL +
-// SQE_STORAGE_STATE). The session is rooted at the connector's first project.
+// type-ahead queueing. All run against your live stack (MOONY_BASE_URL +
+// MOONY_STORAGE_STATE). The session is rooted at the connector's first project.
 
 // The working dir of the session under test (for on-disk / git assertions). The
-// first project is the repo root by default; override with SQE_WORKDIR.
-const WORKDIR = process.env.SQE_WORKDIR || path.resolve(process.cwd(), '..', '..');
+// first project is the repo root by default; override with MOONY_WORKDIR.
+const WORKDIR = process.env.MOONY_WORKDIR || path.resolve(process.cwd(), '..', '..');
 
 function git(dir: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
@@ -22,16 +22,16 @@ function git(dir: string, ...args: string[]): string {
 //
 // ⚠️ DESTRUCTIVE on an auto-approve session: with no approval prompt, the agent
 // really runs (and may push) the commit. So this is SKIPPED unless you opt in
-// with SQE_APPROVAL_TEST=1, and you should only do that against a PROMPT-mode
-// session rooted at a THROWAWAY repo (set SQE_WORKDIR to it). It verifies the
+// with MOONY_APPROVAL_TEST=1, and you should only do that against a PROMPT-mode
+// session rooted at a THROWAWAY repo (set MOONY_WORKDIR to it). It verifies the
 // deny path: the commit prompt is denied and HEAD is unchanged.
 test('approval: deny a git commit — nothing gets committed', async ({ page }) => {
   test.skip(
-    process.env.SQE_APPROVAL_TEST !== '1',
-    'destructive without an approval prompt (auto-approve sessions really commit/push); opt in with SQE_APPROVAL_TEST=1 on a PROMPT-mode session + throwaway SQE_WORKDIR',
+    process.env.MOONY_APPROVAL_TEST !== '1',
+    'destructive without an approval prompt (auto-approve sessions really commit/push); opt in with MOONY_APPROVAL_TEST=1 on a PROMPT-mode session + throwaway MOONY_WORKDIR',
   );
   const headBefore = git(WORKDIR, 'rev-parse', 'HEAD');
-  const scratch = 'SQE_DENY_MARKER.txt';
+  const scratch = 'MOONY_DENY_MARKER.txt';
 
   const sqe = new Sqe(page);
   let sawApproval = false;

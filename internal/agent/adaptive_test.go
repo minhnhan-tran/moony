@@ -29,13 +29,13 @@ func (frictionTool) Execute(context.Context, json.RawMessage) (string, error) {
 }
 
 // adaptiveAgent builds an agent with adaptive model routing configured to a
-// known Ollama session model. SQE_FAST_MODEL is pinned so config.FastModel
+// known Ollama session model. MOONY_FAST_MODEL is pinned so config.FastModel
 // resolves to a cheaper fast model (distinct from the strong session model);
 // without a pin, the Ollama provider keeps the session model for every tier.
 func adaptiveAgent(t *testing.T, fake *scriptedStreamer, adaptive bool, model string, reg *tools.Registry) *Agent {
 	t.Helper()
 	isolateConfig(t)
-	t.Setenv("SQE_FAST_MODEL", adaptiveFastModel) // makes FastModel diverge from the session model
+	t.Setenv("MOONY_FAST_MODEL", adaptiveFastModel) // makes FastModel diverge from the session model
 	dir := t.TempDir()
 	if reg == nil {
 		reg = tools.NewRegistry(dir)
@@ -55,14 +55,14 @@ func adaptiveAgent(t *testing.T, fake *scriptedStreamer, adaptive bool, model st
 
 const (
 	adaptiveSessionModel = "qwen3.5:122b" // strong; the user's choice
-	adaptiveFastModel    = "gemma4:8b"    // cheaper fast tier (pinned via SQE_FAST_MODEL)
+	adaptiveFastModel    = "gemma4:8b"    // cheaper fast tier (pinned via MOONY_FAST_MODEL)
 )
 
 // TestAdaptiveModelStartsCheap verifies that with adaptive routing on and no
 // friction, the (single-step) turn runs on the cheaper fast model rather than
 // the strong session model the user selected.
 func TestAdaptiveModelStartsCheap(t *testing.T) {
-	t.Setenv("SQE_FAST_MODEL", adaptiveFastModel)
+	t.Setenv("MOONY_FAST_MODEL", adaptiveFastModel)
 	if got := config.FastModel(adaptiveSessionModel, provider.Ollama); got != adaptiveFastModel {
 		t.Fatalf("test premise broken: FastModel(%s) = %s, want %s", adaptiveSessionModel, got, adaptiveFastModel)
 	}
@@ -140,7 +140,7 @@ func TestAdaptiveModelOffUsesSessionModel(t *testing.T) {
 // session model already IS the fast model, adaptive routing changes nothing —
 // every call uses that model and no escalation fires.
 func TestAdaptiveModelNoopWhenFastEqualsSession(t *testing.T) {
-	t.Setenv("SQE_FAST_MODEL", adaptiveFastModel)
+	t.Setenv("MOONY_FAST_MODEL", adaptiveFastModel)
 	if got := config.FastModel(adaptiveFastModel, provider.Ollama); got != adaptiveFastModel {
 		t.Fatalf("test premise broken: FastModel(%s) = %s, want it to return itself", adaptiveFastModel, got)
 	}

@@ -374,7 +374,7 @@ func (s *Server) handleLaptops(w http.ResponseWriter, r *http.Request) {
 // handleEncryption reports whether session history is encrypted at rest, for the
 // topbar indicator. Not session-scoped: it reflects the store backing this server.
 func (s *Server) handleEncryption(w http.ResponseWriter, r *http.Request) {
-	mode := strings.TrimSpace(os.Getenv("SQE_SESSION_ENCRYPT"))
+	mode := strings.TrimSpace(os.Getenv("MOONY_SESSION_ENCRYPT"))
 	if mode == "" {
 		mode = "auto"
 	}

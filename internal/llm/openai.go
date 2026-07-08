@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-// Debug capture: when SQE_DEBUG_FILE is set, the OpenAI request body and every
+// Debug capture: when MOONY_DEBUG_FILE is set, the OpenAI request body and every
 // raw SSE chunk are appended to that file. Useful for discovering how a given
 // proxy streams extended-thinking content.
 var (
@@ -28,11 +28,11 @@ var (
 
 func dbg(format string, a ...any) {
 	debugOnce.Do(func() {
-		if p := strings.TrimSpace(os.Getenv("SQE_DEBUG_FILE")); p != "" {
+		if p := strings.TrimSpace(os.Getenv("MOONY_DEBUG_FILE")); p != "" {
 			if f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
 				debugFile = f
 			} else {
-				fmt.Fprintf(os.Stderr, "failed to open SQE_DEBUG_FILE: %v\n", err)
+				fmt.Fprintf(os.Stderr, "failed to open MOONY_DEBUG_FILE: %v\n", err)
 			}
 		}
 	})

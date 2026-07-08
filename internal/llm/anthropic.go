@@ -75,7 +75,7 @@ func anthropicBudget(level string) int {
 // streamAnthropic runs one turn against the native Messages API.
 func (c *Client) streamAnthropic(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	if c.anthropicKey() == "" {
-		return nil, fmt.Errorf("Anthropic API key not set — set SQE_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return nil, fmt.Errorf("Anthropic API key not set — set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
 	}
 	model := c.resolveAnthropicModel(ctx)
 
@@ -134,7 +134,7 @@ func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte
 // checkAnthropicAuth verifies the API key works by listing models.
 func (c *Client) checkAnthropicAuth(ctx context.Context) error {
 	if c.anthropicKey() == "" {
-		return fmt.Errorf("Anthropic API key not set — set SQE_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return fmt.Errorf("Anthropic API key not set — set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
 	}
 	if _, err := c.listAnthropicModels(ctx); err != nil {
 		return fmt.Errorf("cannot reach the Anthropic API: %w", err)

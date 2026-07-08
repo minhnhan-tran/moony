@@ -12,7 +12,7 @@ import (
 // maybeAutoTitle generates a concise, model-written title for a freshly-started
 // session and persists it, replacing the heuristic title derived from the first
 // user message. It runs at most once per session, only when persistence is
-// enabled and SQE_AUTO_TITLE isn't disabled. Best effort: any failure leaves the
+// enabled and MOONY_AUTO_TITLE isn't disabled. Best effort: any failure leaves the
 // heuristic title in place.
 //
 // It is called synchronously at the end of the first completed turn, so it never
@@ -68,10 +68,10 @@ func (a *Agent) generateTitle(ctx context.Context) (string, error) {
 }
 
 // autoTitleEnabled reports whether model-generated session titles are on (the
-// default). Set SQE_AUTO_TITLE=0/off/false/no to fall back to the first-message
+// default). Set MOONY_AUTO_TITLE=0/off/false/no to fall back to the first-message
 // heuristic.
 func autoTitleEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_AUTO_TITLE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_AUTO_TITLE"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

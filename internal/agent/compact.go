@@ -299,10 +299,10 @@ func (a *Agent) pruneStaleToolResults(keepRounds int) int {
 // keep their read-style output (read_file/grep/glob/list_dir/git_*) intact
 // before it's elided — tighter than the general ToolResultKeepRounds, since
 // reads are the largest and most cheaply re-run output. Default 3; override with
-// SQE_READ_RESULT_KEEP (0 disables the tighter window, falling back to the
+// MOONY_READ_RESULT_KEEP (0 disables the tighter window, falling back to the
 // general one).
 func readResultKeepRounds() int {
-	if v := strings.TrimSpace(os.Getenv("SQE_READ_RESULT_KEEP")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_READ_RESULT_KEEP")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			return n
 		}

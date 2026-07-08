@@ -32,7 +32,7 @@ var iworkExts = map[string]string{
 }
 
 // defaultConverterURL is the SQEQCT office converter service. Override with the
-// SQEQCT_CONVERTER_URL env var; set that var to empty to disable iWork
+// MOONY_CONVERTER_URL env var; set that var to empty to disable iWork
 // conversion (then iWork attachments are rejected with a clear message).
 const defaultConverterURL = "https://sqeqct.corp.apple.com:5052"
 
@@ -47,7 +47,7 @@ var converterClient = &http.Client{Timeout: converterTimeout}
 func init() {
 	// Opt-in escape hatch for environments where the internal converter's TLS
 	// chain isn't trusted by the host. Never insecure by default.
-	if v := strings.ToLower(strings.TrimSpace(os.Getenv("SQEQCT_CONVERTER_INSECURE"))); v == "1" || v == "true" || v == "yes" {
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_CONVERTER_INSECURE"))); v == "1" || v == "true" || v == "yes" {
 		converterClient.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // opt-in for the internal converter only
 		}
@@ -57,7 +57,7 @@ func init() {
 // converterURL returns the configured converter base URL. An unset env var
 // yields the default; an explicitly-empty env var disables conversion.
 func converterURL() string {
-	if v, ok := os.LookupEnv("SQEQCT_CONVERTER_URL"); ok {
+	if v, ok := os.LookupEnv("MOONY_CONVERTER_URL"); ok {
 		return strings.TrimSpace(v)
 	}
 	return defaultConverterURL
@@ -77,7 +77,7 @@ func IsIWork(name string) bool {
 func convertIWork(name string, data []byte) ([]byte, error) {
 	base := converterURL()
 	if base == "" {
-		return nil, fmt.Errorf("iWork conversion is disabled (no converter configured; set SQEQCT_CONVERTER_URL)")
+		return nil, fmt.Errorf("iWork conversion is disabled (no converter configured; set MOONY_CONVERTER_URL)")
 	}
 
 	var body bytes.Buffer

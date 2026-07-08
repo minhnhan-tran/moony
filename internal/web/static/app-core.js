@@ -4,7 +4,7 @@
 const api = (path) => apiBase + path;
 
 // --- session-expiry guard ---------------------------------------------------
-// When AppleConnect auth is on (SQE_AUTH), an expired OIDC session makes the
+// When AppleConnect auth is on (MOONY_AUTH), an expired OIDC session makes the
 // server answer API calls with 401 JSON (a full-page navigation gets a 302 to
 // /auth/login, but our fetch/SSE calls don't). This SPA stays open long after
 // login — well past the session TTL — so a stale page would otherwise just see
@@ -89,7 +89,7 @@ async function loadEncryptionStatus() {
     hdrEncryptEl.classList.toggle("text-faint", !on);
     hdrEncryptEl.title = on
       ? `Session history encrypted at rest (AES-256-GCM, mode: ${j.mode || "auto"})`
-      : "Session history NOT encrypted (plaintext) — set SQE_SESSION_ENCRYPT / a key in Persona → environment";
+      : "Session history NOT encrypted (plaintext) — set MOONY_SESSION_ENCRYPT / a key in Persona → environment";
   } catch {
     hdrEncryptEl.innerHTML = "";
     hdrEncryptEl.title = "";
@@ -122,8 +122,8 @@ function announceBodyEl(text) {
 // renderAnnouncementBar paints #announceBar (in the main column, like versionWarn)
 // with the newest undismissed announcements, each with a dismiss (×).
 // syncAdminMenuVisibility shows #umAdmin (Announcements + Members) for anyone
-// who's an admin by either flag: isRelayAdmin (SQE_ADMIN_USERS, announcement
-// authoring) or authUser.is_admin (SQE_AUTH_GROUP_DSID, member management) —
+// who's an admin by either flag: isRelayAdmin (MOONY_ADMIN_USERS, announcement
+// authoring) or authUser.is_admin (MOONY_AUTH_GROUP_DSID, member management) —
 // the two tabs inside stay independently useful even if only one flag is set.
 function syncAdminMenuVisibility() {
   const um = $("#umAdmin");
@@ -3819,14 +3819,14 @@ function closeManage() { manageOverlay.style.display = "none"; manageBody.innerH
 
 
 // openMembers (admin only) manages the allow-list of usernames granted access
-// even though they aren't in SQE_AUTH_GROUP_DSID. It's a single-list variant of
+// even though they aren't in MOONY_AUTH_GROUP_DSID. It's a single-list variant of
 // renderAccessPanel (no deny list), backed by the global /api/members endpoint.
 // Unlike openDomains it isn't session-scoped — it edits server-wide config — so
 // it doesn't require a connected terminal.
 async function renderMembersPanel(body) {
   body.innerHTML = "";
   body.append(el("p", "access-intro",
-    "Usernames here are granted access even though they're not in SQE_AUTH_GROUP_DSID. " +
+    "Usernames here are granted access even though they're not in MOONY_AUTH_GROUP_DSID. " +
     "Changes take effect on the user's next login. Each row shows today's SQE Proxy spend " +
     "against the daily cap — click the pencil to set a per-user cap (blank reverts to the " +
     "default); group members who've logged in and used quota are listed below."));
@@ -3911,7 +3911,7 @@ async function renderMembersPanel(body) {
     }
     list.append(sec);
 
-    // Group members (in SQE_AUTH_GROUP_DSID) who've logged in — used quota, editable cap.
+    // Group members (in MOONY_AUTH_GROUP_DSID) who've logged in — used quota, editable cap.
     const section = (title, rows) => {
       if (!rows.length) return;
       const s = el("div", "access-section");

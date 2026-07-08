@@ -7,14 +7,14 @@ import (
 )
 
 // TestMain makes the agent test binary hermetic: it points XDG_CONFIG_HOME at a
-// throwaway temp dir and clears any ambient SQE_* env vars inherited from the
-// dev shell. Without this, an exported SQE_FAST_MODEL (or saved prefs read via
+// throwaway temp dir and clears any ambient MOONY_* env vars inherited from the
+// dev shell. Without this, an exported MOONY_FAST_MODEL (or saved prefs read via
 // config.Load) leaks into config.FastModel and breaks model-routing assertions
 // (e.g. the sub-agent/adaptive tests). Tests that need a specific env set it
 // themselves via t.Setenv.
 func TestMain(m *testing.M) {
 	for _, kv := range os.Environ() {
-		if i := strings.IndexByte(kv, '='); i > 0 && strings.HasPrefix(kv[:i], "SQE_") {
+		if i := strings.IndexByte(kv, '='); i > 0 && strings.HasPrefix(kv[:i], "MOONY_") {
 			os.Unsetenv(kv[:i])
 		}
 	}

@@ -39,7 +39,7 @@ run: build
 
 ## relay: run the relay (web on 127.0.0.1:8770; connectors dial 127.0.0.1:8771).
 ## Fronts the web UI; the agent stays on the connector machine (run the terminal
-## with SQE_RELAY=host:port to connect). Override the addresses with ADDR=
+## with MOONY_RELAY=host:port to connect). Override the addresses with ADDR=
 ## (browser) and TUNNEL= (connector); pass extra flags via FLAGS= (e.g. TLS).
 relay:
 	$(GO) run ./cmd/relay $(if $(ADDR),-addr=$(ADDR),) $(if $(TUNNEL),-tunnel=$(TUNNEL),) $(FLAGS)
@@ -57,7 +57,7 @@ test:
 
 ## smoke: run the live end-to-end Floodgate test (needs AppleConnect + network)
 smoke:
-	SQE_SMOKE=1 $(GO) test ./internal/agent -run TestAgentSmoke -v
+	MOONY_SMOKE=1 $(GO) test ./internal/agent -run TestAgentSmoke -v
 
 ## eval: run the live agent regression harness (needs AppleConnect + network);
 ## prints a scorecard and exits non-zero if any task fails.

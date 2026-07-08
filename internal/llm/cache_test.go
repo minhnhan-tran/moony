@@ -30,7 +30,7 @@ func TestUsageCostUSD(t *testing.T) {
 }
 
 func TestApplyPromptCacheMarksBreakpoints(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "") // enabled
+	t.Setenv("MOONY_PROMPT_CACHE", "") // enabled
 
 	tools := []Tool{{Name: "a"}, {Name: "b"}}
 	msgs := []Message{
@@ -72,7 +72,7 @@ func TestApplyPromptCacheMarksBreakpoints(t *testing.T) {
 }
 
 func TestApplyPromptCacheDisabled(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "0")
+	t.Setenv("MOONY_PROMPT_CACHE", "0")
 	body := request{
 		System:   "sys",
 		Tools:    []Tool{{Name: "a"}},
@@ -90,7 +90,7 @@ func TestApplyPromptCacheDisabled(t *testing.T) {
 
 // TestPromptCacheJSONShape locks the wire format Floodgate/Anthropic receives.
 func TestPromptCacheJSONShape(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "")
+	t.Setenv("MOONY_PROMPT_CACHE", "")
 	body := request{
 		Model:     "m",
 		MaxTokens: 1,
@@ -116,7 +116,7 @@ func TestPromptCacheJSONShape(t *testing.T) {
 // splits the system prompt when a dynamic directive suffix is present so that
 // only the static base prompt is cached.
 func TestApplyPromptCacheSplitsDynamicSuffix(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "") // enabled
+	t.Setenv("MOONY_PROMPT_CACHE", "") // enabled
 	body := request{
 		System:   "you are sqe\n\nULTRATHINK MODE:\n- be thorough",
 		Tools:    []Tool{{Name: "a"}},
@@ -150,7 +150,7 @@ func TestApplyPromptCacheSplitsDynamicSuffix(t *testing.T) {
 // refreshed checkpoint (carried in this suffix) from invalidating the cached
 // system base.
 func TestApplyPromptCacheSplitsContextSuffix(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "") // enabled
+	t.Setenv("MOONY_PROMPT_CACHE", "") // enabled
 	suffix := SystemDirectiveSeparator + ContextDirectiveMarker + "\n\n# Session checkpoint\n\nGoal: x"
 	body := request{System: "you are sqe" + suffix, Messages: []Message{UserText("hi")}}
 	applyPromptCache(&body)
@@ -173,7 +173,7 @@ func TestApplyPromptCacheSplitsContextSuffix(t *testing.T) {
 // must stay in the cached block (regression guard for the old first-match split,
 // which truncated the base into the uncached suffix).
 func TestApplyPromptCacheSplitsAtLastMarker(t *testing.T) {
-	t.Setenv("SQE_PROMPT_CACHE", "") // enabled
+	t.Setenv("MOONY_PROMPT_CACHE", "") // enabled
 	base := "you are sqe" + SystemDirectiveSeparator + UltrathinkDirectiveMarker + " is a phrase we mention inline."
 	suffix := SystemDirectiveSeparator + InvestigationDirectiveMarker + ":\n- explore"
 	body := request{System: base + suffix, Messages: []Message{UserText("hi")}}

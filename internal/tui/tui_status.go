@@ -122,10 +122,10 @@ func progressBar(pct, width int) string {
 }
 
 // contextBarEnabled reports whether the status bar's ctx indicator should
-// include a graphical progress bar. Disabled when SQE_CTX_BAR=off (or 0/false)
+// include a graphical progress bar. Disabled when MOONY_CTX_BAR=off (or 0/false)
 // for users on terminals that render Unicode blocks poorly.
 func contextBarEnabled() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("SQE_CTX_BAR")))
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_CTX_BAR")))
 	switch v {
 	case "off", "0", "false", "no", "text":
 		return false

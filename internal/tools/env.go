@@ -10,28 +10,28 @@ import (
 // the subprocess environment, so the model can't read them via `$VAR`, `env`, or
 // `printenv`.
 var sensitiveEnvKeys = map[string]bool{
-	"SQE_OLLAMA_TOKEN":       true, // optional bearer for a remote Ollama server
-	"SQE_OPENAI_API_KEY":     true,
+	"MOONY_OLLAMA_TOKEN":       true, // optional bearer for a remote Ollama server
+	"MOONY_OPENAI_API_KEY":     true,
 	"OPENAI_API_KEY":         true,
-	"SQE_ANTHROPIC_API_KEY":  true,
+	"MOONY_ANTHROPIC_API_KEY":  true,
 	"ANTHROPIC_API_KEY":      true,
-	"SQE_OPENROUTER_API_KEY": true,
+	"MOONY_OPENROUTER_API_KEY": true,
 	"OPENROUTER_API_KEY":     true,
-	"SQE_GEMINI_API_KEY":     true,
+	"MOONY_GEMINI_API_KEY":     true,
 	"GEMINI_API_KEY":         true,
-	"SQE_DEEPSEEK_API_KEY":   true,
+	"MOONY_DEEPSEEK_API_KEY":   true,
 	"DEEPSEEK_API_KEY":       true,
-	"SQE_GROQ_API_KEY":       true,
+	"MOONY_GROQ_API_KEY":       true,
 	"GROQ_API_KEY":           true,
-	"SQE_XAI_API_KEY":        true,
+	"MOONY_XAI_API_KEY":        true,
 	"XAI_API_KEY":            true,
-	"SQE_MISTRAL_API_KEY":    true,
+	"MOONY_MISTRAL_API_KEY":    true,
 	"MISTRAL_API_KEY":        true,
-	"SQE_TOGETHER_API_KEY":   true,
+	"MOONY_TOGETHER_API_KEY":   true,
 	"TOGETHER_API_KEY":       true,
-	"SQE_FIREWORKS_API_KEY":  true,
+	"MOONY_FIREWORKS_API_KEY":  true,
 	"FIREWORKS_API_KEY":      true,
-	"SQE_ENV_FILE":           true, // points at the secrets file
+	"MOONY_ENV_FILE":           true, // points at the secrets file
 }
 
 // scrubbedEnv returns the current environment with sensitiveEnvKeys removed, for

@@ -86,10 +86,10 @@ func TestParallelToolConfig(t *testing.T) {
 		{"abc", true, defaultParallelToolLimit},
 	}
 	for _, tc := range cases {
-		t.Setenv("SQE_PARALLEL_TOOLS", tc.val)
+		t.Setenv("MOONY_PARALLEL_TOOLS", tc.val)
 		gotEnabled, gotLimit := parallelToolConfig()
 		if gotEnabled != tc.wantEnabled || gotLimit != tc.wantLimit {
-			t.Errorf("SQE_PARALLEL_TOOLS=%q → (%v, %d), want (%v, %d)", tc.val, gotEnabled, gotLimit, tc.wantEnabled, tc.wantLimit)
+			t.Errorf("MOONY_PARALLEL_TOOLS=%q → (%v, %d), want (%v, %d)", tc.val, gotEnabled, gotLimit, tc.wantEnabled, tc.wantLimit)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func TestParallelSafe(t *testing.T) {
 }
 
 func TestRunToolCallsParallelOrderAndConcurrency(t *testing.T) {
-	t.Setenv("SQE_PARALLEL_TOOLS", "")
+	t.Setenv("MOONY_PARALLEL_TOOLS", "")
 	var active, maxSeen, soloFail int32
 	reg := tools.NewRegistry(t.TempDir())
 	reg.Register(&recordingTool{name: "reader", delay: 20 * time.Millisecond, active: &active, maxSeen: &maxSeen, soloFail: &soloFail})
@@ -143,7 +143,7 @@ func TestRunToolCallsParallelOrderAndConcurrency(t *testing.T) {
 }
 
 func TestRunToolCallsSequentialWhenDisabled(t *testing.T) {
-	t.Setenv("SQE_PARALLEL_TOOLS", "0")
+	t.Setenv("MOONY_PARALLEL_TOOLS", "0")
 	var active, maxSeen, soloFail int32
 	reg := tools.NewRegistry(t.TempDir())
 	reg.Register(&recordingTool{name: "reader", delay: 5 * time.Millisecond, active: &active, maxSeen: &maxSeen, soloFail: &soloFail})
@@ -163,7 +163,7 @@ func TestRunToolCallsSequentialWhenDisabled(t *testing.T) {
 }
 
 func TestRunToolCallsBarrierIsolatesMutating(t *testing.T) {
-	t.Setenv("SQE_PARALLEL_TOOLS", "")
+	t.Setenv("MOONY_PARALLEL_TOOLS", "")
 	var active, maxSeen, soloFail int32
 	reg := tools.NewRegistry(t.TempDir())
 	reg.Register(&recordingTool{name: "reader", delay: 15 * time.Millisecond, active: &active, maxSeen: &maxSeen, soloFail: &soloFail})
@@ -198,7 +198,7 @@ func TestRunToolCallsBarrierIsolatesMutating(t *testing.T) {
 // sub-agent (task) calls: approval happens serially up front, then approved
 // calls run together.
 func TestParallelTaskApproval(t *testing.T) {
-	t.Setenv("SQE_PARALLEL_TOOLS", "")
+	t.Setenv("MOONY_PARALLEL_TOOLS", "")
 	run := func(decision Decision) []llm.ContentBlock {
 		var active, maxSeen, soloFail int32
 		reg := tools.NewRegistry(t.TempDir())

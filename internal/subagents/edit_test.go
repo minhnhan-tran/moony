@@ -58,7 +58,7 @@ func TestSetModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
 	wd := t.TempDir()
 
 	if _, err := Scaffold("reviewer", false, wd); err != nil {
@@ -106,7 +106,7 @@ func TestSetModel(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(ext, "outside.md"), []byte("---\ndescription: x\n---\nbody"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "1")
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "1")
 	if _, err := SetModel("outside", "anthropic.claude-opus-4-8", wd); err == nil {
 		t.Error("setting a model on an imported external persona should error")
 	}
@@ -127,7 +127,7 @@ func TestMaterializeExternals(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("SQE_IMPORT_EXTERNAL_AGENTS", "1")
+	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "1")
 	wd := t.TempDir()
 
 	// A Claude Code agent with a (possibly route-invalid) pinned model.

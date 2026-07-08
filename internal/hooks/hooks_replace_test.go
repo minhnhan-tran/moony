@@ -12,7 +12,7 @@ func TestReplaceGlobalCommand(t *testing.T) {
 
 	// A user's own hook and a prior (stale) variant of the built-in hook.
 	const userHook = `echo my-own-hook`
-	const oldBuiltin = `case "$SQE_TOOL_NAME" in write_file) reindex_old ;; esac # idx_marker`
+	const oldBuiltin = `case "$MOONY_TOOL_NAME" in write_file) reindex_old ;; esac # idx_marker`
 	if err := EnsureGlobalCommand(PostTool, userHook); err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestReplaceGlobalCommand(t *testing.T) {
 	}
 
 	const marker = "idx_marker"
-	const newBuiltin = `case "$SQE_TOOL_NAME" in write_file|bash) reindex_new ;; esac # idx_marker`
+	const newBuiltin = `case "$MOONY_TOOL_NAME" in write_file|bash) reindex_new ;; esac # idx_marker`
 	if err := ReplaceGlobalCommand(PostTool, marker, newBuiltin); err != nil {
 		t.Fatalf("ReplaceGlobalCommand: %v", err)
 	}

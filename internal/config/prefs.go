@@ -30,7 +30,7 @@ type savedPrefs struct {
 	// distinguishable from "never set" (nil). Applied AFTER env vars in Load()
 	// so a user's persona choice survives deployment env changes across restarts.
 	// AutoPlan and SelfReview used to be plain bools set BEFORE env vars were
-	// read, so e.g. a deployment's SQE_SELF_REVIEW=0 silently clobbered a saved
+	// read, so e.g. a deployment's MOONY_SELF_REVIEW=0 silently clobbered a saved
 	// "on" choice on every restart; they're pointers now for the same
 	// nil-vs-false distinction as CheapReads/FastModel/AuxModel below.
 	AutoPlan   *bool   `json:"auto_plan,omitempty"`

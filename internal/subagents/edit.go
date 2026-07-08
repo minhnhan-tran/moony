@@ -204,7 +204,7 @@ func sqeNames(workingDir string) map[string]bool {
 // (sqe always wins). The external `model:` line is dropped on copy — an external
 // model id needn't be valid for sqe's route — while description/tools/body are
 // preserved, so the user can pick a valid model afterward. Returns the names
-// copied. A no-op when external import is disabled (SQE_IMPORT_EXTERNAL_AGENTS=0).
+// copied. A no-op when external import is disabled (MOONY_IMPORT_EXTERNAL_AGENTS=0).
 func MaterializeExternals(workingDir string) ([]string, error) {
 	if !importExternalAgents() {
 		return nil, nil

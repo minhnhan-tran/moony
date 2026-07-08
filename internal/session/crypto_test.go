@@ -14,8 +14,8 @@ import (
 // clearSessionEnv unsets every BYOK/mode env var so tests are hermetic.
 func clearSessionEnv(t *testing.T) {
 	for _, k := range []string{
-		"SQE_SESSION_ENCRYPT", "SQE_SESSION_KEY", "SQE_SESSION_KEY_CMD",
-		"SQE_SESSION_KEY_FILE", "SQE_SESSION_PASSPHRASE",
+		"MOONY_SESSION_ENCRYPT", "MOONY_SESSION_KEY", "MOONY_SESSION_KEY_CMD",
+		"MOONY_SESSION_KEY_FILE", "MOONY_SESSION_PASSPHRASE",
 	} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
@@ -99,10 +99,10 @@ func TestLegacyPlaintextTransparentMigration(t *testing.T) {
 	}
 }
 
-// SQE_SESSION_ENCRYPT=off writes plaintext.
+// MOONY_SESSION_ENCRYPT=off writes plaintext.
 func TestEncryptionOff(t *testing.T) {
 	clearSessionEnv(t)
-	t.Setenv("SQE_SESSION_ENCRYPT", "off")
+	t.Setenv("MOONY_SESSION_ENCRYPT", "off")
 	dir := t.TempDir()
 	st, err := NewStoreAt(dir)
 	if err != nil {
@@ -121,13 +121,13 @@ func TestEncryptionOff(t *testing.T) {
 // required mode with no key source refuses to open.
 func TestEncryptRequiredNoKeyFails(t *testing.T) {
 	clearSessionEnv(t)
-	t.Setenv("SQE_SESSION_ENCRYPT", "required")
+	t.Setenv("MOONY_SESSION_ENCRYPT", "required")
 	if _, err := NewStoreAt(t.TempDir()); err == nil {
 		t.Fatal("required mode with no key should fail to open")
 	}
 }
 
-// BYOK via SQE_SESSION_KEY (base64 + hex), and a wrong key can't decrypt.
+// BYOK via MOONY_SESSION_KEY (base64 + hex), and a wrong key can't decrypt.
 func TestBYOKRawKeyAndWrongKey(t *testing.T) {
 	clearSessionEnv(t)
 	dir := t.TempDir()
@@ -135,7 +135,7 @@ func TestBYOKRawKeyAndWrongKey(t *testing.T) {
 	for i := range key {
 		key[i] = byte(i + 1)
 	}
-	t.Setenv("SQE_SESSION_KEY", base64.StdEncoding.EncodeToString(key))
+	t.Setenv("MOONY_SESSION_KEY", base64.StdEncoding.EncodeToString(key))
 	st, err := NewStoreAt(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestBYOKRawKeyAndWrongKey(t *testing.T) {
 	}
 
 	// hex form of the same key decrypts fine.
-	t.Setenv("SQE_SESSION_KEY", hex.EncodeToString(key))
+	t.Setenv("MOONY_SESSION_KEY", hex.EncodeToString(key))
 	st2, _ := NewStoreAt(dir)
 	if _, err := st2.Load("k"); err != nil {
 		t.Errorf("hex form of same key should decrypt: %v", err)
@@ -154,7 +154,7 @@ func TestBYOKRawKeyAndWrongKey(t *testing.T) {
 	// A different key is rejected with a clear wrong-key error.
 	other := make([]byte, encKeyLen)
 	other[0] = 0xFF
-	t.Setenv("SQE_SESSION_KEY", base64.StdEncoding.EncodeToString(other))
+	t.Setenv("MOONY_SESSION_KEY", base64.StdEncoding.EncodeToString(other))
 	// verifyKey should fail at open (marker was written under the first key).
 	if _, err := NewStoreAt(dir); err == nil {
 		t.Error("wrong key should fail the startup key check")
@@ -165,7 +165,7 @@ func TestBYOKRawKeyAndWrongKey(t *testing.T) {
 func TestBYOKPassphraseStable(t *testing.T) {
 	clearSessionEnv(t)
 	dir := t.TempDir()
-	t.Setenv("SQE_SESSION_PASSPHRASE", "correct horse battery staple")
+	t.Setenv("MOONY_SESSION_PASSPHRASE", "correct horse battery staple")
 	st, err := NewStoreAt(dir)
 	if err != nil {
 		t.Fatal(err)

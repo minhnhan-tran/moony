@@ -52,10 +52,10 @@ func NewClient(cfg *config.Config) *Client {
 }
 
 // streamRetriesFromEnv returns the mid-stream re-send cap, honoring
-// SQE_STREAM_RETRIES (a non-negative integer; 0 disables mid-stream retries).
+// MOONY_STREAM_RETRIES (a non-negative integer; 0 disables mid-stream retries).
 // Invalid or unset values fall back to def.
 func streamRetriesFromEnv(def int) int {
-	if v := strings.TrimSpace(os.Getenv("SQE_STREAM_RETRIES")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MOONY_STREAM_RETRIES")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			return n
 		}
@@ -447,7 +447,7 @@ func splitSystemDirective(s string) (base, suffix string) {
 // history is cached up to the latest turn. It operates on copies so it never
 // mutates the caller's system/tools/history (cache_control must not accumulate
 // there, and the API caps breakpoints at 4). No-op when disabled via
-// SQE_PROMPT_CACHE. Anthropic-route only; the OpenAI route caches automatically.
+// MOONY_PROMPT_CACHE. Anthropic-route only; the OpenAI route caches automatically.
 func applyPromptCache(body *request) {
 	if !promptCacheEnabled() {
 		return
@@ -512,9 +512,9 @@ func applyPromptCache(body *request) {
 }
 
 // promptCacheEnabled reports whether Anthropic prompt caching is on (default).
-// Disable with SQE_PROMPT_CACHE=0 (or off/false/no).
+// Disable with MOONY_PROMPT_CACHE=0 (or off/false/no).
 func promptCacheEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SQE_PROMPT_CACHE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_PROMPT_CACHE"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

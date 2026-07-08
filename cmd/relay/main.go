@@ -5,7 +5,7 @@
 // their machine. The relay holds no agent and no session state.
 //
 // It serves plain HTTP by default, or HTTPS when -tls-cert/-tls-key (or
-// SQE_RELAY_TLS_CERT/KEY) are given.
+// MOONY_RELAY_TLS_CERT/KEY) are given.
 //
 // Local prototype: run `make relay`, then `make connect` on the same machine,
 // and open the relay's web address.
@@ -28,9 +28,9 @@ func main() {
 	var (
 		httpAddr   = flag.String("addr", "127.0.0.1:8770", "address to serve the browser UI on")
 		tunnelAddr = flag.String("tunnel", "127.0.0.1:8771", "address connectors dial in on")
-		tunnelPub  = flag.String("tunnel-public", "", "PUBLIC host:port connectors reach the tunnel at (also SQE_RELAY_TUNNEL); advertised at /api/relay + baked into /install.sh for the auto-daemon")
-		tlsCert    = flag.String("tls-cert", "", "PEM certificate file to serve HTTPS (also SQE_RELAY_TLS_CERT)")
-		tlsKey     = flag.String("tls-key", "", "PEM private key file to serve HTTPS (also SQE_RELAY_TLS_KEY)")
+		tunnelPub  = flag.String("tunnel-public", "", "PUBLIC host:port connectors reach the tunnel at (also MOONY_RELAY_TUNNEL); advertised at /api/relay + baked into /install.sh for the auto-daemon")
+		tlsCert    = flag.String("tls-cert", "", "PEM certificate file to serve HTTPS (also MOONY_RELAY_TLS_CERT)")
+		tlsKey     = flag.String("tls-key", "", "PEM private key file to serve HTTPS (also MOONY_RELAY_TLS_KEY)")
 		downloads  = flag.String("downloads", "", "directory of prebuilt CLI binaries to serve at /download + /install.sh")
 	)
 	flag.Parse()
@@ -41,19 +41,19 @@ func main() {
 	// empty just leaves the installer's auto-daemon step off.
 	tunnelPublic := *tunnelPub
 	if tunnelPublic == "" {
-		tunnelPublic = os.Getenv("SQE_RELAY_TUNNEL")
+		tunnelPublic = os.Getenv("MOONY_RELAY_TUNNEL")
 	}
 
 	// TLS material: flags win, else env (incl. .env). Both halves required.
 	certFile, keyFile := *tlsCert, *tlsKey
 	if certFile == "" {
-		certFile = os.Getenv("SQE_RELAY_TLS_CERT")
+		certFile = os.Getenv("MOONY_RELAY_TLS_CERT")
 	}
 	if keyFile == "" {
-		keyFile = os.Getenv("SQE_RELAY_TLS_KEY")
+		keyFile = os.Getenv("MOONY_RELAY_TLS_KEY")
 	}
 	if (certFile == "") != (keyFile == "") {
-		fatal("both -tls-cert and -tls-key (or SQE_RELAY_TLS_CERT/KEY) are required for HTTPS")
+		fatal("both -tls-cert and -tls-key (or MOONY_RELAY_TLS_CERT/KEY) are required for HTTPS")
 	}
 	useTLS := certFile != ""
 
@@ -68,10 +68,10 @@ func main() {
 	}
 
 	// Maintainer announcement banners: a shared update feed shown in every web
-	// UI + TUI. Persist to SQE_ANNOUNCEMENTS_FILE (a mounted volume) so it
+	// UI + TUI. Persist to MOONY_ANNOUNCEMENTS_FILE (a mounted volume) so it
 	// survives relay restarts. With no built-in auth, anyone who can reach the
 	// relay can author them — front it with your own access control to restrict.
-	annStore := announce.OpenAt(os.Getenv("SQE_ANNOUNCEMENTS_FILE"))
+	annStore := announce.OpenAt(os.Getenv("MOONY_ANNOUNCEMENTS_FILE"))
 	r.SetAnnouncements(annStore, web.AnnouncementsHandler(annStore), func(*http.Request) bool { return true })
 
 	handler := http.Handler(r)

@@ -63,11 +63,11 @@ Point it at your running stack and go:
 
 ```bash
 # Scripted journey with assertions — deterministic user, no persona model.
-# Set SQE_WORKDIR to the session's working dir to also assert the file on disk.
-SQE_BASE_URL="https://localhost.apple.com:448" SQE_WORKDIR="/path/to/your/repo" npm run test:journey
+# Set MOONY_WORKDIR to the session's working dir to also assert the file on disk.
+MOONY_BASE_URL="https://localhost.apple.com:448" MOONY_WORKDIR="/path/to/your/repo" npm run test:journey
 
 # LLM persona (exploratory), headed so you can watch it.
-SQE_BASE_URL="https://localhost.apple.com:448" HEADED=1 npm run test:persona
+MOONY_BASE_URL="https://localhost.apple.com:448" HEADED=1 npm run test:persona
 
 npm test                   # run everything (both specs)
 npm run report             # open the HTML report (trace/video on failure)
@@ -77,10 +77,10 @@ npm run report             # open the HTML report (trace/video on failure)
 
 | Env | Applies to | Default | Meaning |
 |-----|-----------|---------|---------|
-| `SQE_BASE_URL` | both | `https://localhost.apple.com:448` | Where the SPA is served |
-| `SQE_STORAGE_STATE` | both | _(unset)_ | Playwright storage state for auth (see below) |
+| `MOONY_BASE_URL` | both | `https://localhost.apple.com:448` | Where the SPA is served |
+| `MOONY_STORAGE_STATE` | both | _(unset)_ | Playwright storage state for auth (see below) |
 | `HEADED` | both | _(unset)_ | Set to run with a visible browser |
-| `SQE_WORKDIR` | journey | _(unset)_ | Session working dir; enables the on-disk file assertion |
+| `MOONY_WORKDIR` | journey | _(unset)_ | Session working dir; enables the on-disk file assertion |
 | `SIM_PERSONA` | persona | pragmatic backend engineer | The user's character (system prompt) |
 | `SIM_GOAL` | persona | add a `GET /health` endpoint + test | What the user is trying to achieve |
 | `SIM_MAX_STEPS` | persona | `10` | Safety cap on interactions (don't chat forever) |
@@ -93,19 +93,19 @@ in `SIM_DECIDE_BIN`).
 **Add your own journeys:** copy `tests/journey.spec.ts`, give `scriptedDecider` a
 new `Script` (`messages`, optional `answer`/`approve` policies), and assert on
 `sqe.toolCards()` / `sqe.errors()` / the returned transcript (and files via
-`SQE_WORKDIR`).
+`MOONY_WORKDIR`).
 
 ## Auth
 
-`SQE_AUTH` is **off by default** in the web server, so a **loopback / single-user
-instance needs no login** — just point `SQE_BASE_URL` at it.
+`MOONY_AUTH` is **off by default** in the web server, so a **loopback / single-user
+instance needs no login** — just point `MOONY_BASE_URL` at it.
 
-For an auth-gated target (`SQE_AUTH=1`, e.g. a shared relay), capture a login once
+For an auth-gated target (`MOONY_AUTH=1`, e.g. a shared relay), capture a login once
 and replay it:
 
 ```bash
 npm run login                       # opens a browser; log in via AppleConnect, then close
-SQE_STORAGE_STATE=.auth/state.json SQE_BASE_URL="https://…" npm test
+MOONY_STORAGE_STATE=.auth/state.json MOONY_BASE_URL="https://…" npm test
 ```
 
 `.auth/` and `*.storageState.json` are git-ignored — never commit them.
@@ -115,9 +115,9 @@ SQE_STORAGE_STATE=.auth/state.json SQE_BASE_URL="https://…" npm test
 - **Real agent, real cost, non-deterministic work.** Both modes drive the actual
   agent (tokens $) and its exact tool use varies. The scripted journey's
   assertions are outcome-based (a write tool touched the marker; no error) to stay
-  robust to that; strengthen them with `SQE_WORKDIR` (on-disk check) or your own.
+  robust to that; strengthen them with `MOONY_WORKDIR` (on-disk check) or your own.
 - **`journey.spec.ts` ships real assertions** (no error banner, a file-write on the
-  marker, the agent replied, and — with `SQE_WORKDIR` — the file on disk). The LLM
+  marker, the agent replied, and — with `MOONY_WORKDIR` — the file on disk). The LLM
   `persona.spec.ts` only asserts the conversation runs; add goal-specific checks.
 - `openSession()` calls the SPA's top-level `newSession()`; if your build renames
   it, adjust `src/sqe.ts` (or click your "new session" control there instead).
