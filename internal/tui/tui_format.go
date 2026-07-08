@@ -326,8 +326,6 @@ func relayWebURL(addr string) string {
 // welcomeBanner renders the boxed greeting shown on a fresh session.
 func welcomeBanner(cfg *config.Config) string {
 	var b strings.Builder
-	b.WriteString(asciiLogo())
-	b.WriteString("\n\n")
 	b.WriteString(infoStyle.Render("A terminal coding agent — bring your own model provider"))
 	b.WriteString("\n\n")
 	b.WriteString(headerMetaStyle.Render("model       ") + bodyStyle.Render(shortModel(cfg.Model)) + "\n")
@@ -343,32 +341,26 @@ func welcomeBanner(cfg *config.Config) string {
 			infoStyle.Render("    ") + welcomeKeyStyle.Render("/models") + infoStyle.Render(" pick model") +
 			infoStyle.Render("    ") + welcomeKeyStyle.Render("ctrl+c") + infoStyle.Render(" quit"),
 	)
-	return welcomeBoxStyle.Render(b.String())
+	body := b.String()
+	// Center the wordmark over the width of the rest of the banner content.
+	logo := lipgloss.PlaceHorizontal(lipgloss.Width(body), lipgloss.Center, asciiLogo())
+	return welcomeBoxStyle.Render(logo + "\n\n" + body)
 }
 
-// logoGlyphs is a compact 5-row block font for the wordmark. Every glyph is
-// padded to a fixed width so columns line up when joined.
+// logoGlyphs is a compact 5-row block font for the "moony" wordmark. Every glyph
+// is padded to a fixed width so columns line up when joined. Glyphs are baseline
+// aligned on the bottom row with an empty top row for the lowercase x-height.
 var logoGlyphs = map[rune][5]string{
-	'S': {"████", "█   ", "████", "   █", "████"},
-	'Q': {"████", "█  █", "█ ██", "████", "   █"},
-	'E': {"████", "█   ", "███ ", "█   ", "████"},
-	'C': {"████", "█   ", "█   ", "█   ", "████"},
-	'O': {"████", "█  █", "█  █", "█  █", "████"},
-	'D': {"███ ", "█  █", "█  █", "█  █", "███ "},
-	'A': {"████", "█  █", "████", "█  █", "█  █"},
-	'G': {"████", "█   ", "█ ██", "█  █", "████"},
-	'N': {"█  █", "██ █", "█ ██", "█  █", "█  █"},
-	'T': {"████", " █  ", " █  ", " █  ", " █  "},
-	'M': {"█   █", "██ ██", "█ █ █", "█   █", "█   █"},
-	'Y': {"█   █", " █ █ ", "  █  ", "  █  ", "  █  "},
-	'I': {"███", " █ ", " █ ", " █ ", "███"},
-	' ': {"  ", "  ", "  ", "  ", "  "},
+	'm': {"     ", "██ ██", "█ █ █", "█ █ █", "█ █ █"},
+	'o': {"    ", " ██ ", "█  █", "█  █", " ██ "},
+	'n': {"    ", "███ ", "█  █", "█  █", "█  █"},
+	'y': {"   ", "█ █", "█ █", " █ ", " █ "},
 }
 
-// asciiLogo renders "MOONY" in the compact block font with a vertical
+// asciiLogo renders "moony" in the compact block font with a vertical
 // blue→pink gradient.
 func asciiLogo() string {
-	const word = "MOONY"
+	const word = "moony"
 	var rows [5]strings.Builder
 	for i, r := range word {
 		g, ok := logoGlyphs[r]
