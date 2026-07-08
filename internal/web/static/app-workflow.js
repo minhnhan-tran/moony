@@ -307,22 +307,13 @@
 
   // setRuntime POSTs a provider/model/reasoning change to the connector and
   // refreshes the switcher from the response (reasoning levels can change with the
-  // model). On a provider access denial it refreshes membership and retries once.
-  async function setRuntime(patch, retried) {
+  // model).
+  async function setRuntime(patch) {
     runtimeMsg("Applying…");
     try {
       var r = await fetch(base() + "/runtime", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
       if (!r.ok) {
         var txt = (await r.text()).trim();
-        if (!retried && isProxyDenied(txt)) {
-          runtimeMsg("Refreshing provider access…");
-          try {
-            var rr = await fetch("/api/refresh-membership", { method: "POST" });
-            var d = rr.ok ? await rr.json().catch(function () { return {}; }) : {};
-            if (typeof authUser !== "undefined" && authUser) authUser.in_group = !!d.in_group;
-            if (d.in_group) { return setRuntime(patch, true); }
-          } catch (_) { /* fall through */ }
-        }
         runtimeMsg(txt || ("HTTP " + r.status));
         return;
       }
@@ -1444,7 +1435,7 @@
     return trace;
   }
 
-  async function startRun(input, retried) {
+  async function startRun(input) {
     setRunning(true);
     curRunId = ""; // drop any prior run's id so a pause can't resume the wrong run
     clearRunStatus();
@@ -1454,7 +1445,6 @@
     trace.classList.remove("hidden");
     trace.appendChild(el("div", "wf-trace-title", "Run trace"));
     var deltas = {}; // nodeId -> accumulated streamed text (live, before node_completed)
-    var proxyDenied = false; // a node hit the provider group gate (403) → refresh-first
 
     runAbort = new AbortController();
     try {
@@ -1464,26 +1454,20 @@
         body: JSON.stringify({ input: input }),
         signal: runAbort.signal,
       });
-      if (r.status === 403) { proxyDenied = true; }
-      else if (!r.ok || !r.body) { trace.appendChild(el("div", "wf-trace-row wf-trace-fail", "Run failed (" + r.status + ")")); return; }
-      if (r.body) {
-        var reader = r.body.getReader(), dec = new TextDecoder(), buf = "";
-        for (;;) {
-          var chunk = await reader.read();
-          if (chunk.done) break;
-          buf += dec.decode(chunk.value, { stream: true });
-          var frames = buf.split("\n\n");
-          buf = frames.pop(); // keep the trailing partial frame
-          for (var i = 0; i < frames.length; i++) {
-            var line = frames[i].trim();
-            if (line.indexOf("data:") !== 0) continue;
-            var ev;
-            try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
-            // Provider group gate: suppress the raw 403 rows; handle it once the
-            // stream drains by refreshing membership and retrying (refresh-first).
-            if (isProxyDeniedEvent(ev)) { proxyDenied = true; continue; }
-            handleRunEvent(ev, deltas, trace);
-          }
+      if (!r.ok || !r.body) { trace.appendChild(el("div", "wf-trace-row wf-trace-fail", "Run failed (" + r.status + ")")); return; }
+      var reader = r.body.getReader(), dec = new TextDecoder(), buf = "";
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var frames = buf.split("\n\n");
+        buf = frames.pop(); // keep the trailing partial frame
+        for (var i = 0; i < frames.length; i++) {
+          var line = frames[i].trim();
+          if (line.indexOf("data:") !== 0) continue;
+          var ev;
+          try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
+          handleRunEvent(ev, deltas, trace);
         }
       }
     } catch (e) {
@@ -1492,70 +1476,6 @@
       setRunning(false);
       runAbort = null;
     }
-    if (proxyDenied) handleRunProxyDenied(input, retried, trace);
-  }
-
-  // isProxyDenied reports whether an error string is the relay proxy's group gate
-  // (a 403), in any of its phrasings.
-  function isProxyDenied(text) {
-    if (typeof text !== "string") return false;
-    return text.indexOf("sqe-proxy: access denied") !== -1
-      || text.indexOf("SQE Proxy unavailable") !== -1
-      || text.indexOf("SQE Proxy is restricted") !== -1
-      || text.indexOf("not a member of the configured group") !== -1;
-  }
-  function isProxyDeniedEvent(ev) {
-    return !!ev && (ev.type === "node_failed" || ev.type === "workflow_failed") && isProxyDenied(ev.error);
-  }
-
-  // handleRunProxyDenied implements the refresh-first rule for a run that hit the
-  // provider group gate: silently re-check membership (POST /api/refresh-membership,
-  // sharing the global dedup/cooldown) and, on success, retry the run ONCE; only if
-  // the user genuinely isn't in the group does a concise note + Refresh button show
-  // — the raw 403 is never surfaced. `retried` guards against a refresh→retry loop.
-  function handleRunProxyDenied(input, retried, trace) {
-    if (retried) { showRunProxyDeniedNote(trace, input); return; }
-    // Cooldown: just refreshed and STILL denied → don't loop; show the note.
-    var sinceLast = Date.now() - (typeof sqeProxyRefreshAt !== "undefined" ? sqeProxyRefreshAt : 0);
-    if (typeof sqeProxyRefreshAt !== "undefined" && sqeProxyRefreshAt && sinceLast < 8000) {
-      showRunProxyDeniedNote(trace, input); return;
-    }
-    if (typeof sqeProxyRefreshing !== "undefined" && sqeProxyRefreshing) {
-      // Another surface is already refreshing — wait it out, then retry once.
-      var note = el("div", "wf-trace-row", "↻ Refreshing provider access…");
-      trace.appendChild(note); trace.scrollTop = trace.scrollHeight;
-      setTimeout(function () { note.remove(); startRun(input, true); }, 2000);
-      return;
-    }
-    var row = el("div", "wf-trace-row", "↻ Provider access denied — refreshing membership…");
-    trace.appendChild(row); trace.scrollTop = trace.scrollHeight;
-    (async function () {
-      var ok = false;
-      try {
-        if (typeof sqeProxyRefreshing !== "undefined") sqeProxyRefreshing = true;
-        if (typeof sqeProxyRefreshAt !== "undefined") sqeProxyRefreshAt = Date.now();
-        var rr = await fetch("/api/refresh-membership", { method: "POST" });
-        var data = rr.ok ? await rr.json().catch(function () { return {}; }) : {};
-        if (typeof authUser !== "undefined" && authUser) authUser.in_group = !!data.in_group; // mirror re-issued cookie
-        ok = !!data.in_group;
-      } catch (_) { /* treat as denied */ }
-      finally { if (typeof sqeProxyRefreshing !== "undefined") sqeProxyRefreshing = false; }
-      if (ok) { row.textContent = "✓ Access refreshed — retrying run…"; startRun(input, true); }
-      else { row.remove(); showRunProxyDeniedNote(trace, input); }
-    })();
-  }
-
-  // showRunProxyDeniedNote shows the concise "not in the group" note in the run
-  // trace (never the raw 403), with a Refresh Access button that retries the run.
-  function showRunProxyDeniedNote(trace, input) {
-    var box = el("div", "wf-trace-done wf-trace-fail");
-    box.appendChild(el("span", null, "✕ You don't have access to this provider — agent nodes can't reach the model. If you were just added, retry. "));
-    var btn = el("button", "wf-btn"); btn.type = "button"; btn.style.marginLeft = ".4rem";
-    btn.appendChild(sym("arrow.clockwise")); btn.appendChild(el("span", null, "Refresh Access"));
-    btn.onclick = function () { startRun(input, false); };
-    box.appendChild(btn);
-    trace.appendChild(box);
-    trace.scrollTop = trace.scrollHeight;
   }
 
   function handleRunEvent(ev, deltas, trace) {

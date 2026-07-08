@@ -1008,130 +1008,6 @@ function selectSession(id) {
   es.onerror = () => { if (authUser) fetch("/auth/me", { headers: { Accept: "application/json" } }); };
 }
 
-// sqeProxyDeniedCard builds the concise "Refresh Access" card shown only when an
-// automatic membership refresh DIDN'T grant access. It deliberately does NOT echo
-// the raw provider 403 text — just a short status + a manual retry button.
-function sqeProxyDeniedCard() {
-  const d = el("div", "msg msg-info text-sm");
-  d.appendChild(sym("info.circle.fill", "msg-info-icon"));
-  const body = el("div", "md");
-  body.innerHTML = renderMD("You don't have access to this provider — using the built-in model list. If you were just added, retry.");
-  d.appendChild(body);
-  const btn = el("button", "btn btn-sm mt-2");
-  btn.textContent = "Refresh Access";
-  btn.title = "Re-check your provider access without signing out";
-  btn.onclick = async () => {
-    btn.disabled = true; btn.textContent = "Refreshing…";
-    try {
-      const r = await fetch("/api/refresh-membership", { method: "POST" });
-      if (r.ok) {
-        const data = await r.json().catch(() => ({}));
-        if (authUser) authUser.in_group = !!data.in_group; // mirror the re-issued cookie client-side
-        if (data.in_group) { btn.textContent = "✓ Access granted — reloading models…"; btn.classList.add("text-success"); showMenuLoading("Loading models…"); sendText("/models"); }
-        else { btn.textContent = "Still not in group — contact your administrator for access."; btn.classList.add("text-danger"); btn.disabled = false; }
-      } else { btn.textContent = "Refresh failed (" + r.status + ")"; btn.classList.add("text-danger"); btn.disabled = false; }
-    } catch (_) { btn.textContent = "Refresh failed (network error)"; btn.classList.add("text-danger"); btn.disabled = false; }
-  };
-  d.appendChild(btn);
-  return d;
-}
-
-// primeSQEProxyGate primes the provider group gate in the BACKGROUND: it POSTs
-// /api/refresh-membership once to record this user's membership in the relay's
-// (in-memory, server-side) GroupMembers store, which the cookie's in_group hint
-// can't substitute for (a relay restart drops the store while the cookie still
-// says in_group=true). It dedupes via a shared in-flight promise and is a no-op
-// once primed / when not on the relay proxy. Returns a promise resolving true when the
-// gate is (or already was) primed, false on a genuine denial. Safe to call
-// proactively (on a provider switch) so the first send doesn't pay the round-trip.
-function primeSQEProxyGate() {
-  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "ollama") === "sqe-proxy";
-  if (!onSQEProxy || !authUser) return Promise.resolve(true); // not gated
-  if (sqeProxyGatePrimed) return Promise.resolve(true);       // already primed this session
-  if (sqeProxyPrimePromise) return sqeProxyPrimePromise;      // a prime is already in flight — dedupe
-  sqeProxyRefreshAt = Date.now();
-  sqeProxyPrimePromise = (async () => {
-    try {
-      const r = await fetch("/api/refresh-membership", { method: "POST" });
-      const data = r.ok ? await r.json().catch(() => ({})) : {};
-      authUser.in_group = !!data.in_group;
-      if (data.in_group) { sqeProxyGatePrimed = true; return true; }
-      return false; // genuinely not in the group
-    } catch (_) {
-      return true; // relay unreachable — don't block the send; let it try
-    } finally {
-      sqeProxyPrimePromise = null;
-    }
-  })();
-  return sqeProxyPrimePromise;
-}
-
-// ensureSQEProxyAccess gates a send on the group-prime: it awaits primeSQEProxyGate
-// (usually already resolved — primed proactively on the provider switch — so this
-// is instant). Only when a prime is genuinely still needed does it show a brief
-// "checking access" info note while it waits, so the send feels responsive rather
-// than silently hung. Returns true when it's safe to send; on a genuine denial it
-// shows the concise Refresh-Access card and returns false.
-async function ensureSQEProxyAccess() {
-  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "ollama") === "sqe-proxy";
-  if (!onSQEProxy || !authUser || sqeProxyGatePrimed) return true; // not gated / already primed → instant
-  const note = sqeProxyInfoNote("Checking provider access…");
-  let ok = true;
-  try { ok = await primeSQEProxyGate(); } finally { if (note) note.remove(); }
-  if (ok) return true;
-  transcript.appendChild(sqeProxyDeniedCard()); // genuinely not in the group → don't send
-  scrollBottom();
-  return false;
-}
-
-// sqeProxyInfoNote appends a transient info line to the transcript (the standard
-// msg-info chrome) and returns it so the caller can remove it when done.
-function sqeProxyInfoNote(text) {
-  const d = el("div", "msg msg-info text-sm");
-  d.appendChild(sym("info.circle.fill", "msg-info-icon"));
-  d.appendChild(el("span", null, text));
-  transcript.appendChild(d);
-  scrollBottom();
-  return d;
-}
-
-// tryAutoRefreshMembership handles a provider "access denied" on any surface
-// (the /models menu OR a turn that hit a provider 403). On EVERY denial it
-// silently re-checks the user's allow-group membership via POST
-// /api/refresh-membership (root-relative → the relay, which has the web session +
-// DSID) and, on success, transparently retries what was denied via onRetry()
-// (re-run /models, or resend the last turn). It dedupes a burst of denials (one
-// POST in flight at a time) and a short cooldown prevents a refresh→retry→deny
-// loop from hammering the relay. The raw provider 403 text is NEVER shown: on a
-// success the retry is silent; only when the user genuinely isn't in the group
-// does a concise Refresh Access card appear. Returns true so callers suppress the
-// raw error.
-function tryAutoRefreshMembership(onRetry) {
-  endAssistant(); endToolGroup(); endWorkerGroup();
-  if (sqeProxyRefreshing) return true; // a refresh is already running for this burst
-  // Cooldown: if we just refreshed and STILL got denied, don't loop — surface the
-  // concise card (genuinely not in the group, or the relay lacks the endpoint).
-  const sinceLast = Date.now() - sqeProxyRefreshAt;
-  if (sqeProxyRefreshAt && sinceLast < 8000) {
-    transcript.appendChild(sqeProxyDeniedCard());
-    scrollBottom();
-    return true;
-  }
-  sqeProxyRefreshing = true;
-  sqeProxyRefreshAt = Date.now();
-  (async () => {
-    try {
-      const r = await fetch("/api/refresh-membership", { method: "POST" });
-      const data = r.ok ? await r.json().catch(() => ({})) : {};
-      if (authUser) authUser.in_group = !!data.in_group; // mirror the re-issued cookie client-side
-      if (data.in_group) { if (typeof onRetry === "function") onRetry(); return; } // granted → silent retry, no message
-    } catch (_) { /* fall through to the concise card */ }
-    transcript.appendChild(sqeProxyDeniedCard());
-    scrollBottom();
-  })().finally(() => { sqeProxyRefreshing = false; });
-  return true;
-}
-
 // renderMDInto reconciles container's children toward the markdown render of
 // text, preserving the leading run of already-finalized block nodes that haven't
 // changed. Replacing innerHTML wholesale on every animation frame tore down and
@@ -1227,10 +1103,6 @@ function handle(ev) {
       turnStartMs = Date.now(); turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
       lastTodos = [];      // drop the previous turn's todos so a plan event can't resurrect them
       renderTodos([]);     // hide the previous turn's task-list bar until new todos arrive
-      // A transparent resend after a provider access refresh: do the turn-start resets
-      // above (so the retried answer streams cleanly) but skip the duplicate user
-      // bubble + footer — the original question is already shown above.
-      if (suppressNextUserEcho) { suppressNextUserEcho = false; break; }
       const m = startMsg("you", "text-ok", "person.crop.circle", "msg-user");
       if (ev.text) {
         const ub = el("div", "user-body md break-words");
@@ -1388,19 +1260,6 @@ function handle(ev) {
       break;
     }
     case "info": {
-      // Provider access denials surface here as plain info notes (the connector
-      // can't refresh membership itself — only the browser has the web session +
-      // DSID). Two forms: a /models fetch ("sqe-proxy: access denied") and a
-      // /provider switch ("SQE Proxy unavailable: …"). For BOTH, refresh membership
-      // first, then retry what was denied; only show the note if still not a member.
-      if (typeof ev.text === "string" && ev.text.indexOf("sqe-proxy: access denied") !== -1) {
-        hideMenu();
-        if (tryAutoRefreshMembership(() => { showMenuLoading("Loading models…"); sendText("/models"); })) break;
-      }
-      if (typeof ev.text === "string" && ev.text.indexOf("SQE Proxy unavailable") !== -1) {
-        const target = lastProviderSwitch || "sqe-proxy";
-        if (tryAutoRefreshMembership(() => sendText("/provider " + target))) break;
-      }
       endAssistant(); endToolGroup(); endWorkerGroup();
       const d = el("div", "msg msg-info text-sm");
       d.appendChild(sym("info.circle.fill", "msg-info-icon"));
@@ -1411,14 +1270,6 @@ function handle(ev) {
       transcript.appendChild(d);
       break;
     }
-    case "sqe_proxy_denied": {
-      // Provider access denied on the /models fetch — drop the picker loader and
-      // auto-refresh membership, then silently retry /models (which re-shows the
-      // loader). A concise card appears only if the user genuinely isn't in the group.
-      hideMenu();
-      tryAutoRefreshMembership(() => { showMenuLoading("Loading models…"); sendText("/models"); });
-      break;
-    }
     case "context": {
       endAssistant(); endToolGroup(); endWorkerGroup();
       renderContextBreakdown(ev.context);
@@ -1426,21 +1277,6 @@ function handle(ev) {
       break;
     }
     case "error": {
-      // A turn that hit the relay proxy's group gate surfaces here as a generic
-      // error ("the provider returned 403 … access denied"). Auto-refresh
-      // membership and transparently resend the same turn, instead of dumping the
-      // raw 403 on the user. Falls back to the manual card if refresh doesn't help.
-      if (typeof ev.text === "string" && ev.text.indexOf("sqe-proxy: access denied") !== -1) {
-        const resend = lastUserSend;
-        if (tryAutoRefreshMembership(() => {
-          if (resend) { suppressNextUserEcho = true; sendMessageRaw(resend.text, resend.attachments); }
-        })) {
-          // The refresh+resend is transparent: drop the failed turn's stray
-          // footer (and don't render the raw 403) so the user sees one Q&A.
-          turnActive = false;
-          break;
-        }
-      }
       endAssistant(); endToolGroup(); endWorkerGroup();
       const d = el("div", "msg msg-error flex items-center gap-1.5 text-danger");
       d.appendChild(sym("exclamationmark.triangle.fill"));
@@ -1481,16 +1317,7 @@ function handle(ev) {
       break;
     }
     case "status": {
-      const prevProvider = lastStatus && lastStatus.llmProvider;
       lastStatus = ev.status || null;
-      // A provider switch invalidates the gate-primed state — switching (back) to
-      // the relay proxy must re-prime. Do it PROACTIVELY in the background here, so the
-      // round-trip is done (or in flight) well before the user's first send —
-      // making send() instant instead of paying the pre-flight on Enter.
-      if (lastStatus && lastStatus.llmProvider !== prevProvider) {
-        sqeProxyGatePrimed = false;
-        if ((lastStatus.llmProvider || "ollama") === "sqe-proxy" && authUser) primeSQEProxyGate();
-      }
       renderHeader();
       renderStatusBar();
       renderLeftPanel(lastStatus);
@@ -1916,7 +1743,6 @@ function openHdrMenu(anchor, kind, options, current, command) {
       e.stopPropagation();
       closeHdrMenu();
       if (o.id !== current) {
-        if (command === "/provider") lastProviderSwitch = o.id; // remember for retry after a membership refresh
         sendText(command + " " + o.id);
       }
     };
@@ -2150,40 +1976,6 @@ function renderStats() {
   tok.appendChild(tokPair("arrow.down", cumTurnOut || s.tokensOut));
   parts.push(tok);
 
-  // cost / quota: prefer the authoritative live quota, else session estimate.
-  // Only a relay-fronted provider that reports a per-user daily cap exposes a
-  // quota token; direct providers and Ollama have no quota, so it's hidden there.
-  let money = "", moneyTitle = "", quotaClickable = false;
-  const prov = s.llmProvider || "ollama";
-  const onSQEProxy = prov === "sqe-proxy";
-  const hasQuota = onSQEProxy;
-  if (hasQuota && s.quotaKnown && (s.quotaSpend || s.quotaBudget)) {
-    money = s.quotaBudget > 0 ? `${fmtUSD(s.quotaSpend)} / ${fmtUSD(s.quotaBudget)}` : fmtUSD(s.quotaSpend);
-    const q = s.quotaName || "personal";
-    const sqeUser = q && q !== "personal" ? q : (authUser && authUser.accountname) || "";
-    moneyTitle = onSQEProxy
-      ? "Provider daily quota" + (sqeUser ? " — " + sqeUser : "")
-      : "Usage (24h) — " + (q === "personal" ? "personal quota" : "project: " + q);
-    quotaClickable = true;
-  } else if (hasQuota && s.costUSD > 0) {
-    money = `${fmtUSD(s.costUSD)}~`;
-    moneyTitle = "Estimated session cost (no live quota fetched)";
-  }
-  if (money) {
-    // The live usage quota is a clickable token (like the header's approval /
-    // reasoning pills): tap it to pop the quota name + usage above the status bar.
-    const me = el("span", quotaClickable ? "text-ink stat-quota" : "text-ink", money);
-    if (moneyTitle) me.title = moneyTitle;
-    if (quotaClickable) {
-      me.setAttribute("role", "button");
-      me.tabIndex = 0;
-      const openQuota = (e) => { e.stopPropagation(); openHdrInfo(me, "quota", quotaInfoRows(s)); };
-      me.onclick = openQuota;
-      me.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openQuota(e); } };
-    }
-    parts.push(me); // cost stands out a notch above the rest
-  }
-
   // context-window fill: a small progress bar + percentage (brand → amber → red as it fills)
   if (typeof s.contextPercent === "number" && s.contextPercent >= 0) {
     const pct = Math.max(0, Math.min(100, s.contextPercent));
@@ -2210,41 +2002,6 @@ function renderStats() {
     if (i > 0) statsEl.appendChild(el("span", "text-faint opacity-50", "·"));
     statsEl.appendChild(p);
   });
-}
-
-// quotaInfoRows builds the rows for the quota info popover: the quota's name
-// (personal vs a project) as the heading, the 24h spend vs the daily
-// budget, and tokens used vs the account's total token allowance in one row.
-// Mirrors the moneyTitle tooltip as a tap target.
-function quotaInfoRows(s) {
-  const onSQEProxy = (s.llmProvider || "ollama") === "sqe-proxy";
-  const q = s.quotaName || "personal";
-  let name, heading;
-  if (onSQEProxy) {
-    // Prefer the quota's reported username (from the relay), else the signed-in
-    // username, else a generic label.
-    name = q && q !== "personal" ? q
-      : (authUser && authUser.accountname) || "your account";
-    heading = "Provider daily quota";
-  } else {
-    name = q === "personal" ? "Personal quota" : "Project: " + q;
-    heading = "Usage (24h)";
-  }
-  const rows = [{ label: name, desc: heading }];
-  if (s.quotaBudget > 0) {
-    rows.push({ label: `${fmtUSD(s.quotaSpend)} / ${fmtUSD(s.quotaBudget)}`, desc: "used / budget" });
-  } else {
-    rows.push({ label: fmtUSD(s.quotaSpend), desc: "used" });
-  }
-  // Tokens used vs the total token allowance, in one row. "total" is the per-day
-  // token cap when the budget carries one, else the token rate-limit ceiling.
-  const tokTotal = s.quotaTokensMax > 0 ? s.quotaTokensMax : s.quotaTokenRate;
-  if (tokTotal > 0) {
-    rows.push({ label: `${fmtTokens(s.quotaTokens || 0)} / ${fmtTokens(tokTotal)}`, desc: "tokens used / total" });
-  } else if (s.quotaTokens > 0) {
-    rows.push({ label: fmtTokens(s.quotaTokens), desc: "tokens used" });
-  }
-  return rows;
 }
 
 // contextInfoRows builds the hdrMenu detail rows for the context-usage bar:
@@ -2703,23 +2460,6 @@ async function sendText(text) {
   await fetch(api(`/api/sessions/${current}/message`), { method: "POST", body: JSON.stringify({ text }) });
 }
 
-// sendMessageRaw POSTs a turn with optional attachments (no input/UI side effects)
-// — used to transparently resend a turn after a provider access refresh.
-async function sendMessageRaw(text, attachments) {
-  if (!current) { suppressNextUserEcho = false; return; }
-  text = text || "";
-  attachments = attachments || [];
-  if (!text && !attachments.length) { suppressNextUserEcho = false; return; }
-  try {
-    await fetch(api(`/api/sessions/${current}/message`), {
-      method: "POST",
-      body: JSON.stringify({ text, attachments }),
-    });
-  } catch (_) {
-    suppressNextUserEcho = false; // resend never reached the server → don't swallow the next real message's echo
-  }
-}
-
 async function send() {
   const text = input.value.trim();
   if ((!text && pendingAttachments.length === 0) || !current) return;
@@ -2737,24 +2477,12 @@ async function send() {
     return;
   }
   const attachments = pendingAttachments.map((a) => ({ name: a.name, mediaType: a.mediaType, data: a.data }));
-  // Clear the composer and go responsive IMMEDIATELY — don't make the user wait on
-  // the provider access pre-flight before the input even empties. The gate is normally
-  // already primed (we prime proactively on the provider switch), so the common
-  // case has zero delay; only an unprimed gate awaits below, showing a brief info
-  // note. The optimistic clear is restored if the gate genuinely denies access.
+  // Clear the composer and go responsive IMMEDIATELY.
   input.value = "";
   pendingAttachments = [];
   renderAttachStrip();
   hidePalette();
   hideMentions();
-  lastUserSend = { text, attachments }; // remember for a transparent resend after a provider access refresh
-  // Pre-flight the provider group gate so the turn doesn't start, 403, and then
-  // restart after a reactive refresh (the visible stop/restart). On a genuine
-  // denial, restore the composer so nothing the user typed is lost.
-  if (!(await ensureSQEProxyAccess())) {
-    if (!input.value) input.value = text; // restore only if the user hasn't started retyping
-    return;
-  }
   await fetch(api(`/api/sessions/${current}/message`), {
     method: "POST",
     body: JSON.stringify({ text, attachments }),
