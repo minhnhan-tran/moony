@@ -12,14 +12,14 @@ import (
 	"github.com/pysty1995/moony/internal/tools"
 )
 
-// TestAgentSmoke exercises the full pipeline against live Floodgate. It is
-// skipped unless MOONY_SMOKE=1 because it requires AppleConnect auth, network
+// TestAgentSmoke exercises the full pipeline against a live hosted provider. It is
+// skipped unless MOONY_SMOKE=1 because it requires provider auth, network
 // access, and consumes model quota.
 //
 //	MOONY_SMOKE=1 go test ./internal/agent -run TestAgentSmoke -v
 func TestAgentSmoke(t *testing.T) {
 	if os.Getenv("MOONY_SMOKE") != "1" {
-		t.Skip("set MOONY_SMOKE=1 to run the live Floodgate smoke test")
+		t.Skip("set MOONY_SMOKE=1 to run the live smoke test")
 	}
 
 	cfg := config.Load()

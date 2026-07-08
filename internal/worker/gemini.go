@@ -11,7 +11,7 @@ import (
 
 // geminiSession drives Apple Gemini's headless mode. Like Claude Code there's no
 // long-lived process: each Prompt spawns `apple-gemini -p … -o json`. apple-gemini
-// is a thin Floodgate-authenticated wrapper around Google's gemini-cli, so it
+// is a thin authenticated wrapper around Google's gemini-cli, so it
 // exposes the same one-shot flags (-p/--prompt, -o/--output-format, -m/--model,
 // --approval-mode). Read-only maps to --approval-mode plan; otherwise yolo.
 //

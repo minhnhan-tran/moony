@@ -628,19 +628,19 @@ func (a *Agent) Todos() []tools.Todo {
 	return a.todos.Items()
 }
 
-// ListModels fetches the models available on the active route from Floodgate.
+// ListModels fetches the models available on the active route from the provider.
 func (a *Agent) ListModels(ctx context.Context) ([]config.ModelInfo, error) {
 	return a.client.ListModels(ctx)
 }
 
-// Usage fetches the current quota and usage data from Floodgate. When a
+// Usage fetches the current quota and usage data from the provider. When a
 // project token is configured, project-scoped data is returned; otherwise
 // personal-account data is returned.
 func (a *Agent) Usage(ctx context.Context) (*llm.UsageResponse, error) {
 	return a.client.Usage(ctx)
 }
 
-// CheckAuth verifies the agent can authenticate with Floodgate (used by the
+// CheckAuth verifies the agent can authenticate with the provider (used by the
 // /doctor diagnostic). It returns nil on success.
 func (a *Agent) CheckAuth(ctx context.Context) error {
 	return a.client.CheckAuth(ctx)
@@ -1081,7 +1081,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// the session model for the rest of the turn — easy turns cost less, hard
 		// ones still get the strong model. Sticky (turnFriction only rises within a
 		// turn) and a no-op when FastModel == the session model (already cheap, or a
-		// non-Floodgate backend) or on an ultrathink turn.
+		// non-hosted backend) or on an ultrathink turn.
 		turnModel := a.cfg.Model
 		var downshiftReason string
 		if a.cfg.AdaptiveModel && !ultra {

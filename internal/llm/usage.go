@@ -56,7 +56,7 @@ type UsageModelQuota struct {
 	Pricing UsagePricing `json:"pricing"`
 }
 
-// UsagePricing is per-token pricing as returned by Floodgate (USD per token).
+// UsagePricing is per-token pricing as returned by the provider (USD per token).
 type UsagePricing struct {
 	InputTokenCost      float64 `json:"input_token_cost"`
 	OutputTokenCost     float64 `json:"output_token_cost"`

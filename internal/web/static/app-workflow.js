@@ -1495,8 +1495,8 @@
     if (proxyDenied) handleRunProxyDenied(input, retried, trace);
   }
 
-  // isProxyDenied reports whether an error string is the SQE-Proxy group gate (a
-  // floodgate 403), in any of its phrasings.
+  // isProxyDenied reports whether an error string is the relay proxy's group gate
+  // (a 403), in any of its phrasings.
   function isProxyDenied(text) {
     if (typeof text !== "string") return false;
     return text.indexOf("sqe-proxy: access denied") !== -1

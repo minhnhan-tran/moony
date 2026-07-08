@@ -88,7 +88,7 @@ func TestApplyPromptCacheDisabled(t *testing.T) {
 	}
 }
 
-// TestPromptCacheJSONShape locks the wire format Floodgate/Anthropic receives.
+// TestPromptCacheJSONShape locks the wire format the gateway/Anthropic receives.
 func TestPromptCacheJSONShape(t *testing.T) {
 	t.Setenv("MOONY_PROMPT_CACHE", "")
 	body := request{

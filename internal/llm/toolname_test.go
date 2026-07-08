@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// bedrockToolName is the constraint Floodgate's Bedrock models enforce on tool
+// bedrockToolName is the constraint the gateway's Bedrock models enforce on tool
 // names; every wire name we produce must satisfy it.
 var bedrockToolName = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
 

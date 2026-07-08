@@ -12,7 +12,7 @@ func TestIsPickerMenuCommand(t *testing.T) {
 	}
 	notOpen := []string{
 		"/model anthropic.claude-opus-4-8", // value-setting → must NOT bypass the gate
-		"/provider floodgate",
+		"/provider anthropic",
 		"/reasoning high",
 		"/models extra", // /models takes no arg; an arg means it's not the bare picker
 		"/clear", "/help", "hello", "", "/",

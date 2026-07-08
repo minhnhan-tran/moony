@@ -34,9 +34,9 @@ func TestResolveOllamaModel(t *testing.T) {
 	if got := c.resolveOllamaModel(ctx); got != "llama3:8b" {
 		t.Errorf("per-call override should win, got %q", got)
 	}
-	// A per-call override carrying a Floodgate id is ignored (Ollama would 404);
+	// A per-call override carrying a cloud id is ignored (Ollama would 404);
 	// fall back to the session model. Guards against a fast-model pick leaking a
-	// Floodgate id onto the Ollama backend.
+	// cloud id onto the Ollama backend.
 	for _, fg := range []string{"anthropic.claude-sonnet-4-6", "gcp:gemini-3.5-flash", "aws:anthropic.claude"} {
 		if got := c.resolveOllamaModel(WithModel(context.Background(), fg)); got != "gemma4:31b" {
 			t.Errorf("resolveOllamaModel(override=%q) = %q, want fallback to session model", fg, got)

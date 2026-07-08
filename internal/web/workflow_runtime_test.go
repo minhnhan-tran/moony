@@ -11,7 +11,7 @@ import (
 // runtimeSnapshot reports the connector's current provider/model/reasoning plus
 // the available providers and model-specific reasoning levels.
 func TestRuntimeSnapshot(t *testing.T) {
-	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "floodgate"}}
+	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "anthropic"}}
 	rt := s.runtimeSnapshot()
 	if rt.Model != "anthropic.claude-opus-4-8" {
 		t.Errorf("model = %q", rt.Model)
@@ -27,7 +27,7 @@ func TestRuntimeSnapshot(t *testing.T) {
 // POST /runtime applies a reasoning change and persists; the response reflects it.
 func TestSetRuntimeReasoning(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // redirect Save() off the real config
-	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "floodgate"}}
+	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "anthropic"}}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/workflows/runtime", strings.NewReader(`{"reasoning":"low"}`))
@@ -46,7 +46,7 @@ func TestSetRuntimeReasoning(t *testing.T) {
 // POST /runtime applies a model change.
 func TestSetRuntimeModel(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "floodgate"}}
+	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "anthropic"}}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/workflows/runtime", strings.NewReader(`{"model":"anthropic.claude-sonnet-4-6"}`))
@@ -62,7 +62,7 @@ func TestSetRuntimeModel(t *testing.T) {
 // Bad input is rejected before any persistence.
 func TestSetRuntimeRejectsBadInput(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "floodgate"}}
+	s := &Server{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: "anthropic"}}
 
 	for _, tc := range []struct {
 		name, body string

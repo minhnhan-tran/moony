@@ -490,7 +490,7 @@ type Model struct {
 	// number is what the model just measured the conversation at. Cleared on
 	// /reset and /clear.
 	lastTurnInTokens int
-	// Floodgate-reported quota for the current 24h period. Refreshed on Init
+	// Gateway-reported quota for the current 24h period. Refreshed on Init
 	// and after every TurnDone via refreshQuotaCmd; also kept in sync by
 	// /usage. quotaFetched flips true on the first successful response so
 	// the status bar can choose between "real quota" and the in-session
@@ -628,7 +628,7 @@ func (m Model) Init() tea.Cmd {
 	// Mirror the project's saved sessions so web viewers get a session list.
 	m.publishSessions()
 	// Kick off a silent quota fetch immediately so the status bar can show the
-	// real Floodgate quota from the very first frame (and also overlay
+	// real gateway quota from the very first frame (and also overlay
 	// authoritative pricing onto the cost calculator).
 	cmds := []tea.Cmd{textarea.Blink, m.refreshQuotaCmd(), m.refreshGitCmd(), m.announceCmd(), announceRefreshCmd()}
 	// Animate the startup loader spinner while the background checks run.
@@ -1652,9 +1652,9 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 			msg += fmt.Sprintf("\nEstimated cost (this session, cache-adjusted): $%s", formatUSD(m.totalCostUSD))
 		}
 		if m.quotaFetched {
-			label := "Floodgate quota (24h)"
+			label := "Usage (24h)"
 			if m.quotaProject != "" {
-				label = "Floodgate quota (24h, project " + m.quotaProject + ")"
+				label = "Usage (24h, project " + m.quotaProject + ")"
 			}
 			if m.quotaBudget > 0 {
 				msg += fmt.Sprintf("\n%s: $%s / $%s", label, formatUSD(m.quotaSpend), formatUSD(m.quotaBudget))
@@ -1662,11 +1662,11 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 				msg += fmt.Sprintf("\n%s: $%s spent (no budget cap)", label, formatUSD(m.quotaSpend))
 			}
 		} else if m.quotaErr != "" {
-			msg += "\nFloodgate quota: unavailable (" + m.quotaErr + ")"
+			msg += "\nUsage: unavailable (" + m.quotaErr + ")"
 		}
 		m.trans.add(entry{kind: entryInfo, text: msg})
 	case "/usage":
-		m.trans.add(entry{kind: entryInfo, text: "Fetching Floodgate usage…"})
+		m.trans.add(entry{kind: entryInfo, text: "Fetching usage…"})
 		m.refresh()
 		return m, m.usageCmd()
 	case "/doctor":
@@ -2550,8 +2550,8 @@ func (m *Model) openReasoningMenu() {
 	m.state = stateMenu
 }
 
-// openProviderMenu opens the model-provider picker (Apple Floodgate / Apple
-// Foundation Models / Ollama). Selecting one re-dispatches "/provider <id>"
+// openProviderMenu opens the model-provider picker (hosted providers / local
+// models / Ollama). Selecting one re-dispatches "/provider <id>"
 // through the command path so the menu and the typed command share one impl.
 func (m *Model) openProviderMenu() {
 	cur := provider.Normalize(m.cfg.LLMProvider)

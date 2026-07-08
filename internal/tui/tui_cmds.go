@@ -17,7 +17,7 @@ import (
 	"github.com/pysty1995/moony/internal/tools"
 )
 
-// fetchModelsCmd asynchronously queries Floodgate for the available models
+// fetchModelsCmd asynchronously queries the model gateway for the available models
 // (merged across both endpoints), delivering a modelsLoadedMsg when done.
 func (m Model) fetchModelsCmd() tea.Cmd {
 	ag := m.agent
@@ -31,7 +31,7 @@ func (m Model) fetchModelsCmd() tea.Cmd {
 
 // compactCmd asynchronously runs Compact on the agent (it makes a model call to
 // summarize older messages), delivering a compactDoneMsg when finished.
-// usageCmd asynchronously fetches the Floodgate quota+spend snapshot and
+// usageCmd asynchronously fetches the gateway's quota+spend snapshot and
 // delivers a usageDoneMsg. The personal endpoint is used unless a project
 // token is configured; the agent already picks the right one.
 func (m Model) usageCmd() tea.Cmd {
@@ -59,7 +59,7 @@ func (m Model) stageAttachmentCmd(full, display string) tea.Cmd {
 
 // doctorCmd asynchronously runs the environment/config diagnostics and delivers
 // a doctorDoneMsg with the rendered report. The live auth check goes through the
-// agent (which mints a Floodgate token via AppleConnect).
+// agent (which mints a token via the provider's auth).
 func (m Model) doctorCmd() tea.Cmd {
 	cfg := m.cfg
 	ag := m.agent

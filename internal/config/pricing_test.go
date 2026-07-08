@@ -97,7 +97,7 @@ func TestCostUSDFullDerivesCacheRates(t *testing.T) {
 	}
 }
 
-// TestCostUSDFullUsesExplicitCacheRates checks that Floodgate-supplied cache
+// TestCostUSDFullUsesExplicitCacheRates checks that provider-supplied cache
 // rates override the derived multipliers.
 func TestCostUSDFullUsesExplicitCacheRates(t *testing.T) {
 	t.Cleanup(ClearRuntimePricing)

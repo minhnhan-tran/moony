@@ -63,7 +63,7 @@ func (s *Server) handleAgentsCatalog(w http.ResponseWriter, r *http.Request) {
 	// displayModel blanks a pinned model the current backend can't serve (a stale
 	// cross-provider pin), so the picker shows "inherit" — matching what actually
 	// runs (subConfig ignores an unservable pin) — instead of listing, say, a
-	// Floodgate model while on Ollama/AFM. The pin stays in the persona's .md, so
+	// cloud model while on a local backend. The pin stays in the persona's .md, so
 	// switching back to its backend restores it.
 	displayModel := func(model string) string {
 		if model == "" || llm.ModelServableBy(model, llmProvider) {
@@ -183,8 +183,8 @@ type agentModelOption struct {
 
 // handleAgentModels returns the models a persona can be pinned to: the live list
 // from the active backend, falling back to the curated list when the fetch fails
-// — but ONLY on Floodgate, since that curated list is Floodgate-specific (Claude
-// + Gemini ids). On AFM/Ollama a failed fetch returns an empty list rather than
+// — but ONLY on a hosted provider, since that curated list is hosted-provider-specific
+// (Claude + Gemini ids). On local backends a failed fetch returns an empty list rather than
 // offering models the backend can't serve (which the user could then pin and
 // break the sub-agent); the UI still shows "inherit" plus any existing pin. The
 // empty id ("inherit the parent's model") is added by the UI, not here.

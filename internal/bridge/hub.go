@@ -94,7 +94,7 @@ type Status struct {
 	Version              string
 	Model                string
 	Provider             string
-	LLMProvider          string // /provider backend (floodgate/afm/ollama); distinct from Provider (the route)
+	LLMProvider          string // /provider backend (anthropic/gemini/ollama); distinct from Provider (the route)
 	Reasoning            string
 	WorkingDir           string
 	Approval             string
@@ -112,7 +112,7 @@ type Status struct {
 	QuotaSpend           float64
 	QuotaBudget          float64
 	QuotaKnown           bool
-	QuotaName            string // "personal" or a Floodgate project name (status-bar tooltip)
+	QuotaName            string // "personal" or a gateway project name (status-bar tooltip)
 	QuotaTokens          int    // tokens used in the quota period (24h)
 	QuotaTokensMax       int    // per-day token cap, when the budget carries one
 	QuotaTokenRate       int    // token rate limit (tokens per period)

@@ -44,7 +44,7 @@ func TestSubConfigModel(t *testing.T) {
 }
 
 // TestSubConfigOllamaKeepsModel verifies a read-only sub-agent on the Ollama
-// backend keeps the session's Ollama model instead of substituting a Floodgate
+// backend keeps the session's Ollama model instead of substituting a hosted
 // fast model (which the Ollama server can't serve).
 func TestSubConfigOllamaKeepsModel(t *testing.T) {
 	parent := &Agent{cfg: &config.Config{Model: "gemma4:31b", LLMProvider: provider.Ollama, ApprovalPolicy: config.ApprovalPrompt}}

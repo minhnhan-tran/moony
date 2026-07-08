@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -33,7 +32,7 @@ type fakeStreamer struct {
 	// received — letting a test hold a turn in the "busy" state deterministically.
 	gate chan struct{}
 	// errs, when set, is returned (by call index) instead of a turn response — so
-	// a test can make a specific turn fail (e.g. an SQE-Proxy 403). A nil entry (or
+	// a test can make a specific turn fail. A nil entry (or
 	// past the end) means no injected error for that call.
 	errs []error
 }
@@ -226,78 +225,6 @@ func TestSessionHistoryReplayAndFanout(t *testing.T) {
 	sess.unsubscribe(id1)
 	if _, ok := <-ch1; ok {
 		t.Error("channel should be closed after unsubscribe")
-	}
-}
-
-// TestProxyDeniedTurnPrunedFromHistory: a turn that fails with the SQE-Proxy
-// group-gate 403 must NOT leave its "user" echo or the error in history — the
-// client transparently resends, so a persisted echo/error would duplicate the
-// question (and re-fire a refresh) on every reload/reconnect. A non-retried error
-// is kept so the user still sees what went wrong.
-func TestProxyDeniedTurnPrunedFromHistory(t *testing.T) {
-	for _, tc := range []struct {
-		name       string
-		err        error
-		wantPruned bool
-	}{
-		{"proxy denied is pruned", errors.New("floodgate returned 403 Forbidden: sqe-proxy: access denied"), true},
-		{"other error is kept", errors.New("some other failure"), false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			home := t.TempDir()
-			t.Setenv("HOME", home)
-			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-			t.Setenv("MOONY_MCP", "0")
-			t.Setenv("MOONY_AUTO_TITLE", "0")
-			t.Setenv("MOONY_MCP_READY_WAIT", "0") // don't block the first turn waiting on MCP
-			dir := t.TempDir()
-			store, err := sessionpkg.NewStoreAt(t.TempDir())
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg := &config.Config{Model: "test", MaxTokens: 256, MaxToolOutputBytes: 1 << 20, MaxAgentSteps: 10, WorkingDir: dir}
-			fake := &fakeStreamer{errs: []error{tc.err}} // the first (only) turn fails
-			psess := sessionpkg.New(cfg.Model, dir)
-			ag := agent.New(cfg, fake, tools.NewRegistry(dir), store, psess)
-			sess := newSession("s1", "t", ag)
-
-			if !sess.start("my question", nil, nil) {
-				t.Fatal("start returned false")
-			}
-			deadline := time.Now().Add(3 * time.Second)
-			for time.Now().Before(deadline) && sess.snapshot().State != stateIdle {
-				time.Sleep(5 * time.Millisecond)
-			}
-			if sess.snapshot().State != stateIdle {
-				t.Fatal("turn never returned to idle")
-			}
-
-			_, _, hist := sess.subscribe()
-			var sawUser, sawError bool
-			for _, e := range hist {
-				switch e.Type {
-				case "user":
-					sawUser = true
-				case "error":
-					sawError = true
-				}
-			}
-			if tc.wantPruned {
-				if sawUser {
-					t.Errorf("proxy-denied turn left a 'user' echo in history: %+v", hist)
-				}
-				if sawError {
-					t.Errorf("proxy-denied turn left an 'error' in history (would re-fire a refresh on replay): %+v", hist)
-				}
-			} else {
-				if !sawUser {
-					t.Errorf("a normal turn should keep its 'user' echo in history: %+v", hist)
-				}
-				if !sawError {
-					t.Errorf("a non-retried error should be recorded in history: %+v", hist)
-				}
-			}
-		})
 	}
 }
 

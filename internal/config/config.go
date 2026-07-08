@@ -177,7 +177,7 @@ type Config struct {
 	// escalates to the session model for the rest of the turn — right-sizing the
 	// model to the task so easy turns cost less. OFF by default (it swaps the
 	// model you explicitly selected); enable with MOONY_ADAPTIVE_MODEL=1. A no-op
-	// when FastModel equals the session model (already cheap, or a non-Floodgate
+	// when FastModel equals the session model (already cheap, or a non-cloud
 	// backend) and on ultrathink turns. Independent of DynamicEffort (which only
 	// adjusts reasoning depth on the SAME model).
 	AdaptiveModel bool
@@ -273,7 +273,7 @@ type Config struct {
 	// search_code results: the top BM25 candidates are re-scored by embedding
 	// cosine similarity to the query and blended with their lexical score. The
 	// embeddings are fetched from the OpenAI-compatible {base}/embeddings
-	// endpoint (works on both Floodgate and the SQE Proxy). Empty disables it
+	// endpoint (works on any OpenAI-compatible provider). Empty disables it
 	// (pure BM25). Env: MOONY_EMBEDDINGS_MODEL.
 	EmbeddingsModel string
 	// CompactThresholdTokens is the estimated history size that triggers
@@ -444,31 +444,28 @@ const FastDefaultModel = "llama3.1:8b"
 // parent that's already as cheap (by input price), so a session already on
 // Haiku/Sonnet keeps its own model.
 //
-// llmProvider is the backend (floodgate/sqe-proxy/afm/ollama). The default is a
-// Floodgate/Anthropic-route id, valid on Floodgate and on SQE Proxy (a
-// relay-fronted Floodgate gateway serving the same ids). On AFM/Ollama it's the
-// wrong server's model — substituting it would send e.g. a Claude id to an
-// Ollama server (404) — so there, keep the session model unless the user
-// explicitly pins one with MOONY_FAST_MODEL.
+// llmProvider is the active backend (see internal/provider). With no explicit
+// fast-model pin, the built-in default id may be the wrong server's model —
+// substituting it would send e.g. a Claude id to an Ollama server (404) — so the
+// session model is kept unless the user explicitly pins one with MOONY_FAST_MODEL.
 func FastModel(parent, llmProvider string) string {
 	return cheapModel(parent, llmProvider, FastDefaultModel, "MOONY_FAST_MODEL")
 }
 
 // AuxModel returns the cheap model for tool-less auxiliary calls (see
 // AuxDefaultModel). It applies the same safety rules as FastModel — never
-// upgrading an already-cheaper parent, and keeping the session model on AFM/
-// Ollama (which don't serve the Floodgate catalog) unless pinned — and honors
-// MOONY_AUX_MODEL first, then MOONY_FAST_MODEL, so a single fast-model pin covers
-// both. The Haiku downshift applies on Floodgate and SQE Proxy alike.
+// upgrading an already-cheaper parent, and keeping the session model unless a
+// fast/aux model is explicitly pinned — and honors MOONY_AUX_MODEL first, then
+// MOONY_FAST_MODEL, so a single fast-model pin covers both.
 func AuxModel(parent, llmProvider string) string {
 	return cheapModel(parent, llmProvider, AuxDefaultModel, "MOONY_AUX_MODEL", "MOONY_FAST_MODEL")
 }
 
 // cheapModel resolves a cheaper model to offload work from `parent` onto: it
-// returns `def` (or the first non-empty env override named in `envVars`) unless
-// doing so would UPGRADE a parent already as cheap by input price, or the backend
-// doesn't serve Floodgate's model catalog (AFM/Ollama, where `def` is the wrong
-// server's id) and no override is pinned — in which case it keeps `parent`.
+// returns the first non-empty env override named in `envVars` unless doing so
+// would UPGRADE a parent already as cheap by input price. With no override
+// pinned it keeps `parent`, since the built-in `def` id may not be served by the
+// active provider (e.g. a cloud id on an Ollama server).
 func cheapModel(parent, llmProvider, def string, envVars ...string) string {
 	var v string
 	for _, e := range envVars {
@@ -476,8 +473,9 @@ func cheapModel(parent, llmProvider, def string, envVars ...string) string {
 			break
 		}
 	}
-	if v == "" && !provider.ServesFloodgateModels(llmProvider) {
-		// AFM/Ollama: the Floodgate/Anthropic-route default id isn't served here.
+	if v == "" {
+		// No override pinned: keep the parent model rather than substituting a
+		// default id that the active provider may not serve.
 		return parent
 	}
 	if v != "" {
@@ -494,7 +492,7 @@ func cheapModel(parent, llmProvider, def string, envVars ...string) string {
 	return def
 }
 
-// ProviderLabel is the user-facing name of a route, e.g. "floodgate anthropic".
+// ProviderLabel is the user-facing name of a route, e.g. "anthropic-native".
 func ProviderLabel(p string) string {
 	if p == ProviderOpenAI {
 		return "openai-compatible"
@@ -845,7 +843,7 @@ func EffortFor(model, level string) string {
 // sent. It is the single source of truth for the wire value: it resolves "auto"
 // to its baseline, clamps to the model's supported range, and returns "" for
 // "off"/unsupported. Gating on the *resolved* effort (not the raw level) is what
-// prevents sending effort:"off" — Floodgate's effort field accepts only
+// prevents sending effort:"off" — the gateway's effort field accepts only
 // low|medium|high|xhigh|max, so "off"/"auto" must never reach it.
 func WireEffort(provider, model, level string) string {
 	eff := EffortFor(model, level) // auto→baseline, clamped; may be "off"
@@ -956,8 +954,8 @@ type ModelInfo struct {
 	Thinking bool // whether the model supports extended thinking
 }
 
-// KnownModels is a best-effort curated list of Floodgate Anthropic models for
-// the /models picker fallback (the live list is fetched from Floodgate when
+// KnownModels is a best-effort curated list of Anthropic (Claude) models for
+// the /models picker fallback (the live list is fetched from the provider when
 // available). Users can still select any id via `/model <id>`.
 var KnownModels = []ModelInfo{
 	{"anthropic.claude-opus-4-8", "Claude Opus 4.8", true},
@@ -968,7 +966,7 @@ var KnownModels = []ModelInfo{
 	{"anthropic.claude-sonnet-4-5-20250929-v1:0", "Claude Sonnet 4.5", true},
 }
 
-// KnownOpenAIModels is the curated list served via Floodgate's OpenAI-compatible
+// KnownOpenAIModels is the curated list served via the provider's OpenAI-compatible
 // endpoint — Gemini only. (Claude is served via the native Anthropic endpoint;
 // the endpoint is chosen by ProviderForModel from the model id.)
 var KnownOpenAIModels = []ModelInfo{
@@ -980,10 +978,10 @@ var KnownOpenAIModels = []ModelInfo{
 // Claude + OpenAI-route Gemini), used as the /models fallback when the live
 // fetch fails. The route for each is derived from its id by ProviderForModel.
 // GenAIOnboardingURL is where users join the GenAI-authorized group that grants
-// access to the Floodgate model endpoints.
+// access to the hosted model endpoints.
 const GenAIOnboardingURL = "https://genai.apple.com/profile/onboarding"
 
-// NotInGenAIGroup reports whether a model-fetch error is the Floodgate proxy's
+// NotInGenAIGroup reports whether a model-fetch error is the provider's
 // "Caller not in authorized group" 403 — i.e. the user hasn't onboarded to GenAI.
 func NotInGenAIGroup(err error) bool {
 	if err == nil {
@@ -1011,7 +1009,7 @@ const ModelRegionRestrictionsURL = "https://genai.apple.com/policies/models/#mod
 
 const regionRestrictedNote = "This model is unavailable in your region."
 
-// ModelRegionRestricted reports whether an error is Floodgate's "model unavailable
+// ModelRegionRestricted reports whether an error is the provider's "model unavailable
 // in your region" 403 (a regional restriction, not a group/onboarding problem).
 func ModelRegionRestricted(err error) bool {
 	if err == nil {
@@ -1021,7 +1019,7 @@ func ModelRegionRestricted(err error) bool {
 	return strings.Contains(s, "unavailable in your region") || strings.Contains(s, "regional restrictions")
 }
 
-// TurnErrorNote rewrites known Floodgate turn/inference errors into friendlier
+// TurnErrorNote rewrites known turn/inference errors into friendlier
 // guidance for display; unrecognized errors return their raw text unchanged.
 func TurnErrorNote(err error) string {
 	if err == nil {
@@ -1060,11 +1058,9 @@ func ModelSupportsThinking(id string) bool {
 //
 // Recognized env vars:
 //
-//	FLOODGATE_BASE_URL       override the Floodgate base URL (Anthropic route)
 //	MOONY_OPENAI_BASE_URL      override the OpenAI route base URL (incl. /v1)
 //	MOONY_MODEL                override the model identifier (the route is derived from it)
 //	MOONY_REASONING            override the reasoning level (off/low/medium/high)
-//	FLOODGATE_PROJECT_TOKEN  use a dedicated project quota
 //
 // cheapModeEnabled reports whether MOONY_CHEAP requests the maximum-savings preset.
 func cheapModeEnabled() bool {

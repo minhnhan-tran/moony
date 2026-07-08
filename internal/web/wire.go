@@ -191,7 +191,7 @@ type statusWire struct {
 	Version  string `json:"version,omitempty"`
 	Model    string `json:"model,omitempty"`
 	Provider string `json:"provider,omitempty"`
-	// LLMProvider is the /provider backend selection (floodgate / afm / ollama),
+	// LLMProvider is the /provider backend selection (ollama / openai / anthropic),
 	// distinct from Provider (the derived API route). The composer shows it before
 	// the model name. Normalized id; the client maps it to a friendly label.
 	LLMProvider string `json:"llmProvider,omitempty"`
@@ -223,7 +223,7 @@ type statusWire struct {
 	QuotaSpend           float64    `json:"quotaSpend,omitempty"`
 	QuotaBudget          float64    `json:"quotaBudget,omitempty"`
 	QuotaKnown           bool       `json:"quotaKnown,omitempty"`
-	QuotaName            string     `json:"quotaName,omitempty"`            // tooltip: Floodgate project name, or "personal"
+	QuotaName            string     `json:"quotaName,omitempty"`            // tooltip: the gateway's project name, or "personal"
 	QuotaTokens          int        `json:"quotaTokens,omitempty"`          // tokens used in the quota period (24h)
 	QuotaTokensMax       int        `json:"quotaTokensMax,omitempty"`       // per-day token cap, when the budget carries one
 	QuotaTokenRate       int        `json:"quotaTokenRate,omitempty"`       // token rate limit (tokens per period)

@@ -26,7 +26,7 @@ func TestApplyEnvTokenEdits(t *testing.T) {
 		"envToken:GITHUB_PERSONAL_ACCESS_TOKEN": json.RawMessage(`"ghp_abc123"`),
 		"envToken:RADAR_MCP_TOKEN":              json.RawMessage(`""`),        // blank → keep
 		"envToken:NODE_ENV":                     json.RawMessage(`"staging"`), // not token-like → ignored
-		"floodgateProjectToken":                 json.RawMessage(`"x"`),       // wrong prefix → ignored
+		"unknownProjectToken":                   json.RawMessage(`"x"`),       // wrong prefix → ignored
 	}
 	changed := applyEnvTokenEdits(raw)
 

@@ -848,15 +848,22 @@ function prettyModel(m) {
     pick(new RegExp("(\\d+(?:[-_.]\\d+)*)[-_. ]?" + fam));
   return ver ? `Claude ${family} ${ver}` : `Claude ${family}`;
 }
-// providerLabel maps a /provider backend id (floodgate / afm / ollama) to the
-// friendly name shown before the model in the composer meta. Unknown/empty ids
-// return "" so the caller can omit the provider segment entirely.
+// providerLabel maps a /provider backend id to the friendly name shown before
+// the model in the composer meta. Unknown/empty ids return "" so the caller can
+// omit the provider segment entirely.
 function providerLabel(id) {
   switch (String(id || "").toLowerCase()) {
-    case "floodgate": return "Apple Floodgate";
-    case "sqe-proxy": return "SQE Proxy";
-    case "afm": return "Apple Foundation Models";
     case "ollama": return "Ollama";
+    case "openai": return "OpenAI";
+    case "anthropic": return "Anthropic";
+    case "openrouter": return "OpenRouter";
+    case "gemini": return "Gemini";
+    case "deepseek": return "DeepSeek";
+    case "groq": return "Groq";
+    case "xai": return "xAI";
+    case "mistral": return "Mistral";
+    case "together": return "Together.ai";
+    case "fireworks": return "Fireworks.ai";
     default: return "";
   }
 }

@@ -31,8 +31,8 @@ func (m Model) saveConfig(action string) string {
 	// selected provider). It's cached on the agent and only rebuilt on explicit
 	// refresh, so regenerate it here — every persisted config change (/model,
 	// /provider, /reasoning, …) routes through saveConfig — to keep the prompt
-	// from going stale mid-session (e.g. so /provider afm stops the model from
-	// self-identifying as Floodgate/Claude). Safe between turns; the running turn
+	// from going stale mid-session (e.g. so /provider <name> stops the model from
+	// self-identifying as its previous backend). Safe between turns; the running turn
 	// captured a.system at its start.
 	if m.agent != nil {
 		m.agent.RefreshSystemPrompt()
@@ -213,8 +213,7 @@ func permissionsList(rules *permissions.Rules) string {
 
 // providerCmd shows the available model providers, or sets the active one. The
 // choice is persisted and takes effect immediately (the client routes by
-// config). Selecting AFM additionally needs appleconnect on macOS (or
-// MOONY_AFM_TOKEN elsewhere).
+// config).
 func (m Model) providerCmd(fields []string) string {
 	active := provider.Normalize(m.cfg.LLMProvider)
 	if len(fields) < 2 {

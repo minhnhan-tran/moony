@@ -1010,7 +1010,7 @@ function selectSession(id) {
 
 // sqeProxyDeniedCard builds the concise "Refresh Access" card shown only when an
 // automatic membership refresh DIDN'T grant access. It deliberately does NOT echo
-// the raw floodgate 403 text — just a short status + a manual retry button.
+// the raw provider 403 text — just a short status + a manual retry button.
 function sqeProxyDeniedCard() {
   const d = el("div", "msg msg-info text-sm");
   d.appendChild(sym("info.circle.fill", "msg-info-icon"));
@@ -1045,7 +1045,7 @@ function sqeProxyDeniedCard() {
 // gate is (or already was) primed, false on a genuine denial. Safe to call
 // proactively (on a provider switch) so the first send doesn't pay the round-trip.
 function primeSQEProxyGate() {
-  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "floodgate") === "sqe-proxy";
+  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "ollama") === "sqe-proxy";
   if (!onSQEProxy || !authUser) return Promise.resolve(true); // not gated
   if (sqeProxyGatePrimed) return Promise.resolve(true);       // already primed this session
   if (sqeProxyPrimePromise) return sqeProxyPrimePromise;      // a prime is already in flight — dedupe
@@ -1073,7 +1073,7 @@ function primeSQEProxyGate() {
 // than silently hung. Returns true when it's safe to send; on a genuine denial it
 // shows the concise Refresh-Access card and returns false.
 async function ensureSQEProxyAccess() {
-  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "floodgate") === "sqe-proxy";
+  const onSQEProxy = lastStatus && (lastStatus.llmProvider || "ollama") === "sqe-proxy";
   if (!onSQEProxy || !authUser || sqeProxyGatePrimed) return true; // not gated / already primed → instant
   const note = sqeProxyInfoNote("Checking SQE Proxy access…");
   let ok = true;
@@ -1096,13 +1096,13 @@ function sqeProxyInfoNote(text) {
 }
 
 // tryAutoRefreshMembership handles a SQE Proxy "access denied" on any surface
-// (the /models menu OR a turn that hit floodgate 403). On EVERY denial it
+// (the /models menu OR a turn that hit a provider 403). On EVERY denial it
 // silently re-checks the user's allow-group membership via POST
 // /api/refresh-membership (root-relative → the relay, which has the web session +
 // DSID) and, on success, transparently retries what was denied via onRetry()
 // (re-run /models, or resend the last turn). It dedupes a burst of denials (one
 // POST in flight at a time) and a short cooldown prevents a refresh→retry→deny
-// loop from hammering the relay. The raw floodgate 403 text is NEVER shown: on a
+// loop from hammering the relay. The raw provider 403 text is NEVER shown: on a
 // success the retry is silent; only when the user genuinely isn't in the group
 // does a concise Refresh Access card appear. Returns true so callers suppress the
 // raw error.
@@ -1254,9 +1254,9 @@ function handle(ev) {
       break;
     }
     case "thinking": {
-      // Floodgate redacts the reasoning text but still emits a marker so we know
+      // The provider redacts the reasoning text but still emits a marker so we know
       // reasoning happened. Don't render an empty "thinking" bubble for it.
-      if (!thinkBody && ev.text === "(reasoning hidden by Floodgate)") break;
+      if (!thinkBody && ev.text === "(reasoning hidden by the provider)") break;
       if (!thinkBody) {
         endToolGroup();
         endWorkerGroup();
@@ -1426,8 +1426,8 @@ function handle(ev) {
       break;
     }
     case "error": {
-      // A turn that hit SQE Proxy's group gate surfaces here as a generic error
-      // ("floodgate returned 403 … sqe-proxy: access denied"). Auto-refresh
+      // A turn that hit the relay proxy's group gate surfaces here as a generic
+      // error ("the provider returned 403 … access denied"). Auto-refresh
       // membership and transparently resend the same turn, instead of dumping the
       // raw 403 on the user. Falls back to the manual card if refresh doesn't help.
       if (typeof ev.text === "string" && ev.text.indexOf("sqe-proxy: access denied") !== -1) {
@@ -1489,7 +1489,7 @@ function handle(ev) {
       // making send() instant instead of paying the pre-flight on Enter.
       if (lastStatus && lastStatus.llmProvider !== prevProvider) {
         sqeProxyGatePrimed = false;
-        if ((lastStatus.llmProvider || "floodgate") === "sqe-proxy" && authUser) primeSQEProxyGate();
+        if ((lastStatus.llmProvider || "ollama") === "sqe-proxy" && authUser) primeSQEProxyGate();
       }
       renderHeader();
       renderStatusBar();
@@ -1884,10 +1884,17 @@ const REASONING_LEVELS = [
 // PROVIDER_OPTIONS is the /provider backend picker (mirrors internal/provider's
 // registry). Choosing one sends "/provider <id>".
 const PROVIDER_OPTIONS = [
-  { id: "floodgate", label: "Apple Floodgate", desc: "hosted Anthropic & Gemini models (default)" },
-  { id: "sqe-proxy", label: "SQE Proxy", desc: "Floodgate endpoints via a Narrative cert/key (mTLS)" },
-  { id: "afm", label: "Apple Foundation Models", desc: "Apple Foundation Models" },
-  { id: "ollama", label: "Ollama", desc: "local models via an Ollama instance" },
+  { id: "ollama", label: "Ollama", desc: "local (or remote) Ollama server — no API key (default)" },
+  { id: "openai", label: "OpenAI", desc: "api.openai.com — needs MOONY_OPENAI_API_KEY" },
+  { id: "anthropic", label: "Anthropic", desc: "api.anthropic.com (Claude) — needs MOONY_ANTHROPIC_API_KEY" },
+  { id: "openrouter", label: "OpenRouter", desc: "openrouter.ai — needs MOONY_OPENROUTER_API_KEY" },
+  { id: "gemini", label: "Gemini", desc: "Google's OpenAI-compatible endpoint — needs MOONY_GEMINI_API_KEY" },
+  { id: "deepseek", label: "DeepSeek", desc: "api.deepseek.com — needs MOONY_DEEPSEEK_API_KEY" },
+  { id: "groq", label: "Groq", desc: "api.groq.com — needs MOONY_GROQ_API_KEY" },
+  { id: "xai", label: "xAI (Grok)", desc: "api.x.ai — needs MOONY_XAI_API_KEY" },
+  { id: "mistral", label: "Mistral", desc: "api.mistral.ai — needs MOONY_MISTRAL_API_KEY" },
+  { id: "together", label: "Together.ai", desc: "api.together.xyz — needs MOONY_TOGETHER_API_KEY" },
+  { id: "fireworks", label: "Fireworks.ai", desc: "api.fireworks.ai — needs MOONY_FIREWORKS_API_KEY" },
 ];
 function hdrMenuOpen() { return hdrMenuEl && !hdrMenuEl.classList.contains("hidden"); }
 function closeHdrMenu() { if (hdrMenuEl) { hdrMenuEl.classList.add("hidden"); hdrMenuEl.innerHTML = ""; hdrMenuEl.dataset.kind = ""; } }
@@ -1993,8 +2000,8 @@ function renderComposerMeta(s) {
   if (!composerMetaEl) return;
   composerMetaEl.innerHTML = "";
   if (!s || !s.model) { composerMetaEl.removeAttribute("title"); return; }
-  // Provider (the /provider backend: Apple Floodgate / Apple Foundation Models /
-  // Ollama) before the model name, as its own clickable pill that opens the
+  // Provider (the /provider backend, e.g. Ollama / OpenAI / Anthropic)
+  // before the model name, as its own clickable pill that opens the
   // provider picker. Omitted when unknown. stopPropagation keeps the surrounding
   // legend's model-picker click from also firing.
   const prov = providerLabel(s.llmProvider);
@@ -2003,7 +2010,7 @@ function renderComposerMeta(s) {
     pp.setAttribute("role", "button");
     pp.tabIndex = 0;
     pp.title = "Provider: " + prov + " — click to change";
-    const openProvider = (e) => { e.stopPropagation(); openHdrMenu(pp, "provider", PROVIDER_OPTIONS, s.llmProvider || "floodgate", "/provider"); };
+    const openProvider = (e) => { e.stopPropagation(); openHdrMenu(pp, "provider", PROVIDER_OPTIONS, s.llmProvider || "ollama", "/provider"); };
     pp.onclick = openProvider;
     pp.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProvider(e); } };
     composerMetaEl.appendChild(pp);
@@ -2080,7 +2087,7 @@ function updateAvatar(s) {
 
 // renderStatusBar mirrors the terminal status bar: a left activity indicator
 // (state + active tool) and a right-side stats line (token usage, cost or
-// Floodgate quota, and context-window fill). Model/route live in the header.
+// usage quota, and context-window fill). Model/route live in the header.
 function renderStatusBar() {
   statusEl.innerHTML = "";
   let icon = null, txt = "ready";
@@ -2144,26 +2151,26 @@ function renderStats() {
   parts.push(tok);
 
   // cost / quota: prefer the authoritative live quota, else session estimate.
-  // Floodgate reports its AppleConnect 24h quota; SQE Proxy reports the relay's
-  // per-user daily cap. AFM/Ollama have no quota, so the token is hidden there.
+  // Only a relay-fronted provider that reports a per-user daily cap exposes a
+  // quota token; direct providers and Ollama have no quota, so it's hidden there.
   let money = "", moneyTitle = "", quotaClickable = false;
-  const prov = s.llmProvider || "floodgate";
+  const prov = s.llmProvider || "ollama";
   const onSQEProxy = prov === "sqe-proxy";
-  const hasQuota = prov === "floodgate" || onSQEProxy;
+  const hasQuota = onSQEProxy;
   if (hasQuota && s.quotaKnown && (s.quotaSpend || s.quotaBudget)) {
     money = s.quotaBudget > 0 ? `${fmtUSD(s.quotaSpend)} / ${fmtUSD(s.quotaBudget)}` : fmtUSD(s.quotaSpend);
     const q = s.quotaName || "personal";
     const sqeUser = q && q !== "personal" ? q : (authUser && authUser.accountname) || "";
     moneyTitle = onSQEProxy
-      ? "SQE Proxy daily quota" + (sqeUser ? " — " + sqeUser : "")
-      : "Floodgate quota (24h) — " + (q === "personal" ? "personal quota" : "project: " + q);
+      ? "Provider daily quota" + (sqeUser ? " — " + sqeUser : "")
+      : "Usage (24h) — " + (q === "personal" ? "personal quota" : "project: " + q);
     quotaClickable = true;
   } else if (hasQuota && s.costUSD > 0) {
     money = `${fmtUSD(s.costUSD)}~`;
     moneyTitle = "Estimated session cost (no live quota fetched)";
   }
   if (money) {
-    // The live Floodgate quota is a clickable token (like the header's approval /
+    // The live usage quota is a clickable token (like the header's approval /
     // reasoning pills): tap it to pop the quota name + usage above the status bar.
     const me = el("span", quotaClickable ? "text-ink stat-quota" : "text-ink", money);
     if (moneyTitle) me.title = moneyTitle;
@@ -2206,22 +2213,22 @@ function renderStats() {
 }
 
 // quotaInfoRows builds the rows for the quota info popover: the quota's name
-// (personal vs a Floodgate project) as the heading, the 24h spend vs the daily
+// (personal vs a project) as the heading, the 24h spend vs the daily
 // budget, and tokens used vs the account's total token allowance in one row.
 // Mirrors the moneyTitle tooltip as a tap target.
 function quotaInfoRows(s) {
-  const onSQEProxy = (s.llmProvider || "floodgate") === "sqe-proxy";
+  const onSQEProxy = (s.llmProvider || "ollama") === "sqe-proxy";
   const q = s.quotaName || "personal";
   let name, heading;
   if (onSQEProxy) {
     // Prefer the quota's reported username (from the relay), else the signed-in
-    // AppleConnect username, else a generic label.
+    // username, else a generic label.
     name = q && q !== "personal" ? q
       : (authUser && authUser.accountname) || "your account";
-    heading = "SQE Proxy daily quota";
+    heading = "Provider daily quota";
   } else {
     name = q === "personal" ? "Personal quota" : "Project: " + q;
-    heading = "Floodgate quota (24h)";
+    heading = "Usage (24h)";
   }
   const rows = [{ label: name, desc: heading }];
   if (s.quotaBudget > 0) {

@@ -247,7 +247,7 @@ public final class SessionViewModel {
         case "thinking":
             currentAssistantId = nil
             let t = p.text ?? ""
-            if t.isEmpty || t == "(reasoning hidden by Floodgate)" { break }
+            if t.isEmpty || t == "(reasoning hidden by the provider)" { break }
             // First chunk gets the "Thinking:" lead-in; later chunks append raw.
             if currentThinkingId == nil {
                 appendStreaming(&currentThinkingId, sender: .agent, delta: "💭 Thinking: " + t)

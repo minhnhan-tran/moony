@@ -1,10 +1,10 @@
 package config
 
 // Pricing tables for the curated Anthropic/Bedrock and Gemini models exposed
-// via Floodgate. The `modelPrices` map contains best-effort public list prices
-// ($ per 1M tokens) at the time of writing — Apple's actual cost may differ.
+// via the model gateway. The `modelPrices` map contains best-effort public list
+// prices ($ per 1M tokens) at the time of writing — actual cost may differ.
 //
-// At startup the agent calls Floodgate's /api/usage/v1/{personal,project}
+// At startup the agent calls the gateway's /api/usage/v1/{personal,project}
 // endpoint and overlays the authoritative per-model pricing returned there
 // onto the runtime store, via OverlayRuntimePricing. CostUSD checks the
 // runtime store first and falls back to the static table.
@@ -12,7 +12,7 @@ package config
 import "sync"
 
 // ModelPrice holds per-million-token rates in US dollars. The cache rates are
-// optional: when zero (the static table never states them, and Floodgate may
+// optional: when zero (the static table never states them, and the gateway may
 // omit them), they're derived from the input rate via the standard Anthropic
 // multipliers — see cacheReadPer1M / cacheWritePer1M.
 type ModelPrice struct {
@@ -48,9 +48,9 @@ func (p ModelPrice) cacheWritePer1M() float64 {
 	return p.InputUSDPer1M * cacheWriteMultiplier
 }
 
-// modelPrices maps a Floodgate model id (sans cloud-provider prefix) to its
+// modelPrices maps a cloud model id (sans cloud-provider prefix) to its
 // public list price. Cache rates are left unset here (derived from the input
-// rate via the standard multipliers); the Floodgate runtime overlay supplies
+// rate via the standard multipliers); the runtime overlay supplies
 // explicit cache rates when it has them.
 var modelPrices = map[string]ModelPrice{
 	// Anthropic Claude
@@ -69,7 +69,7 @@ var modelPrices = map[string]ModelPrice{
 	"gemini-2.5-pro":         {InputUSDPer1M: 1.25, OutputUSDPer1M: 10},
 }
 
-// runtimePrices holds Floodgate-supplied prices fetched at startup. Reads can
+// runtimePrices holds provider-supplied prices fetched at startup. Reads can
 // happen from any goroutine (the TUI's update loop while a streaming-token
 // response is being priced); writes only happen from the startup overlay
 // callback. A RWMutex keeps it safe even though contention is near zero.
@@ -91,7 +91,7 @@ func stripPrefix(model string) string {
 
 // OverlayRuntimePricing replaces the runtime price for one model id. Pass
 // per-token costs (the API's native unit); they are converted to per-million
-// internally. cacheRead/cacheWrite may be 0 when Floodgate doesn't report them,
+// internally. cacheRead/cacheWrite may be 0 when the provider doesn't report them,
 // in which case CostUSDFull derives them from the input rate.
 func OverlayRuntimePricing(model string, inputCostPerToken, outputCostPerToken, cacheReadCostPerToken, cacheWriteCostPerToken float64) {
 	if inputCostPerToken == 0 && outputCostPerToken == 0 {
@@ -116,7 +116,7 @@ func ClearRuntimePricing() {
 
 // PriceFor returns the pricing for a model id, stripping the "aws:"/"gcp:"
 // cloud-provider prefix used on the OpenAI route. The runtime overlay (set
-// from Floodgate at startup) wins; otherwise the static table is consulted.
+// from the provider at startup) wins; otherwise the static table is consulted.
 func PriceFor(model string) (ModelPrice, bool) {
 	key := stripPrefix(model)
 	runtimeMu.RLock()
@@ -177,7 +177,7 @@ var fallbackModelPrice = ModelPrice{InputUSDPer1M: 15, OutputUSDPer1M: 75}
 
 // CostUSDFullFallback is CostUSDFull but prices an unknown model at the conservative
 // fallbackModelPrice instead of $0. The relay's per-user quota meters with this, so
-// an unrecognized model id (a manual /model pick, or one Floodgate serves before the
+// an unrecognized model id (a manual /model pick, or one the provider serves before the
 // price table catches up) still accrues spend and can never run uncapped.
 func CostUSDFullFallback(model string, inTokens, outTokens, cacheReadTokens, cacheWriteTokens int) float64 {
 	p, ok := PriceFor(model)

@@ -111,9 +111,9 @@ func TestBuildSystemPromptTodoCadence(t *testing.T) {
 }
 
 // The "- Model: … (served via …)" identity line must follow the selected
-// provider so the model self-identifies correctly: Floodgate by default, and
-// Apple Foundation Models (AFM) under /provider afm — never claiming Floodgate
-// while running on AFM. Regression test for the AFM mis-identification bug.
+// provider so the model self-identifies correctly: the hosted provider by default,
+// and Ollama when running locally — never claiming one while running on the other.
+// Regression test for the provider mis-identification bug.
 func TestBuildSystemPromptProviderIdentity(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	reg := tools.Default(t.TempDir(), 30000)

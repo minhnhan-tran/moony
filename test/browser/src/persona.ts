@@ -23,7 +23,7 @@ const BIN = process.env.SIM_DECIDE_BIN || path.resolve(process.cwd(), '..', '..'
 
 // decide asks the LLM persona for the next human action given the conversation
 // and whatever the agent is waiting on. It shells out to the Go decider (which
-// owns Claude/Floodgate auth) and parses its one-line JSON action.
+// owns Claude auth) and parses its one-line JSON action.
 export function decide(persona: string, goal: string, history: Turn[], pending: Pending): Decision {
   const input = JSON.stringify({ persona, goal, history, pending });
   let out: string;

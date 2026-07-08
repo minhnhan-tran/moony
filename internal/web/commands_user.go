@@ -39,9 +39,9 @@ func tokensSummary(sess *session, cfg *config.Config) string {
 	}
 	if quotaKnown {
 		if budget > 0 {
-			msg += fmt.Sprintf("\nFloodgate quota (24h): $%.2f / $%.2f", spend, budget)
+			msg += fmt.Sprintf("\nUsage (24h): $%.2f / $%.2f", spend, budget)
 		} else {
-			msg += fmt.Sprintf("\nFloodgate quota (24h): $%.2f spent (no budget cap)", spend)
+			msg += fmt.Sprintf("\nUsage (24h): $%.2f spent (no budget cap)", spend)
 		}
 	}
 	// The diagnostic: if cached reads are a large share but the authoritative quota
@@ -55,9 +55,9 @@ func tokensSummary(sess *session, cfg *config.Config) string {
 func formatQuota(r *llm.UsageResponse) string {
 	spend, budget := r.Usage.Spend, r.Quota.Budget.Spend
 	if budget > 0 {
-		return fmt.Sprintf("Floodgate quota (24h): $%.2f / $%.2f", spend, budget)
+		return fmt.Sprintf("Usage (24h): $%.2f / $%.2f", spend, budget)
 	}
-	return fmt.Sprintf("Floodgate quota (24h): $%.2f spent (no budget cap)", spend)
+	return fmt.Sprintf("Usage (24h): $%.2f spent (no budget cap)", spend)
 }
 
 func (s *Server) sessionsSummary(workingDir string) string {

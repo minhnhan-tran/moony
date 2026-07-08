@@ -81,7 +81,7 @@ func TestPrepareMessagesThinkingFallback(t *testing.T) {
 // missed: a message that is ALREADY content-less (nil or empty Content — e.g. an
 // assistant turn finalized with zero blocks, or a null-content message replayed
 // from a long persisted history) must still be repaired when thinking is
-// ENABLED. The Floodgate Claude path runs with adaptive thinking on, and the old
+// ENABLED. The gateway's Claude path runs with adaptive thinking on, and the old
 // prepareMessages returned early (`if thinkingEnabled { return messages }`)
 // before the empty-content guard, so such a message reached the API and was
 // rejected with "messages.N.content: Field required".

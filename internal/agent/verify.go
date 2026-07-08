@@ -50,7 +50,7 @@ func (a *Agent) runVerify(ctx context.Context) verifyResult {
 
 	cmd := exec.CommandContext(cctx, "sh", "-c", cmdline)
 	cmd.Dir = a.cfg.WorkingDir
-	cmd.Env = tools.ScrubbedEnv() // keep auth/Floodgate secrets out of the verify command (parity with bash)
+	cmd.Env = tools.ScrubbedEnv() // keep auth secrets out of the verify command (parity with bash)
 	out, err := cmd.CombinedOutput()
 	res := verifyResult{ok: err == nil, output: string(out)}
 	if cctx.Err() == context.DeadlineExceeded {

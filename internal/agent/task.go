@@ -443,8 +443,8 @@ func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 		// the persona pins its own model above.
 		c.SetModel(config.FastModel(c.Model, c.LLMProvider))
 	}
-	// (A pinned model that the current backend can't serve — e.g. a Floodgate id
-	// pinned then run under Ollama, or an AFM id under Floodgate — is ignored by
+	// (A pinned model that the current backend can't serve — e.g. a hosted model id
+	// pinned then run under Ollama, or an Ollama id under a hosted provider — is ignored by
 	// modelServableBy above, so the sub-agent inherits the parent's valid model
 	// instead of 404ing on a cross-provider mismatch.)
 	// Don't let a cost-tuned main-loop cap cripple a delegated surveyor (see

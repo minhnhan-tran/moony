@@ -68,7 +68,7 @@ func TestNormalizeReasoningAliases(t *testing.T) {
 	}
 }
 
-// TestWireEffort locks in the values that may reach Floodgate's output_config.effort
+// TestWireEffort locks in the values that may reach the gateway's output_config.effort
 // field, which accepts ONLY low|medium|high|xhigh|max. "off" and "auto" (whose
 // baseline is off) must resolve to "" (nothing sent) rather than the invalid
 // effort:"off" that 400'd; x-high must go over the wire as "xhigh", not "x-high".
@@ -90,7 +90,7 @@ func TestWireEffort(t *testing.T) {
 		// Concrete levels pass through as the exact wire spelling.
 		{ProviderAnthropic, sonnet, ReasoningHigh, "high"},
 		{ProviderAnthropic, opus, ReasoningMax, "max"},
-		// x-high must serialize as "xhigh" (the variant Floodgate accepts), from
+		// x-high must serialize as "xhigh" (the variant the gateway accepts), from
 		// either spelling; on a model without an x-high tier it clamps to "high".
 		{ProviderAnthropic, opus, ReasoningXHigh, "xhigh"},
 		{ProviderAnthropic, opus, "x-high", "xhigh"},
@@ -108,7 +108,7 @@ func TestWireEffort(t *testing.T) {
 			t.Errorf("WireEffort(%s, %s, %q) = %q, want %q", c.provider, c.model, c.level, got, c.want)
 		}
 		if !allowed[got] {
-			t.Errorf("WireEffort(%s, %s, %q) = %q — not a Floodgate-accepted effort variant", c.provider, c.model, c.level, got)
+			t.Errorf("WireEffort(%s, %s, %q) = %q — not a gateway-accepted effort variant", c.provider, c.model, c.level, got)
 		}
 	}
 }

@@ -20,7 +20,7 @@ import (
 //	MOONY_SMOKE=1 go test ./internal/agent -run TestApprovalSmoke -v
 func TestApprovalSmoke(t *testing.T) {
 	if os.Getenv("MOONY_SMOKE") != "1" {
-		t.Skip("set MOONY_SMOKE=1 to run the live Floodgate approval smoke test")
+		t.Skip("set MOONY_SMOKE=1 to run the live approval smoke test")
 	}
 
 	dir := t.TempDir()

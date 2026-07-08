@@ -544,7 +544,7 @@ func (m Model) statusView() string {
 	if m.totalCacheRead > 0 && m.totalIn > 0 {
 		right += statusDimStyle.Render("   ") + statusTextStyle.Render(fmt.Sprintf("cache %d%%", 100*m.totalCacheRead/m.totalIn))
 	}
-	// Prefer the authoritative Floodgate quota when known; fall back to the
+	// Prefer the authoritative quota from the gateway when known; fall back to the
 	// in-session estimate while the first fetch is in flight or if it failed.
 	if q := formatQuotaShort(m.quotaFetched, m.quotaSpend, m.quotaBudget); q != "" {
 		right += statusDimStyle.Render("   ") + statusTextStyle.Render(q)

@@ -51,7 +51,7 @@ func TestParseStreamInlineThinking(t *testing.T) {
 }
 
 func TestParseStreamHiddenThinkingIndicator(t *testing.T) {
-	// A thinking block with only a signature (Floodgate redacts the text) should
+	// A thinking block with only a signature (the gateway redacts the text) should
 	// surface a visible marker.
 	script := strings.Join([]string{
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}`,

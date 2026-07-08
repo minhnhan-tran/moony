@@ -68,7 +68,7 @@ func TestRunVerifyTimeout(t *testing.T) {
 }
 
 // TestRunVerifyScrubsSecrets confirms the verify subprocess does NOT inherit the
-// agent's auth/Floodgate secrets (parity with the bash tool's scrubbed env), while
+// agent's auth secrets (parity with the bash tool's scrubbed env), while
 // ordinary environment variables still pass through.
 func TestRunVerifyScrubsSecrets(t *testing.T) {
 	t.Setenv("MOONY_OLLAMA_TOKEN", "SENTINEL-must-not-leak")

@@ -89,7 +89,7 @@ func resp(code int, body string) *http.Response {
 
 func newReqTo(t *testing.T, c *Client) func() (*http.Request, error) {
 	return func() (*http.Request, error) {
-		return http.NewRequestWithContext(context.Background(), http.MethodGet, "https://floodgate.test/x", nil)
+		return http.NewRequestWithContext(context.Background(), http.MethodGet, "https://gateway.test/x", nil)
 	}
 }
 
@@ -176,7 +176,7 @@ func TestDoWithRetryHonorsContextCancel(t *testing.T) {
 	cancel() // cancelled up front; the first backoff must abort immediately
 
 	_, err := c.doWithRetry(ctx, func() (*http.Request, error) {
-		return http.NewRequestWithContext(ctx, http.MethodGet, "https://floodgate.test/x", nil)
+		return http.NewRequestWithContext(ctx, http.MethodGet, "https://gateway.test/x", nil)
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)

@@ -1,6 +1,6 @@
 // Package radar mints the short-lived AppleConnect access token that the Radar
 // MCP server (https://radar-mcp.corp.apple.com/mcp) requires. This is a
-// different token from the Floodgate ID token — a different client id, resource
+// different token from the model gateway's ID token — a different client id, resource
 // URL, and output key ("oauth-access-token" vs "oauth-id-token").
 //
 // The token authorizes the bundled `radar` MCP catalog entry, whose

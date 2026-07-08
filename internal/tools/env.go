@@ -73,7 +73,7 @@ func scrubbedEnvFor(dir string) []string {
 }
 
 // ScrubbedEnv is the exported form of scrubbedEnv: the process environment minus
-// the auth/Floodgate secrets. Agent-run subprocesses defined OUTSIDE this package
+// the auth/API secrets. Agent-run subprocesses defined OUTSIDE this package
 // (e.g. the verify loop in internal/agent) use it so they strip the same secrets
 // the bash/job tools do — keeping credentials out of build/test commands.
 func ScrubbedEnv() []string { return scrubbedEnv() }

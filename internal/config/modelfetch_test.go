@@ -29,7 +29,7 @@ func TestModelFetchNote(t *testing.T) {
 }
 
 func TestTurnErrorNoteRegion(t *testing.T) {
-	regionErr := errors.New(`floodgate returned 403 Forbidden: {"message":"This model is unavailable in your region. Check the regional restrictions at https://genai.apple.com/policies/models/#model-regional-restrictions.","type":"error"}`)
+	regionErr := errors.New(`the provider returned 403 Forbidden: {"message":"This model is unavailable in your region. Check the regional restrictions in the provider's model policy.","type":"error"}`)
 	if !ModelRegionRestricted(regionErr) {
 		t.Fatal("should detect regional restriction")
 	}

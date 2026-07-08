@@ -22,22 +22,6 @@ const (
 	subBufferSize = 1024 // per-viewer event buffer; full → that viewer drops live events (recoverable via reload)
 )
 
-// isProxyDeniedErr reports whether a turn error is the SQE-Proxy group-gate 403
-// (in any of its phrasings) — the error the web client transparently retries
-// (refresh membership → resend the turn). Mirrors the client's isProxyDenied so
-// the server can prune the failed turn's history for exactly that case. See
-// relay/floodgate.go for the source message.
-func isProxyDeniedErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "sqe-proxy: access denied") ||
-		strings.Contains(msg, "SQE Proxy unavailable") ||
-		strings.Contains(msg, "SQE Proxy is restricted") ||
-		strings.Contains(msg, "not a member of the configured group")
-}
-
 // session is one conversation: an agent plus a broadcast hub. Every emitted
 // event is appended to history (so a newly-connected, possibly remote, viewer
 // can replay the whole conversation) and fanned out to all live subscribers.
@@ -79,12 +63,12 @@ type session struct {
 	cachedIn             int     // of tokensIn, the portion read from the prompt cache (cheap)
 	cacheCreateIn        int     // of tokensIn, the portion that wrote new cache entries
 	lastTurnIn           int     // input tokens of the most recent turn (for context %)
-	quotaSpend           float64 // authoritative Floodgate 24h usage, when fetched
+	quotaSpend           float64 // authoritative provider 24h usage, when fetched
 	quotaBudget          float64
 	quotaKnown           bool
-	quotaName            string // label for the quota source: a Floodgate project name, or "personal"
+	quotaName            string // label for the quota source: a provider project name, or "personal"
 	quotaTokens          int    // tokens used in the quota period (24h), when fetched
-	quotaTokensMax       int    // per-day token cap, when the Floodgate budget carries one (often 0)
+	quotaTokensMax       int    // per-day token cap, when the provider budget carries one (often 0)
 	quotaTokenRate       int    // token rate limit (tokens per quotaTokenRatePeriod), e.g. 1e9
 	quotaTokenRatePeriod string // the rate-limit window, e.g. "4m"
 
@@ -311,7 +295,7 @@ func (s *session) quotaTokenSnapshot() (tokens, tokensMax, rate int, ratePeriod 
 	return s.quotaTokens, s.quotaTokensMax, s.quotaTokenRate, s.quotaTokenRatePeriod
 }
 
-// quotaNameSnapshot returns the quota source label ("personal" / a Floodgate
+// quotaNameSnapshot returns the quota source label ("personal" / a provider
 // project name), or "" if not yet fetched.
 func (s *session) quotaNameSnapshot() string {
 	s.mu.Lock()
@@ -342,21 +326,6 @@ func (s *session) clearHistory() {
 	s.mu.Lock()
 	s.history = nil
 	s.mu.Unlock()
-}
-
-// dropCurrentTurnHistoryLocked truncates history back to (and including) the most
-// recent "user" event — removing the just-failed turn's echo, its busy state, and
-// any partial events it produced. Used when a turn fails with an error the client
-// transparently retries (the SQE-Proxy group gate), so the retry's fresh turn
-// doesn't leave a duplicate question in the replayed transcript. If there's no
-// "user" event in the tail, history is left untouched (defensive). Caller holds s.mu.
-func (s *session) dropCurrentTurnHistoryLocked() {
-	for i := len(s.history) - 1; i >= 0; i-- {
-		if s.history[i].Type == "user" {
-			s.history = s.history[:i]
-			return
-		}
-	}
 }
 
 func (s *session) mcpManager() *mcp.Manager {
@@ -454,20 +423,7 @@ func (s *session) start(prompt string, blocks []llm.ContentBlock, atts []attachW
 		s.replyQG = nil
 		s.state = stateIdle
 		if err != nil && ctx.Err() == nil {
-			// A SQE-Proxy group-gate 403 is transparently retried by the client
-			// (refresh membership → resend the same turn). Emit the error LIVE so the
-			// client's handler fires the refresh+resend, but drop THIS failed turn's
-			// trailing history — its "user" echo, the "busy" state, and the error —
-			// so the resend doesn't leave a duplicate question (and a stale error that
-			// would re-fire a refresh) in the replayed transcript. The resend records
-			// a fresh, clean turn. Non-retried errors are recorded as usual so the
-			// user still sees what went wrong on reload.
-			if isProxyDeniedErr(err) {
-				s.dropCurrentTurnHistoryLocked()
-				s.publishTransientLocked(wireEvent{Type: "error", Text: err.Error()})
-			} else {
-				s.publishLocked(wireEvent{Type: "error", Text: config.TurnErrorNote(err)})
-			}
+			s.publishLocked(wireEvent{Type: "error", Text: config.TurnErrorNote(err)})
 		}
 		s.publishLocked(stateWire(stateIdle))
 		clean := err == nil && ctx.Err() == nil

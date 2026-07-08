@@ -985,7 +985,7 @@ func (s *Server) openSession(id string) *session {
 	// Let chat turns invoke saved workflows via the run_workflow tool (@workflow).
 	s.attachWorkflowTool(live)
 	// After each turn, re-emit the status so token/cost/context counters update,
-	// then re-fetch the authoritative Floodgate quota so the status bar's "used"
+	// then re-fetch the authoritative usage quota so the status bar's "used"
 	// figure reflects the turn that just billed (it's otherwise fetched only once
 	// at session open). fetchQuota is async and re-publishes status on success,
 	// mirroring the TUI's post-turn refreshQuotaCmd.
@@ -1034,7 +1034,7 @@ func (s *Server) openSession(id string) *session {
 	s.sessions[id] = live
 	s.mu.Unlock()
 
-	// Best-effort: fetch the authoritative Floodgate quota once, then refresh the
+	// Best-effort: fetch the authoritative usage quota once, then refresh the
 	// status. Never blocks opening the session.
 	s.fetchQuota(sess, live)
 	// Connect this session's enabled MCP servers in the background (subprocess
@@ -1043,7 +1043,7 @@ func (s *Server) openSession(id string) *session {
 	return live
 }
 
-// fetchQuota asks Floodgate for the current 24h usage/quota in the background and,
+// fetchQuota asks the provider for the current 24h usage/quota in the background and,
 // on success, records it on the session and re-emits the status snapshot.
 func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 	if live == nil || live.agent == nil {
@@ -1060,7 +1060,7 @@ func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 		for id, mdl := range resp.Usage.Models {
 			config.OverlayRuntimePricing(id, mdl.Pricing.InputTokenCost, mdl.Pricing.OutputTokenCost, mdl.Pricing.CacheReadTokenCost, mdl.Pricing.CacheWriteTokenCost)
 		}
-		// Label the quota source for the status-bar tooltip: the Floodgate project
+		// Label the quota source for the status-bar tooltip: the gateway's project
 		// name when a project token is in use, else "personal".
 		quotaName := strings.TrimSpace(resp.ProjectName)
 		if quotaName == "" {

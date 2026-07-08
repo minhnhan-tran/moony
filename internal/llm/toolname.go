@@ -1,6 +1,6 @@
 package llm
 
-// Tool-name sanitization for the wire. Floodgate (and the Bedrock models behind
+// Tool-name sanitization for the wire. The gateway (and the Bedrock models behind
 // it) require tool names to match ^[a-zA-Z0-9_-]{1,64}$, but the agent names MCP
 // tools "mcp.<server>.<tool>" (dots) to signal provenance. Rather than change
 // that internal convention (used by the registry, /doctor, the UI, and prompts),

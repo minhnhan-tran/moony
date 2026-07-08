@@ -97,7 +97,7 @@ func main() {
 	}
 
 	var (
-		modelFlag     = flag.String("model", "", "Floodgate model identifier (the endpoint is derived from it)")
+		modelFlag     = flag.String("model", "", "model identifier for the active provider (e.g. llama3.1:8b, gpt-4o, claude-sonnet-4-5)")
 		reasoningFlag = flag.String("reasoning", "", "extended-thinking level: off, low, medium, or high")
 		dirFlag       = flag.String("C", "", "working directory for the agent (default: current dir)")
 		continueOld   = flag.Bool("continue", false, "resume the most recent session for this directory")

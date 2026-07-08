@@ -237,7 +237,7 @@ func selfReviewFeedbackMessage(findings string) llm.Message {
 		strings.TrimSpace(findings)))
 }
 
-// shortModelName trims a Floodgate model id to a compact, human-friendly label
+// shortModelName trims a hosted model id to a compact, human-friendly label
 // for status lines: drops the cloud-provider prefix (anthropic./gcp:) and the
 // trailing date/version suffix, e.g.
 // "anthropic.claude-haiku-4-5-20251001-v1:0" -> "claude-haiku-4-5".

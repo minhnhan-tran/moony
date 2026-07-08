@@ -47,15 +47,7 @@ func (s *Server) emitModelsMenu(sess *session) {
 	go func() {
 		models, err := sess.agent.ListModels(context.Background())
 		if err != nil {
-			errText := err.Error()
-			// SQE Proxy access denial: don't show the built-in list — the web UI
-			// auto-refreshes membership and retries instead (sqe_proxy_denied), so a
-			// fallback menu would just be noise. Emit the event and no menu.
-			if strings.Contains(errText, "sqe-proxy: access denied") {
-				sess.publishEvent(wireEvent{Type: "sqe_proxy_denied", Text: errText})
-				return
-			}
-			// Other failures: fall back to the merged curated list so the picker is
+			// On failure, fall back to the merged curated list so the picker is
 			// never empty.
 			sess.publishEvent(wireEvent{Type: "info", Text: config.ModelFetchNote(err)})
 			models = config.AllKnownModels()
@@ -84,8 +76,8 @@ func (s *Server) emitReasoningMenu(sess *session) {
 	sess.publishTransient(wireEvent{Type: "menu", Menu: &menuWire{Title: "Select a reasoning level", Command: "/reasoning", Items: items}})
 }
 
-// emitProviderMenu offers the model providers (Apple Floodgate / Apple Foundation
-// Models / Ollama) as a clickable picker; choosing one round-trips
+// emitProviderMenu offers the model providers (Ollama / OpenAI / Anthropic / …)
+// as a clickable picker; choosing one round-trips
 // "/provider <id>" back through runCommand (parity with the TUI's /provider).
 func (s *Server) emitProviderMenu(sess *session) {
 	cur := provider.Normalize(sess.agent.Config().LLMProvider)

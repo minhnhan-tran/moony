@@ -346,7 +346,7 @@ func TestMirrorMenuWire(t *testing.T) {
 
 func TestMirrorStatusWire(t *testing.T) {
 	w := mirrorWire(bridge.Msg{Seq: 3, Kind: bridge.KindStatus, Status: &bridge.Status{
-		Version: "0.3.0", Model: "opus", Provider: "floodgate anthropic",
+		Version: "0.3.0", Model: "opus", Provider: "anthropic-native",
 		WorkingDir: "~/proj", Approval: "plan", Sandbox: "sandbox", TokensIn: 12, TokensOut: 4,
 		ContextPercent: 33, ActiveTool: "bash", ToolsInFlight: 1,
 		GitBranch: "main", GitDirty: 2, Relay: "connected",

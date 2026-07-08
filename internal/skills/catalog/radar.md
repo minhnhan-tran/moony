@@ -17,7 +17,7 @@ named the server differently.)
 
 The Radar MCP server lives at `https://radar-mcp.corp.apple.com/mcp` and needs an
 OIDC **access** token scoped to `radar-webservices.apple.com` (a different token
-from the Floodgate ID token).
+from the model gateway's ID token).
 
 1. Install the bundled `radar` MCP server (writes the `mcp.json` entry with an
    `Authorization: Bearer ${RADAR_MCP_TOKEN}` header that reads the token from
@@ -30,7 +30,7 @@ from the Floodgate ID token).
    (Or add it by hand to `~/.config/moony/mcp.json` / `./.sqe/mcp.json`:
    `{"mcpServers":{"radar":{"url":"https://radar-mcp.corp.apple.com/mcp","headers":{"Authorization":"Bearer ${RADAR_MCP_TOKEN}"}}}}`.)
 
-2. Mint the access token and export it (macOS, via AppleConnect):
+2. Mint the access token and export it (macOS):
 
    ```bash
    export RADAR_MCP_TOKEN=$(moony radar-token)

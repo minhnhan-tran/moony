@@ -95,7 +95,7 @@ type Handler struct {
 // compatible route when the configured provider is "openai", otherwise it uses
 // the native Anthropic Messages API.
 //
-// Tool names are translated to a gateway-safe form for the request (Floodgate's
+// Tool names are translated to a gateway-safe form for the request (the gateway's
 // Bedrock models reject names outside [a-zA-Z0-9_-], such as the dotted
 // "mcp.<server>.<tool>") and mapped back on the response, so the agent keeps
 // StreamMessages streams a chat completion turn to Ollama, dispatching on tool names.
@@ -705,12 +705,12 @@ func parseStream(r io.Reader, h Handler) (*Response, error) {
 			if b == nil {
 				continue
 			}
-			// The model reasoned but Floodgate redacted the text (thinking block
+			// The model reasoned but the provider redacted the text (thinking block
 			// with a signature but no thinking_delta). Surface a marker so the
 			// user can see that reasoning happened.
 			if (b.typ == BlockThinking || b.typ == BlockRedactedThinking) &&
 				b.thinking.Len() == 0 && h.OnThinkingDelta != nil {
-				h.OnThinkingDelta("(reasoning hidden by Floodgate)")
+				h.OnThinkingDelta("(reasoning hidden by the provider)")
 			}
 			resp.Blocks = append(resp.Blocks, finalizeBlock(b))
 

@@ -51,15 +51,15 @@ relay:
 tailwind:
 	$(TAILWIND) -c internal/web/tailwind/tailwind.config.js -i internal/web/tailwind/input.css -o internal/web/static/tailwind.css --minify
 
-## test: run unit tests (skips the live Floodgate smoke test)
+## test: run unit tests (skips the live smoke test)
 test:
 	$(GO) test ./...
 
-## smoke: run the live end-to-end Floodgate test (needs AppleConnect + network)
+## smoke: run the live end-to-end smoke test (needs auth + network)
 smoke:
 	MOONY_SMOKE=1 $(GO) test ./internal/agent -run TestAgentSmoke -v
 
-## eval: run the live agent regression harness (needs AppleConnect + network);
+## eval: run the live agent regression harness (needs auth + network);
 ## prints a scorecard and exits non-zero if any task fails.
 eval:
 	$(GO) run ./cmd/eval

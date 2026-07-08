@@ -130,12 +130,6 @@ func DefaultModelFor(id string) string {
 	return OllamaDefaultModel
 }
 
-// ServesFloodgateModels always reports false: Apple's Floodgate gateway has
-// been retired, so no provider serves its model catalog anymore. Kept so
-// config's cheap-model downshift guards (which predate the multi-provider
-// world) still compile and never mistakenly fire on the new backends.
-func ServesFloodgateModels(id string) bool { return false }
-
 // ListText renders the registry as a numbered, human-readable list for the
 // /provider command, marking the active one.
 func ListText(active string) string {

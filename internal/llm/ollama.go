@@ -4,8 +4,8 @@ package llm
 // compatible Chat Completions API (POST <host>/v1/chat/completions). Ollama's
 // wire shape matches OpenAI's, so this reuses the openai.go request builder,
 // message/tool serialization, and SSE stream parser; the only differences are
-// the base URL (config.OllamaBaseURL, from MOONY_OLLAMA_HOST / OLLAMA_HOST), no
-// Floodgate AppleConnect auth (an optional bearer token via MOONY_OLLAMA_TOKEN),
+// the base URL (config.OllamaBaseURL, from MOONY_OLLAMA_HOST / OLLAMA_HOST), an
+// optional bearer token via MOONY_OLLAMA_TOKEN instead of any hosted-provider auth,
 // and no extended-thinking / prompt-cache fields (Ollama doesn't support them).
 //
 // Tool-name translation to a wire-safe form is handled by the caller
@@ -26,7 +26,7 @@ import (
 )
 
 // usesOllama reports whether the selected backend provider is Ollama, in which
-// case requests route through streamOllama instead of the Floodgate paths.
+// case requests route through streamOllama instead of the hosted-provider paths.
 func (c *Client) usesOllama() bool {
 	return c.cfg != nil && provider.Normalize(c.cfg.LLMProvider) == provider.Ollama
 }
@@ -42,13 +42,12 @@ func (c *Client) ollamaBaseURL() string {
 
 // resolveOllamaModel picks the model id to send: a per-call override on ctx wins,
 // else the session model. Ollama model ids are free-form (e.g. "gemma4:31b"). A
-// per-call override carrying an unmistakable Floodgate id (anthropic./gcp:/aws:
+// per-call override carrying an unmistakable cloud id (anthropic./gcp:/aws:
 // prefix) is ignored — the Ollama server has no such model and would 404 — so we
-// fall back to the session model. This mirrors resolveAFMModel's sanitizing and
-// guards against any caller that passes a Floodgate id (e.g. a fast-model pick)
-// while the backend is Ollama.
+// fall back to the session model. This guards against any caller that passes a
+// cloud id (e.g. a fast-model pick) while the backend is Ollama.
 func (c *Client) resolveOllamaModel(ctx context.Context) string {
-	if m := modelFrom(ctx); m != "" && !IsFloodgateModel(m) {
+	if m := modelFrom(ctx); m != "" && !IsCloudModel(m) {
 		return m
 	}
 	if c.cfg != nil {
@@ -57,11 +56,11 @@ func (c *Client) resolveOllamaModel(ctx context.Context) string {
 	return ""
 }
 
-// IsFloodgateModel reports whether m has a Floodgate/cloud model-id prefix
+// IsCloudModel reports whether m has a hosted/cloud model-id prefix
 // (anthropic./gcp:/aws:) that could never be a local Ollama model name (which
-// uses "repo:tag" form) or an AFM id. Exported so callers (e.g. sub-agent model
-// selection) can avoid pinning a Floodgate id onto a non-Floodgate backend.
-func IsFloodgateModel(m string) bool {
+// uses "repo:tag" form). Exported so callers (e.g. sub-agent model selection)
+// can avoid pinning a cloud id onto a local backend.
+func IsCloudModel(m string) bool {
 	m = strings.ToLower(strings.TrimSpace(m))
 	return strings.HasPrefix(m, "anthropic.") || strings.HasPrefix(m, "gcp:") || strings.HasPrefix(m, "aws:")
 }
@@ -122,7 +121,7 @@ func (c *Client) streamOllama(ctx context.Context, system string, messages []Mes
 }
 
 // newOllamaRequest builds a streaming POST to the Ollama server. Unlike the
-// Floodgate routes it does not mint an AppleConnect token; an optional bearer
+// hosted-provider routes it uses no provider auth; an optional bearer
 // token (MOONY_OLLAMA_TOKEN) is sent when set, for servers behind a proxy.
 func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(raw)))

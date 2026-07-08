@@ -229,13 +229,13 @@ func (s *Server) runCommand(sess *session, text string) {
 			sess.refreshQuota()
 		}
 		// Switching to Ollama: its model ids are server-specific (e.g. "gemma4:31b"),
-		// so a Floodgate/AFM model carried over won't resolve. Auto-pick a served
+		// so a cloud model carried over won't resolve. Auto-pick a served
 		// model when the current one isn't on the server.
 		if provider.Normalize(cfg.LLMProvider) == provider.Ollama {
 			s.ensureOllamaModel(sess, cfg, info)
 		}
 		// The system prompt's identity line names the provider (e.g. "served via
-		// Apple Foundation Models (AFM)" vs Floodgate); rebuild it so a live
+		// a local model" vs a hosted provider); rebuild it so a live
 		// /provider switch is reflected instead of the startup default.
 		sess.agent.RefreshSystemPrompt()
 	case "/reasoning", "/think", "/thinking":
@@ -358,7 +358,7 @@ func (s *Server) runCommand(sess *session, text string) {
 		go func() {
 			resp, err := sess.agent.Usage(context.Background())
 			if err != nil || resp == nil {
-				info("Floodgate usage unavailable.")
+				info("Usage data unavailable.")
 				return
 			}
 			info(formatQuota(resp))

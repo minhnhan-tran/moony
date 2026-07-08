@@ -136,8 +136,8 @@ type workflowModelOption struct {
 // handleWorkflowModels: GET /api/workflows/models → the models an agent node (or
 // a new persona) can pin, for the Agent Builder's model picker. Mirrors
 // handleAgentModels but laptop-scoped (no session): the live list from the active
-// backend, falling back to the curated known list only on Floodgate (that list is
-// Floodgate-specific). On AFM/Ollama a failed fetch returns an empty list rather
+// backend, falling back to the curated known list only on a hosted provider (that list is
+// hosted-provider-specific). On local backends a failed fetch returns an empty list rather
 // than offering unservable models; the UI still shows "inherit" plus any existing
 // value. The empty id ("inherit the parent's model") is added by the UI.
 func (s *Server) handleWorkflowModels(w http.ResponseWriter, r *http.Request) {
@@ -195,8 +195,8 @@ func (s *Server) handleWorkflowRuntime(w http.ResponseWriter, r *http.Request) {
 // what a workflow run uses (the runner builds its client + scoped config from
 // s.cfg). Mirrors the chat /provider, /model, /reasoning commands but operates
 // laptop-scoped on s.cfg, then persists. Returns the refreshed runtime (so the
-// UI can update the reasoning levels when the model changed). Switching TO SQE
-// Proxy is gated on group membership, like providerCommand.
+// UI can update the reasoning levels when the model changed). Switching TO the
+// relay proxy is gated on group membership, like providerCommand.
 func (s *Server) handleSetWorkflowRuntime(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider  *string `json:"provider"`

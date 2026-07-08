@@ -14,7 +14,7 @@ import (
 // config (app version, model, route, reasoning, working dir, approval mode,
 // sandbox) plus the project's current git branch/dirty count, and — when a live
 // session is supplied — its accumulated token usage, estimated cost (or the
-// authoritative Floodgate quota when known), and context-window fill. It's
+// authoritative usage quota when known), and context-window fill. It's
 // seeded into a session's history at open time and re-emitted after each turn,
 // so the browser header and status bar stay populated and current. Without it
 // the standalone server sent no "status" event and both rendered empty.

@@ -6,7 +6,7 @@
 // state to this tool on stdin and reads back one JSON action on stdout.
 //
 // The persona brain lives here (Go) rather than in the TypeScript harness on
-// purpose: it reuses internal/llm, so Claude access (Floodgate / SQE Proxy auth)
+// purpose: it reuses internal/llm, so Claude access (via the model gateway)
 // is already solved by the same client the agent itself uses. Node never has to
 // authenticate to the model.
 //

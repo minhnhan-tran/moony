@@ -12,7 +12,7 @@ assertions) and an **LLM** persona (realistic, exploratory).
 *.spec.ts ──▶ runConversation(sqe, decider) ──drives──▶ real browser ──▶ web UI (your stack)
                      │
    Decider ─────────┤  scripted  → canned decisions (deterministic, no model)
-                     └  LLM       → ../../bin/sim-decide (Go) → internal/llm → Claude (Floodgate/SQE Proxy)
+                     └  LLM       → ../../bin/sim-decide (Go) → internal/llm → Claude (via the model gateway)
 ```
 
 - **Hands** — `src/sqe.ts` (page object) drives the actual DOM the app ships:
@@ -104,7 +104,7 @@ For an auth-gated target (`MOONY_AUTH=1`, e.g. a shared relay), capture a login 
 and replay it:
 
 ```bash
-npm run login                       # opens a browser; log in via AppleConnect, then close
+npm run login                       # opens a browser; log in, then close
 MOONY_STORAGE_STATE=.auth/state.json MOONY_BASE_URL="https://…" npm test
 ```
 

@@ -1,6 +1,6 @@
 package llm
 
-// This file implements Floodgate's OpenAI-compatible Chat Completions route as
+// This file implements the provider's OpenAI-compatible Chat Completions route as
 // an alternative to the native Anthropic Messages API. The agent works in the
 // Anthropic-shaped Message/ContentBlock vocabulary throughout; here we translate
 // that conversation (and the tool schemas) into an OpenAI chat request, and
@@ -72,7 +72,7 @@ type oaiMessage struct {
 }
 
 // oaiContentPart is one element of a message's content array. cache_control is
-// the Anthropic-style prompt-cache breakpoint; Floodgate's OpenAI-compatible
+// the Anthropic-style prompt-cache breakpoint; the provider's OpenAI-compatible
 // shim forwards it to Bedrock for "aws:" Claude models (see applyOpenAIPromptCache).
 type oaiContentPart struct {
 	Type         string           `json:"type"` // "text" | "image_url"

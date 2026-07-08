@@ -290,7 +290,7 @@ func abbrevSegment(s string) string {
 	}
 }
 
-// shortModel produces a compact, readable model label from a Floodgate id,
+// shortModel produces a compact, readable model label from a cloud model id,
 // stripping the OpenAI-route cloud prefix ("aws:"/"gcp:"), the "anthropic."
 // vendor prefix, and any trailing ":0" version tag.
 func shortModel(model string) string {

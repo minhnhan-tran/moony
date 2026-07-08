@@ -36,7 +36,7 @@ func TestLookup(t *testing.T) {
 	if p, ok := Lookup("  Ollama "); !ok || p.ID != Ollama {
 		t.Fatalf("case-insensitive lookup failed: %+v ok=%v", p, ok)
 	}
-	for _, id := range []string{"floodgate", "afm", "sqe-proxy", "gpt-4o"} {
+	for _, id := range []string{"bogus-provider", "gpt-4o", "claude-3"} {
 		if _, ok := Lookup(id); ok {
 			t.Fatalf("%q should not be a known provider", id)
 		}
@@ -70,15 +70,6 @@ func TestDefaultModelFor(t *testing.T) {
 	}
 	if got := DefaultModelFor("nope"); got != OllamaDefaultModel {
 		t.Errorf("DefaultModelFor(unknown) = %q, want %q", got, OllamaDefaultModel)
-	}
-}
-
-func TestServesFloodgateModels(t *testing.T) {
-	// Floodgate is gone; nothing serves its catalog anymore.
-	for _, id := range []string{Ollama, "", "unknown"} {
-		if ServesFloodgateModels(id) {
-			t.Errorf("ServesFloodgateModels(%q) = true, want false", id)
-		}
 	}
 }
 

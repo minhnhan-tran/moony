@@ -436,7 +436,7 @@ func (m Model) reasoningStatus(level string) string {
 	return msg
 }
 
-// quotaName labels the quota source for the web status-bar tooltip: a Floodgate
+// quotaName labels the quota source for the web status-bar tooltip: a
 // project name when one is in use, "personal" for a personal quota, or "" before
 // the first successful usage fetch.
 func quotaName(fetched bool, project string) string {
