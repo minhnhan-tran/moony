@@ -1,14 +1,16 @@
-// Package selfupdate upgrades the running moony in place: it downloads
-// the latest binary for the current platform from the relay's public download
-// endpoints (the same host that serves the web UI), verifies its checksum, and
-// atomically replaces the running executable. The /update command calls this,
-// then re-execs the new binary.
+// Package selfupdate upgrades the running moony in place: it downloads the
+// latest binary for the current platform from a release host, verifies its
+// checksum, and atomically replaces the running executable. The /update command
+// calls this, then re-execs the new binary.
 //
-// The source is the relay (default https://code.sqeqct.ops.apple.com, override
-// with SQE_UPDATE_URL): GET /api/relay reports the available version and
-// GET /download/moony_<os>_<arch> serves the matching binary
-// (verified against GET /download/SHA256SUMS). All three are public, so no
-// AppleConnect login or gh CLI is needed.
+// There is no built-in host: self-update is disabled unless SQE_UPDATE_URL is
+// set to an https:// release host that serves GET /api/relay (the available
+// version), GET /download/moony_<os>_<arch> (the binary), and
+// GET /download/SHA256SUMS (its checksum). The download is verified against
+// SHA256SUMS and install fails closed when the checksum is missing or mismatched.
+// The checksum is served from the same origin as the binary, so it is not an
+// independent trust anchor — integrity rests on TLS to a host you trust — which
+// is why the URL must be https.
 package selfupdate
 
 import (
@@ -32,13 +34,26 @@ const maxDownload = 256 << 20
 // serve canned responses without binding a port.
 var httpClient = http.DefaultClient
 
-// BaseURL is the relay that serves the CLI downloads. Overridable via
-// SQE_UPDATE_URL for forks/testing (trailing slash trimmed).
+// BaseURL is the configured release host from SQE_UPDATE_URL (trailing slash
+// trimmed), or "" when self-update isn't configured. There is no built-in
+// default host.
 func BaseURL() string {
-	if u := strings.TrimRight(strings.TrimSpace(os.Getenv("SQE_UPDATE_URL")), "/"); u != "" {
-		return u
+	return strings.TrimRight(strings.TrimSpace(os.Getenv("SQE_UPDATE_URL")), "/")
+}
+
+// baseURL validates and returns the configured release host. Self-update is
+// disabled unless SQE_UPDATE_URL is set, and the URL must be https:// — an http
+// source would let an on-path attacker swap the binary, and the same-origin
+// checksum can't catch that.
+func baseURL() (string, error) {
+	u := BaseURL()
+	if u == "" {
+		return "", fmt.Errorf("self-update is not configured; set SQE_UPDATE_URL to your https:// release host")
 	}
-	return "https://code.sqeqct.ops.apple.com"
+	if !strings.HasPrefix(strings.ToLower(u), "https://") {
+		return "", fmt.Errorf("SQE_UPDATE_URL must be an https:// URL (got %q); refusing to fetch updates over an insecure transport", u)
+	}
+	return u, nil
 }
 
 // AssetName is the raw binary the relay serves at /download for this platform,
@@ -50,7 +65,11 @@ func AssetName() string {
 // LatestVersion returns the relay's build version (no leading "v"), from the
 // public GET /api/relay endpoint.
 func LatestVersion(ctx context.Context) (string, error) {
-	body, err := get(ctx, BaseURL()+"/api/relay")
+	base, err := baseURL()
+	if err != nil {
+		return "", err
+	}
+	body, err := get(ctx, base+"/api/relay")
 	if err != nil {
 		return "", err
 	}
@@ -58,10 +77,10 @@ func LatestVersion(ctx context.Context) (string, error) {
 		Version string `json:"version"`
 	}
 	if err := json.Unmarshal(body, &info); err != nil {
-		return "", fmt.Errorf("unexpected response from %s/api/relay (is the relay reachable?): %w", BaseURL(), err)
+		return "", fmt.Errorf("unexpected response from %s/api/relay (is the release host reachable?): %w", base, err)
 	}
 	if info.Version == "" {
-		return "", fmt.Errorf("%s/api/relay did not report a version", BaseURL())
+		return "", fmt.Errorf("%s/api/relay did not report a version", base)
 	}
 	return strings.TrimPrefix(strings.TrimSpace(info.Version), "v"), nil
 }
@@ -80,7 +99,11 @@ type Announcement struct {
 // Announcements returns the maintainer announcement banners from the relay's
 // public GET /api/relay endpoint (nil when none / relay unreachable).
 func Announcements(ctx context.Context) ([]Announcement, error) {
-	body, err := get(ctx, BaseURL()+"/api/relay")
+	base, err := baseURL()
+	if err != nil {
+		return nil, err
+	}
+	body, err := get(ctx, base+"/api/relay")
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +133,12 @@ func Apply(ctx context.Context) (string, error) {
 // apply does the download+verify+replace against an explicit target path (so it
 // can be tested without touching the test binary).
 func apply(ctx context.Context, exePath string) error {
+	base, err := baseURL()
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(exePath)
-	staged, err := os.CreateTemp(dir, ".sqe-update-*")
+	staged, err := os.CreateTemp(dir, ".moony-update-*")
 	if err != nil {
 		return fmt.Errorf("cannot write to %s (need write access to update in place): %w", dir, err)
 	}
@@ -120,7 +147,7 @@ func apply(ctx context.Context, exePath string) error {
 
 	// Stream the binary to the staged file, hashing as we go.
 	h := sha256.New()
-	if err := download(ctx, BaseURL()+"/download/"+AssetName(), io.MultiWriter(staged, h)); err != nil {
+	if err := download(ctx, base+"/download/"+AssetName(), io.MultiWriter(staged, h)); err != nil {
 		staged.Close()
 		return err
 	}
@@ -128,15 +155,20 @@ func apply(ctx context.Context, exePath string) error {
 		return err
 	}
 
-	// Verify against SHA256SUMS when the relay publishes a matching entry. A
-	// missing file/entry is tolerated (the download came over HTTPS); a present
-	// mismatch is fatal.
-	if sums, err := get(ctx, BaseURL()+"/download/SHA256SUMS"); err == nil {
-		if want := checksumFor(sums, AssetName()); want != "" {
-			if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, want) {
-				return fmt.Errorf("checksum mismatch for %s — refusing to install", AssetName())
-			}
-		}
+	// Verify against SHA256SUMS. This is served from the same origin as the
+	// binary, so it is not an independent trust anchor (TLS to a trusted host is
+	// the real control) — but a MISSING or mismatched checksum must fail closed
+	// rather than install an unverified binary.
+	sums, err := get(ctx, base+"/download/SHA256SUMS")
+	if err != nil {
+		return fmt.Errorf("cannot fetch SHA256SUMS to verify the download: %w", err)
+	}
+	want := checksumFor(sums, AssetName())
+	if want == "" {
+		return fmt.Errorf("no checksum published for %s — refusing to install an unverified binary", AssetName())
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, want) {
+		return fmt.Errorf("checksum mismatch for %s — refusing to install", AssetName())
 	}
 
 	if err := os.Chmod(stagedName, 0o755); err != nil {

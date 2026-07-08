@@ -77,3 +77,43 @@ func TestTempDirScratchAllowed(t *testing.T) {
 		t.Error("a non-temp absolute path outside the workspace must still be rejected")
 	}
 }
+
+// TestSymlinkEscapeRejected confirms a symlink INSIDE a root that points outside
+// it can't be used to read or write beyond the roots. The lexical check passes
+// (the path is nominally in-root), but resolve() re-checks the symlink-resolved
+// location, which the actual os.Open/os.WriteFile would follow.
+func TestSymlinkEscapeRejected(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+
+	link := filepath.Join(root, "escape") // a directory symlink leaving the root
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("cannot create symlinks on this platform: %v", err)
+	}
+
+	r := NewRegistry(root)
+	r.tempRoots = nil // isolate: don't let the temp escape hatch admit `outside`
+
+	// Writing THROUGH the dir symlink to a new file must be rejected.
+	if _, err := r.resolve("escape/pwned.txt"); err == nil {
+		t.Error("resolve must reject writing through a symlink that leaves the root")
+	}
+	// Reading an existing file via the symlink must be rejected too.
+	if err := os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.resolve("escape/secret.txt"); err == nil {
+		t.Error("resolve must reject reading through a symlink that leaves the root")
+	}
+	// A file symlink pointing outside is rejected as well.
+	if err := os.Symlink(filepath.Join(outside, "secret.txt"), filepath.Join(root, "passwd")); err == nil {
+		if _, err := r.resolve("passwd"); err == nil {
+			t.Error("resolve must reject a file symlink pointing outside the root")
+		}
+	}
+	// A normal in-root path must still resolve — the symlink re-check must not
+	// false-positive when the root itself sits under a symlink (e.g. macOS temp).
+	if _, err := r.resolve("normal.txt"); err != nil {
+		t.Errorf("a normal in-root path must still resolve: %v", err)
+	}
+}

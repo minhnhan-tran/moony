@@ -111,3 +111,48 @@ func TestApplyRejectsChecksumMismatch(t *testing.T) {
 		t.Errorf("exe must be left untouched on mismatch, got %q", got)
 	}
 }
+
+func TestApplyFailsWithoutChecksum(t *testing.T) {
+	asset := AssetName()
+	serve(t, map[string]string{ // no SHA256SUMS route -> 404
+		"/download/" + asset: "SOME-BYTES",
+	})
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "moony")
+	_ = os.WriteFile(exe, []byte("OLD"), 0o755)
+	if err := apply(context.Background(), exe); err == nil {
+		t.Fatal("apply must fail closed when SHA256SUMS is missing")
+	}
+	if got, _ := os.ReadFile(exe); string(got) != "OLD" {
+		t.Errorf("exe must be left untouched when unverifiable, got %q", got)
+	}
+}
+
+func TestApplyFailsWithoutChecksumEntry(t *testing.T) {
+	asset := AssetName()
+	serve(t, map[string]string{
+		"/download/" + asset:   "SOME-BYTES",
+		"/download/SHA256SUMS": "abc123  some_other_asset\n", // no entry for our asset
+	})
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "moony")
+	_ = os.WriteFile(exe, []byte("OLD"), 0o755)
+	if err := apply(context.Background(), exe); err == nil {
+		t.Fatal("apply must fail closed when the asset has no checksum entry")
+	}
+}
+
+func TestBaseURLValidation(t *testing.T) {
+	t.Setenv("SQE_UPDATE_URL", "")
+	if _, err := baseURL(); err == nil {
+		t.Error("unset update URL must disable self-update (error)")
+	}
+	t.Setenv("SQE_UPDATE_URL", "http://insecure.test")
+	if _, err := baseURL(); err == nil {
+		t.Error("http:// update URL must be rejected")
+	}
+	t.Setenv("SQE_UPDATE_URL", "https://ok.test/")
+	if got, err := baseURL(); err != nil || got != "https://ok.test" {
+		t.Errorf("baseURL() = %q, %v; want trimmed https URL", got, err)
+	}
+}

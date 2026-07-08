@@ -683,24 +683,86 @@ func (r *Registry) resolve(path string) (string, error) {
 	}
 	p = filepath.Clean(p)
 
+	// Lexical containment (Clean above already neutralized any "..").
+	if !r.contained(p) {
+		if len(r.extraRoots) > 0 {
+			return "", fmt.Errorf("path %q is outside the workspace roots (and not under a system temp dir)", path)
+		}
+		return "", fmt.Errorf("path %q escapes the working directory (and is not under a system temp dir)", path)
+	}
+
+	// Symlink-safe re-check: the lexical test only handles "..", but the actual
+	// os.Open/os.WriteFile follow symlinks. A symlink INSIDE a root that points
+	// outside it would otherwise let a tool read or write beyond the roots (e.g.
+	// write_file "link/authorized_keys" where "link" -> ~/.ssh). Resolve symlinks
+	// on the deepest existing ancestor (the target itself may be a not-yet-created
+	// file) and confirm the real location is still contained.
+	if real := resolveAncestorSymlinks(p); real != p && !r.containedCanonical(real) {
+		return "", fmt.Errorf("path %q resolves outside the workspace roots via a symlink", path)
+	}
+	return p, nil
+}
+
+// contained reports whether cleaned absolute path p lies under any workspace
+// root or a system temp dir (the scratch escape hatch).
+func (r *Registry) contained(p string) bool {
 	for _, root := range r.allRoots() {
 		if underRoot(root, p) {
-			return p, nil
+			return true
 		}
 	}
-	// Escape hatch: allow the OS temp dir (and the conventional /tmp) as scratch
-	// space. Models routinely target absolute /tmp paths for throwaway artifacts
-	// (e.g. an audit summary), and rejecting them is surprising; this keeps those
-	// writes working without exposing the rest of the filesystem.
+	// Escape hatch: the OS temp dir (and the conventional /tmp) as scratch space.
+	// Models routinely target absolute /tmp paths for throwaway artifacts (e.g. an
+	// audit summary), and rejecting them is surprising; this keeps those writes
+	// working without exposing the rest of the filesystem.
 	for _, root := range r.tempRoots {
 		if underRoot(root, p) {
-			return p, nil
+			return true
 		}
 	}
-	if len(r.extraRoots) > 0 {
-		return "", fmt.Errorf("path %q is outside the workspace roots (and not under a system temp dir)", path)
+	return false
+}
+
+// containedCanonical is contained() with the roots canonicalized (symlinks
+// resolved), for checking an already-resolved target path. Roots themselves
+// often sit under symlinks (macOS /var -> /private/var, or a symlinked temp
+// dir), so a fully-resolved target must be compared against resolved roots or a
+// legitimate in-root file would be wrongly rejected.
+func (r *Registry) containedCanonical(p string) bool {
+	for _, root := range r.allRoots() {
+		if underRoot(canonical(root), p) {
+			return true
+		}
 	}
-	return "", fmt.Errorf("path %q escapes the working directory (and is not under a system temp dir)", path)
+	for _, root := range r.tempRoots {
+		if underRoot(canonical(root), p) {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveAncestorSymlinks resolves symlinks along p. EvalSymlinks needs the path
+// to exist, so for a not-yet-created target it resolves the deepest existing
+// ancestor and rejoins the remaining components. Returns p unchanged when
+// nothing can be resolved.
+func resolveAncestorSymlinks(p string) string {
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		return resolved
+	}
+	dir := filepath.Dir(p)
+	tail := []string{filepath.Base(p)}
+	for {
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(append([]string{resolved}, tail...)...)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return p // no existing ancestor resolved; the lexical check already passed
+		}
+		tail = append([]string{filepath.Base(dir)}, tail...)
+		dir = parent
+	}
 }
 
 // readForMentionCap bounds the file size ReadForMention will inline; larger
