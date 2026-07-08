@@ -19,12 +19,12 @@ func boolptr(b bool) *bool    { return &b }
 // token-like names are honored.
 func TestApplyEnvTokenEdits(t *testing.T) {
 	t.Setenv("GITHUB_PERSONAL_ACCESS_TOKEN", "")
-	t.Setenv("RADAR_MCP_TOKEN", "keep-radar")
+	t.Setenv("NPM_TOKEN", "keep-npm")
 	t.Setenv("NODE_ENV", "production")
 
 	raw := map[string]json.RawMessage{
 		"envToken:GITHUB_PERSONAL_ACCESS_TOKEN": json.RawMessage(`"ghp_abc123"`),
-		"envToken:RADAR_MCP_TOKEN":              json.RawMessage(`""`),        // blank → keep
+		"envToken:NPM_TOKEN":                    json.RawMessage(`""`),        // blank → keep
 		"envToken:NODE_ENV":                     json.RawMessage(`"staging"`), // not token-like → ignored
 		"unknownProjectToken":                   json.RawMessage(`"x"`),       // wrong prefix → ignored
 	}
@@ -33,8 +33,8 @@ func TestApplyEnvTokenEdits(t *testing.T) {
 	if got := os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN"); got != "ghp_abc123" {
 		t.Errorf("github token = %q, want ghp_abc123", got)
 	}
-	if got := os.Getenv("RADAR_MCP_TOKEN"); got != "keep-radar" {
-		t.Errorf("radar token = %q, want keep-radar (blank must not clear)", got)
+	if got := os.Getenv("NPM_TOKEN"); got != "keep-npm" {
+		t.Errorf("npm token = %q, want keep-npm (blank must not clear)", got)
 	}
 	if got := os.Getenv("NODE_ENV"); got != "production" {
 		t.Errorf("NODE_ENV = %q, want production (non-token must be ignored)", got)
@@ -45,7 +45,7 @@ func TestApplyEnvTokenEdits(t *testing.T) {
 }
 
 func TestLooksLikeTokenVar(t *testing.T) {
-	yes := []string{"GITHUB_PERSONAL_ACCESS_TOKEN", "RADAR_MCP_TOKEN", "OPENAI_API_KEY", "FOO_SECRET", "DB_PASSWORD", "MY_PAT", "SERVICE_KEY"}
+	yes := []string{"GITHUB_PERSONAL_ACCESS_TOKEN", "NPM_TOKEN", "OPENAI_API_KEY", "FOO_SECRET", "DB_PASSWORD", "MY_PAT", "SERVICE_KEY"}
 	no := []string{"NODE_ENV", "PATH", "HOME", "LOG_LEVEL", "PORT"}
 	for _, n := range yes {
 		if !looksLikeTokenVar(n) {

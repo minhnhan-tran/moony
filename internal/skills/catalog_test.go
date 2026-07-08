@@ -29,10 +29,10 @@ func TestSkillsCatalog(t *testing.T) {
 }
 
 // TestBundledSkillsLoaded verifies the embedded SKILL.md starter skills (gh,
-// pr-review, radar) are parsed from catalog/*.md into the catalog with their
+// pr-review) are parsed from catalog/*.md into the catalog with their
 // frontmatter intact and round-trip through SkillMarkdown.
 func TestBundledSkillsLoaded(t *testing.T) {
-	for _, name := range []string{"gh", "pr-review", "radar"} {
+	for _, name := range []string{"gh", "pr-review"} {
 		e, ok := CatalogEntryByName(name)
 		if !ok {
 			t.Errorf("bundled skill %q should be in the catalog", name)
@@ -45,15 +45,6 @@ func TestBundledSkillsLoaded(t *testing.T) {
 		if !strings.HasPrefix(md, "---\n") || !strings.Contains(md, "name: "+name) {
 			t.Errorf("bundled skill %q SkillMarkdown invalid:\n%s", name, md)
 		}
-	}
-	// The radar skill must reference this agent's MCP tool-name prefix
-	// (mcp.<server>.<tool>), not pi's radar_mcp_server_ prefix.
-	radar, _ := CatalogEntryByName("radar")
-	if strings.Contains(radar.Body, "radar_mcp_server_") {
-		t.Error("radar skill still uses pi's radar_mcp_server_ tool prefix; expected mcp.radar.*")
-	}
-	if !strings.Contains(radar.Body, "mcp.radar.findProblems") {
-		t.Error("radar skill should reference mcp.radar.findProblems")
 	}
 }
 

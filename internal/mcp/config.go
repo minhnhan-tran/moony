@@ -216,7 +216,7 @@ var braceVar = regexp.MustCompile(`\$\{[A-Za-z_][A-Za-z0-9_]*\}`)
 // variable NAME (empty when unset). Only the braced form is expanded, so literal
 // "$" characters in tokens/values are left untouched. This lets MCP env and
 // header values reference secrets from the environment — e.g.
-// "headers": {"Authorization": "Bearer ${RADAR_MCP_TOKEN}"} — instead of
+// "headers": {"Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"} — instead of
 // hardcoding credentials in mcp.json.
 func expandVars(s string) string {
 	if !strings.Contains(s, "${") {

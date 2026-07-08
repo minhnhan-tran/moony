@@ -431,17 +431,17 @@ func TestPersonaEnvVars(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "radar.md"),
-		[]byte("---\ndescription: Radar agent\nenv: [RADAR_MCP_TOKEN]\n---\nprompt"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "notes.md"),
+		[]byte("---\ndescription: Notes agent\nenv: [NOTES_MCP_TOKEN]\n---\nprompt"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	found := false
 	for _, e := range EnvVars(wd) {
-		if e == "RADAR_MCP_TOKEN" {
+		if e == "NOTES_MCP_TOKEN" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("EnvVars should include RADAR_MCP_TOKEN; got %v", EnvVars(wd))
+		t.Errorf("EnvVars should include NOTES_MCP_TOKEN; got %v", EnvVars(wd))
 	}
 }

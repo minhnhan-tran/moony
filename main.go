@@ -33,7 +33,6 @@ import (
 	"github.com/pysty1995/moony/internal/manage"
 	"github.com/pysty1995/moony/internal/mcp"
 	"github.com/pysty1995/moony/internal/permissions"
-	"github.com/pysty1995/moony/internal/radar"
 	"github.com/pysty1995/moony/internal/relay"
 	"github.com/pysty1995/moony/internal/schedule"
 	"github.com/pysty1995/moony/internal/session"
@@ -83,12 +82,6 @@ func main() {
 	// daemon, or `schedule tick` from cron); see internal/schedule.
 	if len(os.Args) > 1 && os.Args[1] == "schedule" {
 		os.Exit(runScheduleCmd(os.Args[2:]))
-	}
-	// `radar-token` mints the AppleConnect access token the bundled `radar` MCP
-	// server needs and prints it to stdout, for:
-	//   export RADAR_MCP_TOKEN=$(moony radar-token)
-	if len(os.Args) > 1 && os.Args[1] == "radar-token" {
-		os.Exit(runRadarTokenCmd())
 	}
 	// `session-key` manages session-history encryption at rest (status, and
 	// rewrap/rotate — re-encrypt all sessions under the currently-resolved key).
@@ -586,20 +579,6 @@ func runScheduleCmd(args []string) int {
 	default:
 		return scheduleUsage()
 	}
-}
-
-// runRadarTokenCmd mints the AppleConnect access token for the Radar MCP server
-// and prints it to stdout (errors go to stderr). Intended for:
-//
-//	export RADAR_MCP_TOKEN=$(moony radar-token)
-func runRadarTokenCmd() int {
-	tok, err := radar.Token(context.Background())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "radar-token:", err)
-		return 1
-	}
-	fmt.Println(tok)
-	return 0
 }
 
 // runSessionKeyCmd implements `session-key <status|rewrap>` for the at-rest

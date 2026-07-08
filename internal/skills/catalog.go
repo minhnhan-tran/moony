@@ -25,7 +25,6 @@ var bundledFS embed.FS
 var bundledTitles = map[string]string{
 	"gh":        "GitHub Enterprise (gh)",
 	"pr-review": "PR Review (GHE)",
-	"radar":     "Radar",
 }
 
 // init appends the embedded SKILL.md starter skills to the inline catalog. The
@@ -100,7 +99,7 @@ When writing a commit message:
 - Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
 - Leave a blank line, then a body that explains the **why** (motivation, context),
   not just the what — the diff already shows the what.
-- Reference issues/radars in a footer (e.g. ` + "`Fixes: rdar://123`" + `).
+- Reference issues in a footer (e.g. ` + "`Fixes: #123`" + `).
 - One logical change per commit; don't bundle unrelated edits.`,
 	},
 	{

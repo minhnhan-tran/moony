@@ -342,7 +342,7 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 			Desc: "MOONY_SESSION_PASSPHRASE: a passphrase stretched to a key via PBKDF2. Restart to apply."},
 	)
 	// Auto-discover credential env vars any MCP/tool declares or references, so
-	// personal tokens (GitHub, Radar, …) appear without hardcoding.
+	// personal tokens (GitHub, …) appear without hardcoding.
 	fields = append(fields, tokenEnvFields(c.WorkingDir)...)
 	return fields
 }

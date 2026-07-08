@@ -41,8 +41,6 @@ var catalog = []CatalogEntry{
 		Command: "uvx", Args: []string{"mcp-server-time"}},
 	{Name: "github", Title: "GitHub", Desc: "Query and manage GitHub repos, issues, and PRs.",
 		Command: "npx", Args: []string{"-y", "@modelcontextprotocol/server-github"}, Needs: []string{"GITHUB_PERSONAL_ACCESS_TOKEN"}},
-	{Name: "radar", Title: "Radar", Desc: "Query and manage Apple Radar problems (find/create/update). Pairs with the `radar` skill. Needs an AppleConnect access token — get one with `moony radar-token` and export RADAR_MCP_TOKEN.",
-		URL: "https://radar-mcp.corp.apple.com/mcp", Headers: map[string]string{"Authorization": "Bearer ${RADAR_MCP_TOKEN}"}, Needs: []string{"RADAR_MCP_TOKEN"}},
 	{Name: "codebase-memory", Title: "Codebase Memory", Desc: "Local code knowledge-graph: structural search, call/data-flow tracing, and architecture overview. Optional; requires the codebase-memory-mcp binary on PATH.",
 		Command: "codebase-memory-mcp"},
 }

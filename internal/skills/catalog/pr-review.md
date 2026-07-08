@@ -12,7 +12,7 @@ This skill describes how to perform a substantive PR review on Apple's internal 
 - Fetch PR metadata: `gh api repos/ORG/REPO/pulls/NUMBER` (title, body, base/head, mergeable state, requested reviewers).
 - Fetch the diff: `gh api repos/ORG/REPO/pulls/NUMBER -H "Accept: application/vnd.github.v3.diff"`.
 - Read the changed files **in the working tree**, not just the diff, so you see surrounding context the diff omits.
-- Check linked issues / radars referenced in the title or body for intent.
+- Check linked issues referenced in the title or body for intent.
 
 ## 2. Assess the change
 
