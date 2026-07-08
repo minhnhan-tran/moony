@@ -127,7 +127,7 @@ type Agent struct {
 	// lazyMCP gates connected MCP servers' tool schemas out of the advertised
 	// tool list until the model activates them via the enable_toolset tool (see
 	// config.LazyMCPTools). lazyBuiltins does the same for the non-core built-in
-	// tool GROUPS (git/browser/apple-fetch; see builtinToolGroups and
+	// tool GROUPS (git/browser; see builtinToolGroups and
 	// config.LazyBuiltinTools). enabledToolsets holds the servers/groups turned on
 	// this session; toolsetMu guards it since enable_toolset may run off the Run
 	// goroutine. A toolset is "dormant" iff its lazy flag is on && it's not in

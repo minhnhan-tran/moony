@@ -134,7 +134,7 @@ type Config struct {
 	// Built-in tools are never gated. Disable with SQE_LAZY_MCP=0.
 	LazyMCPTools bool
 	// LazyBuiltinTools, when true (default), gates a few non-core built-in tool
-	// GROUPS (git, browser, apple-fetch) the same way LazyMCPTools gates MCP
+	// GROUPS (git, browser) the same way LazyMCPTools gates MCP
 	// servers: their schemas are kept out of the per-request tool list until the
 	// model activates the group with `enable_toolset`. Core tools (read/write/
 	// edit/search/bash/…) are always present. Trims cold-context tokens and

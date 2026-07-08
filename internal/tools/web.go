@@ -62,10 +62,7 @@ func (t *webFetchTool) Description() string {
 		"or API responses. Pass 'headers' for custom request headers, 'format' " +
 		"(markdown|html|text|json), and 'max_bytes' to cap the body. Does NOT run " +
 		"JavaScript — use the browser tool for JS-heavy pages. To fetch several " +
-		"URLs at once, use batch_web_fetch. NOTE: web_fetch is unauthenticated, so " +
-		"AppleConnect-gated internal Apple URLs (github.pie.apple.com and other " +
-		"*.apple.com behind SSO) return a SAML login page, not content — use " +
-		"apple_fetch for those (enable the \"apple-fetch\" toolset if it's dormant)."
+		"URLs at once, use batch_web_fetch."
 }
 
 func (t *webFetchTool) Schema() json.RawMessage {
@@ -219,57 +216,9 @@ func (r fetchResult) finalOrURL() string {
 	return r.url
 }
 
-// appleAuthWallHint returns a corrective note when an internal Apple URL responds
-// with an AppleConnect/SAML login wall instead of real content. web_fetch is
-// unauthenticated, so AppleConnect-gated *.apple.com hosts (e.g.
-// github.pie.apple.com) bounce it to the IdMS/SAML login page; apple_fetch signs
-// in via AppleConnect and gets the real content. Returns "" when this doesn't
-// look like an Apple auth wall (so a public *.apple.com page is unaffected).
-func (r fetchResult) appleAuthWallHint() string {
-	u, err := url.Parse(r.url)
-	if err != nil {
-		return ""
-	}
-	host := strings.ToLower(u.Hostname())
-	if host != "apple.com" && !strings.HasSuffix(host, ".apple.com") {
-		return ""
-	}
-	hay := strings.ToLower(r.finalURL + "\n" + r.title + "\n")
-	if n := len(r.content); n > 0 {
-		if n > 2000 {
-			n = 2000
-		}
-		hay += strings.ToLower(r.content[:n])
-	}
-	wall := false
-	for _, sig := range []string{
-		"idmsac.apple.com", "idmswebauth", "samlrequest", "samllogin",
-		"single sign-on", "/login?return_to", "identity provider in order to authenticate",
-	} {
-		if strings.Contains(hay, sig) {
-			wall = true
-			break
-		}
-	}
-	if !wall {
-		return ""
-	}
-	return "NOTE: this is an authenticated Apple URL and web_fetch is NOT signed in — it " +
-		"received the AppleConnect/SAML login page, not the real content. Use apple_fetch " +
-		"instead, which authenticates with AppleConnect. apple_fetch is in the \"apple-fetch\" " +
-		"toolset; if it isn't active yet, call enable_toolset with \"apple-fetch\" first, then " +
-		"apple_fetch on this URL.\n\n"
-}
-
 // render builds the metadata header followed by the body (or a saved-file note).
 func (r fetchResult) render() string {
 	var h strings.Builder
-	// Lead with a corrective hint when an internal Apple URL came back as an
-	// AppleConnect/SAML login wall — web_fetch isn't signed in, so the body is the
-	// login page, not the content. apple_fetch (AppleConnect-authenticated) is the
-	// right tool; surface it here since apple_fetch's own "prefer me" steering is
-	// invisible while the apple-fetch toolset is dormant.
-	h.WriteString(r.appleAuthWallHint())
 	fmt.Fprintf(&h, "GET %s -> %s\n", r.url, r.status)
 	if r.finalURL != "" {
 		fmt.Fprintf(&h, "Final URL: %s\n", r.finalURL)

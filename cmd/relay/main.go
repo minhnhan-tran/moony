@@ -20,18 +20,11 @@ import (
 
 	"github.com/pysty1995/moony/internal/announce"
 	"github.com/pysty1995/moony/internal/config"
-	"github.com/pysty1995/moony/internal/corpca"
 	"github.com/pysty1995/moony/internal/relay"
 	"github.com/pysty1995/moony/internal/web"
 )
 
 func main() {
-	// Trust Apple's internal corporate CAs (github.pie.apple.com, artifacts.apple.com,
-	// the converter, the presigned cert/key URLs, …) in addition to the system pool, so
-	// the relay's outbound TLS works even where the pod image lacks those CAs. Must run
-	// before any HTTP client is built (the gateway transport + the cert downloader).
-	corpca.InstallDefaultTransport()
-
 	var (
 		httpAddr   = flag.String("addr", "127.0.0.1:8770", "address to serve the browser UI on")
 		tunnelAddr = flag.String("tunnel", "127.0.0.1:8771", "address connectors dial in on")

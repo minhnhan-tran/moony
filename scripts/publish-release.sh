@@ -106,19 +106,8 @@ for plat in $PLATFORMS; do
     go build -trimpath -ldflags "-s -w" -o "$DIST/stage/$BINARY" "$ROOT" \
     || die "build failed for $os/$arch."
   members=( "$BINARY" )
-  # Ship the vendored Apple Fetch runtime in the macOS archives only (the tools
-  # are macOS-only). install.sh drops it in ~/.sqe/apple-fetch, so apple_fetch/
-  # apple_search work without an Optimus install. The tar pipe preserves the
-  # framework's symlinks; the codesign marker is stripped so the installed copy
-  # re-signs on first use.
-  if [ "$os" = "darwin" ] && [ -d "$ROOT/assets/apple-fetch/AppleFetchMCP.app" ]; then
-    mkdir -p "$DIST/stage/apple-fetch"
-    ( cd "$ROOT/assets/apple-fetch" && tar -cf - AppleFetchMCP.app ) | ( cd "$DIST/stage/apple-fetch" && tar -xf - )
-    rm -f "$DIST/stage/apple-fetch/AppleFetchMCP.app/.sqe-codesigned"
-    members+=( apple-fetch )
-  fi
   tar -C "$DIST/stage" -czf "$DIST/${BINARY}_${os}_${arch}.tar.gz" "${members[@]}"
-  rm -rf "$DIST/stage/$BINARY" "$DIST/stage/apple-fetch"
+  rm -rf "$DIST/stage/$BINARY"
   ok "Packaged ${BINARY}_${os}_${arch}.tar.gz"
 done
 rmdir "$DIST/stage" 2>/dev/null || true

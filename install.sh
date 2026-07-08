@@ -212,22 +212,6 @@ INSTALLED="$(install_file "$TMP/$BINARY" "$BIN_DEST_DIR")"
 ok "Installed $INSTALLED"
 remove_old
 
-# macOS archives bundle the native Apple Fetch runtime (powering apple_fetch /
-# apple_search). Install it to ~/.sqe/apple-fetch, where the binary looks for it,
-# so those tools work without an Optimus install. The tar pipe preserves the
-# framework's symlinks; the marker is stripped so it re-signs on first use.
-if [ -d "$TMP/apple-fetch/AppleFetchMCP.app" ]; then
-  AF_DIR="$HOME/.sqe/apple-fetch"
-  rm -rf "$AF_DIR/AppleFetchMCP.app"
-  if mkdir -p "$AF_DIR" 2>/dev/null &&
-     ( cd "$TMP/apple-fetch" && tar -cf - AppleFetchMCP.app ) | ( cd "$AF_DIR" && tar -xf - ); then
-    rm -f "$AF_DIR/AppleFetchMCP.app/.sqe-codesigned"
-    ok "Installed Apple Fetch runtime to $AF_DIR (apple_fetch / apple_search)"
-  else
-    warn "couldn't install the Apple Fetch runtime; apple_fetch/apple_search will need an Optimus install or SQE_APPLE_FETCH_PATH"
-  fi
-fi
-
 # ---- verify + put on PATH ---------------------------------------------------
 if VER_OUT="$("$INSTALLED" --version 2>/dev/null)"; then
   ok "Verified: $VER_OUT"

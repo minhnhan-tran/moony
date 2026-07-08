@@ -37,13 +37,8 @@ RUN for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do \
         -o "/out/dl/moony_${os}_${arch}" . ; \
     done
 
-# Bundle the vendored Apple Fetch runtime (macOS-only) so /install.sh can drop it
-# in ~/.sqe/apple-fetch — apple_fetch/apple_search then work without an Optimus
-# install. The tarball preserves the framework symlinks; the codesign marker is
-# stripped so the installed copy re-signs on first use. SHA256SUMS covers it too.
-RUN rm -f assets/apple-fetch/AppleFetchMCP.app/.sqe-codesigned 2>/dev/null || true; \
-    tar -C assets/apple-fetch -czf /out/dl/apple-fetch_darwin.tar.gz AppleFetchMCP.app \
- && (cd /out/dl && sha256sum moony_* apple-fetch_darwin.tar.gz > SHA256SUMS)
+# SHA256SUMS lets the installer (and humans) verify the downloaded binaries.
+RUN (cd /out/dl && sha256sum moony_* > SHA256SUMS)
 
 # ---- runtime stage --------------------------------------------------------
 # distroless "static" is the smallest, most-hardened base for a static Go

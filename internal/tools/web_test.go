@@ -333,49 +333,5 @@ func TestWebFetchNetrcDisabled(t *testing.T) {
 	}
 }
 
-// TestAppleAuthWallHint checks that web_fetch flags an AppleConnect/SAML login
-// wall on an internal Apple URL (so the model is told to use apple_fetch), and
-// does NOT false-positive on a public *.apple.com page or a non-Apple host.
-func TestAppleAuthWallHint(t *testing.T) {
-	cases := []struct {
-		name string
-		r    fetchResult
-		want bool // expect a non-empty hint
-	}{
-		{
-			name: "github.pie.apple.com SAML wall",
-			r: fetchResult{
-				url:      "https://github.pie.apple.com/AI-for-Devs-Community/AppleOpenCode-optimus",
-				finalURL: "https://github.pie.apple.com/login?return_to=%2FAI-for-Devs-Community",
-				title:    "Initiating SAML single sign-on",
-				content:  "You are being redirected to your identity provider in order to authenticate.",
-			},
-			want: true,
-		},
-		{
-			name: "public apple.com page, no SSO",
-			r: fetchResult{
-				url:     "https://www.apple.com/newsroom/",
-				title:   "Apple Newsroom",
-				content: "The latest news and updates, direct from Apple.",
-			},
-			want: false,
-		},
-		{
-			name: "non-apple host with login text",
-			r: fetchResult{
-				url:      "https://github.com/some/repo",
-				finalURL: "https://github.com/login?return_to=%2Fsome%2Frepo",
-				title:    "Sign in to GitHub",
-				content:  "single sign-on",
-			},
-			want: false,
-		},
-	}
-	for _, tc := range cases {
-		got := tc.r.appleAuthWallHint() != ""
-		if got != tc.want {
-			t.Errorf("%s: appleAuthWallHint non-empty = %v, want %v", tc.name, got, tc.want)
-		}
-	}
-}
+// TestAppleAuthWallHint removed with the apple_fetch/apple_search tools.
+

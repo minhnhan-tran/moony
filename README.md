@@ -8,7 +8,7 @@ Highlights:
 - **Streaming TUI** with live markdown rendering (token-by-token), tool activity, token & **cost** counters, mouse-wheel scroll, todo panel.
 - **Multiple providers** (`/provider`) — **Ollama** (local, default, no key), plus hosted **OpenAI**, **Anthropic (Claude)**, **OpenRouter**, **Google Gemini**, **DeepSeek**, **Groq**, **xAI (Grok)**, **Mistral**, **Together.ai**, and **Fireworks.ai**. Switch at runtime; the choice is saved.
 - **Model picker** (`/models` — live from your Ollama server) and **extended thinking** (`/reasoning`), with your choices saved across launches.
-- **Built-in tools**: `read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash` (with `background` jobs via `bash_output`/`bash_kill`), `web_fetch`/`batch_web_fetch`, `apple_fetch`/`apple_search` (Apple-internal web + knowledge base via the native Apple Fetch runtime, macOS only), `todo_write`, and git (`git_status`, `git_diff`, `git_log`, `git_commit`, `git_branch`).
+- **Built-in tools**: `read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash` (with `background` jobs via `bash_output`/`bash_kill`), `web_fetch`/`batch_web_fetch`, `todo_write`, and git (`git_status`, `git_diff`, `git_log`, `git_commit`, `git_branch`).
 - **Plan vs Build modes** — `/plan` disables `write_file`/`edit_file`/`multi_edit`/`apply_patch`/`bash`/`task` for safe exploration; `/build` re-enables.
 - **First-class plan artifact** — `/plan <description>` drafts an ordered, persisted, **approvable** plan (via the `plan_write` tool) that you can amend (`/plan add`), approve to execute (`/plan approve`), or discard (`/plan clear`). It's saved with the session and shown in the sidebar.
 - **`/init`** — bootstrap an `AGENTS.md` by having the model survey the repo.
@@ -98,7 +98,7 @@ user message ─► model (stream) ─► tool_use? ─► run tools ─► tool
 | `internal/app` · `cmd/release` | Shared server builder and the release tool |
 
 ### Built-in tools
-`read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash`, `bash_output`, `bash_kill`, `web_fetch`, `batch_web_fetch`, `apple_fetch`, `apple_search`, `todo_write`, plus git: `git_status`, `git_diff`, `git_log` (read-only) and `git_commit`, `git_branch`, `git_worktree` (mutating).
+`read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash`, `bash_output`, `bash_kill`, `web_fetch`, `batch_web_fetch`, `todo_write`, plus git: `git_status`, `git_diff`, `git_log` (read-only) and `git_commit`, `git_branch`, `git_worktree` (mutating).
 The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash`, `bash_kill`, `git_commit`, `git_branch`, `git_worktree`) are gated behind a configurable approval policy (see below); `git_commit` shows the pending diff in its approval prompt.
 
 `multi_edit` applies several exact-string replacements to **one** file in a single atomic step — the edits run in order, each against the result of the previous, and either all apply or none do (the file is left untouched on any miss). Prefer it over repeated `edit_file` calls when changing several spots in the same file.
@@ -110,8 +110,6 @@ The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash
 `apply_patch` applies one textual patch envelope (`*** Begin Patch` … `*** End Patch`) that can **add, update, and delete several files atomically** — useful for cross-file refactors in a single approved step. Update hunks match by exact context (not line numbers): each hunk's context + removed lines must appear exactly once in the file. The whole patch is validated before anything is written, its combined multi-file diff is shown in the approval prompt, and every touched file is snapshotted so `/undo` reverts the entire patch.
 
 `web_fetch` retrieves a URL over HTTP(S) GET and routes the response by content type: JSON is pretty-printed, HTML is reduced to readable **markdown** (or plain `text`/raw `html` via the `format` option), and plain text / XML / JavaScript are returned as-is; **binary** responses are streamed to a temp file and reported by path instead of flooding the context. Pass `headers` for custom request headers and `max_bytes` to cap the body. `batch_web_fetch` fetches many URLs **concurrently** (bounded parallelism, results in request order, per-item errors inline), each item taking the same options. Both honour the **Domains** allow/deny rules and read `~/.netrc` (or `$NETRC`): when the target host has a `machine` entry, the `password` is sent as `Authorization: Bearer <token>` (so internal endpoints like Artifactory work without the model handling secrets) — a caller-supplied `Authorization` header always wins, the token is only sent to hosts you listed, Go drops it on cross-host redirects, and you can disable the behaviour with `SQE_NETRC=0`. Neither tool executes JavaScript — use the browser tool for JS-heavy pages.
-
-`apple_fetch` and `apple_search` are optional **macOS-only**, read-only tools that reach Apple-internal web content with native AppSSO authentication — use them for `.apple.com` URLs that `web_fetch` can't reach. They delegate to the native **Apple Fetch** runtime (`AppleFetchMCP.app`) over the Model Context Protocol on stdio, vendored under `assets/apple-fetch/` (ad-hoc code-signed on first use). Override the runtime with `SQE_APPLE_FETCH_PATH`. On non-macOS hosts the tools return a clear error and `/doctor` flags it. (These are a niche extra for Apple-network users; nothing else depends on them.)
 
 ### Feature details
 
@@ -357,7 +355,6 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 | `SQE_VERIFY_MAX` | `2` | max verify retries per turn before stopping for review |
 | `SQE_VERIFY_TIMEOUT` | `120` | timeout in seconds for a single verify command run |
 | `SQE_SELF_REVIEW` | `0` (off) | set to `1`/`on`/`true` to run a cheap fast-model self-review on changed diffs to detect and fix bugs before ending a turn |
-| `SQE_APPLE_FETCH_PATH` | _(unset)_ | path to an `AppleFetchMCP.app` (or its executable) for the `apple_fetch`/`apple_search` tools, overriding the runtime vendored at `assets/apple-fetch/`. Also auto-discovers an installed Optimus copy. macOS only |
 | `SQE_ENV_FILE` | _(unset)_ | path to a `.env` file loaded at startup for any **unset** variables (real env always wins). Defaults to `~/.config/moony/.env` then `./.env` when unset. Local-dev convenience — never use in prod |
 | `SQE_RELAY_TLS_CERT` | _(unset)_ | PEM certificate file so the relay serves **HTTPS** (also `-tls-cert`). Pair with the key below |
 | `SQE_RELAY_TLS_KEY` | _(unset)_ | PEM private-key file for the relay's HTTPS cert (also `-tls-key`) |

@@ -92,7 +92,6 @@ func TestToolsetOf(t *testing.T) {
 		"git_status":        "git",         // built-in group
 		"git_commit":        "git",         //
 		"browser":           "browser",     //
-		"apple_fetch":       "apple-fetch", //
 		"read_file":         "",            // core: ungateable
 		"bash":              "",            //
 		"web_fetch":         "",            // deliberately NOT grouped
@@ -105,7 +104,7 @@ func TestToolsetOf(t *testing.T) {
 }
 
 // TestLazyBuiltinToolGating mirrors TestLazyMCPGating for the built-in tool
-// groups: git/browser/apple-fetch are gated until enabled, while core tools are
+// groups: git/browser are gated until enabled, while core tools are
 // never gated. (stubMCPTool is reused as a generic named stub.)
 func TestLazyBuiltinToolGating(t *testing.T) {
 	dir := t.TempDir()

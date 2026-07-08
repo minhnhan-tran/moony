@@ -128,8 +128,6 @@ func prettyAsset(name string) string {
 		return "Linux — x86_64 (amd64)"
 	case "moony_linux_arm64":
 		return "Linux — arm64"
-	case "apple-fetch_darwin.tar.gz":
-		return "macOS — Apple Fetch runtime (apple_fetch / apple_search)"
 	case "SHA256SUMS":
 		return "SHA256SUMS (checksums)"
 	}
@@ -182,27 +180,6 @@ for d in "$dest" "$HOME/.local/bin" /usr/local/bin "$HOME/bin"; do
   if [ -x "$old" ]; then "$old" daemon uninstall >/dev/null 2>&1 || true; fi
   rm -f "$old" 2>/dev/null && echo "Removed old sqe-code-agent -> $old" || true
 done
-
-# macOS: also fetch the native Apple Fetch runtime (powering apple_fetch /
-# apple_search) into ~/.sqe/apple-fetch, so those tools work without an Optimus
-# install. Best-effort — never fail the install if this relay doesn't carry it.
-if [ "$goos" = "darwin" ]; then
-  afdir="$HOME/.sqe/apple-fetch"
-  aftmp="$(mktemp)"
-  if curl -fsSL "$base/download/apple-fetch_darwin.tar.gz" -o "$aftmp" 2>/dev/null && [ -s "$aftmp" ]; then
-    rm -rf "$afdir/AppleFetchMCP.app"
-    mkdir -p "$afdir"
-    if tar -C "$afdir" -xzf "$aftmp" 2>/dev/null; then
-      rm -f "$afdir/AppleFetchMCP.app/.sqe-codesigned"
-      echo "Installed Apple Fetch runtime -> $afdir (apple_fetch / apple_search)"
-    else
-      echo "Note: couldn't extract the Apple Fetch runtime; apple_fetch/apple_search will need Optimus or SQE_APPLE_FETCH_PATH." >&2
-    fi
-  else
-    echo "Note: Apple Fetch runtime not offered by this relay; apple_fetch/apple_search will need Optimus or SQE_APPLE_FETCH_PATH." >&2
-  fi
-  rm -f "$aftmp"
-fi
 
 # Register this machine with the relay as an always-on background connector
 # (launchd on macOS, systemd --user on Linux), so it stays available in the web

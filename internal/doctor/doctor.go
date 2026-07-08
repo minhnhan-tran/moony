@@ -1,7 +1,7 @@
 // Package doctor runs environment and configuration checks for moony
 // and renders a human-readable report. It's surfaced by the /doctor command and
-// is meant to make the corporate-environment quirks (AppleConnect, GOROOT,
-// blocked public proxy) and the optional MCP/LSP wiring easy to diagnose.
+// is meant to make environment quirks (GOROOT, module proxy) and the optional
+// MCP/LSP wiring easy to diagnose.
 package doctor
 
 import (
@@ -24,7 +24,6 @@ import (
 	"github.com/pysty1995/moony/internal/netrc"
 	"github.com/pysty1995/moony/internal/provider"
 	"github.com/pysty1995/moony/internal/subagents"
-	"github.com/pysty1995/moony/internal/tools"
 )
 
 // Status classifies a single check's outcome.
@@ -120,7 +119,6 @@ func Run(ctx context.Context, cfg *config.Config, tokenFn func(context.Context) 
 	checkHooks(r, cfg)
 	checkSubagentsAndCommands(r, cfg)
 	checkSandbox(r, cfg)
-	checkAppleFetch(r)
 	checkNetrc(r)
 	return r
 }
@@ -426,21 +424,6 @@ func checkSandbox(r *Report, cfg *config.Config) {
 		return
 	}
 	r.add("bash sandbox", StatusOK, "on, confined to working dir via "+confineTool+" ("+net+")")
-}
-
-// checkAppleFetch reports whether the native Apple Fetch runtime (powering the
-// apple_fetch / apple_search tools) is available. It's macOS-only and optional,
-// so absence is a warning, not an error.
-func checkAppleFetch(r *Report) {
-	if runtime.GOOS != "darwin" {
-		r.add("apple fetch", StatusWarn, "unavailable on "+runtime.GOOS+" (macOS only) — apple_fetch/apple_search will error")
-		return
-	}
-	if tools.AppleFetchAvailable() {
-		r.add("apple fetch", StatusOK, "native runtime found — apple_fetch/apple_search ready")
-		return
-	}
-	r.add("apple fetch", StatusWarn, "native runtime not found — restore assets/apple-fetch or set SQE_APPLE_FETCH_PATH; apple_fetch/apple_search will error until then")
 }
 
 // checkNetrc reports whether ~/.netrc Bearer auth for web_fetch/batch_web_fetch

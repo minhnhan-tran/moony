@@ -12,12 +12,7 @@
 !.env.example
 # TLS cert/key for serving the relay over HTTPS locally.
 *.pem
-# ...except the embedded PUBLIC Apple corporate CA bundle — it MUST be committed:
-# internal/corpca consumes it via //go:embed, so a fresh checkout won't build without it.
-!internal/corpca/apple_corporate_ca.pem
 /local/
-# Apple Fetch runtime: machine-local ad-hoc code-signing marker (re-created on first use).
-assets/apple-fetch/AppleFetchMCP.app/.sqe-codesigned
 
 # macOS Finder metadata.
 .DS_Store

@@ -1,5 +1,5 @@
-// Command moony is a terminal coding agent (à la OpenCode) that runs
-// on Apple's Floodgate model proxy.
+// Command moony is a terminal coding agent that works with many model providers
+// (Ollama by default — local, no key — plus OpenAI, Anthropic, OpenRouter, and more).
 package main
 
 import (
@@ -24,7 +24,6 @@ import (
 	"github.com/pysty1995/moony/internal/app"
 	"github.com/pysty1995/moony/internal/bridge"
 	"github.com/pysty1995/moony/internal/config"
-	"github.com/pysty1995/moony/internal/corpca"
 	"github.com/pysty1995/moony/internal/daemon"
 	"github.com/pysty1995/moony/internal/domains"
 	"github.com/pysty1995/moony/internal/format"
@@ -47,12 +46,6 @@ import (
 )
 
 func main() {
-	// Trust Apple's internal corporate CAs in addition to the system pool, so
-	// TLS to internal hosts (github.pie.apple.com, artifacts.apple.com, ...)
-	// works even without an MDM-installed trust profile. Must run before any
-	// HTTP client is constructed.
-	corpca.InstallDefaultTransport()
-
 	// Before any subcommand or the TUI reads global config, relocate it from the
 	// pre-fix macOS location (~/Library/Application Support/moony) to
 	// ~/.config/moony when needed. Best-effort; a no-op on Linux and

@@ -35,21 +35,17 @@ func toolsetServer(name string) string {
 // sessions never touch. Core tools (read/write/edit/search/bash/web_fetch/…) are
 // intentionally NOT grouped: they must always be available.
 var builtinToolGroups = map[string][]string{
-	"git":         {"git_status", "git_diff", "git_log", "git_branch", "git_commit", "git_worktree"},
-	"browser":     {"browser"},
-	"apple-fetch": {"apple_fetch", "apple_search"},
+	"git":     {"git_status", "git_diff", "git_log", "git_branch", "git_commit", "git_worktree"},
+	"browser": {"browser"},
 }
 
 // builtinGroupBlurbs is a one-line "what it's for" note shown next to each
 // built-in group in the dormant-toolset listing (enable_toolset's description),
 // so the model can pick the right group to enable WITHOUT seeing the gated tools'
-// own descriptions. Especially important for apple-fetch: without this hint the
-// model defaults to the unauthenticated web_fetch on *.apple.com SSO URLs and
-// just gets the AppleConnect login page.
+// own descriptions.
 var builtinGroupBlurbs = map[string]string{
-	"git":         "git status / diff / log / branch / commit / worktree",
-	"browser":     "drive a real browser for JS-heavy / interactive pages",
-	"apple-fetch": "AppleConnect-authenticated fetch + search for internal *.apple.com URLs (github.pie.apple.com etc.) that web_fetch can't sign in to",
+	"git":     "git status / diff / log / branch / commit / worktree",
+	"browser": "drive a real browser for JS-heavy / interactive pages",
 }
 
 // builtinToolToGroup is the reverse index of builtinToolGroups (tool name → group).
@@ -193,7 +189,7 @@ func (a *Agent) gateToolsets(schemas []llm.Tool) []llm.Tool {
 const enableToolsetName = "enable_toolset"
 
 // enableToolsetTool lets the model activate a dormant toolset — an MCP server or
-// a built-in group (git/browser/apple-fetch) — so its tools (kept out of the
+// a built-in group (git/browser) — so its tools (kept out of the
 // request to save tokens) become available. Its description is built dynamically
 // from the registry, so the model always sees the current set of dormant toolsets
 // and their tools — this is what keeps the gated capability discoverable without

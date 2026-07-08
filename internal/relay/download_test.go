@@ -18,7 +18,6 @@ func relayWithDownloads(t *testing.T) *Relay {
 		"moony_darwin_amd64":        "AMD64BINARY",
 		"moony_linux_amd64":         "LINUXAMD64",
 		"moony_linux_arm64":         "LINUXARM64",
-		"apple-fetch_darwin.tar.gz": "APPLEFETCHTARBALL",
 		"SHA256SUMS":                "sums",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
@@ -97,7 +96,7 @@ func TestServeInstallScript(t *testing.T) {
 	body := rec.Body.String()
 	// The base URL is woven in from the request; the script maps both OSes and
 	// arch aliases, then builds the filename from $goos/$goarch.
-	for _, want := range []string{"http://example.com", "Darwin", "Linux", "aarch64", "moony_${goos}_${goarch}", "/download/$file", "--progress-bar", "uname -m", ".zshrc", "SQE_NO_MODIFY_PATH", "apple-fetch_darwin.tar.gz", ".sqe/apple-fetch"} {
+	for _, want := range []string{"http://example.com", "Darwin", "Linux", "aarch64", "moony_${goos}_${goarch}", "/download/$file", "--progress-bar", "uname -m", ".zshrc", "SQE_NO_MODIFY_PATH"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("install.sh missing %q", want)
 		}
@@ -138,7 +137,7 @@ func TestServeDownloadPage(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"v9.9.9", "/install.sh | sh", `href="/download/moony_darwin_arm64"`, `href="/download/moony_darwin_amd64"`, `href="/download/moony_linux_amd64"`, `href="/download/moony_linux_arm64"`, `href="/download/apple-fetch_darwin.tar.gz"`} {
+	for _, want := range []string{"v9.9.9", "/install.sh | sh", `href="/download/moony_darwin_arm64"`, `href="/download/moony_darwin_amd64"`, `href="/download/moony_linux_amd64"`, `href="/download/moony_linux_arm64"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("download page missing %q", want)
 		}
