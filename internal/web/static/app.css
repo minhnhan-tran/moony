@@ -1698,22 +1698,6 @@ body.wf-active .app-topbar { z-index: 40; }
 .theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
 .theme-toggle sf-symbol { font-size: 16px; }
 
-/* Special-user flair (adapted from the hybrid-assistant's is-admin avatar): a
-   slow rainbow ring spinning around the avatar. app.js adds .is-special to the
-   wrapper when the signed-in AppleConnect user matches. */
-.user-avatar-wrapper.is-special::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: var(--r-full);
-  background: conic-gradient(#f59e0b, #ef4444, #a855f7, #3b82f6, #10b981, #f59e0b);
-  animation: avatar-ring-spin 2.5s linear infinite;
-  z-index: 0;
-}
-.user-avatar-wrapper.is-special .user-avatar { position: relative; z-index: 1; } /* sit above the ring */
-@keyframes avatar-ring-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .user-avatar-wrapper.is-special::before { animation: none; } }
-
 .user-menu {
   position: absolute; top: calc(100% + 8px); right: 0;
   min-width: 210px; max-width: 78vw;

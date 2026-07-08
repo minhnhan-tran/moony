@@ -437,10 +437,6 @@ async function loadAuthUser() {
     // admins (server reports is_admin via /auth/me). The endpoints are also
     // admin-gated server-side. Re-synced here since authUser just changed.
     syncAdminMenuVisibility();
-    // Personal flair: a spinning rainbow ring around the avatar for a specific
-    // signed-in user (matched on AppleConnect account, case-insensitive).
-    const wrap = $("#userAvatarWrapper");
-    if (wrap) wrap.classList.toggle("is-special", (u.accountname || "").toLowerCase() === "minhnhan_tran");
     updateAvatar(lastStatus); // refresh now (and updateAvatar keeps preferring authUser on every status)
   } catch (_) { /* auth off or offline — leave the menu unchanged */ }
 }
@@ -1032,7 +1028,7 @@ function sqeProxyDeniedCard() {
         const data = await r.json().catch(() => ({}));
         if (authUser) authUser.in_group = !!data.in_group; // mirror the re-issued cookie client-side
         if (data.in_group) { btn.textContent = "✓ Access granted — reloading models…"; btn.classList.add("text-success"); showMenuLoading("Loading models…"); sendText("/models"); }
-        else { btn.textContent = "Still not in group — contact Moon(minhnhan_tran@apple.com) for getting in."; btn.classList.add("text-danger"); btn.disabled = false; }
+        else { btn.textContent = "Still not in group — contact your administrator for access."; btn.classList.add("text-danger"); btn.disabled = false; }
       } else { btn.textContent = "Refresh failed (" + r.status + ")"; btn.classList.add("text-danger"); btn.disabled = false; }
     } catch (_) { btn.textContent = "Refresh failed (network error)"; btn.classList.add("text-danger"); btn.disabled = false; }
   };

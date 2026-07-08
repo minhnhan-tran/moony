@@ -11,11 +11,11 @@ func TestStoreAddListRemovePersist(t *testing.T) {
 	path := filepath.Join(dir, "announce.json")
 	s := OpenAt(path)
 
-	a1, err := s.Add("First", "body one", "info", "minhnhan_tran")
+	a1, err := s.Add("First", "body one", "info", "alice")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Add("Second", "", "warn", "minhnhan_tran"); err != nil {
+	if _, err := s.Add("Second", "", "warn", "alice"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -27,7 +27,7 @@ func TestStoreAddListRemovePersist(t *testing.T) {
 	if list[0].Title != "Second" {
 		t.Errorf("want Second first (newest), got %q", list[0].Title)
 	}
-	if list[1].Level != "info" || list[1].Author != "minhnhan_tran" {
+	if list[1].Level != "info" || list[1].Author != "alice" {
 		t.Errorf("unexpected first announcement: %+v", list[1])
 	}
 

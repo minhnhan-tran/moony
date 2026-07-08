@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build + package the moony RELAY (Go). The web UI assets are embedded
 # in the binary (go:embed), so the runtime image is just the static binary —
-# no venv/pip/source copy like the Python sqeqct images.
+# no venv/pip/source copy is needed.
 #
 # Ports: 8770 = browser UI (front behind an L7 HTTPS VIP); 8771 = the connector
 # tunnel, which is raw TCP (front behind an L4 TCP VIP reachable from laptops).

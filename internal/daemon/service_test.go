@@ -87,8 +87,8 @@ func TestRelayAddrFor(t *testing.T) {
 	if got := relayAddrFor(&config.Config{RelayAddr: "relay.example:1234"}); got != "relay.example:1234" {
 		t.Errorf("explicit relay = %q, want relay.example:1234", got)
 	}
-	// DefaultRelay points at the production tunnel.
-	if DefaultRelay != "code.sqeqct.ops.apple.com:8771" {
+	// DefaultRelay is a placeholder that deployments must override.
+	if DefaultRelay != "relay.example.com:8771" {
 		t.Errorf("DefaultRelay = %q", DefaultRelay)
 	}
 }
@@ -103,23 +103,28 @@ func TestPaths(t *testing.T) {
 	}
 }
 
-// TestLegacyServiceIdentifiersMatchPreRenameNames pins the pre-rename
-// (sqe-code-agent) service identifiers cleanupLegacyService looks for, so an
-// upgrading user's old daemon is actually found and torn down instead of
-// silently orphaned. Also guards against the two label constants accidentally
-// colliding, which would make Install() tear down the service it just made.
+// TestLegacyServiceIdentifiersMatchPreRenameNames pins the earlier service
+// identifiers cleanupLegacyService looks for, so an upgrading user's old daemon
+// is actually found and torn down instead of silently orphaned. Also guards
+// against a legacy label colliding with the current one, which would make
+// Install() tear down the service it just made.
 func TestLegacyServiceIdentifiersMatchPreRenameNames(t *testing.T) {
-	if legacyLaunchdLabel != "sqeqct.sqe-code-agent" {
-		t.Errorf("legacyLaunchdLabel = %q, want the pre-rename label", legacyLaunchdLabel)
+	wantLabels := map[string]bool{"sqeqct.coding-agent": true, "sqeqct.sqe-code-agent": true}
+	for _, label := range legacyLaunchdLabels {
+		if !wantLabels[label] {
+			t.Errorf("unexpected legacy launchd label %q", label)
+		}
+		if label == launchdLabel {
+			t.Errorf("legacy launchd label %q must differ from the current launchdLabel", label)
+		}
 	}
-	if legacySystemdUnitName != "sqe-code-agent.service" {
-		t.Errorf("legacySystemdUnitName = %q, want the pre-rename unit name", legacySystemdUnitName)
-	}
-	if legacyLaunchdLabel == launchdLabel {
-		t.Error("legacyLaunchdLabel must differ from the current launchdLabel")
-	}
-	if legacySystemdUnitName == systemdUnitName {
-		t.Error("legacySystemdUnitName must differ from the current systemdUnitName")
+	for _, unit := range legacySystemdUnits {
+		if unit != "sqe-code-agent.service" {
+			t.Errorf("unexpected legacy systemd unit %q", unit)
+		}
+		if unit == systemdUnitName {
+			t.Errorf("legacy systemd unit %q must differ from the current systemdUnitName", unit)
+		}
 	}
 }
 

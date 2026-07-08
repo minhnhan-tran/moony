@@ -2,7 +2,7 @@
 // and manages it as a background OS service (launchd on macOS, systemd --user on
 // Linux). With the daemon installed, a machine stays registered with the relay
 // so its projects and sessions are browsable and drivable from the web UI
-// (code.sqeqct.ops.apple.com) without anyone hand-launching the TUI.
+// (the configured relay's host) without anyone hand-launching the TUI.
 //
 // The daemon serves the same multi-project app the terminal serves over a relay
 // (see app.BuildServer) — every browser-opened session runs its own agent rooted
@@ -31,12 +31,12 @@ const (
 	retryDelay  = 3 * time.Second
 )
 
-// DefaultRelay is the production relay's public connector-tunnel address. The
-// daemon falls back to it when no relay is otherwise configured (--relay /
-// MOONY_RELAY / saved /relay), so `moony daemon install` works with no
-// arguments. Only the daemon uses this default; the interactive TUI never
-// auto-connects to a relay.
-const DefaultRelay = "code.sqeqct.ops.apple.com:8771"
+// DefaultRelay is a placeholder relay connector-tunnel address. It is NOT a real
+// host — deployments must override it via --relay / MOONY_RELAY / a saved
+// /relay so `moony daemon install` targets their own relay. The daemon falls
+// back to it only when no relay is otherwise configured; the interactive TUI
+// never auto-connects to a relay.
+const DefaultRelay = "relay.example.com:8771"
 
 // relayAddrFor resolves the relay the daemon should dial: the configured address
 // if set, else DefaultRelay.

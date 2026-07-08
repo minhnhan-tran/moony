@@ -107,9 +107,9 @@ func TestTranscriptLabels(t *testing.T) {
 	}
 
 	// A resolved username replaces "You".
-	tr.userLabel = "minhnhan_tran"
+	tr.userLabel = "alice"
 	out = tr.render(-1)
-	if !strings.Contains(out, "minhnhan_tran") {
+	if !strings.Contains(out, "alice") {
 		t.Errorf("custom user label not rendered, got:\n%s", out)
 	}
 }

@@ -359,13 +359,16 @@ var logoGlyphs = map[rune][5]string{
 	'G': {"████", "█   ", "█ ██", "█  █", "████"},
 	'N': {"█  █", "██ █", "█ ██", "█  █", "█  █"},
 	'T': {"████", " █  ", " █  ", " █  ", " █  "},
+	'M': {"█   █", "██ ██", "█ █ █", "█   █", "█   █"},
+	'Y': {"█   █", " █ █ ", "  █  ", "  █  ", "  █  "},
+	'I': {"███", " █ ", " █ ", " █ ", "███"},
 	' ': {"  ", "  ", "  ", "  ", "  "},
 }
 
-// asciiLogo renders "SQE CODE AGENT" in the compact block font with a vertical
-// blue→pink gradient.
+// asciiLogo renders "MOONY CODING AGENT" in the compact block font with a
+// vertical blue→pink gradient.
 func asciiLogo() string {
-	const word = "SQEQCT CODING AGENT"
+	const word = "MOONY CODING AGENT"
 	var rows [5]strings.Builder
 	for i, r := range word {
 		g, ok := logoGlyphs[r]

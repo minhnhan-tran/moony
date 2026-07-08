@@ -26,10 +26,10 @@ struct AgentRelayClientApp: App {
         WindowGroup {
             // The app now behaves like a focused Safari-style browser onto the
             // hosted relay web UI: BrowserView loads this URL on launch and keeps
-            // the AppleConnect session across relaunches. (The native
+            // the signed-in session across relaunches. (The native
             // MainSplitView client stays in the project — it's just no longer the
             // entry point; swap it back here to restore the native UI.)
-            BrowserView(url: URL(string: "https://code.sqeqct.ops.apple.com")!)
+            BrowserView(url: URL(string: "https://relay.example.com")!)
                 .ignoresSafeArea()
                 .modelContainer(container)
                 .preferredColorScheme(.dark) // Dark-mode first design
@@ -54,8 +54,8 @@ struct AgentRelayClientApp: App {
                 )
                 
                 let communityRelay = HostProfile(
-                    name: "SQE Agent Relay",
-                    hostUrlString: "https://code.sqeqct.ops.apple.com",
+                    name: "Agent Relay",
+                    hostUrlString: "https://relay.example.com",
                     isDefault: true
                 )
                 
@@ -74,11 +74,11 @@ struct AgentRelayClientApp: App {
 
 // BrowserView turns the app into a focused, Safari-style web browser: a
 // full-screen WKWebView that loads `url` on launch, persists cookies/login
-// across relaunches, follows the relay's AppleConnect redirects, and offers the
+// across relaunches, follows the relay's auth redirects, and offers the
 // usual browser affordances — swipe back/forward, pull-to-refresh, a top
 // progress bar, and opening target=_blank links in place. It accepts the
-// Apple-internal host's TLS exactly like SSLTrustDelegate / AppleConnectWebView,
-// so https://code.sqeqct.ops.apple.com loads without a certificate error.
+// relay host's TLS exactly like SSLTrustDelegate, so a self-hosted relay
+// loads without a certificate error.
 struct BrowserView: UIViewControllerRepresentable {
     let url: URL
 

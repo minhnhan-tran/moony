@@ -14,15 +14,19 @@ import (
 // Service identifiers. launchdLabel is the user LaunchAgent label (and plist
 // basename); systemdUnitName is the systemd --user unit.
 const (
-	launchdLabel    = "sqeqct.coding-agent"
+	launchdLabel    = "moony.coding-agent"
 	systemdUnitName = "moony.service"
+)
 
-	// legacyLaunchdLabel/legacySystemdUnitName are the service identifiers used
-	// before the sqe-code-agent -> moony rename. Install()
-	// best-effort tears one down if present so upgrading the binary doesn't
-	// leave an orphaned daemon running under the old name alongside the new one.
-	legacyLaunchdLabel    = "sqeqct.sqe-code-agent"
-	legacySystemdUnitName = "sqe-code-agent.service"
+// legacyLaunchdLabels/legacySystemdUnits are service identifiers used by earlier
+// builds, before the move to the moony.* names. Install() best-effort tears any
+// of them down if present so upgrading the binary doesn't leave an orphaned
+// daemon running under an old name alongside the new one. These are teardown
+// anchors that must match what older installs actually registered as, not
+// branding.
+var (
+	legacyLaunchdLabels = []string{"sqeqct.coding-agent", "sqeqct.sqe-code-agent"}
+	legacySystemdUnits  = []string{"sqe-code-agent.service"}
 )
 
 // Install writes the OS service unit (launchd plist / systemd --user unit) that
@@ -241,18 +245,22 @@ func launchdPlistPath(home string) string {
 
 func guiDomain() string { return "gui/" + strconv.Itoa(os.Getuid()) }
 
-// cleanupLegacyService best-effort removes a daemon installed under the
-// pre-rename (sqe-code-agent) service name, ignoring all errors — there may be
-// nothing to clean up, or insufficient permissions, either way Install() should
-// proceed with the current name regardless.
+// cleanupLegacyService best-effort removes daemons installed under any earlier
+// service name, ignoring all errors — there may be nothing to clean up, or
+// insufficient permissions, either way Install() should proceed with the current
+// name regardless.
 func cleanupLegacyService(home string) {
 	switch runtime.GOOS {
 	case "darwin":
-		_, _ = runCmd("launchctl", "bootout", guiDomain()+"/"+legacyLaunchdLabel)
-		_ = os.Remove(filepath.Join(home, "Library", "LaunchAgents", legacyLaunchdLabel+".plist"))
+		for _, label := range legacyLaunchdLabels {
+			_, _ = runCmd("launchctl", "bootout", guiDomain()+"/"+label)
+			_ = os.Remove(filepath.Join(home, "Library", "LaunchAgents", label+".plist"))
+		}
 	case "linux":
-		_, _ = runCmd("systemctl", "--user", "disable", "--now", legacySystemdUnitName)
-		_ = os.Remove(filepath.Join(home, ".config", "systemd", "user", legacySystemdUnitName))
+		for _, unit := range legacySystemdUnits {
+			_, _ = runCmd("systemctl", "--user", "disable", "--now", unit)
+			_ = os.Remove(filepath.Join(home, ".config", "systemd", "user", unit))
+		}
 	}
 }
 

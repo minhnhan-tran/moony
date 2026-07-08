@@ -3,7 +3,7 @@
 // document blocks (read natively by Claude), and Office files (docx/xlsx/pptx)
 // are text-extracted locally since no model API ingests them directly. iWork
 // files (pages/numbers/key) are first converted to their Office equivalent via
-// the SQEQCT converter service (see iwork.go), then text-extracted the same way.
+// an office converter service (see iwork.go), then text-extracted the same way.
 // It is shared by the terminal (@mentions, /attach, /paste) and the web UI (file
 // picker, drag-drop, clipboard paste).
 package attach
@@ -152,7 +152,7 @@ func FromBytes(name, mediaType string, data []byte) (Attachment, error) {
 		return Attachment{Kind: KindText, Name: name, Text: text}, nil
 	}
 
-	// iWork files: convert to the matching Office format via the SQEQCT
+	// iWork files: convert to the matching Office format via the office
 	// converter service, then text-extract the result. The display name keeps
 	// the original iWork extension so the user recognizes their file.
 	if officeExt, ok := iworkExts[ext]; ok {

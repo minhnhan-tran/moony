@@ -4,12 +4,12 @@ import "testing"
 
 func TestRelayWebURL(t *testing.T) {
 	cases := map[string]string{
-		"":                           "",
-		"relay.example:9000":         "https://relay.example",
-		"code.sqeqct.apple.com:443":  "https://code.sqeqct.apple.com",
-		"code.sqeqct.apple.com":      "https://code.sqeqct.apple.com",
-		"code.sqeqct.apple.com:8771": "https://code.sqeqct.apple.com",
-		"  host:8080  ":              "https://host",
+		"":                        "",
+		"relay.example:9000":      "https://relay.example",
+		"code.relay.example:443":  "https://code.relay.example",
+		"code.relay.example":      "https://code.relay.example",
+		"code.relay.example:8771": "https://code.relay.example",
+		"  host:8080  ":           "https://host",
 	}
 	for in, want := range cases {
 		if got := relayWebURL(in); got != want {

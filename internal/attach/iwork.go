@@ -1,13 +1,14 @@
 package attach
 
 // iWork support: Pages/Numbers/Keynote bundles aren't Office Open XML and no Go
-// library reads them, so we hand them to the SQEQCT office converter service
-// (an AppleScript-driven macOS box that drives the real iWork apps) which
-// returns the equivalent Office file. We then text-extract that like any other
-// Office attachment, so the model sees the document's content.
+// library reads them, so we hand them to an office converter service (an
+// AppleScript-driven macOS box that drives the real iWork apps) which returns
+// the equivalent Office file. We then text-extract that like any other Office
+// attachment, so the model sees the document's content.
 //
-// Reference service: github.pie.apple.com sqeqct-office-converter-service —
-// POST /convert/to-office, multipart field "file"; returns the .docx/.xlsx/.pptx.
+// The converter is expected to expose POST /convert/to-office with a multipart
+// field "file", returning the .docx/.xlsx/.pptx. There is no default public
+// endpoint; set MOONY_CONVERTER_URL to your own converter to enable this.
 
 import (
 	"bytes"
@@ -31,10 +32,11 @@ var iworkExts = map[string]string{
 	".key":     ".pptx",
 }
 
-// defaultConverterURL is the SQEQCT office converter service. Override with the
-// MOONY_CONVERTER_URL env var; set that var to empty to disable iWork
-// conversion (then iWork attachments are rejected with a clear message).
-const defaultConverterURL = "https://sqeqct.corp.apple.com:5052"
+// defaultConverterURL is a placeholder office-converter endpoint — NOT a real
+// service. Override it with the MOONY_CONVERTER_URL env var to point at your own
+// converter; set that var to empty to disable iWork conversion (then iWork
+// attachments are rejected with a clear message).
+const defaultConverterURL = "https://converter.example.com:5052"
 
 // converterTimeout bounds one conversion. The service launches a real iWork app
 // (open → export → quit), so it's slow; keep this generous.
