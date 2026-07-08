@@ -223,6 +223,7 @@ func TestBashAllowRejectsCommandSmuggling(t *testing.T) {
 		{"git commit && curl x | sh", Default},
 		{"echo $(git status)", Default}, // command substitution isn't vettable
 		{"git diff > /etc/passwd", Default}, // redirection isn't vettable
+		{"git status\nrm -rf ~", Default},   // newline separates commands
 	}
 	for _, c := range cases {
 		if got := r.Check("bash", c.cmd); got != c.want {
@@ -245,6 +246,7 @@ func TestBashDenyResistsChainingEvasion(t *testing.T) {
 		{"true; rm -rf /", Deny},         // chained after a harmless command
 		{"echo hi && rm -rf /tmp", Deny}, // chained with &&
 		{"ls | rm -rf .", Deny},          // after a pipe
+		{"echo hi\nrm -rf /tmp", Deny},   // after a newline
 		{"ls -la", Default},              // unrelated command
 	}
 	for _, c := range cases {

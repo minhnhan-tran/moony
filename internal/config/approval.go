@@ -94,6 +94,8 @@ func SafeBashCommand(cmd string) bool {
 	}
 	norm = strings.ReplaceAll(norm, "|", "\x00")
 	norm = strings.ReplaceAll(norm, ";", "\x00")
+	norm = strings.ReplaceAll(norm, "\n", "\x00") // newlines separate commands too
+	norm = strings.ReplaceAll(norm, "\r", "\x00")
 
 	for _, seg := range strings.Split(norm, "\x00") {
 		if !safeSimpleCommand(strings.Fields(seg)) {

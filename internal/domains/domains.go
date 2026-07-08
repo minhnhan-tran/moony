@@ -32,6 +32,8 @@ import (
 type List struct {
 	Allow []string `json:"allow,omitempty"`
 	Deny  []string `json:"deny,omitempty"`
+
+	malformed bool // the file existed but could not be read/parsed (unexported: not persisted)
 }
 
 // defaultAllow seeds a fresh install so web_fetch is restricted to Apple hosts
@@ -49,8 +51,15 @@ func Load() *List {
 	if path == "" {
 		return l
 	}
-	if data, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(data, l)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			l.malformed = true // exists but unreadable — fail closed rather than permit all
+		}
+		return l
+	}
+	if err := json.Unmarshal(data, l); err != nil {
+		return &List{malformed: true} // corrupt — don't silently permit every host
 	}
 	return l
 }
@@ -73,6 +82,9 @@ func EnsureDefaults() {
 
 // Check reports whether web_fetch may request host, and a human reason when not.
 func (l *List) Check(host string) (allowed bool, reason string) {
+	if l.malformed {
+		return false, "blocked: domains.json is malformed — fix or remove it (web_fetch is disabled until then)"
+	}
 	h := normalizeHost(host)
 	if h == "" {
 		return false, "missing host"

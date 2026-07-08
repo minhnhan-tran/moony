@@ -208,6 +208,8 @@ func bashSegments(command string) (segments []string, vettable bool) {
 	}
 	norm = strings.ReplaceAll(norm, "|", "\x00")
 	norm = strings.ReplaceAll(norm, ";", "\x00")
+	norm = strings.ReplaceAll(norm, "\n", "\x00") // newlines separate commands too
+	norm = strings.ReplaceAll(norm, "\r", "\x00")
 	for _, seg := range strings.Split(norm, "\x00") {
 		if s := strings.TrimSpace(seg); s != "" {
 			segments = append(segments, s)

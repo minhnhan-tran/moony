@@ -29,7 +29,7 @@ var (
 func dbg(format string, a ...any) {
 	debugOnce.Do(func() {
 		if p := strings.TrimSpace(os.Getenv("SQE_DEBUG_FILE")); p != "" {
-			if f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+			if f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
 				debugFile = f
 			} else {
 				fmt.Fprintf(os.Stderr, "failed to open SQE_DEBUG_FILE: %v\n", err)
