@@ -14,11 +14,11 @@ func relayWithDownloads(t *testing.T) *Relay {
 	t.Helper()
 	dir := t.TempDir()
 	for name, body := range map[string]string{
-		"moony_darwin_arm64":        "ARM64BINARY",
-		"moony_darwin_amd64":        "AMD64BINARY",
-		"moony_linux_amd64":         "LINUXAMD64",
-		"moony_linux_arm64":         "LINUXARM64",
-		"SHA256SUMS":                "sums",
+		"moony_darwin_arm64": "ARM64BINARY",
+		"moony_darwin_amd64": "AMD64BINARY",
+		"moony_linux_amd64":  "LINUXAMD64",
+		"moony_linux_arm64":  "LINUXARM64",
+		"SHA256SUMS":         "sums",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)

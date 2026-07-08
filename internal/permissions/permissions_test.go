@@ -216,12 +216,12 @@ func TestBashAllowRejectsCommandSmuggling(t *testing.T) {
 		cmd  string
 		want Decision
 	}{
-		{"git status", Allow},              // simple allowed command
-		{"git status && git log", Allow},   // every segment covered by the allow prefix
-		{"git status; rm -rf ~", Default},  // smuggled 2nd command must NOT ride the allow
-		{"git log | sh", Default},          // piped-in command not covered
+		{"git status", Allow},             // simple allowed command
+		{"git status && git log", Allow},  // every segment covered by the allow prefix
+		{"git status; rm -rf ~", Default}, // smuggled 2nd command must NOT ride the allow
+		{"git log | sh", Default},         // piped-in command not covered
 		{"git commit && curl x | sh", Default},
-		{"echo $(git status)", Default}, // command substitution isn't vettable
+		{"echo $(git status)", Default},     // command substitution isn't vettable
 		{"git diff > /etc/passwd", Default}, // redirection isn't vettable
 		{"git status\nrm -rf ~", Default},   // newline separates commands
 	}

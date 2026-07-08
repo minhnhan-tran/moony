@@ -88,13 +88,13 @@ func TestLazyMCPDisabledShowsAll(t *testing.T) {
 
 func TestToolsetOf(t *testing.T) {
 	cases := map[string]string{
-		"mcp.demo.do_thing": "demo",        // MCP server
-		"git_status":        "git",         // built-in group
-		"git_commit":        "git",         //
-		"browser":           "browser",     //
-		"read_file":         "",            // core: ungateable
-		"bash":              "",            //
-		"web_fetch":         "",            // deliberately NOT grouped
+		"mcp.demo.do_thing": "demo",    // MCP server
+		"git_status":        "git",     // built-in group
+		"git_commit":        "git",     //
+		"browser":           "browser", //
+		"read_file":         "",        // core: ungateable
+		"bash":              "",        //
+		"web_fetch":         "",        // deliberately NOT grouped
 	}
 	for name, want := range cases {
 		if got := toolsetOf(name); got != want {

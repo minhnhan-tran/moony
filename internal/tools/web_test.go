@@ -334,4 +334,3 @@ func TestWebFetchNetrcDisabled(t *testing.T) {
 }
 
 // TestAppleAuthWallHint removed with the apple_fetch/apple_search tools.
-
