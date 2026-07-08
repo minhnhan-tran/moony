@@ -90,60 +90,134 @@ type personaEdit struct {
 	TogetherAPIKey   *string `json:"togetherApiKey"`
 	FireworksAPIKey  *string `json:"fireworksApiKey"`
 	OllamaToken      *string `json:"ollamaToken"`
+	// Provider base-URL overrides (MOONY_*_BASE_URL). Plain text: empty clears the
+	// override so the built-in default is used. Ollama's host is the top-level
+	// "ollamaHost" field, so it has no entry here.
+	OpenAIBaseURL     *string `json:"openaiBaseUrl"`
+	AnthropicBaseURL  *string `json:"anthropicBaseUrl"`
+	OpenRouterBaseURL *string `json:"openrouterBaseUrl"`
+	GeminiBaseURL     *string `json:"geminiBaseUrl"`
+	DeepSeekBaseURL   *string `json:"deepseekBaseUrl"`
+	GroqBaseURL       *string `json:"groqBaseUrl"`
+	XAIBaseURL        *string `json:"xaiBaseUrl"`
+	MistralBaseURL    *string `json:"mistralBaseUrl"`
+	TogetherBaseURL   *string `json:"togetherBaseUrl"`
+	FireworksBaseURL  *string `json:"fireworksBaseUrl"`
 }
 
-// providerCred ties one provider credential's Persona field to its env var, the
-// config struct field it feeds, and the personaEdit field the browser posts
-// back. One row per provider keeps personaFields/applyPersonaEdit/
-// personaEditedFields in sync — adding a provider means adding a personaEdit
-// field, a config field, and one row here.
+// providerCred ties one provider's Persona fields (API key + optional base-URL
+// override) to their env vars and the config struct fields they feed. One row
+// per provider keeps personaFields/applyPersonaEdit/personaEditedFields in sync
+// — adding a provider means adding personaEdit fields, config fields, and one
+// row here. baseEnv == "" means the provider has no editable base URL (Ollama,
+// whose host is the top-level "ollamaHost" field).
 type providerCred struct {
-	key   string                       // Persona field key (== personaEdit JSON tag)
-	label string                       // display label
+	key   string                       // API-key Persona field key (== personaEdit JSON tag)
+	label string                       // API-key display label
 	env   string                       // MOONY_*_API_KEY (or MOONY_OLLAMA_TOKEN) env var
-	desc  string                       // help text shown under the field
-	cfg   func(*config.Config) *string // pointer to the live config field
-	edit  func(personaEdit) *string    // the posted value (nil = field absent = unchanged)
+	desc  string                       // API-key help text
+	cfg   func(*config.Config) *string // pointer to the live API-key config field
+	edit  func(personaEdit) *string    // posted API-key value (nil = field absent = unchanged)
+
+	baseKey   string                       // base-URL Persona field key ("" = no base-URL field)
+	baseLabel string                       // base-URL display label
+	baseEnv   string                       // MOONY_*_BASE_URL env var
+	baseDesc  string                       // base-URL help text
+	baseCfg   func(*config.Config) *string // pointer to the live base-URL config field
+	baseEdit  func(personaEdit) *string    // posted base-URL value (nil = unchanged)
 }
 
 // providerCreds is the credential registry for the Persona panel, in display
 // order (matching the /provider list). Keys mirror config.Load's MOONY_*_API_KEY
-// reads; the bare-name fallbacks (OPENAI_API_KEY, …) are deployment env only and
-// not editable here.
+// / MOONY_*_BASE_URL reads; the bare-name key fallbacks (OPENAI_API_KEY, …) are
+// deployment env only and not editable here.
 var providerCreds = []providerCred{
-	{"openaiApiKey", "OpenAI API key", "MOONY_OPENAI_API_KEY",
-		"MOONY_OPENAI_API_KEY: authenticates api.openai.com. Applied live; resets to the deployed env on restart.",
-		func(c *config.Config) *string { return &c.OpenAIAPIKey }, func(e personaEdit) *string { return e.OpenAIAPIKey }},
-	{"anthropicApiKey", "Anthropic API key", "MOONY_ANTHROPIC_API_KEY",
-		"MOONY_ANTHROPIC_API_KEY: authenticates api.anthropic.com (Claude). Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.AnthropicAPIKey }, func(e personaEdit) *string { return e.AnthropicAPIKey }},
-	{"openrouterApiKey", "OpenRouter API key", "MOONY_OPENROUTER_API_KEY",
-		"MOONY_OPENROUTER_API_KEY: authenticates openrouter.ai. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.OpenRouterAPIKey }, func(e personaEdit) *string { return e.OpenRouterAPIKey }},
-	{"geminiApiKey", "Gemini API key", "MOONY_GEMINI_API_KEY",
-		"MOONY_GEMINI_API_KEY: authenticates Google's OpenAI-compatible endpoint. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.GeminiAPIKey }, func(e personaEdit) *string { return e.GeminiAPIKey }},
-	{"deepseekApiKey", "DeepSeek API key", "MOONY_DEEPSEEK_API_KEY",
-		"MOONY_DEEPSEEK_API_KEY: authenticates api.deepseek.com. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.DeepSeekAPIKey }, func(e personaEdit) *string { return e.DeepSeekAPIKey }},
-	{"groqApiKey", "Groq API key", "MOONY_GROQ_API_KEY",
-		"MOONY_GROQ_API_KEY: authenticates api.groq.com. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.GroqAPIKey }, func(e personaEdit) *string { return e.GroqAPIKey }},
-	{"xaiApiKey", "xAI API key", "MOONY_XAI_API_KEY",
-		"MOONY_XAI_API_KEY: authenticates api.x.ai (Grok). Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.XAIAPIKey }, func(e personaEdit) *string { return e.XAIAPIKey }},
-	{"mistralApiKey", "Mistral API key", "MOONY_MISTRAL_API_KEY",
-		"MOONY_MISTRAL_API_KEY: authenticates api.mistral.ai. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.MistralAPIKey }, func(e personaEdit) *string { return e.MistralAPIKey }},
-	{"togetherApiKey", "Together.ai API key", "MOONY_TOGETHER_API_KEY",
-		"MOONY_TOGETHER_API_KEY: authenticates api.together.xyz. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.TogetherAPIKey }, func(e personaEdit) *string { return e.TogetherAPIKey }},
-	{"fireworksApiKey", "Fireworks.ai API key", "MOONY_FIREWORKS_API_KEY",
-		"MOONY_FIREWORKS_API_KEY: authenticates api.fireworks.ai. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.FireworksAPIKey }, func(e personaEdit) *string { return e.FireworksAPIKey }},
-	{"ollamaToken", "Ollama token", "MOONY_OLLAMA_TOKEN",
-		"MOONY_OLLAMA_TOKEN: optional bearer token for a secured Ollama server. Applied live; resets on restart.",
-		func(c *config.Config) *string { return &c.OllamaToken }, func(e personaEdit) *string { return e.OllamaToken }},
+	{
+		key: "openaiApiKey", label: "OpenAI API key", env: "MOONY_OPENAI_API_KEY",
+		desc: "MOONY_OPENAI_API_KEY: authenticates api.openai.com. Applied live; resets to the deployed env on restart.",
+		cfg:  func(c *config.Config) *string { return &c.OpenAIAPIKey }, edit: func(e personaEdit) *string { return e.OpenAIAPIKey },
+		baseKey: "openaiBaseUrl", baseLabel: "OpenAI base URL", baseEnv: "MOONY_OPENAI_BASE_URL",
+		baseDesc: "MOONY_OPENAI_BASE_URL: override the OpenAI-compatible endpoint (default https://api.openai.com/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.OpenAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.OpenAIBaseURL },
+	},
+	{
+		key: "anthropicApiKey", label: "Anthropic API key", env: "MOONY_ANTHROPIC_API_KEY",
+		desc: "MOONY_ANTHROPIC_API_KEY: authenticates api.anthropic.com (Claude). Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.AnthropicAPIKey }, edit: func(e personaEdit) *string { return e.AnthropicAPIKey },
+		baseKey: "anthropicBaseUrl", baseLabel: "Anthropic base URL", baseEnv: "MOONY_ANTHROPIC_BASE_URL",
+		baseDesc: "MOONY_ANTHROPIC_BASE_URL: override the native Anthropic Messages API base (default https://api.anthropic.com). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.AnthropicBaseURL }, baseEdit: func(e personaEdit) *string { return e.AnthropicBaseURL },
+	},
+	{
+		key: "openrouterApiKey", label: "OpenRouter API key", env: "MOONY_OPENROUTER_API_KEY",
+		desc: "MOONY_OPENROUTER_API_KEY: authenticates openrouter.ai. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.OpenRouterAPIKey }, edit: func(e personaEdit) *string { return e.OpenRouterAPIKey },
+		baseKey: "openrouterBaseUrl", baseLabel: "OpenRouter base URL", baseEnv: "MOONY_OPENROUTER_BASE_URL",
+		baseDesc: "MOONY_OPENROUTER_BASE_URL: override the OpenRouter base (default https://openrouter.ai/api/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.OpenRouterBaseURL }, baseEdit: func(e personaEdit) *string { return e.OpenRouterBaseURL },
+	},
+	{
+		key: "geminiApiKey", label: "Gemini API key", env: "MOONY_GEMINI_API_KEY",
+		desc: "MOONY_GEMINI_API_KEY: authenticates Google's OpenAI-compatible endpoint. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.GeminiAPIKey }, edit: func(e personaEdit) *string { return e.GeminiAPIKey },
+		baseKey: "geminiBaseUrl", baseLabel: "Gemini base URL", baseEnv: "MOONY_GEMINI_BASE_URL",
+		baseDesc: "MOONY_GEMINI_BASE_URL: override the Gemini base (default https://generativelanguage.googleapis.com/v1beta/openai). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.GeminiBaseURL }, baseEdit: func(e personaEdit) *string { return e.GeminiBaseURL },
+	},
+	{
+		key: "deepseekApiKey", label: "DeepSeek API key", env: "MOONY_DEEPSEEK_API_KEY",
+		desc: "MOONY_DEEPSEEK_API_KEY: authenticates api.deepseek.com. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.DeepSeekAPIKey }, edit: func(e personaEdit) *string { return e.DeepSeekAPIKey },
+		baseKey: "deepseekBaseUrl", baseLabel: "DeepSeek base URL", baseEnv: "MOONY_DEEPSEEK_BASE_URL",
+		baseDesc: "MOONY_DEEPSEEK_BASE_URL: override the DeepSeek base (default https://api.deepseek.com). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.DeepSeekBaseURL }, baseEdit: func(e personaEdit) *string { return e.DeepSeekBaseURL },
+	},
+	{
+		key: "groqApiKey", label: "Groq API key", env: "MOONY_GROQ_API_KEY",
+		desc: "MOONY_GROQ_API_KEY: authenticates api.groq.com. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.GroqAPIKey }, edit: func(e personaEdit) *string { return e.GroqAPIKey },
+		baseKey: "groqBaseUrl", baseLabel: "Groq base URL", baseEnv: "MOONY_GROQ_BASE_URL",
+		baseDesc: "MOONY_GROQ_BASE_URL: override the Groq base (default https://api.groq.com/openai/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.GroqBaseURL }, baseEdit: func(e personaEdit) *string { return e.GroqBaseURL },
+	},
+	{
+		key: "xaiApiKey", label: "xAI API key", env: "MOONY_XAI_API_KEY",
+		desc: "MOONY_XAI_API_KEY: authenticates api.x.ai (Grok). Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.XAIAPIKey }, edit: func(e personaEdit) *string { return e.XAIAPIKey },
+		baseKey: "xaiBaseUrl", baseLabel: "xAI base URL", baseEnv: "MOONY_XAI_BASE_URL",
+		baseDesc: "MOONY_XAI_BASE_URL: override the xAI base (default https://api.x.ai/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.XAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.XAIBaseURL },
+	},
+	{
+		key: "mistralApiKey", label: "Mistral API key", env: "MOONY_MISTRAL_API_KEY",
+		desc: "MOONY_MISTRAL_API_KEY: authenticates api.mistral.ai. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.MistralAPIKey }, edit: func(e personaEdit) *string { return e.MistralAPIKey },
+		baseKey: "mistralBaseUrl", baseLabel: "Mistral base URL", baseEnv: "MOONY_MISTRAL_BASE_URL",
+		baseDesc: "MOONY_MISTRAL_BASE_URL: override the Mistral base (default https://api.mistral.ai/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.MistralBaseURL }, baseEdit: func(e personaEdit) *string { return e.MistralBaseURL },
+	},
+	{
+		key: "togetherApiKey", label: "Together.ai API key", env: "MOONY_TOGETHER_API_KEY",
+		desc: "MOONY_TOGETHER_API_KEY: authenticates api.together.xyz. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.TogetherAPIKey }, edit: func(e personaEdit) *string { return e.TogetherAPIKey },
+		baseKey: "togetherBaseUrl", baseLabel: "Together.ai base URL", baseEnv: "MOONY_TOGETHER_BASE_URL",
+		baseDesc: "MOONY_TOGETHER_BASE_URL: override the Together.ai base (default https://api.together.xyz/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.TogetherBaseURL }, baseEdit: func(e personaEdit) *string { return e.TogetherBaseURL },
+	},
+	{
+		key: "fireworksApiKey", label: "Fireworks.ai API key", env: "MOONY_FIREWORKS_API_KEY",
+		desc: "MOONY_FIREWORKS_API_KEY: authenticates api.fireworks.ai. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.FireworksAPIKey }, edit: func(e personaEdit) *string { return e.FireworksAPIKey },
+		baseKey: "fireworksBaseUrl", baseLabel: "Fireworks.ai base URL", baseEnv: "MOONY_FIREWORKS_BASE_URL",
+		baseDesc: "MOONY_FIREWORKS_BASE_URL: override the Fireworks.ai base (default https://api.fireworks.ai/inference/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.FireworksBaseURL }, baseEdit: func(e personaEdit) *string { return e.FireworksBaseURL },
+	},
+	{
+		key: "ollamaToken", label: "Ollama token", env: "MOONY_OLLAMA_TOKEN",
+		desc: "MOONY_OLLAMA_TOKEN: optional bearer token for a secured Ollama server. Applied live; resets on restart.",
+		cfg:  func(c *config.Config) *string { return &c.OllamaToken }, edit: func(e personaEdit) *string { return e.OllamaToken },
+		// No base URL: the Ollama host is the top-level "ollamaHost" field.
+	},
 }
 
 // personaEditedFields returns the names of the fields this edit touched, for
@@ -198,6 +272,9 @@ func personaEditedFields(e personaEdit) []string {
 	for _, pc := range providerCreds {
 		if pc.edit(e) != nil {
 			f = append(f, pc.key) // name only, never the secret
+		}
+		if pc.baseEdit != nil && pc.baseEdit(e) != nil {
+			f = append(f, pc.baseKey)
 		}
 	}
 	if len(f) == 0 {
@@ -347,13 +424,25 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 	// update the live field too — the change reaches the running terminal at once.
 	// Secret semantics: blank keeps the existing key (never wipes it on empty submit).
 	for _, pc := range providerCreds {
-		v := pc.edit(e)
-		if v == nil {
+		if v := pc.edit(e); v != nil {
+			if t := strings.TrimSpace(*v); t != "" {
+				_ = os.Setenv(pc.env, t)
+				*pc.cfg(c) = t
+			}
+		}
+		// Base-URL override (plain): set when given, clear when blank. An empty
+		// config field is safe — the LLM client falls back to the built-in default.
+		if pc.baseEdit == nil {
 			continue
 		}
-		if t := strings.TrimSpace(*v); t != "" {
-			_ = os.Setenv(pc.env, t)
-			*pc.cfg(c) = t
+		if v := pc.baseEdit(e); v != nil {
+			t := strings.TrimSpace(*v)
+			if t != "" {
+				_ = os.Setenv(pc.baseEnv, t)
+			} else {
+				_ = os.Unsetenv(pc.baseEnv)
+			}
+			*pc.baseCfg(c) = t
 		}
 	}
 }
@@ -409,11 +498,10 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 			Options: auxModelSelectOptions(models),
 			Desc:    "Model for self-review diffs, checkpoint distillation, goal-judge, and session titling — all tool-less 'quick answer' calls. 'Auto' falls back to Fast model, else the built-in Haiku default. Runtime override — resets on restart."},
 	}
-	// Provider API keys (+ the optional Ollama token). Secrets masked to a last-4
-	// hint; leaving one blank on save keeps the existing key. Read from the live
-	// config field, which config.Load populated from MOONY_*_API_KEY (or the
-	// bare-name fallback), so a key already in the env shows as set.
-	fields = append(fields, providerKeyFields(c)...)
+	// Provider API keys + base-URL overrides (and the optional Ollama token).
+	// Secrets masked to a last-4 hint; leaving a key blank on save keeps the
+	// existing one. Base URLs are overrides — blank uses the built-in default.
+	fields = append(fields, providerCredFields(c)...)
 	// Session-history encryption at rest (AES-256-GCM). Read from the env by
 	// session.NewStore; edits here are runtime overrides that apply on next
 	// restart. Default (no key set) auto-generates a local key.
@@ -440,18 +528,27 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 	return fields
 }
 
-// providerKeyFields builds a masked secret field for each provider credential in
-// providerCreds. The current value is read from the live config field (which
-// config.Load populated from MOONY_*_API_KEY or the bare-name fallback), so a
-// key already present in the env shows as set with a last-4 hint.
-func providerKeyFields(c *config.Config) []personaField {
-	out := make([]personaField, 0, len(providerCreds))
+// providerCredFields builds the Persona fields for each provider credential in
+// providerCreds: a masked secret field for the API key (current value read from
+// the live config field, which config.Load populated from MOONY_*_API_KEY or the
+// bare-name fallback — so a key already in the env shows as set with a last-4
+// hint), immediately followed by the plain base-URL override field where the
+// provider has one. The base-URL value is the current override (MOONY_*_BASE_URL,
+// blank when unset — meaning the built-in default is used).
+func providerCredFields(c *config.Config) []personaField {
+	out := make([]personaField, 0, len(providerCreds)*2)
 	for _, pc := range providerCreds {
 		cur := strings.TrimSpace(*pc.cfg(c))
 		out = append(out, personaField{
 			Key: pc.key, Label: pc.label, Type: "secret",
 			Set: cur != "", Hint: lastFour(cur), Desc: pc.desc,
 		})
+		if pc.baseEnv != "" {
+			out = append(out, personaField{
+				Key: pc.baseKey, Label: pc.baseLabel, Type: "text",
+				Value: os.Getenv(pc.baseEnv), Desc: pc.baseDesc,
+			})
+		}
 	}
 	return out
 }

@@ -203,15 +203,23 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 }
 
 // TestPersonaProviderKeyFields verifies each provider credential is surfaced as a
-// masked secret field, that an already-set key (from the config struct) reports
-// set=true with a last-4 hint, and that unset keys report set=false.
+// masked secret field (with a base-URL text field where the provider has one),
+// that an already-set key (from the config struct) reports set=true with a
+// last-4 hint, and that unset keys report set=false.
 func TestPersonaProviderKeyFields(t *testing.T) {
+	for _, pc := range providerCreds {
+		if pc.baseEnv != "" {
+			t.Setenv(pc.baseEnv, "")
+			os.Unsetenv(pc.baseEnv)
+		}
+	}
 	c := &config.Config{OpenAIAPIKey: "sk-live-abcd1234"} // pre-set one key
 	byKey := map[string]personaField{}
 	for _, f := range personaFields(c, config.AllKnownModels()) {
 		byKey[f.Key] = f
 	}
-	// Every providerCreds row must appear as a secret field.
+	// Every providerCreds row must appear as a secret field, plus a text base-URL
+	// field where baseEnv is set.
 	for _, pc := range providerCreds {
 		f, ok := byKey[pc.key]
 		if !ok {
@@ -223,6 +231,19 @@ func TestPersonaProviderKeyFields(t *testing.T) {
 		if f.Value != nil {
 			t.Errorf("%s must not expose a value (secret), got %v", pc.key, f.Value)
 		}
+		if pc.baseEnv == "" {
+			continue
+		}
+		bf, ok := byKey[pc.baseKey]
+		if !ok {
+			t.Fatalf("missing base-URL field %q", pc.baseKey)
+		}
+		if bf.Type != "text" {
+			t.Errorf("%s type = %q, want text", pc.baseKey, bf.Type)
+		}
+		if bf.Value != "" { // no override set → blank (default in use)
+			t.Errorf("%s value = %v, want blank when no override set", pc.baseKey, bf.Value)
+		}
 	}
 	if f := byKey["openaiApiKey"]; !f.Set || f.Hint != "1234" {
 		t.Errorf("openaiApiKey set=%v hint=%q, want set=true hint=1234", f.Set, f.Hint)
@@ -230,19 +251,27 @@ func TestPersonaProviderKeyFields(t *testing.T) {
 	if f := byKey["anthropicApiKey"]; f.Set {
 		t.Error("anthropicApiKey should report set=false when unset")
 	}
+	if _, ok := byKey["ollamaBaseUrl"]; ok {
+		t.Error("ollama token must not emit a base-URL field (host is the ollamaHost field)")
+	}
 }
 
 // TestApplyPersonaEditProviderKeys verifies a provider key edit sets both the env
-// var and the live config field, and that a blank secret keeps the existing key.
+// var and the live config field (blank secret keeps the existing key), and that a
+// base-URL override sets both env + field while a blank clears the override.
 func TestApplyPersonaEditProviderKeys(t *testing.T) {
 	for _, pc := range providerCreds {
 		os.Unsetenv(pc.env)
+		if pc.baseEnv != "" {
+			os.Unsetenv(pc.baseEnv)
+		}
 	}
 	c := &config.Config{}
 
 	applyPersonaEdit(c, personaEdit{
-		OpenAIAPIKey: strptr("sk-openai-xyz"),
-		OllamaToken:  strptr("ollama-bearer"),
+		OpenAIAPIKey:  strptr("sk-openai-xyz"),
+		OllamaToken:   strptr("ollama-bearer"),
+		OpenAIBaseURL: strptr("https://proxy.local/v1"),
 	})
 	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
 		t.Errorf("MOONY_OPENAI_API_KEY = %q, want sk-openai-xyz", got)
@@ -253,14 +282,26 @@ func TestApplyPersonaEditProviderKeys(t *testing.T) {
 	if got := os.Getenv("MOONY_OLLAMA_TOKEN"); got != "ollama-bearer" || c.OllamaToken != "ollama-bearer" {
 		t.Errorf("ollama token env=%q field=%q, want ollama-bearer", got, c.OllamaToken)
 	}
+	if got := os.Getenv("MOONY_OPENAI_BASE_URL"); got != "https://proxy.local/v1" || c.OpenAIBaseURL != "https://proxy.local/v1" {
+		t.Errorf("openai base env=%q field=%q, want https://proxy.local/v1", got, c.OpenAIBaseURL)
+	}
 
-	// Blank secret keeps the existing key (neither env nor field is wiped).
-	applyPersonaEdit(c, personaEdit{OpenAIAPIKey: strptr("")})
+	// Blank secret keeps the existing key; blank base-URL clears the override.
+	applyPersonaEdit(c, personaEdit{
+		OpenAIAPIKey:  strptr(""),
+		OpenAIBaseURL: strptr(""),
+	})
 	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
 		t.Errorf("blank secret cleared env, got %q", got)
 	}
 	if c.OpenAIAPIKey != "sk-openai-xyz" {
 		t.Errorf("blank secret cleared config field, got %q", c.OpenAIAPIKey)
+	}
+	if got := os.Getenv("MOONY_OPENAI_BASE_URL"); got != "" {
+		t.Errorf("blank base-URL should unset env, got %q", got)
+	}
+	if c.OpenAIBaseURL != "" {
+		t.Errorf("blank base-URL should clear the field (client falls back to default), got %q", c.OpenAIBaseURL)
 	}
 
 	// A nil (absent) field leaves everything unchanged.
@@ -271,5 +312,8 @@ func TestApplyPersonaEditProviderKeys(t *testing.T) {
 
 	for _, pc := range providerCreds {
 		os.Unsetenv(pc.env)
+		if pc.baseEnv != "" {
+			os.Unsetenv(pc.baseEnv)
+		}
 	}
 }
