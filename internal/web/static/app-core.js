@@ -429,10 +429,11 @@ async function loadAuthUser() {
     if (!r.ok) return;
     const u = await r.json();
     authUser = u; // make the avatar reflect the signed-in user, not the host
-    const nameEl = $("#authUser"), divEl = $("#authDivider"), outEl = $("#umLogout");
+    const nameEl = $("#authUser"), divEl = $("#authDivider"), outEl = $("#umLogout"), connEl = $("#umConnect");
     if (nameEl) { nameEl.textContent = u.display_name || u.accountname || "signed in"; nameEl.style.display = ""; }
     if (divEl) divEl.style.display = "";
     if (outEl) outEl.style.display = "";
+    if (connEl) connEl.style.display = ""; // "Connect a machine" → /connect (per-user relay token)
     // Admin-only Admin menu item (Announcements + Members tabs): show it for
     // admins (server reports is_admin via /auth/me). The endpoints are also
     // admin-gated server-side. Re-synced here since authUser just changed.

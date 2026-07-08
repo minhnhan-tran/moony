@@ -29,7 +29,7 @@ func attachOwned(t *testing.T, r *Relay, owner, host string, h http.Handler) {
 	t.Helper()
 	a, b := net.Pipe()
 	go r.AddConnector(a)
-	go func() { _ = ServeConnector(b, host, owner, "", h, nil) }()
+	go func() { _ = ServeConnector(b, host, owner, "", "", h, nil) }()
 	t.Cleanup(func() { a.Close(); b.Close() })
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -130,7 +130,7 @@ func TestConnectorReceivesRelayVersion(t *testing.T) {
 	go r.AddConnector(a)
 	got := make(chan string, 1)
 	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {})
-	go func() { _ = ServeConnector(b, "mac", "user", "", h, func(v string) { got <- v }) }()
+	go func() { _ = ServeConnector(b, "mac", "user", "", "", h, func(v string) { got <- v }) }()
 	t.Cleanup(func() { a.Close(); b.Close() })
 
 	select {
@@ -231,7 +231,7 @@ func TestOfflineLaptopRemembered(t *testing.T) {
 	r := newRelay()
 	a, b := net.Pipe()
 	go r.AddConnector(a)
-	go func() { _ = ServeConnector(b, "Off-Mac", "alice", "", ok, nil) }()
+	go func() { _ = ServeConnector(b, "Off-Mac", "alice", "", "", ok, nil) }()
 
 	waitFor(t, func() bool { return r.lookup("Off-Mac", "alice", true) != nil }, "attach")
 	if on := r.laptops("alice", true); len(on) != 1 || !on[0].Online {
@@ -489,7 +489,7 @@ func TestLaptopVersionReported(t *testing.T) {
 	a, b := net.Pipe()
 	go r.AddConnector(a)
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {})
-	go func() { _ = ServeConnector(b, "Ver-Mac", "", "2.4.0", ok, nil) }()
+	go func() { _ = ServeConnector(b, "Ver-Mac", "", "", "2.4.0", ok, nil) }()
 	t.Cleanup(func() { a.Close(); b.Close() })
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -612,5 +612,54 @@ func TestNoHeadOfLineBlocking(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("a stalled request blocked another over the same tunnel (head-of-line blocking)")
+	}
+}
+
+// TestConnectorAuth verifies SetConnectorAuth: a connector with a valid token
+// registers under the token's TRUSTED owner (ignoring the self-declared User),
+// and one with a bad/missing token is rejected outright.
+func TestConnectorAuth(t *testing.T) {
+	r := newRelay()
+	// Verifier: only "goodtoken" is valid, and it authenticates owner "alice".
+	r.SetConnectorAuth(func(tok string) (string, bool) {
+		if tok == "goodtoken" {
+			return "alice", true
+		}
+		return "", false
+	})
+	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(200) })
+
+	// Valid token, but the connector self-declares owner "eve" — the relay must
+	// use the token's "alice", not "eve".
+	a, b := net.Pipe()
+	go r.AddConnector(a)
+	go func() { _ = ServeConnector(b, "mac", "eve", "goodtoken", "", h, nil) }()
+	t.Cleanup(func() { a.Close(); b.Close() })
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && r.lookup("mac", "alice", true) == nil {
+		time.Sleep(2 * time.Millisecond)
+	}
+	if r.lookup("mac", "alice", true) == nil {
+		t.Fatal("valid-token connector did not register under the trusted owner")
+	}
+	if r.lookup("mac", "eve", true) != nil {
+		t.Error("connector registered under the self-declared owner instead of the token owner")
+	}
+
+	// Bad token → rejected: never registers, and the relay closes the connection.
+	c, d := net.Pipe()
+	go r.AddConnector(c)
+	errc := make(chan error, 1)
+	go func() { errc <- ServeConnector(d, "mac2", "eve", "badtoken", "", h, nil) }()
+	t.Cleanup(func() { c.Close(); d.Close() })
+
+	select {
+	case <-errc: // ServeConnector returned because the relay closed the tunnel
+	case <-time.After(2 * time.Second):
+		t.Fatal("bad-token connector was not rejected")
+	}
+	if r.lookup("mac2", "eve", true) != nil || r.lookup("mac2", "", false) != nil {
+		t.Error("bad-token connector should not have registered")
 	}
 }

@@ -424,7 +424,7 @@ func main() {
 					// over. (We intentionally don't release on normal process exit:
 					// the next claimant reclaims our stale lock by dead pid — see
 					// TryHoldConnector.)
-					serveRelay(relayAddr, config.MachineName(), appleUser, srv.Handler(), holderReport, onRelayVersion)
+					serveRelay(relayAddr, config.MachineName(), appleUser, strings.TrimSpace(os.Getenv("MOONY_RELAY_TOKEN")), srv.Handler(), holderReport, onRelayVersion)
 					release()
 					return
 				}
@@ -764,7 +764,7 @@ func (m *multiFlag) Set(v string) error { *m = append(*m, strings.TrimSpace(v));
 // torn down with the process when the TUI exits. Enabled by the saved relay
 // address (or MOONY_RELAY). report is called on each state change so the TUI can
 // show a status pill.
-func serveRelay(addr, host, owner string, h http.Handler, report func(tui.RelayState), onRelayVersion func(string)) {
+func serveRelay(addr, host, owner, token string, h http.Handler, report func(tui.RelayState), onRelayVersion func(string)) {
 	if report == nil {
 		report = func(tui.RelayState) {}
 	}
@@ -772,7 +772,7 @@ func serveRelay(addr, host, owner string, h http.Handler, report func(tui.RelayS
 		report(tui.RelayConnecting)
 		if conn, err := net.Dial("tcp", addr); err == nil {
 			report(tui.RelayConnected)
-			_ = relay.ServeConnector(conn, host, owner, config.Version, h, onRelayVersion)
+			_ = relay.ServeConnector(conn, host, owner, token, config.Version, h, onRelayVersion)
 		}
 		report(tui.RelayRetrying)
 		time.Sleep(3 * time.Second)

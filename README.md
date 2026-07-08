@@ -215,19 +215,48 @@ It registers under the local OS user that installed it, so the relay's per-user 
 
 ### Authentication
 
-`moony` has **no built-in authentication**. The web UI and relay serve openly,
-so bind to loopback for single-user local use, and when you expose the relay
-beyond localhost put it behind your **own** access control — an SSO-terminating
-reverse proxy/ingress, or a firewall/VPN. Exposing it unauthenticated on a
-routable address hands full control of the agent (shell + file edits) to anyone
-who can reach it.
+By default `moony` has **no built-in authentication** — the web UI and relay
+serve openly. Bind to loopback for single-user local use, and if you expose the
+relay beyond localhost either enable the built-in OIDC login (below) or front it
+with your **own** access control (an SSO-terminating reverse proxy, a
+firewall/VPN). Exposing it unauthenticated on a routable address hands full
+control of the agent (shell + file edits) to anyone who can reach it.
 
-**Per-user isolation.** Each connector announces an **owner** — the local OS
-user that launched it (`user.Current()`), sent to the relay on connect. The
-relay can namespace connectors by owner, but since there's no web login it can't
-identify the browsing user, so by default every connector is visible (the
-trusted/local case). Scope access at your proxy/ingress layer if you need
-per-user separation.
+**Built-in OIDC login (opt-in).** Set `MOONY_AUTH=on` on the `moony relay`
+process and give it your OIDC provider's details, and the relay gates the web UI
+behind a per-user login and turns on real per-user isolation — each user sees
+and can reach only their **own** machines. Required env (the relay fails to start
+if any is missing — fail closed):
+
+```
+MOONY_AUTH=on
+MOONY_AUTH_SECRET=<random, ≥16 bytes>          # signs session cookies + connector tokens
+MOONY_OIDC_ISSUER=https://accounts.google.com  # your IdP's issuer URL (discovery)
+MOONY_OIDC_CLIENT_ID=…
+MOONY_OIDC_CLIENT_SECRET=…
+MOONY_OIDC_REDIRECT_URL=https://relay.example.com/auth/callback
+# optional: MOONY_OIDC_ACCOUNT_CLAIM=email  MOONY_AUTH_TTL=12h  MOONY_AUTH_ADMINS=you@example.com
+```
+
+Browsers hitting the relay are redirected to your IdP (Authorization Code +
+PKCE); on return a signed, HTTP-only session cookie identifies them. `/healthz`,
+`/install.sh`, `/download`, static assets, `/api/relay`, and `/auth/*` stay
+public so the installer and version checks keep working.
+
+**Matching the TUI/daemon (connectors).** A connector can't do an interactive
+browser login, so after signing in a user visits **`/connect`** on the relay to
+get a per-user connector token (HMAC-signed, stateless, expiring). Run the linked
+machine with it:
+
+```
+export MOONY_RELAY_TOKEN=<token from /connect>
+moony --relay relay.example.com:8771      # or set it in the daemon's service env
+```
+
+The relay verifies the token and derives the **trusted** owner from it (ignoring
+the self-declared OS username), so the browser account and its machines line up
+and isolation holds end to end. With `MOONY_AUTH` unset/off, connectors register
+with their OS username and every connector is visible (the trusted/local case).
 
 #### Keeping secrets out of the repo (and out of the agent)
 

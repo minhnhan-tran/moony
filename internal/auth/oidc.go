@@ -1,0 +1,148 @@
+package auth
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+)
+
+// Auth holds the resolved OIDC + signing configuration. Construct it with
+// FromEnv; a nil *Auth means auth is disabled and callers must not wire it.
+type Auth struct {
+	secret   []byte
+	ttl      time.Duration // browser session cookie lifetime
+	connTTL  time.Duration // connector-token lifetime (long-lived; machines stay linked)
+	claim    string        // ID-token claim used as the account (e.g. "email")
+	admins   map[string]bool
+	provider *oidc.Provider
+	verifier *oidc.IDTokenVerifier
+	oauth    *oauth2.Config
+	secure   bool             // set the session cookie Secure (redirect URL is https)
+	clock    func() time.Time // nil ⇒ time.Now; overridable in tests
+}
+
+// defaults for optional knobs.
+const (
+	defaultSessionTTL   = 12 * time.Hour
+	defaultConnectorTTL = 30 * 24 * time.Hour
+	defaultAccountClaim = "email"
+)
+
+// enabled reports whether MOONY_AUTH requests the gate be on.
+func enabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_AUTH"))) {
+	case "on", "1", "true", "yes":
+		return true
+	}
+	return false
+}
+
+// FromEnv builds an Auth from the environment. It returns (nil, false, nil) when
+// MOONY_AUTH is unset/off — the relay then runs open, exactly as before. When
+// MOONY_AUTH is on it requires the full OIDC + secret set and performs OIDC
+// discovery against the issuer; a missing var or unreachable issuer is a fatal
+// error (fail closed — never start half-secured).
+func FromEnv(ctx context.Context) (*Auth, bool, error) {
+	if !enabled() {
+		return nil, false, nil
+	}
+	get := func(k string) string { return strings.TrimSpace(os.Getenv(k)) }
+	secret := get("MOONY_AUTH_SECRET")
+	issuer := get("MOONY_OIDC_ISSUER")
+	clientID := get("MOONY_OIDC_CLIENT_ID")
+	clientSecret := get("MOONY_OIDC_CLIENT_SECRET")
+	redirect := get("MOONY_OIDC_REDIRECT_URL")
+
+	var missing []string
+	for k, v := range map[string]string{
+		"MOONY_AUTH_SECRET":        secret,
+		"MOONY_OIDC_ISSUER":        issuer,
+		"MOONY_OIDC_CLIENT_ID":     clientID,
+		"MOONY_OIDC_CLIENT_SECRET": clientSecret,
+		"MOONY_OIDC_REDIRECT_URL":  redirect,
+	} {
+		if v == "" {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, true, fmt.Errorf("MOONY_AUTH=on but missing required var(s): %s", strings.Join(missing, ", "))
+	}
+	if len(secret) < 16 {
+		return nil, true, fmt.Errorf("MOONY_AUTH_SECRET must be at least 16 bytes")
+	}
+
+	provider, err := oidc.NewProvider(ctx, issuer)
+	if err != nil {
+		return nil, true, fmt.Errorf("OIDC discovery for issuer %q: %w", issuer, err)
+	}
+
+	ttl := defaultSessionTTL
+	if v := get("MOONY_AUTH_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			ttl = d
+		} else {
+			return nil, true, fmt.Errorf("MOONY_AUTH_TTL %q is not a valid duration (e.g. 12h)", v)
+		}
+	}
+	claim := get("MOONY_OIDC_ACCOUNT_CLAIM")
+	if claim == "" {
+		claim = defaultAccountClaim
+	}
+	admins := map[string]bool{}
+	for _, a := range strings.Split(get("MOONY_AUTH_ADMINS"), ",") {
+		if a = strings.ToLower(strings.TrimSpace(a)); a != "" {
+			admins[a] = true
+		}
+	}
+	secure := strings.HasPrefix(strings.ToLower(redirect), "https://")
+
+	a := &Auth{
+		secret:   []byte(secret),
+		ttl:      ttl,
+		connTTL:  defaultConnectorTTL,
+		claim:    claim,
+		admins:   admins,
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{ClientID: clientID}),
+		oauth: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     provider.Endpoint(),
+			RedirectURL:  redirect,
+			Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
+		},
+		secure: secure,
+	}
+	return a, true, nil
+}
+
+// accountFromClaims extracts the configured account claim (default "email") from
+// an ID token's claim set, falling back to "sub". Returns "" if neither is set.
+func (a *Auth) accountFromClaims(claims map[string]any) string {
+	if v, ok := claims[a.claim].(string); ok && strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	if v, ok := claims["sub"].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
+}
+
+// sameHostRedirect guards the post-login redirect target against open-redirect
+// abuse: only a root-relative path ("/...") is allowed, else "/".
+func sameHostRedirect(p string) string {
+	if p == "" || !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") {
+		return "/"
+	}
+	if u, err := url.Parse(p); err != nil || u.Host != "" || u.Scheme != "" {
+		return "/"
+	}
+	return p
+}

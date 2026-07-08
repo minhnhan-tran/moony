@@ -60,6 +60,13 @@ type Relay struct {
 	// connector is visible), which is the default now that there's no login.
 	owner func(*http.Request) (account string, ok bool)
 
+	// connAuth verifies a connector's fHello token and returns the authenticated
+	// owner. When set, AddConnector rejects a connector whose token doesn't
+	// verify and derives the trusted owner from the token (ignoring the
+	// self-declared User). nil disables connector auth (owner is self-declared),
+	// which is the default now that there's no login.
+	connAuth func(token string) (owner string, ok bool)
+
 	// seen records the last time each connector (owner+host) was attached, kept
 	// after it disconnects so the web UI can distinguish a laptop that's offline
 	// (installed but not running) from one that's never connected. In-memory and
@@ -220,6 +227,14 @@ func (r *Relay) SetTunnelAddr(addr string) { r.tunnelAddr = strings.TrimSpace(ad
 // connectors whose owner matches their account. Pass nil to show every connector.
 func (r *Relay) SetOwnerResolver(f func(*http.Request) (string, bool)) { r.owner = f }
 
+// SetConnectorAuth enables connector authentication: f verifies a connector's
+// fHello token and returns the authenticated owner (ok=false to reject). When
+// set, AddConnector refuses any connector whose token doesn't verify and uses
+// the token's owner as the trusted identity, ignoring the self-declared User
+// field. Pass nil (the default) to accept any connector with a self-declared
+// owner. Pair this with SetOwnerResolver so the same accounts line up.
+func (r *Relay) SetConnectorAuth(f func(token string) (owner string, ok bool)) { r.connAuth = f }
+
 // Connected reports whether at least one connector is currently attached.
 func (r *Relay) Connected() bool {
 	r.mu.Lock()
@@ -313,6 +328,17 @@ func (r *Relay) AddConnector(conn net.Conn) {
 		host = conn.RemoteAddr().String()
 	}
 	owner := strings.TrimSpace(hello.User)
+	// When connector auth is enabled, the owner is derived from a verified token,
+	// not self-declared: reject any connector whose token doesn't verify.
+	if r.connAuth != nil {
+		verified, ok := r.connAuth(hello.Token)
+		if !ok {
+			r.logf("relay: connector %q rejected — invalid or missing connector token", host)
+			t.close()
+			return
+		}
+		owner = strings.TrimSpace(verified)
+	}
 	key := linkKey(owner, host)
 	l := &link{host: host, owner: owner, version: strings.TrimSpace(hello.Ver), t: t, pending: map[uint64]*pendingReq{}, logf: r.logf}
 

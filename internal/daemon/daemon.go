@@ -108,12 +108,16 @@ func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) e
 		}
 		// Owner = the local OS user running this daemon. The relay shows this
 		// laptop only to that user (per-user isolation); an empty owner hides it.
+		// When the relay has auth enabled, MOONY_RELAY_TOKEN (a per-user connector
+		// token from the relay's /connect page) is the trusted credential and the
+		// relay derives the owner from it, ignoring this OS username.
 		owner := ""
 		if u, uerr := user.Current(); uerr == nil {
 			owner = u.Username
 		} else {
 			logf("warning: local user unavailable (%v) — this laptop stays hidden in the web tree", uerr)
 		}
+		token := strings.TrimSpace(os.Getenv("MOONY_RELAY_TOKEN"))
 
 		conn, derr := dialRelay(ctx, addr)
 		if derr != nil {
@@ -125,7 +129,7 @@ func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) e
 		}
 		logf("connected to relay %s as %q", addr, owner)
 		// Blocks until the tunnel drops or the relay closes it.
-		_ = relay.ServeConnector(conn, host, owner, config.Version, handler, func(string) {})
+		_ = relay.ServeConnector(conn, host, owner, token, config.Version, handler, func(string) {})
 		logf("relay connection closed — reconnecting in %s", retryDelay)
 		if !wait(ctx, retryDelay) {
 			return ctx.Err()

@@ -50,9 +50,10 @@ type frame struct {
 	Header http.Header `json:"h,omitempty"`
 	Status int         `json:"s,omitempty"`
 	Body   []byte      `json:"b,omitempty"`
-	Host   string      `json:"host,omitempty"` // fHello: the connector's machine name
-	User   string      `json:"user,omitempty"` // fHello: the connector owner's username
-	Ver    string      `json:"ver,omitempty"`  // fWelcome: the relay's build version; fHello: the connector's build version
+	Host   string      `json:"host,omitempty"`  // fHello: the connector's machine name
+	User   string      `json:"user,omitempty"`  // fHello: the connector owner's username (self-declared; trusted only when no connector-auth verifier is set)
+	Ver    string      `json:"ver,omitempty"`   // fWelcome: the relay's build version; fHello: the connector's build version
+	Token  string      `json:"token,omitempty"` // fHello: per-user connector credential; when the relay has a verifier, the trusted owner is derived from this (User is ignored)
 }
 
 // tunnel is a length-prefixed JSON frame transport over a single connection.

@@ -15,18 +15,21 @@ var errTunnelClosed = errors.New("relay: tunnel closed")
 // the relay, then reads browser requests off the tunnel and serves each one
 // against h (the local web app's handler), streaming the response back frame by
 // frame. owner is the username of whoever launched the connector;
-// the relay uses it to show each web user only their own connectors. version is
+// the relay uses it to show each web user only their own connectors. token, when
+// non-empty, is the per-user connector credential (MOONY_RELAY_TOKEN): a relay
+// with auth enabled verifies it and derives the trusted owner from it, ignoring
+// owner; a relay without auth ignores token and trusts owner. version is
 // this terminal's build version, surfaced in GET /api/laptops so the web UI can
 // flag (and live-clear) an out-of-date terminal from the laptop poll. onRelayVersion,
 // when non-nil, is called with the relay's build version once it arrives (an
 // fWelcome frame), so the caller can warn if this terminal is behind; it may
 // never fire against an older relay. It blocks until the connection drops and
 // returns the read error so the caller can reconnect.
-func ServeConnector(conn net.Conn, host, owner, version string, h http.Handler, onRelayVersion func(string)) error {
+func ServeConnector(conn net.Conn, host, owner, token, version string, h http.Handler, onRelayVersion func(string)) error {
 	t := newTunnel(conn)
 	// The hello frame must be first: the relay registers this connector by
 	// (owner, host) before serving any browser request to it.
-	if err := t.writeFrame(&frame{Type: fHello, Host: host, User: owner, Ver: version}); err != nil {
+	if err := t.writeFrame(&frame{Type: fHello, Host: host, User: owner, Token: token, Ver: version}); err != nil {
 		return err
 	}
 	var mu sync.Mutex

@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/pysty1995/moony/internal/announce"
+	"github.com/pysty1995/moony/internal/auth"
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/relay"
 	"github.com/pysty1995/moony/internal/web"
@@ -72,9 +73,30 @@ func main() {
 	// survives relay restarts. With no built-in auth, anyone who can reach the
 	// relay can author them — front it with your own access control to restrict.
 	annStore := announce.OpenAt(os.Getenv("MOONY_ANNOUNCEMENTS_FILE"))
-	r.SetAnnouncements(annStore, web.AnnouncementsHandler(annStore), func(*http.Request) bool { return true })
+
+	// Optional per-user auth (OIDC for browsers + signed connector tokens). When
+	// MOONY_AUTH is off/unset this is a no-op and the relay runs open, exactly as
+	// before. When on, FromEnv performs OIDC discovery and fails closed on any
+	// missing var so we never start half-secured.
+	authGate, authOn, aerr := auth.FromEnvBackground()
+	if aerr != nil {
+		fatal("auth: %v", aerr)
+	}
+	if authOn {
+		r.SetAnnouncements(annStore, web.AnnouncementsHandler(annStore), authGate.IsAdmin)
+		r.SetOwnerResolver(authGate.OwnerFromRequest) // per-user connector isolation
+		r.SetConnectorAuth(authGate.VerifyConnectorToken)
+	} else {
+		// No built-in auth: anyone who can reach the relay can author announcements
+		// and see every connector. Front it with your own access control to restrict.
+		r.SetAnnouncements(annStore, web.AnnouncementsHandler(annStore), func(*http.Request) bool { return true })
+	}
 
 	handler := http.Handler(r)
+	if authOn {
+		handler = authGate.Wrap(handler) // OIDC login gate over all browser routes
+		fmt.Println("  auth:   OIDC per-user login enabled (MOONY_AUTH=on)")
+	}
 
 	tln, err := net.Listen("tcp", *tunnelAddr)
 	if err != nil {
