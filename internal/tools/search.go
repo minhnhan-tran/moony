@@ -143,6 +143,7 @@ func (t *globTool) Execute(_ context.Context, input json.RawMessage) (string, er
 			return nil
 		}
 		rel, _ := filepath.Rel(t.r.root, path)
+		rel = filepath.ToSlash(rel) // glob matching + tool output use '/' on every OS
 		if d.IsDir() {
 			if path != t.r.root && t.r.ignore.Match(rel, true) {
 				return filepath.SkipDir
@@ -419,6 +420,7 @@ func (t *grepTool) scanWithGo(ctx context.Context, in grepInput, re *regexp.Rege
 			return ctx.Err()
 		}
 		rel, _ := filepath.Rel(t.r.root, path)
+		rel = filepath.ToSlash(rel) // gitignore/include globs and tool output use '/' on every OS
 		if d.IsDir() {
 			if path != abs && t.r.ignore.Match(rel, true) {
 				return filepath.SkipDir
@@ -831,7 +833,7 @@ func parseRgJSON(data []byte, ignore func(string) bool) ([]string, []fileResult)
 		if ev.Type != "match" && ev.Type != "context" {
 			continue
 		}
-		p := filepath.Clean(ev.Data.Path.Text)
+		p := filepath.ToSlash(filepath.Clean(ev.Data.Path.Text))
 		if p == "" || p == "." || ignore(p) {
 			continue
 		}
@@ -846,7 +848,7 @@ func parseRgFileList(data []byte, ignore func(string) bool) []string {
 	var files []string
 	seen := map[string]bool{}
 	for _, line := range strings.Split(string(data), "\n") {
-		p := filepath.Clean(strings.TrimSpace(line))
+		p := filepath.ToSlash(filepath.Clean(strings.TrimSpace(line)))
 		if p == "" || p == "." || ignore(p) || seen[p] {
 			continue
 		}

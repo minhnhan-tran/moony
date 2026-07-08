@@ -1,3 +1,5 @@
+//go:build unix
+
 // Package procutil spawns and terminates child processes (the MCP and LSP
 // servers) so they can't corrupt the TUI.
 //

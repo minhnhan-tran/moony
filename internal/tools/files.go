@@ -778,10 +778,13 @@ func ApplyPatchPaths(input json.RawMessage) []string {
 	return (&applyPatchTool{}).patchPaths(input)
 }
 
-// parentDir returns the directory portion of a path, or "" if none.
+// parentDir returns the directory portion of a path, or "" if there is none
+// (a bare filename). Uses filepath.Dir so it handles the host separator on
+// every platform (a byte scan for '/' misses '\' on Windows).
 func parentDir(p string) string {
-	if i := strings.LastIndexByte(p, '/'); i > 0 {
-		return p[:i]
+	dir := filepath.Dir(p)
+	if dir == "." || dir == p {
+		return ""
 	}
-	return ""
+	return dir
 }

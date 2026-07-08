@@ -1,14 +1,13 @@
 # moony Makefile
 #
-# This machine exports GOROOT pointing at a Go SDK whose version differs from
-# the active `go` tool, so every invocation unsets GOROOT to use the tool's own
-# matching standard library. The Apple-internal module proxy is also pinned here
-# so builds work behind the corporate firewall.
+# GOROOT is unset on every invocation so the `go` tool uses its own matching
+# standard library, in case the environment exports a GOROOT from a different
+# Go SDK. Modules resolve through the default public proxy.
 
 BINARY      := moony
 BIN_DIR     := bin
 PKG         := .
-GO          := env -u GOROOT GIT_TERMINAL_PROMPT=0 GOPROXY=https://athens.apple.com GOSUMDB=off GOPRIVATE='*.apple.com' GONOPROXY=none go
+GO          := env -u GOROOT GIT_TERMINAL_PROMPT=0 go
 
 .PHONY: all build build-relay run test smoke vet fmt tidy vendor clean install release release-dry relay tailwind dist publish eval
 
