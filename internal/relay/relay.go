@@ -404,6 +404,14 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok"))
 		return
+	case req.URL.Path == "/auth/me":
+		// When auth is enabled, auth.Wrap handles /auth/me before the request ever
+		// reaches here. With auth off there's no login, so answer with an empty
+		// (anonymous) object rather than falling through to the SPA's 404 — the web
+		// UI polls this on load and a 404 just litters the browser console.
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{}"))
+		return
 	case req.URL.Path == "/api/laptops":
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(r.laptops(account, filter))

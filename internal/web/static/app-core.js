@@ -428,6 +428,7 @@ async function loadAuthUser() {
     const r = await fetch("/auth/me", { headers: { Accept: "application/json" } });
     if (!r.ok) return;
     const u = await r.json();
+    if (!u || !u.accountname) return; // auth off / anonymous → leave the host-based menu as-is
     authUser = u; // make the avatar reflect the signed-in user, not the host
     const nameEl = $("#authUser"), divEl = $("#authDivider"), outEl = $("#umLogout"), connEl = $("#umConnect");
     if (nameEl) { nameEl.textContent = u.display_name || u.accountname || "signed in"; nameEl.style.display = ""; }
