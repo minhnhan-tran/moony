@@ -1772,21 +1772,37 @@ function openHdrInfo(anchor, kind, rows) {
 }
 
 // placeHdrMenu positions the shared picker relative to `anchor`: below it by
-// default, but flipped ABOVE when there isn't room below (e.g. the reasoning pill
-// in the bottom composer, or the status bar's quota at the very bottom), and
-// nudged back inside the viewport horizontally. Assumes the menu is populated.
+// default, flipped ABOVE when it fits better there (e.g. a pill in the bottom
+// composer), and — when the menu is taller than the room on either side (e.g.
+// the multi-provider picker) — pinned to the roomier side with a capped,
+// scrollable height so it never runs off-screen. Also nudged inside the viewport
+// horizontally. Assumes the menu is populated.
 function placeHdrMenu(anchor) {
+  const margin = 8;
   const r = anchor.getBoundingClientRect();
   hdrMenuEl.classList.remove("hidden");
-  const mr = hdrMenuEl.getBoundingClientRect();
-  let top = r.bottom + 6;
-  if (top + mr.height > window.innerHeight - 8 && r.top - mr.height - 6 >= 8) {
-    top = r.top - mr.height - 6;
+  hdrMenuEl.style.maxHeight = ""; // clear any prior cap before measuring natural height
+  const mh = hdrMenuEl.getBoundingClientRect().height;
+  const spaceBelow = window.innerHeight - r.bottom - margin;
+  const spaceAbove = r.top - margin;
+  let top;
+  if (mh <= spaceBelow) {
+    top = r.bottom + 6; // fits below
+  } else if (mh <= spaceAbove) {
+    top = r.top - mh - 6; // fits above
+  } else if (spaceAbove > spaceBelow) {
+    // Too tall for either side: use the roomier one, cap height + scroll.
+    hdrMenuEl.style.maxHeight = Math.max(120, spaceAbove) + "px";
+    top = margin;
+  } else {
+    hdrMenuEl.style.maxHeight = Math.max(120, spaceBelow) + "px";
+    top = r.bottom + 6;
   }
   hdrMenuEl.style.top = Math.round(top) + "px";
+  const mw = hdrMenuEl.getBoundingClientRect().width;
   let left = r.left;
-  if (left + mr.width > window.innerWidth - 8) left = window.innerWidth - 8 - mr.width;
-  hdrMenuEl.style.left = Math.round(Math.max(8, left)) + "px";
+  if (left + mw > window.innerWidth - margin) left = window.innerWidth - margin - mw;
+  hdrMenuEl.style.left = Math.round(Math.max(margin, left)) + "px";
 }
 // An outside click or Escape dismisses it (mirrors the attach menu).
 document.addEventListener("click", () => { if (hdrMenuOpen()) closeHdrMenu(); });

@@ -2088,8 +2088,9 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
 /* Body-level fixed picker opened from a header/composer token (approval level,
    reasoning level). Positioned in JS under the clicked token; toggled via .hidden. */
 .hdr-menu {
-  position: fixed; z-index: 80;
+  position: fixed; z-index: 90;
   min-width: 184px;
+  overflow-y: auto; /* a tall picker (e.g. the provider list) scrolls within a capped height set by placeHdrMenu */
   background: rgb(var(--c-surface));
   border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
