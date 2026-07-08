@@ -2,64 +2,48 @@
   <title>moony coding agent</title>
   <defs><linearGradient id="wordmark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00afff"/><stop offset="1" stop-color="#ff6ec7"/></linearGradient></defs>
   <rect width="556" height="107" rx="10" fill="#0d1117"/>
-  <rect x="96" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="152" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="96" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="110" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="138" y="32" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="124" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="152" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="96" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="124" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="152" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="96" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="152" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="96" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="152" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="180" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="194" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="208" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="222" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="180" y="32" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="166" y="32" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="110" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="138" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="166" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="110" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="138" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="166" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="110" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="138" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="166" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="208" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="222" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="180" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="222" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="180" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="222" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="180" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="194" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="194" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="236" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="194" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="236" y="60" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="208" y="74" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="222" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="250" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="264" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="278" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="292" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="250" y="32" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="278" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="292" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="250" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="292" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="250" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="292" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="250" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="264" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="264" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="306" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="264" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="306" y="60" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="278" y="74" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="292" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="320" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="362" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="320" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="334" y="32" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="348" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="362" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="320" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="348" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="362" y="46" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="320" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="362" y="60" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="320" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="362" y="74" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="390" y="18" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="446" y="18" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="334" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="376" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="334" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="376" y="60" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="334" y="74" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="376" y="74" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="404" y="32" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="432" y="32" width="14" height="14" fill="url(#wordmark)"/>
-  <rect x="418" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="404" y="46" width="14" height="14" fill="url(#wordmark)"/>
+  <rect x="432" y="46" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="418" y="60" width="14" height="14" fill="url(#wordmark)"/>
   <rect x="418" y="74" width="14" height="14" fill="url(#wordmark)"/>
 </svg>
