@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,11 @@ import (
 	"github.com/pysty1995/moony/internal/bridge"
 	"github.com/pysty1995/moony/internal/config"
 )
+
+// Register icon-font MIME so the embedded /static file server serves the vendored
+// Material Symbols font with the correct Content-Type (Go's default table lacks
+// .woff2 on some platforms, otherwise falling back to application/octet-stream).
+func init() { _ = mime.AddExtensionType(".woff2", "font/woff2") }
 
 // mirrorSessionID is the fixed id of the single shared session a MirrorServer
 // exposes. The browser UI is session-oriented, so the mirror presents the live

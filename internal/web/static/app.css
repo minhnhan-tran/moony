@@ -113,9 +113,19 @@ body.app-body,
   transition: background-color .25s ease, border-color .25s ease, color .25s ease;
 }
 
+/* Material Symbols icon font, vendored locally (subset to just the glyphs the
+   UI uses; served from the embedded static dir — no external CDN). */
+@font-face {
+  font-family: "Material Symbols Rounded";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/static/fonts/material-symbols.woff2") format("woff2");
+}
+
 /* app-icon renders a Material Symbols glyph (see app-state.js: it writes the
-   ligature as its text content). Sized by font-size and colored by the inherited
-   `color`, so it aligns with adjacent text. */
+   glyph's codepoint as its text content). Sized by font-size and colored by the
+   inherited `color`, so it aligns with adjacent text. */
 app-icon {
   font-family: "Material Symbols Rounded";
   font-weight: normal;
@@ -128,7 +138,6 @@ app-icon {
   direction: ltr;
   display: inline-flex;
   align-items: center;
-  -webkit-font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
 }
 

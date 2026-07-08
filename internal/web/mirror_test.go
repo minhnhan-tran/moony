@@ -24,9 +24,9 @@ func TestMirrorServesIndex(t *testing.T) {
 	}
 	body := rec.Body.String()
 	// The UI is styled with locally-vendored Tailwind, renders answers as
-	// markdown via locally-vendored marked, and draws icons with the Material
-	// Symbols font (Google Fonts) via the <app-icon> element.
-	for _, want := range []string{"/static/tailwind.css", "/static/marked.min.js", "/static/app.css", "/static/app-state.js", "/static/app-core.js", `id="transcript"`, `id="stats"`, `id="hdrMeta"`, "fonts.googleapis.com", "Material+Symbols", "<app-icon", "/static/icon/favicon"} {
+	// markdown via locally-vendored marked, and draws icons with the <app-icon>
+	// element backed by a locally-vendored (subset) Material Symbols font.
+	for _, want := range []string{"/static/tailwind.css", "/static/marked.min.js", "/static/app.css", "/static/app-state.js", "/static/app-core.js", `id="transcript"`, `id="stats"`, `id="hdrMeta"`, "<app-icon", "/static/icon/favicon"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("index page missing %q", want)
 		}
@@ -47,6 +47,8 @@ func TestMirrorServesVendoredAssets(t *testing.T) {
 		{"/static/app.css", ".user-body"},
 		{"/static/app-state.js", "confirmBox"},
 		{"/static/app-core.js", "function openManage"},
+		// Locally-vendored (subset) Material Symbols icon font; "wOF2" is the woff2 magic.
+		{"/static/fonts/material-symbols.woff2", "wOF2"},
 	} {
 		rec := postJSON(t, srv, "GET", tc.path, "")
 		if rec.Code != http.StatusOK {

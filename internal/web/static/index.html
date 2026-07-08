@@ -29,14 +29,9 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/static/icon/favicon-16.png" />
 <link rel="apple-touch-icon" href="/static/icon/apple-touch-icon.png" />
 
-<!-- Material Symbols icon font (Google Fonts). The <app-icon> element (defined in
-     app-state.js) writes a Material Symbols ligature as its text content and this
-     font renders it as a glyph. Usage: <app-icon name="arrow.up"></app-icon>;
-     size via font-size, color via the inherited CSS `color`. -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0" />
+<!-- Icons: the <app-icon> element (app-state.js) renders Material Symbols glyphs
+     from the locally-vendored, subset font declared via @font-face in app.css
+     (/static/fonts/material-symbols.woff2) — no external CDN. -->
 
 <!-- TailwindCSS and marked are vendored locally and served from the binary, not
      a CDN. tailwind.css is prebuilt from internal/web/tailwind/ (see
