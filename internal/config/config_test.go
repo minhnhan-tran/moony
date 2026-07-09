@@ -878,3 +878,27 @@ func TestLLMProviderSelection(t *testing.T) {
 		t.Errorf("unknown provider = %q, want ollama", got.LLMProvider)
 	}
 }
+
+// TestLoadDefaultsAdaptiveModelAndCheapReadsOn verifies AdaptiveModel and
+// CheapReads default to ON (right-size the model / route reads to the fast
+// model out of the box) when no env var or saved persona choice overrides
+// them, and that an explicit "0" env still disables each independently.
+func TestLoadDefaultsAdaptiveModelAndCheapReadsOn(t *testing.T) {
+	c := Load()
+	if !c.AdaptiveModel {
+		t.Error("AdaptiveModel should default to true")
+	}
+	if !c.CheapReads {
+		t.Error("CheapReads should default to true")
+	}
+
+	t.Setenv("MOONY_ADAPTIVE_MODEL", "0")
+	if Load().AdaptiveModel {
+		t.Error("MOONY_ADAPTIVE_MODEL=0 should still disable it")
+	}
+
+	t.Setenv("MOONY_CHEAP_READS", "0")
+	if Load().CheapReads {
+		t.Error("MOONY_CHEAP_READS=0 should still disable it")
+	}
+}

@@ -220,8 +220,9 @@ type Config struct {
 	// AdaptiveModel, when true, runs the main turn on the cheaper FastModel until
 	// the turn shows sustained friction (tool errors / rejected stops), then
 	// escalates to the session model for the rest of the turn — right-sizing the
-	// model to the task so easy turns cost less. OFF by default (it swaps the
-	// model you explicitly selected); enable with MOONY_ADAPTIVE_MODEL=1. A no-op
+	// model to the task so easy turns cost less. ON by default; it swaps the
+	// model you'd otherwise pay full price for on easy turns, escalating back
+	// automatically on friction. Disable with MOONY_ADAPTIVE_MODEL=0. A no-op
 	// when FastModel equals the session model (already cheap, or a non-cloud
 	// backend) and on ultrathink turns. Independent of DynamicEffort (which only
 	// adjusts reasoning depth on the SAME model).
@@ -230,8 +231,8 @@ type Config struct {
 	// of idempotent read tools (read_file/grep/glob/find_symbol/…) to the cheaper
 	// FastModel — those rounds are pure exploration where the strong model adds
 	// little. As soon as the model starts writing, edits files, runs bash, or
-	// hits friction the full session model is restored. OFF by default; enable
-	// with MOONY_CHEAP_READS=1. A no-op when FastModel equals the session model.
+	// hits friction the full session model is restored. ON by default; disable
+	// with MOONY_CHEAP_READS=0. A no-op when FastModel equals the session model.
 	// Composes with AdaptiveModel; friction/hard/ultrathink override both.
 	CheapReads bool
 	// CheapReadsPersona, FastModelPersona, AuxModelPersona, AutoPlanPersona, and
@@ -1163,6 +1164,8 @@ func Load() *Config {
 		Terse:               true,
 		CodeOutline:         true,
 		DynamicEffort:       true,
+		AdaptiveModel:       true, // default on: right-size the model to the task, escalate only on friction
+		CheapReads:          true, // default on: route pure-read rounds to the fast model
 		VerifyMaxRetries:    2,
 		VerifyTimeoutSec:    120,
 		MaxReadLines:        800,
