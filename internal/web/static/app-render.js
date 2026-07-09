@@ -856,6 +856,7 @@ function providerLabel(id) {
     case "ollama": return "Ollama";
     case "openai": return "OpenAI";
     case "anthropic": return "Anthropic";
+    case "sqe-anthropic": return "SQE Anthropic";
     case "openrouter": return "OpenRouter";
     case "gemini": return "Gemini";
     case "deepseek": return "DeepSeek";

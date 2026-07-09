@@ -1716,6 +1716,7 @@ const PROVIDER_OPTIONS = [
   { id: "ollama", label: "Ollama", desc: "local (or remote) Ollama server — no API key (default)" },
   { id: "openai", label: "OpenAI", desc: "api.openai.com — needs MOONY_OPENAI_API_KEY" },
   { id: "anthropic", label: "Anthropic", desc: "api.anthropic.com (Claude) — needs MOONY_ANTHROPIC_API_KEY" },
+  { id: "sqe-anthropic", label: "SQE Anthropic", desc: "Claude via the SQE LAN gateway (default http://192.168.33.158:8787) — needs MOONY_SQE_ANTHROPIC_API_KEY (falls back to MOONY_ANTHROPIC_API_KEY)" },
   { id: "openrouter", label: "OpenRouter", desc: "openrouter.ai — needs MOONY_OPENROUTER_API_KEY" },
   { id: "gemini", label: "Gemini", desc: "Google's OpenAI-compatible endpoint — needs MOONY_GEMINI_API_KEY" },
   { id: "deepseek", label: "DeepSeek", desc: "api.deepseek.com — needs MOONY_DEEPSEEK_API_KEY" },
