@@ -186,7 +186,11 @@ func (c *Client) streamAnthropicOnce(ctx context.Context, system string, message
 	if level == "" && c.cfg != nil {
 		level = c.cfg.ReasoningLevel
 	}
-	thinkingActive := config.ReasoningActive(provider.Anthropic, model, level)
+	llmProvider := provider.Anthropic
+	if c.cfg != nil {
+		llmProvider = provider.Normalize(c.cfg.LLMProvider)
+	}
+	thinkingActive := config.ReasoningActive(llmProvider, model, level)
 
 	maxTokens := 8192
 	if c.cfg != nil && c.cfg.MaxTokens > 0 {
