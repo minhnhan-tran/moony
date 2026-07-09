@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.2] — 2026-07-09
+
+### Changed
+
+- web: show Persona provider cards expanded by default so key/base-URL inputs are always visible
+
 ## [1.2.1] — 2026-07-09
 
 ### Changed
