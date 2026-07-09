@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.4] — 2026-07-09
+
+### Fixed
+
+- **Web Persona provider cards collapsed to a 2px line, hiding the inputs.** The
+  scroll region is a height-constrained flex column and the cards use
+  `overflow: hidden` (rounded corners), which per spec gives each flex item
+  `min-height: 0` — so with many cards the cards shrank to their borders instead
+  of the region scrolling. Added `flex: 0 0 auto` to the cards so they keep their
+  content height. (v1.2.3 fixed the collapse/expand logic; this fixes the
+  shrink-to-a-line that made them look empty regardless.)
+
 ## [1.2.3] — 2026-07-09
 
 ### Fixed
