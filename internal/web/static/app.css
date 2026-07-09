@@ -200,8 +200,9 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   background: rgb(var(--c-warn));
   animation: sess-pulse 1.4s ease-in-out infinite;
 }
-@keyframes sess-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-@media (prefers-reduced-motion: reduce) { .sess-running { animation: none; } }
+@keyframes sess-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+/* No prefers-reduced-motion override: the running dot is a key "agent is working"
+   status cue, so it keeps pulsing even under Reduce Motion (by request). */
 
 /* Per-session "needs approval" badge: a parallel session is blocked waiting for
    you to approve/deny a tool. An expanding ring (a notification "ping") reads as
@@ -516,9 +517,9 @@ body.agent-busy .app-statusbar::after {
   0% { background-position: -38% 0; }
   100% { background-position: 138% 0; }
 }
-@media (prefers-reduced-motion: reduce) {
-  body.agent-busy .app-statusbar::after { animation: none; background: rgb(var(--c-warn) / .5); }
-}
+/* The busy scan-line is a primary "model is answering" indicator, so it keeps
+   animating even under Reduce Motion (by request) rather than falling back to a
+   static fill. */
 /* Awaiting approval: a brand-blue "your turn" tint with a gently pulsing top
    line — distinct from busy's amber moving scan. */
 body.agent-awaiting .app-statusbar {
@@ -893,6 +894,22 @@ div.persona-toggle  { justify-content: space-between; } /* select: label left, c
 .persona-select:focus { outline: none; border-color: rgb(var(--c-brand)); }
 .persona-actions { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; position: sticky; bottom: 0; background: rgb(var(--c-surface)); padding-top: .5rem; padding-bottom: .75rem; }
 .persona-status { color: rgb(var(--c-faint)); font-size: 12px; }
+
+/* Provider credential card: collapsible key+base-URL pair with a set/unset dot. */
+.persona-provider { border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md, 8px); overflow: hidden; }
+.persona-provider-head {
+  display: flex; align-items: center; gap: .5rem; width: 100%;
+  padding: .5rem .65rem; background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 0; cursor: pointer; font: inherit; text-align: left;
+}
+.persona-provider-head:hover { background: rgb(var(--c-surface)); }
+.persona-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--c-faint)); opacity: .5; }
+.persona-dot.on { background: rgb(var(--c-brand)); opacity: 1; }
+.persona-provider-name { font-weight: 600; font-size: 13px; }
+.persona-provider-state { margin-left: auto; color: rgb(var(--c-faint)); font-size: 12px; }
+.persona-provider-chev { flex: 0 0 auto; color: rgb(var(--c-faint)); transition: transform .15s ease; }
+.persona-provider.open .persona-provider-chev { transform: rotate(90deg); }
+.persona-provider-body { display: flex; flex-direction: column; gap: 1rem; padding: .75rem .65rem; border-top: 1px solid rgb(var(--c-edge)); }
 
 /* ---- Schedule panel (add form: name+spec row, prompt textarea, button) ---- */
 .schedule-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .25rem; }

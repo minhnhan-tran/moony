@@ -1,15 +1,19 @@
 package llm
 
-// Usage/quota data shapes. Historically these were populated from a hosted
-// gateway's usage API. Ollama is a local server with no account, quota, rate
-// limit, or billing, so Usage() now reports "not available" and these structs
-// remain only so the TUI/web status surfaces that consume them keep compiling
-// (they simply render nothing when quota is unknown).
+// Usage/quota data shapes, populated from the SQE Anthropic gateway's usage API.
+// Only that provider exposes this schema; other providers (Ollama, OpenAI, native
+// Anthropic, …) have no compatible per-key quota endpoint, so Usage() reports
+// "not available" for them and these structs simply render nothing.
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/pysty1995/moony/internal/provider"
 )
 
 // UsageResponse is the parsed shape of the /usage endpoints. Only the fields
@@ -91,9 +95,40 @@ type UsageModelData struct {
 // IsProject reports whether this response describes project-scoped usage.
 func (r *UsageResponse) IsProject() bool { return r.ProjectID != "" }
 
-// Usage reports current quota/spend. Ollama has no account or quota, so this
-// always returns an error; callers treat that as "quota unknown" and hide the
-// quota display.
+// Usage fetches the caller's 24-hour usage/budget snapshot from the SQE Anthropic
+// gateway's /api/usage/v1/personal endpoint (same auth as the Messages API:
+// x-api-key + anthropic-version). It is only available for the sqe-anthropic
+// provider; every other provider returns a "not available" error so callers can
+// degrade gracefully (treating it as "quota unknown" and hiding the display).
 func (c *Client) Usage(ctx context.Context) (*UsageResponse, error) {
-	return nil, fmt.Errorf("usage/quota stats are not available for the ollama provider")
+	if c.cfg == nil || provider.Normalize(c.cfg.LLMProvider) != provider.SQEAnthropic {
+		return nil, fmt.Errorf("usage/quota stats are only available for the sqe-anthropic provider")
+	}
+	key := strings.TrimSpace(c.anthropicKey())
+	if key == "" {
+		return nil, fmt.Errorf("SQE Anthropic API key not set (MOONY_SQE_ANTHROPIC_API_KEY)")
+	}
+	url := strings.TrimRight(c.anthropicBaseURL(), "/") + "/api/usage/v1/personal"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", key)
+	req.Header.Set("anthropic-version", anthropicVersion)
+	req.Header.Set("User-Agent", userAgent())
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("usage request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return nil, fmt.Errorf("usage endpoint returned %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+	var out UsageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode usage response: %w", err)
+	}
+	return &out, nil
 }

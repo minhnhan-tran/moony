@@ -5,6 +5,35 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.0] — 2026-07-09
+
+### Added
+
+- **Web Persona provider credentials shown as per-provider cards.** Each
+  provider's API key and base-URL override are grouped into one collapsible card
+  with a set / not-set status dot, and the default endpoint is shown as the
+  base-URL input placeholder — replacing the flat list of ~22 stacked fields.
+- **Provider usage/quota fetch restored for the SQE Anthropic gateway.**
+  `Usage()` again queries `/api/usage/v1/personal` (same `x-api-key` +
+  `anthropic-version` auth as the Messages API), so the TUI `/usage` command and
+  the web status-bar quota chip work again. All other providers report "not
+  available" and degrade gracefully.
+
+### Changed
+
+- **Assistant speaker label renamed to "moony"** in the web transcript and the
+  TUI, replacing the leftover "sqe code agent" text from before the rebrand.
+- **The status-bar scan-line and the running-session pulse now animate even
+  under `prefers-reduced-motion`**, since they're primary "agent is working"
+  indicators.
+
+### Fixed
+
+- **The in-progress todo/plan spinner and the running-session dot no longer
+  freeze.** Their DOM nodes were recreated on every re-render (todos/plan/state
+  events), which restarted the CSS animation; `renderTodos`/`renderTurnTodos` now
+  skip no-op rebuilds and the `sess-pulse` keyframe is restart-tolerant.
+
 ## [1.1.1] — 2026-07-09
 
 ### Fixed

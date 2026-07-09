@@ -23,6 +23,8 @@ let asstBody = null, asstRaw = "";       // current streaming assistant block
 let asstLabeled = false;                 // has this answer's "moony" label shown yet?
 let turnTodos = null;                    // per-question todo card recorded in the transcript (history)
 let phaseTimes = {};                     // per-turn phase timing (index → {start, dur}); client-side, live turns only
+let todosSig = "";                       // signature of the last renderTodos() build — skip no-op rebuilds so the in-progress spinner isn't recreated (recreation restarts its CSS animation)
+let turnTodosSig = "";                   // same guard for the transcript phase-timeline spinner
 let toolGroup = null;                    // current run of consecutive tool calls → one "N tool calls" disclosure
 let workerGroup = null;                  // current run of delegated-worker progress lines → one "N worker updates" disclosure
 let turnStartMs = 0, turnActive = false; // turn timing for the per-answer meta footer

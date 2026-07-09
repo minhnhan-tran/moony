@@ -973,7 +973,7 @@ function clearView() {
   if (composerMetaEl) { composerMetaEl.innerHTML = ""; composerMetaEl.removeAttribute("title"); } // clear the composer model·reasoning legend
   questionEl.classList.add("hidden");
   if (scrollBtn) scrollBtn.hidden = true;
-  todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; filesEl.classList.add("hidden"); filesEl.innerHTML = ""; mcpEl.classList.add("hidden"); mcpEl.innerHTML = "";
+  todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; filesEl.classList.add("hidden"); filesEl.innerHTML = ""; mcpEl.classList.add("hidden"); mcpEl.innerHTML = "";
   planEl.classList.add("hidden"); planEl.innerHTML = ""; planExpanded = false; currentPlan = null; draftPlanEl = null; draftPlanExpanded = false; lastTodos = [];
   pendingAttachments = []; renderAttachStrip();
   queuedMsgs = []; queueCapable = false; renderQueueStrip(); // drop the previous session's queue; the new one replays its own
@@ -2297,12 +2297,19 @@ function renderTodos(todos) {
   // plan's execution and shouldn't surface until the user approves it. Once the
   // plan is approved/done, or when there's no plan at all, the bar shows normally.
   if (currentPlan && currentPlan.status === "draft") {
-    todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; return;
+    todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; return;
   }
-  if (!todos.length) { todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; return; }
+  if (!todos.length) { todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; return; }
   const done = todos.filter((t) => t.status === "completed" || t.status === "cancelled").length;
   const allDone = done === todos.length;
   const pct = todos.length ? Math.round((done / todos.length) * 100) : 0;
+
+  // Skip the rebuild when nothing visible changed: recreating the DOM would restart
+  // the in-progress task's spinner animation (plan events re-call this with unchanged
+  // todos), making the loader look frozen. Signature covers status/content + expansion.
+  const sig = todos.map((t) => t.status + ":" + t.content).join("\u0001") + "|" + (todosExpanded ? "1" : "0");
+  if (sig === todosSig) return;
+  todosSig = sig;
 
   todosEl.innerHTML = "";
 
@@ -2332,6 +2339,12 @@ function renderTodos(todos) {
 // shown only when ≥300ms so the replay event-burst doesn't print bogus times.
 function renderTurnTodos(todos) {
   if (!todos.length) return;
+  // Skip no-op rebuilds: recreating the rows would restart the in-progress task's
+  // spinner (a linear rotate that visibly resets to 0°). turnTodos===null means a new
+  // turn, so the guard is bypassed then and the card is rebuilt fresh.
+  const sig = todos.map((t) => t.status + ":" + t.content).join("\u0001");
+  if (turnTodos && sig === turnTodosSig) return;
+  turnTodosSig = sig;
   if (!turnTodos) {
     endToolGroup(); // the timeline is its own block → close any open tool-call run
     endWorkerGroup();
@@ -3865,6 +3878,7 @@ async function renderPersona() {
         readers[f.key] = () => inp.value.trim(); // blank => server keeps existing
       } else {
         const inp = el("input", "access-input persona-input"); inp.type = "text"; inp.value = f.value == null ? "" : String(f.value);
+        if (f.placeholder) inp.placeholder = `default: ${f.placeholder}`;
         field.append(inp);
         readers[f.key] = () => inp.value.trim();
       }
@@ -3879,7 +3893,43 @@ async function renderPersona() {
   for (const f of toggles) form.append(makeField(f));
   if (rest.length) {
     const scroll = el("div", "persona-scroll");
-    for (const f of rest) scroll.append(makeField(f));
+    // Group provider credentials (API key + base URL share f.group) into one
+    // collapsible card each; ungrouped fields (MCP tokens, session encryption)
+    // render as plain rows. Cards start collapsed, auto-expanding any provider
+    // that already has its key set so configured providers are visible at a glance.
+    const seen = new Set();
+    for (const f of rest) {
+      if (!f.group) { scroll.append(makeField(f)); continue; }
+      if (seen.has(f.group)) continue;
+      seen.add(f.group);
+      const members = rest.filter((g) => g.group === f.group);
+      const keyField = members.find((g) => g.type === "secret") || members[0];
+      const isSet = !!(keyField && keyField.set);
+
+      const card = el("div", "persona-provider" + (isSet ? " is-set" : ""));
+      const head = el("button", "persona-provider-head"); head.type = "button";
+      head.setAttribute("aria-expanded", isSet ? "true" : "false");
+      const dot = el("span", "persona-dot" + (isSet ? " on" : ""));
+      const name = el("span", "persona-provider-name", f.group);
+      const state = el("span", "persona-provider-state", isSet ? (keyField.hint ? "•••• " + keyField.hint : "set") : "not set");
+      const chev = sym("chevron.right"); chev.classList.add("persona-provider-chev");
+      head.append(dot, name, state, chev);
+
+      const bodyEl = el("div", "persona-provider-body");
+      for (const g of members) bodyEl.append(makeField(g));
+      if (!isSet) bodyEl.hidden = true;
+
+      head.onclick = () => {
+        const open = bodyEl.hidden;
+        bodyEl.hidden = !open;
+        head.setAttribute("aria-expanded", open ? "true" : "false");
+        card.classList.toggle("open", open);
+      };
+      if (isSet) card.classList.add("open");
+
+      card.append(head, bodyEl);
+      scroll.append(card);
+    }
     form.append(scroll);
   }
   body.append(form);
