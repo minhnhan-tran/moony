@@ -1277,11 +1277,25 @@ function handle(ev) {
     }
     case "info": {
       endAssistant(); endToolGroup(); endWorkerGroup();
-      const d = el("div", "msg msg-info text-sm");
-      d.appendChild(sym("info.circle.fill", "msg-info-icon"));
+      // Model/provider switch confirmations get their own look (cpu icon +
+      // name pills) instead of the generic info box, so they read as a
+      // distinct "backend changed" cue rather than blending into every other
+      // note (compaction, auto-continue, etc.).
+      const provSwitch = ev.text.match(/^Provider set to (.+?)(?: — model set to (.+))?$/);
+      const modelSwitch = !provSwitch && ev.text.match(/^Model set to (.+?)(?: \((.+)\))?$/);
+      const d = el("div", "msg msg-info text-sm" + (provSwitch || modelSwitch ? " msg-info-model" : ""));
+      d.appendChild(sym(provSwitch || modelSwitch ? "cpu" : "info.circle.fill", "msg-info-icon"));
       const body = el("div", "md");
-      body.innerHTML = renderMD(ev.text);
-      highlightCommands(body); // bold-brand the slash commands the note references
+      if (provSwitch) {
+        body.append("Provider set to ", el("span", "msg-info-pill", provSwitch[1]));
+        if (provSwitch[2]) body.append(" — model set to ", el("span", "msg-info-pill", provSwitch[2]));
+      } else if (modelSwitch) {
+        body.append("Model set to ", el("span", "msg-info-pill", modelSwitch[1]));
+        if (modelSwitch[2]) body.append(" (", el("span", "msg-info-pill", modelSwitch[2]), ")");
+      } else {
+        body.innerHTML = renderMD(ev.text);
+        highlightCommands(body); // bold-brand the slash commands the note references
+      }
       d.appendChild(body);
       transcript.appendChild(d);
       break;

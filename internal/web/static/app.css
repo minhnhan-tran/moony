@@ -365,6 +365,24 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
 }
 .msg-info-icon { flex: none; color: rgb(var(--c-brand)); font-size: 15px; height: 1.5em; line-height: 1.5; }
 .msg-info > .md { flex: 1 1 auto; min-width: 0; }
+/* Provider/model switch confirmations: a slightly bolder variant of .msg-info
+   (thicker brand border + soft gradient) so "the backend changed" reads as
+   its own distinct cue, with the provider/model names set as pill badges. */
+.msg-info-model {
+  align-items: center;
+  border-left-width: 4px;
+  background: linear-gradient(135deg, rgb(var(--c-brand) / .1), rgb(var(--c-brand) / .04));
+}
+.msg-info-model .msg-info-icon { font-size: 16px; }
+.msg-info-pill {
+  display: inline-block;
+  font: 600 .85em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgb(var(--c-brand) / .16);
+  color: rgb(var(--c-brand-strong));
+  padding: .05rem .45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
 
 /* Errors: a red-accented callout. */
 .msg-error {
