@@ -32,6 +32,13 @@ type Config struct {
 	// AnthropicBaseURL overrides the native Anthropic Messages API base URL
 	// (default https://api.anthropic.com). Set via MOONY_ANTHROPIC_BASE_URL.
 	AnthropicBaseURL string
+	// SQEAnthropicAPIKey authenticates the SQE Anthropic backend (Claude via the
+	// SQE LAN gateway). Set via MOONY_SQE_ANTHROPIC_API_KEY; falls back to
+	// AnthropicAPIKey when unset.
+	SQEAnthropicAPIKey string
+	// SQEAnthropicBaseURL is the SQE gateway base URL (default
+	// defaultSQEAnthropicBaseURL). Set via MOONY_SQE_ANTHROPIC_BASE_URL.
+	SQEAnthropicBaseURL string
 	// OpenRouterAPIKey authenticates openrouter.ai. Set via
 	// MOONY_OPENROUTER_API_KEY (falls back to OPENROUTER_API_KEY).
 	OpenRouterAPIKey string
@@ -355,6 +362,11 @@ const DefaultModel = "llama3.1:8b"
 // `/relay off` (persisted) or MOONY_RELAY=off.
 const defaultRelayAddr = "127.0.0.1:8771"
 
+// DefaultSQEAnthropicBaseURL is the SQE LAN gateway the "sqe-anthropic" provider
+// targets by default (Bedrock-style proxy in front of Claude). Override with
+// MOONY_SQE_ANTHROPIC_BASE_URL.
+const DefaultSQEAnthropicBaseURL = "http://192.168.33.158:8787"
+
 // Wire protocols. Anthropic's Messages API and everything else's
 // OpenAI-compatible Chat Completions API. Derived 1:1 from LLMProvider (see
 // SetModel / Load) — kept as a field/consts for callers that key display or
@@ -368,7 +380,7 @@ const (
 // speaks its native Messages API, everything else (Ollama, OpenAI, OpenRouter)
 // speaks OpenAI-compatible Chat Completions.
 func wireRouteFor(llmProvider string) string {
-	if llmProvider == provider.Anthropic {
+	if provider.UsesAnthropicWire(llmProvider) {
 		return ProviderAnthropic
 	}
 	return ProviderOpenAI
@@ -1080,37 +1092,38 @@ func Load() *Config {
 	}
 
 	c := &Config{
-		OllamaBaseURL:      "http://localhost:11434/v1",
-		OpenAIBaseURL:      "https://api.openai.com/v1",
-		AnthropicBaseURL:   "https://api.anthropic.com",
-		OpenRouterBaseURL:  "https://openrouter.ai/api/v1",
-		GeminiBaseURL:      "https://generativelanguage.googleapis.com/v1beta/openai",
-		DeepSeekBaseURL:    "https://api.deepseek.com",
-		GroqBaseURL:        "https://api.groq.com/openai/v1",
-		XAIBaseURL:         "https://api.x.ai/v1",
-		MistralBaseURL:     "https://api.mistral.ai/v1",
-		TogetherBaseURL:    "https://api.together.xyz/v1",
-		FireworksBaseURL:   "https://api.fireworks.ai/inference/v1",
-		LLMProvider:        "ollama",
-		Model:              DefaultModel,
-		RelayAddr:          defaultRelayAddr, // on by default; prefs/env can override or disable
-		MaxTokens:          8192,
-		MaxToolOutputBytes: 16000,
-		MaxAgentSteps:      80,
-		AutoContinue:       1,
-		BatchContext:       true,
-		RepoMap:            true,
-		LazyMCPTools:       true,
-		LazyBuiltinTools:   true,
-		Terse:              true,
-		CodeOutline:        true,
-		DynamicEffort:      true,
-		VerifyMaxRetries:   2,
-		VerifyTimeoutSec:   120,
-		MaxReadLines:       800,
-		WorkingDir:         wd,
-		ReasoningLevel:     ReasoningAuto,
-		ReasoningByModel:   map[string]string{},
+		OllamaBaseURL:       "http://localhost:11434/v1",
+		OpenAIBaseURL:       "https://api.openai.com/v1",
+		AnthropicBaseURL:    "https://api.anthropic.com",
+		SQEAnthropicBaseURL: DefaultSQEAnthropicBaseURL,
+		OpenRouterBaseURL:   "https://openrouter.ai/api/v1",
+		GeminiBaseURL:       "https://generativelanguage.googleapis.com/v1beta/openai",
+		DeepSeekBaseURL:     "https://api.deepseek.com",
+		GroqBaseURL:         "https://api.groq.com/openai/v1",
+		XAIBaseURL:          "https://api.x.ai/v1",
+		MistralBaseURL:      "https://api.mistral.ai/v1",
+		TogetherBaseURL:     "https://api.together.xyz/v1",
+		FireworksBaseURL:    "https://api.fireworks.ai/inference/v1",
+		LLMProvider:         "ollama",
+		Model:               DefaultModel,
+		RelayAddr:           defaultRelayAddr, // on by default; prefs/env can override or disable
+		MaxTokens:           8192,
+		MaxToolOutputBytes:  16000,
+		MaxAgentSteps:       80,
+		AutoContinue:        1,
+		BatchContext:        true,
+		RepoMap:             true,
+		LazyMCPTools:        true,
+		LazyBuiltinTools:    true,
+		Terse:               true,
+		CodeOutline:         true,
+		DynamicEffort:       true,
+		VerifyMaxRetries:    2,
+		VerifyTimeoutSec:    120,
+		MaxReadLines:        800,
+		WorkingDir:          wd,
+		ReasoningLevel:      ReasoningAuto,
+		ReasoningByModel:    map[string]string{},
 
 		ApprovalPolicy:         ApprovalPrompt,
 		SandboxMode:            SandboxOff,
@@ -1191,6 +1204,16 @@ func Load() *Config {
 	c.AnthropicAPIKey = strings.TrimSpace(firstEnv("MOONY_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_ANTHROPIC_BASE_URL")); v != "" {
 		c.AnthropicBaseURL = v
+	}
+	// SQE Anthropic (Claude via the SQE LAN gateway): its own key/base URL, but the
+	// key falls back to the Anthropic key so "same as Anthropic, different gateway"
+	// works with a single credential. Read after AnthropicAPIKey for the fallback.
+	c.SQEAnthropicAPIKey = strings.TrimSpace(firstEnv("MOONY_SQE_ANTHROPIC_API_KEY"))
+	if c.SQEAnthropicAPIKey == "" {
+		c.SQEAnthropicAPIKey = c.AnthropicAPIKey
+	}
+	if v := strings.TrimSpace(firstEnv("MOONY_SQE_ANTHROPIC_BASE_URL")); v != "" {
+		c.SQEAnthropicBaseURL = v
 	}
 	c.OpenRouterAPIKey = strings.TrimSpace(firstEnv("MOONY_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_OPENROUTER_BASE_URL")); v != "" {

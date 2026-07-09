@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/provider"
@@ -23,17 +25,27 @@ import (
 
 const anthropicVersion = "2023-06-01"
 
-// usesAnthropic reports whether the configured backend is the native Anthropic
-// Messages API.
+// usesAnthropic reports whether the configured backend speaks the native
+// Anthropic Messages API — the public Anthropic backend or SQE Anthropic (the
+// same wire via the SQE LAN gateway).
 func (c *Client) usesAnthropic() bool {
-	return c.cfg != nil && provider.Normalize(c.cfg.LLMProvider) == provider.Anthropic
+	return c.cfg != nil && provider.UsesAnthropicWire(c.cfg.LLMProvider)
 }
 
 // anthropicBaseURL returns the Anthropic API base (no trailing slash), e.g.
-// https://api.anthropic.com. The /v1/... path is appended by callers.
+// https://api.anthropic.com. For the SQE Anthropic backend it returns the SQE
+// gateway base instead. The /v1/... path is appended by callers.
 func (c *Client) anthropicBaseURL() string {
-	if c.cfg != nil && strings.TrimSpace(c.cfg.AnthropicBaseURL) != "" {
-		return strings.TrimRight(c.cfg.AnthropicBaseURL, "/")
+	if c.cfg != nil && provider.Normalize(c.cfg.LLMProvider) == provider.SQEAnthropic {
+		if b := strings.TrimSpace(c.cfg.SQEAnthropicBaseURL); b != "" {
+			return strings.TrimRight(b, "/")
+		}
+		return config.DefaultSQEAnthropicBaseURL // cleared → back to the gateway, not public Anthropic
+	}
+	if c.cfg != nil {
+		if b := strings.TrimSpace(c.cfg.AnthropicBaseURL); b != "" {
+			return strings.TrimRight(b, "/")
+		}
 	}
 	return "https://api.anthropic.com"
 }
@@ -41,6 +53,9 @@ func (c *Client) anthropicBaseURL() string {
 func (c *Client) anthropicKey() string {
 	if c.cfg == nil {
 		return ""
+	}
+	if provider.Normalize(c.cfg.LLMProvider) == provider.SQEAnthropic {
+		return strings.TrimSpace(c.cfg.SQEAnthropicAPIKey)
 	}
 	return strings.TrimSpace(c.cfg.AnthropicAPIKey)
 }
@@ -135,11 +150,36 @@ func anthropicEffort(model, level string) string {
 	}
 }
 
-// streamAnthropic runs one turn against the native Messages API.
+// streamAnthropic runs one turn against the native Messages API. Some proxies /
+// gateways in front of Anthropic (e.g. Bedrock-style wrappers) can't
+// re-validate a thinking block's signature when it's replayed on a later turn
+// and reject the request with a 400 ("Invalid signature in thinking block").
+// When that happens it strips thinking blocks from the replayed history,
+// remembers the backend can't round-trip them (keyed by base URL), and retries
+// once — the model still reasons each turn; only the replay is dropped.
 func (c *Client) streamAnthropic(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	if c.anthropicKey() == "" {
 		return nil, fmt.Errorf("Anthropic API key not set — set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
 	}
+	base := c.anthropicBaseURL()
+	strip := anthropicStripThinkingEnv() || anthropicStripsThinkingReplay(base)
+
+	resp, err := c.streamAnthropicOnce(ctx, system, messages, tools, strip, h)
+	if err != nil && !strip && isThinkingSignatureError(err) {
+		rememberAnthropicStripsThinkingReplay(base)
+		if h.OnRetry != nil {
+			h.OnRetry(err) // drop any partial output before the retry
+		}
+		return c.streamAnthropicOnce(ctx, system, messages, tools, true, h)
+	}
+	return resp, err
+}
+
+// streamAnthropicOnce builds and streams one Messages API request. When
+// stripThinking is set, thinking / redacted_thinking blocks are dropped from the
+// replayed history (via prepareMessages' thinking-disabled path) even though the
+// model is still asked to think on this turn.
+func (c *Client) streamAnthropicOnce(ctx context.Context, system string, messages []Message, tools []Tool, stripThinking bool, h Handler) (*Response, error) {
 	model := c.resolveAnthropicModel(ctx)
 
 	level := effortFrom(ctx)
@@ -157,9 +197,11 @@ func (c *Client) streamAnthropic(ctx context.Context, system string, messages []
 		Model:     model,
 		MaxTokens: maxTokens,
 		System:    system,
-		Messages:  prepareMessages(messages, thinkingActive),
-		Tools:     tools,
-		Stream:    true,
+		// prepareMessages(_, false) strips replayed thinking blocks; keep them only
+		// when thinking is active AND this backend can round-trip their signatures.
+		Messages: prepareMessages(messages, thinkingActive && !stripThinking),
+		Tools:    tools,
+		Stream:   true,
 	}
 	if thinkingActive {
 		budget := anthropicBudget(level)
@@ -190,6 +232,49 @@ func (c *Client) streamAnthropic(ctx context.Context, system string, messages []
 	url := c.anthropicBaseURL() + "/v1/messages"
 	newReq := func() (*http.Request, error) { return c.newAnthropicRequest(ctx, url, raw) }
 	return c.streamWithRetry(ctx, newReq, "anthropic", parseStream, h)
+}
+
+// anthropicNoReplay remembers backends (keyed by base URL) that rejected a
+// replayed thinking-block signature, so subsequent turns strip thinking blocks
+// proactively instead of paying a failed request each time. It only grows within
+// a process; a restart re-learns on the first multi-turn request.
+var (
+	anthropicNoReplayMu sync.Mutex
+	anthropicNoReplay   = map[string]bool{}
+)
+
+func anthropicStripsThinkingReplay(baseURL string) bool {
+	anthropicNoReplayMu.Lock()
+	defer anthropicNoReplayMu.Unlock()
+	return anthropicNoReplay[baseURL]
+}
+
+func rememberAnthropicStripsThinkingReplay(baseURL string) {
+	anthropicNoReplayMu.Lock()
+	anthropicNoReplay[baseURL] = true
+	anthropicNoReplayMu.Unlock()
+}
+
+// anthropicStripThinkingEnv lets a user force thinking-block stripping from the
+// first request (MOONY_ANTHROPIC_STRIP_THINKING=1), skipping even the one-time
+// probe failure — useful for a known-incompatible gateway.
+func anthropicStripThinkingEnv() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_ANTHROPIC_STRIP_THINKING"))) {
+	case "1", "on", "true", "yes":
+		return true
+	}
+	return false
+}
+
+// isThinkingSignatureError reports whether err is a backend's rejection of a
+// replayed thinking-block signature (a 400 whose message names both a
+// "thinking" block and its "signature").
+func isThinkingSignatureError(err error) bool {
+	if err == nil {
+		return false
+	}
+	m := strings.ToLower(err.Error())
+	return strings.Contains(m, "thinking") && strings.Contains(m, "signature")
 }
 
 func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte) (*http.Request, error) {

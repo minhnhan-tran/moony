@@ -563,6 +563,47 @@ func TestRelayEnvOffDisables(t *testing.T) {
 	}
 }
 
+// TestSQEAnthropicProvider: the sqe-anthropic backend routes to the Anthropic
+// wire, defaults its base URL to the SQE gateway, and its API key falls back to
+// the Anthropic key when its own isn't set.
+func TestSQEAnthropicProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MOONY_PROVIDER", "sqe-anthropic")
+	t.Setenv("MOONY_ANTHROPIC_API_KEY", "anthropic-key")
+	// MOONY_SQE_ANTHROPIC_API_KEY unset → falls back to the Anthropic key.
+	c := Load()
+	if c.LLMProvider != provider.SQEAnthropic {
+		t.Errorf("LLMProvider = %q, want %q", c.LLMProvider, provider.SQEAnthropic)
+	}
+	if c.Provider != ProviderAnthropic {
+		t.Errorf("wire = %q, want %q (Anthropic native)", c.Provider, ProviderAnthropic)
+	}
+	if c.SQEAnthropicBaseURL != DefaultSQEAnthropicBaseURL {
+		t.Errorf("SQE base URL = %q, want default gateway %q", c.SQEAnthropicBaseURL, DefaultSQEAnthropicBaseURL)
+	}
+	if c.SQEAnthropicAPIKey != "anthropic-key" {
+		t.Errorf("SQE key = %q, want fallback to the Anthropic key", c.SQEAnthropicAPIKey)
+	}
+}
+
+// TestSQEAnthropicOwnCredentials: explicit SQE env vars override the fallback key
+// and the default gateway base URL.
+func TestSQEAnthropicOwnCredentials(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MOONY_ANTHROPIC_API_KEY", "anthropic-key")
+	t.Setenv("MOONY_SQE_ANTHROPIC_API_KEY", "sqe-key")
+	t.Setenv("MOONY_SQE_ANTHROPIC_BASE_URL", "http://gw.local:9000")
+	c := Load()
+	if c.SQEAnthropicAPIKey != "sqe-key" {
+		t.Errorf("SQE key = %q, want the explicit sqe-key (no fallback)", c.SQEAnthropicAPIKey)
+	}
+	if c.SQEAnthropicBaseURL != "http://gw.local:9000" {
+		t.Errorf("SQE base URL = %q, want the explicit override", c.SQEAnthropicBaseURL)
+	}
+}
+
 // TestBatchContextEnvOverride covers the MOONY_BATCH_CONTEXT toggle: on by
 // default, disabled when set to a falsey value.
 func TestBatchContextEnvOverride(t *testing.T) {

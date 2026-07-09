@@ -32,6 +32,11 @@ const (
 	Together   = "together"
 	Fireworks  = "fireworks"
 
+	// SQEAnthropic is the public Anthropic backend reached through the SQE LAN
+	// gateway (a Bedrock-style proxy). Same wire protocol and models as Anthropic;
+	// only the default base URL (and, optionally, the API key) differ.
+	SQEAnthropic = "sqe-anthropic"
+
 	// Default is the provider used unless the user selects another. Ollama
 	// needs no API key and runs locally, so it's the safest default.
 	Default = Ollama
@@ -58,6 +63,7 @@ var list = []Provider{
 	{ID: Ollama, Label: "Ollama", Desc: "local (or remote) Ollama server — no API key, no cost"},
 	{ID: OpenAI, Label: "OpenAI", Desc: "api.openai.com — needs MOONY_OPENAI_API_KEY"},
 	{ID: Anthropic, Label: "Anthropic", Desc: "api.anthropic.com (Claude) — needs MOONY_ANTHROPIC_API_KEY"},
+	{ID: SQEAnthropic, Label: "SQE Anthropic", Desc: "Claude via the SQE LAN gateway (default http://192.168.33.158:8787) — needs MOONY_SQE_ANTHROPIC_API_KEY (falls back to MOONY_ANTHROPIC_API_KEY)"},
 	{ID: OpenRouter, Label: "OpenRouter", Desc: "openrouter.ai — one key, hundreds of models — needs MOONY_OPENROUTER_API_KEY"},
 	{ID: Gemini, Label: "Gemini", Desc: "Google's OpenAI-compatible endpoint — needs MOONY_GEMINI_API_KEY"},
 	{ID: DeepSeek, Label: "DeepSeek", Desc: "api.deepseek.com — strong, cheap coding models — needs MOONY_DEEPSEEK_API_KEY"},
@@ -104,21 +110,34 @@ func Normalize(s string) string {
 	return Default
 }
 
+// UsesAnthropicWire reports whether a provider speaks Anthropic's native
+// Messages API. Both the public Anthropic backend and SQE Anthropic (the same
+// backend reached through the SQE LAN gateway) use it — everything else speaks
+// the OpenAI-compatible Chat Completions API.
+func UsesAnthropicWire(id string) bool {
+	switch Normalize(id) {
+	case Anthropic, SQEAnthropic:
+		return true
+	}
+	return false
+}
+
 // defaultModels maps each provider id to its starting model. Kept as a map
 // (rather than a switch) so adding a provider only means adding one entry here
 // and one to list above.
 var defaultModels = map[string]string{
-	Ollama:     OllamaDefaultModel,
-	OpenAI:     OpenAIDefaultModel,
-	Anthropic:  AnthropicDefaultModel,
-	OpenRouter: OpenRouterDefaultModel,
-	Gemini:     GeminiDefaultModel,
-	DeepSeek:   DeepSeekDefaultModel,
-	Groq:       GroqDefaultModel,
-	XAI:        XAIDefaultModel,
-	Mistral:    MistralDefaultModel,
-	Together:   TogetherDefaultModel,
-	Fireworks:  FireworksDefaultModel,
+	Ollama:       OllamaDefaultModel,
+	OpenAI:       OpenAIDefaultModel,
+	Anthropic:    AnthropicDefaultModel,
+	SQEAnthropic: AnthropicDefaultModel, // same Claude models as public Anthropic
+	OpenRouter:   OpenRouterDefaultModel,
+	Gemini:       GeminiDefaultModel,
+	DeepSeek:     DeepSeekDefaultModel,
+	Groq:         GroqDefaultModel,
+	XAI:          XAIDefaultModel,
+	Mistral:      MistralDefaultModel,
+	Together:     TogetherDefaultModel,
+	Fireworks:    FireworksDefaultModel,
 }
 
 // DefaultModelFor returns the model a provider starts with when freshly

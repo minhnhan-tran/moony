@@ -2,6 +2,7 @@ package llm
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -97,6 +98,49 @@ func TestAnthropicThinkingWireShape(t *testing.T) {
 	}
 }
 
+// TestSQEAnthropicClientRouting: the sqe-anthropic backend resolves the SQE
+// gateway base URL + key, uses the Anthropic wire, and falls back to the gateway
+// default (not public Anthropic) when its base URL is cleared. The public
+// Anthropic backend is unaffected.
+func TestSQEAnthropicClientRouting(t *testing.T) {
+	sqe := &Client{cfg: &config.Config{
+		LLMProvider:         "sqe-anthropic",
+		SQEAnthropicBaseURL: "http://gw.local:9000",
+		SQEAnthropicAPIKey:  "sqe-key",
+		AnthropicBaseURL:    "https://api.anthropic.com",
+		AnthropicAPIKey:     "pub-key",
+	}}
+	if !sqe.usesAnthropic() {
+		t.Error("sqe-anthropic should use the Anthropic wire")
+	}
+	if got := sqe.anthropicBaseURL(); got != "http://gw.local:9000" {
+		t.Errorf("SQE base URL = %q, want the configured gateway", got)
+	}
+	if got := sqe.anthropicKey(); got != "sqe-key" {
+		t.Errorf("SQE key = %q, want the SQE key (not the public one)", got)
+	}
+	// Cleared SQE base URL → gateway default, never public Anthropic.
+	sqe.cfg.SQEAnthropicBaseURL = ""
+	if got := sqe.anthropicBaseURL(); got != config.DefaultSQEAnthropicBaseURL {
+		t.Errorf("cleared SQE base URL = %q, want the gateway default %q", got, config.DefaultSQEAnthropicBaseURL)
+	}
+
+	pub := &Client{cfg: &config.Config{
+		LLMProvider:      "anthropic",
+		AnthropicBaseURL: "https://api.anthropic.com",
+		AnthropicAPIKey:  "pub-key",
+	}}
+	if !pub.usesAnthropic() {
+		t.Error("anthropic should use the Anthropic wire")
+	}
+	if got := pub.anthropicBaseURL(); got != "https://api.anthropic.com" {
+		t.Errorf("public base URL = %q", got)
+	}
+	if got := pub.anthropicKey(); got != "pub-key" {
+		t.Errorf("public key = %q", got)
+	}
+}
+
 func mustMarshal(t *testing.T, v any) string {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -104,6 +148,62 @@ func mustMarshal(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// TestIsThinkingSignatureError matches only the backend's replayed-signature
+// rejection (message naming both "thinking" and "signature"), not other errors.
+func TestIsThinkingSignatureError(t *testing.T) {
+	yes := errors.New("anthropic returned 400 Bad Request: ValidationException: messages.1.content.0: Invalid `signature` in `thinking` block")
+	if !isThinkingSignatureError(yes) {
+		t.Error("should match the thinking-signature 400")
+	}
+	for _, e := range []error{
+		nil,
+		errors.New("anthropic returned 429 rate limit"),
+		errors.New("i/o timeout"),
+		errors.New("invalid signature"), // signature but not a thinking block
+		errors.New("thinking budget exceeded"),
+	} {
+		if isThinkingSignatureError(e) {
+			t.Errorf("should NOT match: %v", e)
+		}
+	}
+}
+
+// TestAnthropicStripReplayMemory: a backend is remembered per base URL after it
+// rejects a replayed signature, and other backends are unaffected.
+func TestAnthropicStripReplayMemory(t *testing.T) {
+	const base = "http://test.gateway.invalid:9999"
+	if anthropicStripsThinkingReplay(base) {
+		t.Fatal("an unseen base URL should start un-stripped")
+	}
+	rememberAnthropicStripsThinkingReplay(base)
+	if !anthropicStripsThinkingReplay(base) {
+		t.Error("base URL should be remembered after a signature rejection")
+	}
+	if anthropicStripsThinkingReplay("http://other.invalid:1") {
+		t.Error("only the rejected base URL should strip")
+	}
+}
+
+// TestPrepareMessagesStripsThinking locks in the mechanism the retry relies on:
+// prepareMessages(_, false) drops thinking/redacted_thinking blocks but keeps the
+// rest of the message.
+func TestPrepareMessagesStripsThinking(t *testing.T) {
+	msgs := []Message{{Role: RoleAssistant, Content: []ContentBlock{
+		{Type: BlockThinking, Thinking: "reasoned", Signature: "sig"},
+		{Type: BlockText, Text: "the answer"},
+	}}}
+	got := prepareMessages(msgs, false) // false → strip thinking (the recovery path)
+	for _, b := range got[0].Content {
+		if b.Type == BlockThinking || b.Type == BlockRedactedThinking {
+			t.Fatalf("thinking block must be stripped, got %+v", got[0].Content)
+		}
+	}
+	// The non-thinking content survives.
+	if len(got[0].Content) != 1 || got[0].Content[0].Text != "the answer" {
+		t.Errorf("non-thinking content should be preserved, got %+v", got[0].Content)
+	}
 }
 
 // TestThinkingBlockPreservesEmptySignature: a thinking block must marshal its

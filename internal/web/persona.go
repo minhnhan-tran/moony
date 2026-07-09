@@ -82,30 +82,32 @@ type personaEdit struct {
 	// Secrets: an empty string means "keep the existing key". JSON tags match the
 	// providerCreds table below (the single source of truth wiring these to their
 	// env var and config field). Applied live and re-read per request via s.cfg.
-	OpenAIAPIKey     *string `json:"openaiApiKey"`
-	AnthropicAPIKey  *string `json:"anthropicApiKey"`
-	OpenRouterAPIKey *string `json:"openrouterApiKey"`
-	GeminiAPIKey     *string `json:"geminiApiKey"`
-	DeepSeekAPIKey   *string `json:"deepseekApiKey"`
-	GroqAPIKey       *string `json:"groqApiKey"`
-	XAIAPIKey        *string `json:"xaiApiKey"`
-	MistralAPIKey    *string `json:"mistralApiKey"`
-	TogetherAPIKey   *string `json:"togetherApiKey"`
-	FireworksAPIKey  *string `json:"fireworksApiKey"`
-	OllamaToken      *string `json:"ollamaToken"`
+	OpenAIAPIKey       *string `json:"openaiApiKey"`
+	AnthropicAPIKey    *string `json:"anthropicApiKey"`
+	SQEAnthropicAPIKey *string `json:"sqeAnthropicApiKey"`
+	OpenRouterAPIKey   *string `json:"openrouterApiKey"`
+	GeminiAPIKey       *string `json:"geminiApiKey"`
+	DeepSeekAPIKey     *string `json:"deepseekApiKey"`
+	GroqAPIKey         *string `json:"groqApiKey"`
+	XAIAPIKey          *string `json:"xaiApiKey"`
+	MistralAPIKey      *string `json:"mistralApiKey"`
+	TogetherAPIKey     *string `json:"togetherApiKey"`
+	FireworksAPIKey    *string `json:"fireworksApiKey"`
+	OllamaToken        *string `json:"ollamaToken"`
 	// Provider base-URL overrides (MOONY_*_BASE_URL). Plain text: empty clears the
 	// override so the built-in default is used. Ollama's host is the top-level
 	// "ollamaHost" field, so it has no entry here.
-	OpenAIBaseURL     *string `json:"openaiBaseUrl"`
-	AnthropicBaseURL  *string `json:"anthropicBaseUrl"`
-	OpenRouterBaseURL *string `json:"openrouterBaseUrl"`
-	GeminiBaseURL     *string `json:"geminiBaseUrl"`
-	DeepSeekBaseURL   *string `json:"deepseekBaseUrl"`
-	GroqBaseURL       *string `json:"groqBaseUrl"`
-	XAIBaseURL        *string `json:"xaiBaseUrl"`
-	MistralBaseURL    *string `json:"mistralBaseUrl"`
-	TogetherBaseURL   *string `json:"togetherBaseUrl"`
-	FireworksBaseURL  *string `json:"fireworksBaseUrl"`
+	OpenAIBaseURL       *string `json:"openaiBaseUrl"`
+	AnthropicBaseURL    *string `json:"anthropicBaseUrl"`
+	SQEAnthropicBaseURL *string `json:"sqeAnthropicBaseUrl"`
+	OpenRouterBaseURL   *string `json:"openrouterBaseUrl"`
+	GeminiBaseURL       *string `json:"geminiBaseUrl"`
+	DeepSeekBaseURL     *string `json:"deepseekBaseUrl"`
+	GroqBaseURL         *string `json:"groqBaseUrl"`
+	XAIBaseURL          *string `json:"xaiBaseUrl"`
+	MistralBaseURL      *string `json:"mistralBaseUrl"`
+	TogetherBaseURL     *string `json:"togetherBaseUrl"`
+	FireworksBaseURL    *string `json:"fireworksBaseUrl"`
 }
 
 // providerCred ties one provider's Persona fields (API key + optional base-URL
@@ -150,6 +152,14 @@ var providerCreds = []providerCred{
 		baseKey: "anthropicBaseUrl", baseLabel: "Anthropic base URL", baseEnv: "MOONY_ANTHROPIC_BASE_URL",
 		baseDesc: "MOONY_ANTHROPIC_BASE_URL: override the native Anthropic Messages API base (default https://api.anthropic.com). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.AnthropicBaseURL }, baseEdit: func(e personaEdit) *string { return e.AnthropicBaseURL },
+	},
+	{
+		key: "sqeAnthropicApiKey", label: "SQE Anthropic API key", env: "MOONY_SQE_ANTHROPIC_API_KEY",
+		desc: "MOONY_SQE_ANTHROPIC_API_KEY: authenticates the SQE Anthropic gateway (falls back to the Anthropic key if unset). Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.SQEAnthropicAPIKey }, edit: func(e personaEdit) *string { return e.SQEAnthropicAPIKey },
+		baseKey: "sqeAnthropicBaseUrl", baseLabel: "SQE Anthropic base URL", baseEnv: "MOONY_SQE_ANTHROPIC_BASE_URL",
+		baseDesc: "MOONY_SQE_ANTHROPIC_BASE_URL: the SQE LAN gateway base (default http://192.168.33.158:8787). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.SQEAnthropicBaseURL }, baseEdit: func(e personaEdit) *string { return e.SQEAnthropicBaseURL },
 	},
 	{
 		key: "openrouterApiKey", label: "OpenRouter API key", env: "MOONY_OPENROUTER_API_KEY",

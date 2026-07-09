@@ -7,8 +7,8 @@ import (
 
 func TestListDefaultOllamaFirst(t *testing.T) {
 	l := List()
-	if len(l) != 11 {
-		t.Fatalf("expected 11 providers, got %d", len(l))
+	if len(l) != 12 {
+		t.Fatalf("expected 12 providers, got %d", len(l))
 	}
 	if Default != Ollama {
 		t.Fatalf("default provider should be ollama, got %q", Default)
@@ -16,9 +16,20 @@ func TestListDefaultOllamaFirst(t *testing.T) {
 	if l[0].ID != Ollama {
 		t.Fatalf("expected ollama first, got %q", l[0].ID)
 	}
-	for _, id := range []string{Ollama, OpenAI, Anthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks} {
+	for _, id := range []string{Ollama, OpenAI, Anthropic, SQEAnthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks} {
 		if _, ok := Lookup(id); !ok {
 			t.Errorf("provider %q should be registered", id)
+		}
+	}
+	// Both Anthropic backends must route to the native wire; others must not.
+	for _, id := range []string{Anthropic, SQEAnthropic} {
+		if !UsesAnthropicWire(id) {
+			t.Errorf("%q should use the Anthropic wire", id)
+		}
+	}
+	for _, id := range []string{Ollama, OpenAI, Gemini} {
+		if UsesAnthropicWire(id) {
+			t.Errorf("%q should NOT use the Anthropic wire", id)
 		}
 	}
 	// Returned slice must be a copy (mutating it must not affect the registry).
