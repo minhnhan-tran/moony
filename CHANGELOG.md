@@ -5,6 +5,14 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.5] — 2026-07-09
+
+### Changed
+
+- Web Persona provider cards now start **collapsed** by default. The header's
+  set/not-set dot and last-4 hint show each provider's config at a glance; click
+  a header to expand its API-key and base-URL inputs.
+
 ## [1.2.4] — 2026-07-09
 
 ### Fixed
