@@ -489,3 +489,46 @@ func TestCompactClearsReadCache(t *testing.T) {
 		t.Fatalf("post-compaction read = %q (err=%v); want the body re-sent", out, err)
 	}
 }
+
+// TestMaybeCompactFiresMidTurn simulates the per-step loop in RunTurn: after
+// RunTurn's start-of-turn maybeCompact call, a long single turn can keep
+// growing (e.g. via appended tool results) without ever returning to the top
+// of RunTurn. The fix re-checks maybeCompact once per step (step > 0) so such
+// a turn still compacts instead of only checking again at the *next* turn.
+func TestMaybeCompactFiresMidTurn(t *testing.T) {
+	cfg := &config.Config{CompactThresholdTokens: 100, CompactKeepTokens: 700}
+	fake := &scriptedStreamer{turns: []llm.Response{
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: "summary of earlier work"}}},
+	}}
+	a := &Agent{cfg: cfg, client: fake, messages: []llm.Message{llm.UserText("hi")}}
+
+	// Below threshold: a step-0-style call (mirroring RunTurn's start-of-turn
+	// check) must be a no-op.
+	noop := func(Event) {}
+	if err := a.maybeCompact(context.Background(), noop); err != nil {
+		t.Fatalf("maybeCompact below threshold: %v", err)
+	}
+	if fake.calls != 0 {
+		t.Fatalf("expected no summarize call below threshold, got %d", fake.calls)
+	}
+
+	// Grow the history mid-"turn" (as tool results accumulate across steps)
+	// past the threshold, the way a long tool-calling turn would without ever
+	// returning to RunTurn's top.
+	big := strings.Repeat("x", 2000)
+	for i := 0; i < 5; i++ {
+		a.messages = append(a.messages, llm.UserText(big))
+	}
+	before := len(a.messages)
+
+	// This mirrors the step>0 mid-turn call added in RunTurn's loop.
+	if err := a.maybeCompact(context.Background(), noop); err != nil {
+		t.Fatalf("maybeCompact mid-turn: %v", err)
+	}
+	if fake.calls != 1 {
+		t.Fatalf("expected one summarize call once over threshold, got %d", fake.calls)
+	}
+	if len(a.messages) >= before {
+		t.Fatalf("expected history to shrink after mid-turn compaction: before=%d after=%d", before, len(a.messages))
+	}
+}

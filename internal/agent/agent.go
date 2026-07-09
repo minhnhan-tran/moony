@@ -1040,6 +1040,21 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// rounds intact; older ones become a short stub in place.
 		a.pruneStaleToolResults(a.cfg.ToolResultKeepRounds)
 
+		// A single turn can run many tool-call steps (especially under
+		// AutoContinue); maybeCompact only runs once at RunTurn's start, so a
+		// long-running turn could otherwise blow past CompactThresholdTokens
+		// mid-flight and never compact until the *next* turn starts. Re-check
+		// here each step (step 0 was already covered above); estTokens is cheap
+		// and maybeCompact itself no-ops below the threshold, so this only pays
+		// the summarizer-call cost when actually needed.
+		if step > 0 {
+			if err := a.maybeCompact(ctx, emit); err != nil {
+				text := "compaction skipped: " + err.Error()
+				emit(Info{Text: text})
+				a.noteInfo(text)
+			}
+		}
+
 		// Re-evaluate the per-turn system suffix each step so a mid-turn plan/mode
 		// change (e.g. exit_plan) is reflected immediately. Cache-neutral: the suffix
 		// is uncached (see appendTurnContext), so the cached prefix is unaffected, and
