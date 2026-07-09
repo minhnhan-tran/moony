@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.4.0] — 2026-07-09
+
+### Changed
+
+- agent: also run maybeCompact mid-turn so long single turns auto-compact
+
 ## [1.3.0] — 2026-07-09
 
 ### Changed
