@@ -1739,6 +1739,12 @@ const PROVIDER_OPTIONS = [
   { id: "mistral", label: "Mistral", desc: "api.mistral.ai — needs MOONY_MISTRAL_API_KEY" },
   { id: "together", label: "Together.ai", desc: "api.together.xyz — needs MOONY_TOGETHER_API_KEY" },
   { id: "fireworks", label: "Fireworks.ai", desc: "api.fireworks.ai — needs MOONY_FIREWORKS_API_KEY" },
+  { id: "moonshot", label: "Moonshot", desc: "api.moonshot.ai (Kimi) — needs MOONY_MOONSHOT_API_KEY" },
+  { id: "zai", label: "Z.AI", desc: "api.z.ai (Zhipu GLM) — needs MOONY_ZAI_API_KEY" },
+  { id: "dashscope", label: "DashScope", desc: "Alibaba DashScope (Qwen) — needs MOONY_DASHSCOPE_API_KEY" },
+  { id: "nvidia", label: "NVIDIA NIM", desc: "integrate.api.nvidia.com — needs MOONY_NVIDIA_API_KEY" },
+  { id: "huggingface", label: "Hugging Face", desc: "router.huggingface.co — needs MOONY_HUGGINGFACE_API_KEY" },
+  { id: "venice", label: "Venice", desc: "api.venice.ai — needs MOONY_VENICE_API_KEY" },
 ];
 function hdrMenuOpen() { return hdrMenuEl && !hdrMenuEl.classList.contains("hidden"); }
 function closeHdrMenu() { if (hdrMenuEl) { hdrMenuEl.classList.add("hidden"); hdrMenuEl.innerHTML = ""; hdrMenuEl.dataset.kind = ""; } }

@@ -825,6 +825,29 @@ function prettyModel(m) {
       .join(" ");
   }
   let family = "";
+  // Lightweight pretty-names for the newer public-provider model families
+  // (Moonshot/Z.AI/DashScope/NVIDIA/Hugging Face/Venice); unmatched ids fall
+  // through unchanged, same as any other unknown vendor.
+  if (x.includes("kimi")) {
+    const v = x.match(/kimi-(k\d+)/);
+    return v ? `Kimi ${v[1].toUpperCase()}` : "Kimi";
+  }
+  if (x.includes("glm")) {
+    const v = x.match(/glm-([\d.]+)/);
+    return v ? `GLM ${v[1]}` : "GLM";
+  }
+  if (x.startsWith("qwen") || x.includes("/qwen")) {
+    return raw.split("/").pop().split("-").filter(Boolean)
+      .map((t) => /\d/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1)).join(" ");
+  }
+  if (x.includes("nemotron")) {
+    const v = x.match(/(\d+(?:\.\d+)?b)/i);
+    return v ? `Nemotron ${v[1].toUpperCase()}` : "Nemotron";
+  }
+  if (x.includes("llama")) {
+    const v = x.match(/llama-?([\d.]+)-?(\d+b)?/i);
+    return v ? `Llama ${v[1]}${v[2] ? " " + v[2].toUpperCase() : ""}` : "Llama";
+  }
   if (x.includes("opus")) family = "Opus";
   else if (x.includes("sonnet")) family = "Sonnet";
   else if (x.includes("haiku")) family = "Haiku";
@@ -865,6 +888,12 @@ function providerLabel(id) {
     case "mistral": return "Mistral";
     case "together": return "Together.ai";
     case "fireworks": return "Fireworks.ai";
+    case "moonshot": return "Moonshot";
+    case "zai": return "Z.AI";
+    case "dashscope": return "DashScope";
+    case "nvidia": return "NVIDIA NIM";
+    case "huggingface": return "Hugging Face";
+    case "venice": return "Venice";
     default: return "";
   }
 }
