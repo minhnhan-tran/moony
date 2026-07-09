@@ -3892,11 +3892,10 @@ async function renderPersona() {
   const rest = fields.filter((f) => f.type !== "bool" && f.type !== "select");
   for (const f of toggles) form.append(makeField(f));
   if (rest.length) {
+    // Ungrouped fields (session encryption, MCP tokens) stay in the first scroll;
+    // provider credentials (grouped) go in a second "Provider" scroll below it.
     const scroll = el("div", "persona-scroll");
-    // Group provider credentials (API key + base URL share f.group) into one
-    // collapsible card each; ungrouped fields (MCP tokens, session encryption)
-    // render as plain rows. Cards start collapsed, auto-expanding any provider
-    // that already has its key set so configured providers are visible at a glance.
+    const provScroll = el("div", "persona-scroll");
     const seen = new Set();
     for (const f of rest) {
       if (!f.group) { scroll.append(makeField(f)); continue; }
@@ -3926,9 +3925,13 @@ async function renderPersona() {
       };
 
       card.append(head, bodyEl);
-      scroll.append(card);
+      provScroll.append(card);
     }
-    form.append(scroll);
+    if (scroll.children.length) form.append(scroll);
+    if (provScroll.children.length) {
+      form.append(el("div", "persona-section-title", "Provider"));
+      form.append(provScroll);
+    }
   }
   body.append(form);
   const status = el("span", "persona-status");
