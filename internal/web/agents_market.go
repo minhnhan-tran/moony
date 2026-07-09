@@ -192,11 +192,13 @@ func (s *Server) handleAgentModels(w http.ResponseWriter, r *http.Request) {
 	// Resolve the model list + active backend from the session's agent, or — for
 	// the live mirror (no web agent) — from the connector's own config/client.
 	var (
-		models []config.ModelInfo
-		err    error
+		models     []config.ModelInfo
+		err        error
+		providerID string
 	)
 	if s.routeToHub(r.PathValue("id")) {
 		models, err = llm.NewClient(s.cfg).ListModels(r.Context())
+		providerID = s.cfg.LLMProvider
 	} else {
 		sess := s.lookup(r)
 		if sess == nil || sess.agent == nil {
@@ -204,9 +206,10 @@ func (s *Server) handleAgentModels(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		models, err = sess.agent.ListModels(r.Context())
+		providerID = sess.agent.Config().LLMProvider
 	}
 	if err != nil || len(models) == 0 {
-		models = config.AllKnownModels()
+		models = config.ModelFallback(providerID)
 	}
 	out := make([]agentModelOption, 0, len(models))
 	for _, m := range models {

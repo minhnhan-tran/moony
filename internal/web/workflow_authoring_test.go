@@ -9,9 +9,9 @@ import (
 )
 
 // TestHandleWorkflowModels verifies that GET /api/workflows/models returns a
-// valid JSON array. When the live API is unreachable (typical in tests) and the
-// active provider is a hosted provider, the handler falls back to the curated
-// AllKnownModels list, so the array must be non-empty.
+// valid JSON array. When the live API is unreachable (typical in tests), the
+// handler falls back to config.ModelFallback (the active providers own default
+// model, or the curated list for Anthropic/Gemini), so the array must be non-empty.
 func TestHandleWorkflowModels(t *testing.T) {
 	srv, _ := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	h := srv.Handler()

@@ -46,13 +46,13 @@ func (s *Server) emitSchedulesMenu(sess *session) {
 func (s *Server) emitModelsMenu(sess *session) {
 	go func() {
 		models, err := sess.agent.ListModels(context.Background())
-		if err != nil {
-			// On failure, fall back to the merged curated list so the picker is
-			// never empty.
-			sess.publishEvent(wireEvent{Type: "info", Text: config.ModelFetchNote(err)})
-			models = config.AllKnownModels()
-		}
 		cfg := sess.agent.Config()
+		if err != nil {
+			// On failure, fall back to a provider-scoped list (never the wrong
+			// providers models) so the picker is never empty.
+			sess.publishEvent(wireEvent{Type: "info", Text: config.ModelFetchNote(err)})
+			models = config.ModelFallback(cfg.LLMProvider)
+		}
 		items := make([]menuItemWire, 0, len(models))
 		for _, m := range models {
 			label := shortModel(m.ID)

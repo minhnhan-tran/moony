@@ -902,3 +902,27 @@ func TestLoadDefaultsAdaptiveModelAndCheapReadsOn(t *testing.T) {
 		t.Error("MOONY_CHEAP_READS=0 should still disable it")
 	}
 }
+
+// TestModelFallbackScopedToProvider verifies the "/models" live-fetch-failure
+// fallback never shows an unrelated provider's models: the curated
+// KnownModels/KnownOpenAIModels catalog is Anthropic/Gemini-gateway-specific,
+// so every other provider must fall back to its own default model instead.
+func TestModelFallbackScopedToProvider(t *testing.T) {
+	for _, id := range []string{"anthropic", "sqe-anthropic", "gemini"} {
+		got := ModelFallback(id)
+		if len(got) == 0 {
+			t.Errorf("ModelFallback(%q) empty, want the curated list", id)
+		}
+	}
+	for _, id := range []string{"huggingface", "moonshot", "zai", "dashscope", "nvidia", "venice", "openrouter", "deepseek", "ollama", "unknown-provider"} {
+		got := ModelFallback(id)
+		if len(got) != 1 {
+			t.Fatalf("ModelFallback(%q) = %v, want exactly the provider's own default model", id, got)
+		}
+		for _, known := range AllKnownModels() {
+			if got[0].ID == known.ID {
+				t.Errorf("ModelFallback(%q) = %q leaked the Anthropic/Gemini curated catalog", id, got[0].ID)
+			}
+		}
+	}
+}

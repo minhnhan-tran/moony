@@ -410,7 +410,7 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 		client := llm.NewClient(cfg)
 		models, err := client.ListModels(r.Context())
 		if err != nil || len(models) == 0 {
-			models = config.AllKnownModels()
+			models = config.ModelFallback(cfg.LLMProvider)
 		}
 		writeJSON(w, map[string]any{"fields": personaFields(cfg, models)})
 		return
@@ -460,7 +460,7 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	client2 := llm.NewClient(cfg)
 	models2, err2 := client2.ListModels(r.Context())
 	if err2 != nil || len(models2) == 0 {
-		models2 = config.AllKnownModels()
+		models2 = config.ModelFallback(cfg.LLMProvider)
 	}
 	writeJSON(w, map[string]any{"fields": personaFields(cfg, models2)})
 }

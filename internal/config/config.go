@@ -1078,6 +1078,26 @@ func AllKnownModels() []ModelInfo {
 	return out
 }
 
+// ModelFallback returns what to show a "/models" picker when a live fetch
+// fails, scoped to the active provider so it doesn't offer unservable models
+// (e.g. showing the Anthropic/Gemini gateway catalog while using Hugging
+// Face). KnownModels/KnownOpenAIModels are curated specifically for the
+// Anthropic and Gemini gateways, so they're only relevant there; every other
+// provider (OpenRouter, DeepSeek, Moonshot, Hugging Face, Ollama, ...) has no
+// static catalog, so fall back to just that provider's own default model —
+// never an unrelated list, and never empty (DefaultModelFor always resolves
+// to something, down to Ollama's default).
+func ModelFallback(providerID string) []ModelInfo {
+	id := provider.Normalize(providerID)
+	switch id {
+	case provider.Anthropic, provider.SQEAnthropic, provider.Gemini:
+		return AllKnownModels()
+	default:
+		def := provider.DefaultModelFor(id)
+		return []ModelInfo{{ID: def, Name: def}}
+	}
+}
+
 // ModelSupportsThinking reports whether a model id is known to support extended
 // thinking. Unknown ids are assumed to support it (the user opted in).
 func ModelSupportsThinking(id string) bool {

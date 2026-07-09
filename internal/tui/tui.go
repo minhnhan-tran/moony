@@ -2486,7 +2486,7 @@ func (m Model) handleModelsLoaded(msg modelsLoadedMsg) (tea.Model, tea.Cmd) {
 		if remote {
 			m.publishInfo(note)
 		}
-		models = config.AllKnownModels()
+		models = config.ModelFallback(m.cfg.LLMProvider)
 	}
 	if remote {
 		// Web-driven: mirror a clickable picker and stay idle (a terminal menu

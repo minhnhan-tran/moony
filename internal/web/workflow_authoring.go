@@ -136,15 +136,16 @@ type workflowModelOption struct {
 // handleWorkflowModels: GET /api/workflows/models → the models an agent node (or
 // a new persona) can pin, for the Agent Builder's model picker. Mirrors
 // handleAgentModels but laptop-scoped (no session): the live list from the active
-// backend, falling back to the curated known list only on a hosted provider (that list is
-// hosted-provider-specific). On local backends a failed fetch returns an empty list rather
-// than offering unservable models; the UI still shows "inherit" plus any existing
-// value. The empty id ("inherit the parent's model") is added by the UI.
+// backend, falling back on failure to config.ModelFallback (scoped to the active
+// provider, e.g. its own default model or the Anthropic/Gemini curated list, never an
+// unrelated one) so the picker never offers unservable models; the UI still shows
+// "inherit" plus any existing value. The empty id ("inherit the parent's model") is added by the UI.
 func (s *Server) handleWorkflowModels(w http.ResponseWriter, r *http.Request) {
 	client := llm.NewClient(s.cfg)
 	models, err := client.ListModels(r.Context())
 	if err != nil || len(models) == 0 {
-		models = config.AllKnownModels()
+		// Fall back scoped to the active provider, not an unrelated static catalog.
+		models = config.ModelFallback(s.cfg.LLMProvider)
 	}
 	out := make([]workflowModelOption, 0, len(models))
 	for _, m := range models {
