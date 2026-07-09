@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.5.3] — 2026-07-09
+
+### Changed
+
+- web: fix prettyModel qwen formatting dropping capitalization on any digit-bearing token
+
 ## [1.5.2] — 2026-07-09
 
 ### Changed
