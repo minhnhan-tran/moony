@@ -171,8 +171,10 @@ func (c *Client) streamAnthropic(ctx context.Context, system string, messages []
 		if anthropicAdaptiveThinking(model) {
 			// 4.6+ models: adaptive thinking + effort. The legacy
 			// {type:"enabled", budget_tokens} shape is rejected with a 400 on
-			// 4.7/4.8, Sonnet 5, and Fable 5.
-			body.Thinking = &thinking{Type: "adaptive"}
+			// 4.7/4.8, Sonnet 5, and Fable 5. display "summarized" surfaces a
+			// readable reasoning summary (the default "omitted" streams empty
+			// thinking text, which shows as a blank pause in the UI).
+			body.Thinking = &thinking{Type: "adaptive", Display: "summarized"}
 			body.OutputConfig = &outputConfig{Effort: anthropicEffort(model, level)}
 		} else {
 			// 4.5 and earlier: fixed thinking budget.

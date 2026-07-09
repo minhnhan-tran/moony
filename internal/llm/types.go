@@ -101,7 +101,8 @@ type ContentBlock struct {
 // array form. Every other block marshals exactly as its struct tags dictate —
 // via the alias type, which has no MarshalJSON, so there's no recursion.
 func (b ContentBlock) MarshalJSON() ([]byte, error) {
-	if b.Type == BlockToolResult && len(b.ContentList) > 0 {
+	switch {
+	case b.Type == BlockToolResult && len(b.ContentList) > 0:
 		return json.Marshal(struct {
 			Type         string         `json:"type"`
 			ToolUseID    string         `json:"tool_use_id,omitempty"`
@@ -109,6 +110,20 @@ func (b ContentBlock) MarshalJSON() ([]byte, error) {
 			IsError      bool           `json:"is_error,omitempty"`
 			CacheControl *cacheControl  `json:"cache_control,omitempty"`
 		}{b.Type, b.ToolUseID, b.ContentList, b.IsError, b.CacheControl})
+	case b.Type == BlockThinking:
+		// A thinking block must be echoed back verbatim — its `thinking` text AND
+		// `signature` — or the API rejects the turn with "Invalid signature in
+		// thinking block". The shared Thinking field is json:"thinking,omitempty",
+		// which drops an empty string; adaptive thinking with display "omitted" (the
+		// default on Opus 4.7/4.8, Sonnet 5, Fable 5) returns exactly that — empty
+		// text with a real signature — so emit `thinking` unconditionally here to
+		// keep the block's canonical form intact on replay.
+		return json.Marshal(struct {
+			Type         string        `json:"type"`
+			Thinking     string        `json:"thinking"`
+			Signature    string        `json:"signature,omitempty"`
+			CacheControl *cacheControl `json:"cache_control,omitempty"`
+		}{b.Type, b.Thinking, b.Signature, b.CacheControl})
 	}
 	type alias ContentBlock
 	return json.Marshal(alias(b))
@@ -248,6 +263,7 @@ type request struct {
 type thinking struct {
 	Type         string `json:"type"`                    // "enabled" (legacy) or "adaptive" (4.6+)
 	BudgetTokens int    `json:"budget_tokens,omitempty"` // legacy only; omitted for adaptive
+	Display      string `json:"display,omitempty"`       // adaptive only: "summarized" | "omitted"
 }
 
 // outputConfig carries generation controls. Effort tunes adaptive-thinking depth

@@ -68,7 +68,7 @@ func TestAnthropicThinkingWireShape(t *testing.T) {
 	adaptive := mustMarshal(t, &request{
 		Model:        "claude-opus-4-8",
 		MaxTokens:    16000,
-		Thinking:     &thinking{Type: "adaptive"},
+		Thinking:     &thinking{Type: "adaptive", Display: "summarized"},
 		OutputConfig: &outputConfig{Effort: "high"},
 	})
 	if !strings.Contains(adaptive, `"type":"adaptive"`) {
@@ -79,6 +79,9 @@ func TestAnthropicThinkingWireShape(t *testing.T) {
 	}
 	if !strings.Contains(adaptive, `"output_config":{"effort":"high"}`) {
 		t.Errorf("adaptive request missing output_config.effort: %s", adaptive)
+	}
+	if !strings.Contains(adaptive, `"display":"summarized"`) {
+		t.Errorf("adaptive request missing display:summarized: %s", adaptive)
 	}
 
 	legacy := mustMarshal(t, &request{
@@ -101,4 +104,32 @@ func mustMarshal(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// TestThinkingBlockPreservesEmptySignature: a thinking block must marshal its
+// `thinking` field even when empty (adaptive display:"omitted" yields empty text
+// with a real signature) so the block round-trips verbatim. Dropping the empty
+// field via the shared json:"thinking,omitempty" tag changes the canonical form
+// and the API rejects the replay with "Invalid signature in thinking block".
+func TestThinkingBlockPreservesEmptySignature(t *testing.T) {
+	raw := mustMarshal(t, ContentBlock{Type: BlockThinking, Thinking: "", Signature: "sig-abc"})
+	if !strings.Contains(raw, `"thinking":""`) {
+		t.Errorf("empty thinking must still emit the field: %s", raw)
+	}
+	if !strings.Contains(raw, `"signature":"sig-abc"`) {
+		t.Errorf("signature missing: %s", raw)
+	}
+	// Round-trips through Unmarshal unchanged (session-store persistence).
+	var back ContentBlock
+	if err := json.Unmarshal([]byte(raw), &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Type != BlockThinking || back.Thinking != "" || back.Signature != "sig-abc" {
+		t.Errorf("round-trip mismatch: %+v", back)
+	}
+	// A thinking block with text keeps both fields.
+	raw2 := mustMarshal(t, ContentBlock{Type: BlockThinking, Thinking: "reasoning", Signature: "s2"})
+	if !strings.Contains(raw2, `"thinking":"reasoning"`) || !strings.Contains(raw2, `"signature":"s2"`) {
+		t.Errorf("non-empty thinking block malformed: %s", raw2)
+	}
 }
