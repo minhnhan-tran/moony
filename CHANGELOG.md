@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.3] — 2026-07-09
+
+### Fixed
+
+- **Web Persona provider cards showed only their header line** — the API-key and
+  base-URL inputs were hidden. Body visibility mixed two mechanisms (the DOM
+  `hidden` attribute plus a `display: flex` rule that overrode it), so the state
+  was inconsistent and the `.open` class only rotated the chevron. Visibility is
+  now class-driven: the card body is hidden by default and shown under
+  `.persona-provider.open`, which the header toggle flips. Cards still start
+  expanded.
+
 ## [1.2.2] — 2026-07-09
 
 ### Changed
