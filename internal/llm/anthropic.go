@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pysty1995/moony/internal/config"
@@ -72,6 +74,67 @@ func anthropicBudget(level string) int {
 	}
 }
 
+// anthropicVerRe extracts the family version from a model id in the modern
+// "claude-<family>-<major>[-<minor>]" layout (claude-opus-4-8, claude-sonnet-5,
+// claude-fable-5). A provider prefix ("anthropic.") and dated/Bedrock suffixes
+// ("-20250929-v1:0") don't interfere — it matches the family token wherever it sits.
+var anthropicVerRe = regexp.MustCompile(`(?:opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d+))?`)
+
+// anthropicModelRank returns the model version as major*100+minor (4.8 -> 408,
+// 5 -> 500), or 0 when it can't be determined. The 2.x/3.x families put their
+// version digits *before* the family name and never support adaptive thinking,
+// so they short-circuit to a low rank before the modern-layout regex (which would
+// otherwise mis-read a date suffix like "claude-3-5-sonnet-20241022" as the version).
+func anthropicModelRank(model string) int {
+	m := strings.ToLower(model)
+	if strings.Contains(m, "claude-2") || strings.Contains(m, "claude-3") {
+		return 300
+	}
+	mm := anthropicVerRe.FindStringSubmatch(m)
+	if mm == nil {
+		return 0
+	}
+	major, _ := strconv.Atoi(mm[1])
+	minor := 0
+	if mm[2] != "" {
+		minor, _ = strconv.Atoi(mm[2])
+	}
+	return major*100 + minor
+}
+
+// anthropicAdaptiveThinking reports whether a model uses the modern adaptive
+// thinking API (thinking.type "adaptive" + output_config.effort) instead of the
+// legacy fixed-budget mode (thinking.type "enabled" + budget_tokens). Adaptive
+// arrived with the 4.6 family: 4.6/4.7/4.8, Sonnet 5, Fable/Mythos 5, and newer
+// accept it (and from 4.7 on REQUIRE it — legacy "enabled" 400s there); 4.5 and
+// earlier still use budget_tokens. Unrecognized ids fall back to the legacy shape
+// (moony's long-standing default, and the API contract for the default 4.5 model).
+func anthropicAdaptiveThinking(model string) bool {
+	return anthropicModelRank(model) >= 406
+}
+
+// anthropicEffort maps a moony reasoning level to an Anthropic output_config
+// effort for adaptive-thinking models. xhigh only exists from 4.7 on, so it
+// clamps to high on 4.6. Called only while thinking is active, so it always
+// returns a concrete effort (medium for auto/unspecified).
+func anthropicEffort(model, level string) string {
+	switch config.NormalizeReasoning(level) {
+	case config.ReasoningMinimal, config.ReasoningLow:
+		return "low"
+	case config.ReasoningHigh:
+		return "high"
+	case config.ReasoningXHigh:
+		if anthropicModelRank(model) < 407 {
+			return "high" // xhigh unsupported on 4.6
+		}
+		return "xhigh"
+	case config.ReasoningMax:
+		return "max"
+	default: // medium / auto
+		return "medium"
+	}
+}
+
 // streamAnthropic runs one turn against the native Messages API.
 func (c *Client) streamAnthropic(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	if c.anthropicKey() == "" {
@@ -100,12 +163,21 @@ func (c *Client) streamAnthropic(ctx context.Context, system string, messages []
 	}
 	if thinkingActive {
 		budget := anthropicBudget(level)
-		// max_tokens must exceed the thinking budget; bump it if the session cap
-		// is too low to leave room for a visible answer.
+		// Extended thinking needs headroom under max_tokens for both the reasoning
+		// and a visible answer; bump the cap when the session limit is too low.
 		if body.MaxTokens <= budget {
 			body.MaxTokens = budget + 4096
 		}
-		body.Thinking = &thinking{Type: "enabled", BudgetTokens: budget}
+		if anthropicAdaptiveThinking(model) {
+			// 4.6+ models: adaptive thinking + effort. The legacy
+			// {type:"enabled", budget_tokens} shape is rejected with a 400 on
+			// 4.7/4.8, Sonnet 5, and Fable 5.
+			body.Thinking = &thinking{Type: "adaptive"}
+			body.OutputConfig = &outputConfig{Effort: anthropicEffort(model, level)}
+		} else {
+			// 4.5 and earlier: fixed thinking budget.
+			body.Thinking = &thinking{Type: "enabled", BudgetTokens: budget}
+		}
 	}
 	applyPromptCache(body)
 

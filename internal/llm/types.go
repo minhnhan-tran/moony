@@ -226,22 +226,34 @@ type Tool struct {
 
 // request is the JSON body sent to the Messages endpoint.
 type request struct {
-	Model       string    `json:"model"`
-	MaxTokens   int       `json:"max_tokens"`
-	System      any       `json:"system,omitempty"` // string, or []systemBlock when caching
-	Messages    []Message `json:"messages"`
-	Tools       []Tool    `json:"tools,omitempty"`
-	Thinking    *thinking `json:"thinking,omitempty"`
-	Temperature *float64  `json:"temperature,omitempty"`
-	Stream      bool      `json:"stream"`
+	Model        string        `json:"model"`
+	MaxTokens    int           `json:"max_tokens"`
+	System       any           `json:"system,omitempty"` // string, or []systemBlock when caching
+	Messages     []Message     `json:"messages"`
+	Tools        []Tool        `json:"tools,omitempty"`
+	Thinking     *thinking     `json:"thinking,omitempty"`
+	OutputConfig *outputConfig `json:"output_config,omitempty"`
+	Temperature  *float64      `json:"temperature,omitempty"`
+	Stream       bool          `json:"stream"`
 }
 
-// thinking enables Anthropic's native extended-thinking mode: type "enabled"
-// plus a token budget (>=1024, and less than MaxTokens). Temperature must be
-// unset (or 1) while thinking is enabled — the request omits it in that case.
+// thinking enables Anthropic's native extended thinking. Two shapes, keyed to the
+// model family (see anthropicAdaptiveThinking):
+//   - Legacy (4.5 and earlier): Type "enabled" + BudgetTokens (>=1024, < MaxTokens).
+//   - Adaptive (4.6+): Type "adaptive" with NO budget — depth is controlled by
+//     outputConfig.Effort instead. Sending "enabled"/budget_tokens to a 4.7+ /
+//     Sonnet 5 / Fable 5 model is rejected with a 400.
+//
+// Temperature must be unset (or 1) while thinking is on — the request omits it.
 type thinking struct {
-	Type         string `json:"type"` // "enabled"
-	BudgetTokens int    `json:"budget_tokens"`
+	Type         string `json:"type"`                    // "enabled" (legacy) or "adaptive" (4.6+)
+	BudgetTokens int    `json:"budget_tokens,omitempty"` // legacy only; omitted for adaptive
+}
+
+// outputConfig carries generation controls. Effort tunes adaptive-thinking depth
+// on models that support it (Anthropic 4.6+): low | medium | high | xhigh | max.
+type outputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 // Usage reports token accounting for a turn. With prompt caching, Anthropic
