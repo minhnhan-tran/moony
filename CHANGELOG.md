@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.1.1] — 2026-07-09
+
+### Fixed
+
+- **SQE Anthropic now appears in the web UI provider picker.** The browser header
+  picker read a hardcoded provider list (and label map) that hadn't been updated
+  for the new backend, so `sqe-anthropic` was selectable only in the TUI. The
+  slash `/provider` menu and workflow picker were already dynamic.
+
 ## [1.1.0] — 2026-07-09
 
 ### Added
