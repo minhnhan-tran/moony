@@ -39,11 +39,12 @@ type savedPrefs struct {
 	// read, so e.g. a deployment's MOONY_SELF_REVIEW=0 silently clobbered a saved
 	// "on" choice on every restart; they're pointers now for the same
 	// nil-vs-false distinction as CheapReads/FastModel/AuxModel below.
-	AutoPlan   *bool   `json:"auto_plan,omitempty"`
-	SelfReview *bool   `json:"self_review,omitempty"`
-	CheapReads *bool   `json:"cheap_reads,omitempty"`
-	FastModel  *string `json:"fast_model,omitempty"`
-	AuxModel   *string `json:"aux_model,omitempty"`
+	AutoPlan      *bool   `json:"auto_plan,omitempty"`
+	SelfReview    *bool   `json:"self_review,omitempty"`
+	CheapReads    *bool   `json:"cheap_reads,omitempty"`
+	AdaptiveModel *bool   `json:"adaptive_model,omitempty"`
+	FastModel     *string `json:"fast_model,omitempty"`
+	AuxModel      *string `json:"aux_model,omitempty"`
 }
 
 // prefsPath returns the path to the persisted preferences file.
@@ -93,6 +94,7 @@ func (c *Config) Save() error {
 		AutoPlan:         c.AutoPlanPersona,
 		SelfReview:       c.SelfReviewPersona,
 		CheapReads:       c.CheapReadsPersona,
+		AdaptiveModel:    c.AdaptiveModelPersona,
 		FastModel:        c.FastModelPersona,
 		AuxModel:         c.AuxModelPersona,
 	}, "", "  ")

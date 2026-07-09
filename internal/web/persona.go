@@ -451,6 +451,8 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 	}
 	if e.AdaptiveModel != nil {
 		c.AdaptiveModel = *e.AdaptiveModel
+		am := *e.AdaptiveModel
+		c.AdaptiveModelPersona = &am // remember as explicit persona choice
 	}
 	if e.MaxAgentSteps != nil {
 		setEnvPlain("MOONY_MAX_STEPS", e.MaxAgentSteps)

@@ -202,11 +202,12 @@ type Config struct {
 	// and are applied by Load() AFTER env vars so a persona save always survives
 	// a restart regardless of the deployed env config.
 	// Stored in savedPrefs; managed only by applyPersonaEdit + Load().
-	CheapReadsPersona *bool
-	FastModelPersona  *string
-	AuxModelPersona   *string
-	AutoPlanPersona   *bool
-	SelfReviewPersona *bool
+	CheapReadsPersona    *bool
+	FastModelPersona     *string
+	AuxModelPersona      *string
+	AutoPlanPersona      *bool
+	SelfReviewPersona    *bool
+	AdaptiveModelPersona *bool
 	// VerifyCommand, when non-empty, is a shell command (e.g. a test/build) run
 	// automatically at the end of a turn that edited files; if it exits non-zero
 	// the failure is fed back so the agent self-corrects before finishing. Set it
@@ -1444,6 +1445,10 @@ func Load() *Config {
 	if prefs.SelfReview != nil {
 		c.SelfReview = *prefs.SelfReview
 		c.SelfReviewPersona = prefs.SelfReview
+	}
+	if prefs.AdaptiveModel != nil {
+		c.AdaptiveModel = *prefs.AdaptiveModel
+		c.AdaptiveModelPersona = prefs.AdaptiveModel
 	}
 	if prefs.FastModel != nil {
 		fm := strings.TrimSpace(*prefs.FastModel)
