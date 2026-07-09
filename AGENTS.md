@@ -2,6 +2,7 @@
 
 - Always verify code changes (do review if any issues, leak of logic, security then fix them. Then if there is no issue left, make build + make test / go vet on touched packages) before writing the CHANGELOG.md entry and bumping config.Version — don't document unverified behavior.
 - Do the CHANGELOG.md entry + config.Version bump with `make release` (BUMP=patch for fixes, minor for features, major for breaking changes; default minor — or VERSION=x.y.z to pin), never by hand: it bumps the const, regenerates the top CHANGELOG.md section from commit subjects since the last `vX.Y.Z` tag, and commits + tags — keeping the two in sync. Preview with `make release-dry`, then review/re-bucket the generated entry (commit subjects use an `area:` prefix, so most land under Changed).
+- Web UI changes need the RELAY rebuilt, not just the connector. The relay (`cmd/relay` → `relay.exe`) serves the SPA shell and every static asset (`/` and `/static/` — `app.css`, `app-core.js`, `index.html`, …) from its own `//go:embed static` copy (`web.SPAHandler`); the `moony` connector (`moony.exe`) serves only the per-session API, proxied through the relay. So after editing anything under `internal/web/static/`, rebuild **both** `relay.exe` and `moony.exe`, **restart the running relay**, and hard-refresh the browser — a rebuilt connector alone won't change the CSS/JS the browser loads (this is why web fixes can appear "not applied"). Backend/agent changes (Go handlers, config, llm) only need `moony.exe` rebuilt + the connector restarted.
 
 ## Memory
 
