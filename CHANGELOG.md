@@ -5,6 +5,14 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.6] — 2026-07-09
+
+### Changed
+
+- Web Persona panel now groups the provider credential cards under their own
+  **"Provider"** section (a second scroll region), separate from the session /
+  MCP-token fields above.
+
 ## [1.2.5] — 2026-07-09
 
 ### Changed
