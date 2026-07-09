@@ -3917,15 +3917,12 @@ async function renderPersona() {
 
       const bodyEl = el("div", "persona-provider-body");
       for (const g of members) bodyEl.append(makeField(g));
-      // Cards start EXPANDED so the API-key / base-URL inputs are always visible
-      // (you can collapse a card by clicking its header). The dot still shows
-      // set / not-set at a glance.
-
+      // Visibility is class-driven (.open shows the body via CSS); cards start
+      // EXPANDED so the API-key / base-URL inputs are always visible. Click the
+      // header to collapse. The dot still shows set / not-set at a glance.
       head.onclick = () => {
-        const open = bodyEl.hidden;
-        bodyEl.hidden = !open;
+        const open = card.classList.toggle("open");
         head.setAttribute("aria-expanded", open ? "true" : "false");
-        card.classList.toggle("open", open);
       };
       card.classList.add("open");
 

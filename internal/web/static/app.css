@@ -909,7 +909,12 @@ div.persona-toggle  { justify-content: space-between; } /* select: label left, c
 .persona-provider-state { margin-left: auto; color: rgb(var(--c-faint)); font-size: 12px; }
 .persona-provider-chev { flex: 0 0 auto; color: rgb(var(--c-faint)); transition: transform .15s ease; }
 .persona-provider.open .persona-provider-chev { transform: rotate(90deg); }
-.persona-provider-body { display: flex; flex-direction: column; gap: 1rem; padding: .75rem .65rem; border-top: 1px solid rgb(var(--c-edge)); }
+/* Body visibility is class-driven: hidden by default, shown only when the card
+   has .open (which the JS toggles in sync). Do NOT rely on the [hidden] attribute
+   here — an author `display` rule overrides the UA `[hidden]{display:none}`, which
+   is what previously left the inputs stuck hidden/visible regardless of state. */
+.persona-provider-body { display: none; flex-direction: column; gap: 1rem; padding: .75rem .65rem; border-top: 1px solid rgb(var(--c-edge)); }
+.persona-provider.open .persona-provider-body { display: flex; }
 
 /* ---- Schedule panel (add form: name+spec row, prompt textarea, button) ---- */
 .schedule-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .25rem; }
