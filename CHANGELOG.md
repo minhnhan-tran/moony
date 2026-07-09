@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.3.0] — 2026-07-09
+
+### Changed
+
+- web: make thinking blocks collapsible; collapse reasoning replayed from history
+
 ## [1.2.6] — 2026-07-09
 
 ### Changed
