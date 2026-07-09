@@ -838,7 +838,11 @@ function prettyModel(m) {
   }
   if (x.startsWith("qwen") || x.includes("/qwen")) {
     return raw.split("/").pop().split("-").filter(Boolean)
-      .map((t) => /\d/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1)).join(" ");
+      .map((t) => {
+        const size = t.match(/^(\d+(?:\.\d+)?)([bm])$/i); // "72b" -> "72B", not left lowercase
+        if (size) return size[1] + size[2].toUpperCase();
+        return t.charAt(0).toUpperCase() + t.slice(1); // "qwen2.5" -> "Qwen2.5", not skipped
+      }).join(" ");
   }
   if (x.includes("nemotron")) {
     const v = x.match(/(\d+(?:\.\d+)?b)/i);
