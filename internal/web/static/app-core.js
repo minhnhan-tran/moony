@@ -3908,7 +3908,7 @@ async function renderPersona() {
 
       const card = el("div", "persona-provider" + (isSet ? " is-set" : ""));
       const head = el("button", "persona-provider-head"); head.type = "button";
-      head.setAttribute("aria-expanded", isSet ? "true" : "false");
+      head.setAttribute("aria-expanded", "true");
       const dot = el("span", "persona-dot" + (isSet ? " on" : ""));
       const name = el("span", "persona-provider-name", f.group);
       const state = el("span", "persona-provider-state", isSet ? (keyField.hint ? "•••• " + keyField.hint : "set") : "not set");
@@ -3917,7 +3917,9 @@ async function renderPersona() {
 
       const bodyEl = el("div", "persona-provider-body");
       for (const g of members) bodyEl.append(makeField(g));
-      if (!isSet) bodyEl.hidden = true;
+      // Cards start EXPANDED so the API-key / base-URL inputs are always visible
+      // (you can collapse a card by clicking its header). The dot still shows
+      // set / not-set at a glance.
 
       head.onclick = () => {
         const open = bodyEl.hidden;
@@ -3925,7 +3927,7 @@ async function renderPersona() {
         head.setAttribute("aria-expanded", open ? "true" : "false");
         card.classList.toggle("open", open);
       };
-      if (isSet) card.classList.add("open");
+      card.classList.add("open");
 
       card.append(head, bodyEl);
       scroll.append(card);
