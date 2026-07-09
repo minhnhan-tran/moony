@@ -88,9 +88,47 @@ type Config struct {
 	// FireworksBaseURL overrides the Fireworks.ai base URL (default
 	// https://api.fireworks.ai/inference/v1). Set via MOONY_FIREWORKS_BASE_URL.
 	FireworksBaseURL string
+	// MoonshotAPIKey authenticates api.moonshot.ai (Kimi). Set via
+	// MOONY_MOONSHOT_API_KEY (falls back to MOONSHOT_API_KEY).
+	MoonshotAPIKey string
+	// MoonshotBaseURL overrides the Moonshot base URL (default
+	// https://api.moonshot.ai/v1). Set via MOONY_MOONSHOT_BASE_URL.
+	MoonshotBaseURL string
+	// ZAIAPIKey authenticates api.z.ai (Zhipu GLM). Set via
+	// MOONY_ZAI_API_KEY (falls back to ZAI_API_KEY).
+	ZAIAPIKey string
+	// ZAIBaseURL overrides the Z.AI base URL (default
+	// https://api.z.ai/api/paas/v4). Set via MOONY_ZAI_BASE_URL.
+	ZAIBaseURL string
+	// DashScopeAPIKey authenticates Alibaba DashScope (Qwen), OpenAI-compatible
+	// mode. Set via MOONY_DASHSCOPE_API_KEY (falls back to DASHSCOPE_API_KEY).
+	DashScopeAPIKey string
+	// DashScopeBaseURL overrides the DashScope base URL (default
+	// https://dashscope-intl.aliyuncs.com/compatible-mode/v1). Set via
+	// MOONY_DASHSCOPE_BASE_URL.
+	DashScopeBaseURL string
+	// NvidiaAPIKey authenticates integrate.api.nvidia.com (NVIDIA NIM). Set via
+	// MOONY_NVIDIA_API_KEY (falls back to NVIDIA_API_KEY).
+	NvidiaAPIKey string
+	// NvidiaBaseURL overrides the NVIDIA NIM base URL (default
+	// https://integrate.api.nvidia.com/v1). Set via MOONY_NVIDIA_BASE_URL.
+	NvidiaBaseURL string
+	// HuggingFaceAPIKey authenticates router.huggingface.co. Set via
+	// MOONY_HUGGINGFACE_API_KEY (falls back to HF_TOKEN).
+	HuggingFaceAPIKey string
+	// HuggingFaceBaseURL overrides the Hugging Face router base URL (default
+	// https://router.huggingface.co/v1). Set via MOONY_HUGGINGFACE_BASE_URL.
+	HuggingFaceBaseURL string
+	// VeniceAPIKey authenticates api.venice.ai. Set via MOONY_VENICE_API_KEY
+	// (falls back to VENICE_API_KEY).
+	VeniceAPIKey string
+	// VeniceBaseURL overrides the Venice base URL (default
+	// https://api.venice.ai/api/v1). Set via MOONY_VENICE_BASE_URL.
+	VeniceBaseURL string
 	// LLMProvider selects the backend model provider: "ollama" (default),
 	// "openai", "anthropic", "openrouter", "gemini", "deepseek", "groq", "xai",
-	// "mistral", "together", or "fireworks". Saved across launches; override
+	// "mistral", "together", "fireworks", "moonshot", "zai", "dashscope",
+	// "nvidia", "huggingface", or "venice". Saved across launches; override
 	// per-run with MOONY_PROVIDER. See internal/provider.
 	LLMProvider string
 	// Provider is the wire protocol for model API calls (anthropic-native vs
@@ -1105,6 +1143,12 @@ func Load() *Config {
 		MistralBaseURL:      "https://api.mistral.ai/v1",
 		TogetherBaseURL:     "https://api.together.xyz/v1",
 		FireworksBaseURL:    "https://api.fireworks.ai/inference/v1",
+		MoonshotBaseURL:     "https://api.moonshot.ai/v1",
+		ZAIBaseURL:          "https://api.z.ai/api/paas/v4",
+		DashScopeBaseURL:    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+		NvidiaBaseURL:       "https://integrate.api.nvidia.com/v1",
+		HuggingFaceBaseURL:  "https://router.huggingface.co/v1",
+		VeniceBaseURL:       "https://api.venice.ai/api/v1",
 		LLMProvider:         "ollama",
 		Model:               DefaultModel,
 		RelayAddr:           defaultRelayAddr, // on by default; prefs/env can override or disable
@@ -1247,6 +1291,30 @@ func Load() *Config {
 	c.FireworksAPIKey = strings.TrimSpace(firstEnv("MOONY_FIREWORKS_API_KEY", "FIREWORKS_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_FIREWORKS_BASE_URL")); v != "" {
 		c.FireworksBaseURL = v
+	}
+	c.MoonshotAPIKey = strings.TrimSpace(firstEnv("MOONY_MOONSHOT_API_KEY", "MOONSHOT_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_MOONSHOT_BASE_URL")); v != "" {
+		c.MoonshotBaseURL = v
+	}
+	c.ZAIAPIKey = strings.TrimSpace(firstEnv("MOONY_ZAI_API_KEY", "ZAI_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_ZAI_BASE_URL")); v != "" {
+		c.ZAIBaseURL = v
+	}
+	c.DashScopeAPIKey = strings.TrimSpace(firstEnv("MOONY_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_DASHSCOPE_BASE_URL")); v != "" {
+		c.DashScopeBaseURL = v
+	}
+	c.NvidiaAPIKey = strings.TrimSpace(firstEnv("MOONY_NVIDIA_API_KEY", "NVIDIA_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_NVIDIA_BASE_URL")); v != "" {
+		c.NvidiaBaseURL = v
+	}
+	c.HuggingFaceAPIKey = strings.TrimSpace(firstEnv("MOONY_HUGGINGFACE_API_KEY", "HF_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MOONY_HUGGINGFACE_BASE_URL")); v != "" {
+		c.HuggingFaceBaseURL = v
+	}
+	c.VeniceAPIKey = strings.TrimSpace(firstEnv("MOONY_VENICE_API_KEY", "VENICE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_VENICE_BASE_URL")); v != "" {
+		c.VeniceBaseURL = v
 	}
 	if v := os.Getenv("MOONY_MODEL"); v != "" {
 		c.Model = v

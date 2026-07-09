@@ -20,17 +20,23 @@ type Provider struct {
 
 // Provider ids. These are the values the /provider command accepts.
 const (
-	Ollama     = "ollama"
-	OpenAI     = "openai"
-	Anthropic  = "anthropic"
-	OpenRouter = "openrouter"
-	Gemini     = "gemini"
-	DeepSeek   = "deepseek"
-	Groq       = "groq"
-	XAI        = "xai"
-	Mistral    = "mistral"
-	Together   = "together"
-	Fireworks  = "fireworks"
+	Ollama      = "ollama"
+	OpenAI      = "openai"
+	Anthropic   = "anthropic"
+	OpenRouter  = "openrouter"
+	Gemini      = "gemini"
+	DeepSeek    = "deepseek"
+	Groq        = "groq"
+	XAI         = "xai"
+	Mistral     = "mistral"
+	Together    = "together"
+	Fireworks   = "fireworks"
+	Moonshot    = "moonshot"
+	ZAI         = "zai"
+	DashScope   = "dashscope"
+	NVIDIA      = "nvidia"
+	HuggingFace = "huggingface"
+	Venice      = "venice"
 
 	// SQEAnthropic is the public Anthropic backend reached through the SQE LAN
 	// gateway (a Bedrock-style proxy). Same wire protocol and models as Anthropic;
@@ -45,17 +51,23 @@ const (
 // Per-provider default model, used when a provider has just been selected and
 // the current session model doesn't belong to it.
 const (
-	OllamaDefaultModel     = "llama3.1:8b"
-	OpenAIDefaultModel     = "gpt-4o"
-	AnthropicDefaultModel  = "claude-sonnet-4-5"
-	OpenRouterDefaultModel = "openai/gpt-4o-mini"
-	GeminiDefaultModel     = "gemini-2.5-pro"
-	DeepSeekDefaultModel   = "deepseek-chat"
-	GroqDefaultModel       = "llama-3.3-70b-versatile"
-	XAIDefaultModel        = "grok-4"
-	MistralDefaultModel    = "mistral-large-latest"
-	TogetherDefaultModel   = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-	FireworksDefaultModel  = "accounts/fireworks/models/llama-v3p3-70b-instruct"
+	OllamaDefaultModel      = "llama3.1:8b"
+	OpenAIDefaultModel      = "gpt-4o"
+	AnthropicDefaultModel   = "claude-sonnet-4-5"
+	OpenRouterDefaultModel  = "openai/gpt-4o-mini"
+	GeminiDefaultModel      = "gemini-2.5-pro"
+	DeepSeekDefaultModel    = "deepseek-chat"
+	GroqDefaultModel        = "llama-3.3-70b-versatile"
+	XAIDefaultModel         = "grok-4"
+	MistralDefaultModel     = "mistral-large-latest"
+	TogetherDefaultModel    = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+	FireworksDefaultModel   = "accounts/fireworks/models/llama-v3p3-70b-instruct"
+	MoonshotDefaultModel    = "kimi-k2-0905-preview"
+	ZAIDefaultModel         = "glm-4.6"
+	DashScopeDefaultModel   = "qwen-plus"
+	NVIDIADefaultModel      = "nvidia/llama-3.1-nemotron-70b-instruct"
+	HuggingFaceDefaultModel = "meta-llama/Llama-3.3-70B-Instruct"
+	VeniceDefaultModel      = "llama-3.3-70b"
 )
 
 // list is the fixed registry, in the order shown by /provider.
@@ -72,6 +84,12 @@ var list = []Provider{
 	{ID: Mistral, Label: "Mistral", Desc: "api.mistral.ai — needs MOONY_MISTRAL_API_KEY"},
 	{ID: Together, Label: "Together.ai", Desc: "api.together.xyz — hosted open models — needs MOONY_TOGETHER_API_KEY"},
 	{ID: Fireworks, Label: "Fireworks.ai", Desc: "api.fireworks.ai — hosted open models — needs MOONY_FIREWORKS_API_KEY"},
+	{ID: Moonshot, Label: "Moonshot", Desc: "api.moonshot.ai (Kimi) — needs MOONY_MOONSHOT_API_KEY"},
+	{ID: ZAI, Label: "Z.AI", Desc: "api.z.ai (Zhipu GLM) — needs MOONY_ZAI_API_KEY"},
+	{ID: DashScope, Label: "DashScope", Desc: "Alibaba DashScope (Qwen), OpenAI-compatible — needs MOONY_DASHSCOPE_API_KEY"},
+	{ID: NVIDIA, Label: "NVIDIA NIM", Desc: "integrate.api.nvidia.com — hosted open models — needs MOONY_NVIDIA_API_KEY"},
+	{ID: HuggingFace, Label: "Hugging Face", Desc: "router.huggingface.co inference router — needs MOONY_HUGGINGFACE_API_KEY"},
+	{ID: Venice, Label: "Venice", Desc: "api.venice.ai — privacy-focused open models — needs MOONY_VENICE_API_KEY"},
 }
 
 // List returns a copy of the provider registry, in display order.
@@ -138,6 +156,12 @@ var defaultModels = map[string]string{
 	Mistral:      MistralDefaultModel,
 	Together:     TogetherDefaultModel,
 	Fireworks:    FireworksDefaultModel,
+	Moonshot:     MoonshotDefaultModel,
+	ZAI:          ZAIDefaultModel,
+	DashScope:    DashScopeDefaultModel,
+	NVIDIA:       NVIDIADefaultModel,
+	HuggingFace:  HuggingFaceDefaultModel,
+	Venice:       VeniceDefaultModel,
 }
 
 // DefaultModelFor returns the model a provider starts with when freshly

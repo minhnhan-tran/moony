@@ -303,7 +303,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 - `/doctor` — run an environment & config check (Ollama reachability, MCP/LSP servers, Go env)
 - `/model [id]` — show the current model, or set it (saved to config for next launch)
 - `/models` — fetch the models installed on the configured Ollama server and pick one (↑/↓ to move, enter to select)
-- `/provider [name]` — show or set the **model provider**: `ollama` (default, local, no key), or a hosted one: `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`. With no argument it opens a picker. Switching moves you to that provider's default model and saves the choice; hosted providers need their API key set (see *Configuration*). Pick a specific model with `/models`/`/model`.
+- `/provider [name]` — show or set the **model provider**: `ollama` (default, local, no key), or a hosted one: `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`. With no argument it opens a picker. Switching moves you to that provider's default model and saves the choice; hosted providers need their API key set (see *Configuration*). Pick a specific model with `/models`/`/model`.
 - `/reasoning [level]` — set the extended-thinking level; available levels depend on the model (Opus: `low`/`medium`/`high`/`x-high`/`max`; Gemini: `minimal`/`low`/`medium`/`high`; others: `low`/`medium`/`high`). With no argument it opens a picker showing what the current model supports; saved per model and clamped when you switch models
 - `/compact` — summarize older history into a single synthetic exchange to free up context
 - `/goal [description|clear]` — set a stop-condition the agent must satisfy before it stops. With no argument it shows the current goal. When a goal is set, the agent doesn't end a turn just because the model emitted no tool calls — an independent **judge model** evaluates the conversation against the goal and, if it isn't fully met, the judge's feedback is injected and the agent keeps working (bounded per turn). Persisted with the session, so it survives `--continue`. `/goal clear` removes it
@@ -340,7 +340,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, or `fireworks`. Overrides the saved `/provider` choice for the run |
+| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, or `venice`. Overrides the saved `/provider` choice for the run |
 | `MOONY_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
 | `MOONY_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
 | `MOONY_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
@@ -444,6 +444,12 @@ The agent supports eleven backends, selected with `/provider` (or `MOONY_PROVIDE
 - **Mistral** — `api.mistral.ai`, `MOONY_MISTRAL_API_KEY`.
 - **Together.ai** — `api.together.xyz`, `MOONY_TOGETHER_API_KEY`; hosted open models.
 - **Fireworks.ai** — `api.fireworks.ai`, `MOONY_FIREWORKS_API_KEY`; hosted open models.
+- **Moonshot (Kimi)** — `api.moonshot.ai`, `MOONY_MOONSHOT_API_KEY` (or `MOONSHOT_API_KEY`); Kimi K2 models.
+- **Z.AI (GLM)** — `api.z.ai`, `MOONY_ZAI_API_KEY` (or `ZAI_API_KEY`); Zhipu GLM models (e.g. `glm-4.6`).
+- **DashScope (Qwen)** — `dashscope-intl.aliyuncs.com`, `MOONY_DASHSCOPE_API_KEY` (or `DASHSCOPE_API_KEY`); Alibaba Qwen via OpenAI-compatible mode.
+- **NVIDIA NIM** — `integrate.api.nvidia.com`, `MOONY_NVIDIA_API_KEY` (or `NVIDIA_API_KEY`); hosted open models.
+- **Hugging Face** — `router.huggingface.co`, `MOONY_HUGGINGFACE_API_KEY` (or `HF_TOKEN`); inference router across many open models.
+- **Venice** — `api.venice.ai`, `MOONY_VENICE_API_KEY` (or `VENICE_API_KEY`); privacy-focused open models.
 
 Every provider except Anthropic speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**. Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
 

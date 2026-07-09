@@ -14,10 +14,11 @@ import (
 )
 
 // Hosted OpenAI-compatible backends: OpenAI, OpenRouter, Gemini, DeepSeek,
-// Groq, xAI, Mistral, Together.ai, and Fireworks.ai. All nine speak the OpenAI
-// Chat Completions wire format, so they share the request builder + SSE parser
-// used by the Ollama backend; they differ only in base URL, auth header, extra
-// headers, and reasoning handling.
+// Groq, xAI, Mistral, Together.ai, Fireworks.ai, Moonshot (Kimi), Z.AI (GLM),
+// DashScope (Qwen), NVIDIA NIM, Hugging Face, and Venice. They all speak the
+// OpenAI Chat Completions wire format, so they share the request builder + SSE
+// parser used by the Ollama backend; they differ only in base URL, auth
+// header, extra headers, and reasoning handling.
 
 // remoteBackend captures the per-provider connection details for a hosted
 // OpenAI-compatible API.
@@ -35,7 +36,8 @@ type remoteBackend struct {
 func isRemoteProvider(id string) bool {
 	switch id {
 	case provider.OpenAI, provider.OpenRouter, provider.Gemini, provider.DeepSeek,
-		provider.Groq, provider.XAI, provider.Mistral, provider.Together, provider.Fireworks:
+		provider.Groq, provider.XAI, provider.Mistral, provider.Together, provider.Fireworks,
+		provider.Moonshot, provider.ZAI, provider.DashScope, provider.NVIDIA, provider.HuggingFace, provider.Venice:
 		return true
 	}
 	return false
@@ -53,6 +55,18 @@ func (c *Client) remoteBackend() remoteBackend {
 		id = provider.Normalize(c.cfg.LLMProvider)
 	}
 	switch id {
+	case provider.Moonshot:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.MoonshotBaseURL, "https://api.moonshot.ai/v1"), apiKey: strings.TrimSpace(c.cfg.MoonshotAPIKey), keyEnv: "MOONY_MOONSHOT_API_KEY"}
+	case provider.ZAI:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.ZAIBaseURL, "https://api.z.ai/api/paas/v4"), apiKey: strings.TrimSpace(c.cfg.ZAIAPIKey), keyEnv: "MOONY_ZAI_API_KEY"}
+	case provider.DashScope:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DashScopeBaseURL, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"), apiKey: strings.TrimSpace(c.cfg.DashScopeAPIKey), keyEnv: "MOONY_DASHSCOPE_API_KEY"}
+	case provider.NVIDIA:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.NvidiaBaseURL, "https://integrate.api.nvidia.com/v1"), apiKey: strings.TrimSpace(c.cfg.NvidiaAPIKey), keyEnv: "MOONY_NVIDIA_API_KEY"}
+	case provider.HuggingFace:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.HuggingFaceBaseURL, "https://router.huggingface.co/v1"), apiKey: strings.TrimSpace(c.cfg.HuggingFaceAPIKey), keyEnv: "MOONY_HUGGINGFACE_API_KEY"}
+	case provider.Venice:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.VeniceBaseURL, "https://api.venice.ai/api/v1"), apiKey: strings.TrimSpace(c.cfg.VeniceAPIKey), keyEnv: "MOONY_VENICE_API_KEY"}
 	case provider.OpenRouter:
 		return remoteBackend{
 			id:      id,

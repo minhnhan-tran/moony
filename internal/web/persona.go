@@ -96,6 +96,12 @@ type personaEdit struct {
 	MistralAPIKey      *string `json:"mistralApiKey"`
 	TogetherAPIKey     *string `json:"togetherApiKey"`
 	FireworksAPIKey    *string `json:"fireworksApiKey"`
+	MoonshotAPIKey     *string `json:"moonshotApiKey"`
+	ZAIAPIKey          *string `json:"zaiApiKey"`
+	DashScopeAPIKey    *string `json:"dashscopeApiKey"`
+	NvidiaAPIKey       *string `json:"nvidiaApiKey"`
+	HuggingFaceAPIKey  *string `json:"huggingfaceApiKey"`
+	VeniceAPIKey       *string `json:"veniceApiKey"`
 	OllamaToken        *string `json:"ollamaToken"`
 	// Provider base-URL overrides (MOONY_*_BASE_URL). Plain text: empty clears the
 	// override so the built-in default is used. Ollama's host is the top-level
@@ -111,6 +117,12 @@ type personaEdit struct {
 	MistralBaseURL      *string `json:"mistralBaseUrl"`
 	TogetherBaseURL     *string `json:"togetherBaseUrl"`
 	FireworksBaseURL    *string `json:"fireworksBaseUrl"`
+	MoonshotBaseURL     *string `json:"moonshotBaseUrl"`
+	ZAIBaseURL          *string `json:"zaiBaseUrl"`
+	DashScopeBaseURL    *string `json:"dashscopeBaseUrl"`
+	NvidiaBaseURL       *string `json:"nvidiaBaseUrl"`
+	HuggingFaceBaseURL  *string `json:"huggingfaceBaseUrl"`
+	VeniceBaseURL       *string `json:"veniceBaseUrl"`
 }
 
 // providerCred ties one provider's Persona fields (API key + optional base-URL
@@ -240,6 +252,60 @@ var providerCreds = []providerCred{
 		baseDesc: "MOONY_FIREWORKS_BASE_URL: override the Fireworks.ai base (default https://api.fireworks.ai/inference/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.FireworksBaseURL }, baseEdit: func(e personaEdit) *string { return e.FireworksBaseURL },
 		baseDefault: "https://api.fireworks.ai/inference/v1",
+	},
+	{
+		key: "moonshotApiKey", label: "Moonshot API key", provider: "Moonshot", env: "MOONY_MOONSHOT_API_KEY",
+		desc: "MOONY_MOONSHOT_API_KEY: authenticates api.moonshot.ai (Kimi). Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.MoonshotAPIKey }, edit: func(e personaEdit) *string { return e.MoonshotAPIKey },
+		baseKey: "moonshotBaseUrl", baseLabel: "Moonshot base URL", baseEnv: "MOONY_MOONSHOT_BASE_URL",
+		baseDesc: "MOONY_MOONSHOT_BASE_URL: override the Moonshot base (default https://api.moonshot.ai/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.MoonshotBaseURL }, baseEdit: func(e personaEdit) *string { return e.MoonshotBaseURL },
+		baseDefault: "https://api.moonshot.ai/v1",
+	},
+	{
+		key: "zaiApiKey", label: "Z.AI API key", provider: "Z.AI", env: "MOONY_ZAI_API_KEY",
+		desc: "MOONY_ZAI_API_KEY: authenticates api.z.ai (Zhipu GLM). Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.ZAIAPIKey }, edit: func(e personaEdit) *string { return e.ZAIAPIKey },
+		baseKey: "zaiBaseUrl", baseLabel: "Z.AI base URL", baseEnv: "MOONY_ZAI_BASE_URL",
+		baseDesc: "MOONY_ZAI_BASE_URL: override the Z.AI base (default https://api.z.ai/api/paas/v4). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.ZAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.ZAIBaseURL },
+		baseDefault: "https://api.z.ai/api/paas/v4",
+	},
+	{
+		key: "dashscopeApiKey", label: "DashScope API key", provider: "DashScope", env: "MOONY_DASHSCOPE_API_KEY",
+		desc: "MOONY_DASHSCOPE_API_KEY: authenticates Alibaba DashScope (Qwen). Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.DashScopeAPIKey }, edit: func(e personaEdit) *string { return e.DashScopeAPIKey },
+		baseKey: "dashscopeBaseUrl", baseLabel: "DashScope base URL", baseEnv: "MOONY_DASHSCOPE_BASE_URL",
+		baseDesc: "MOONY_DASHSCOPE_BASE_URL: override the DashScope base (default https://dashscope-intl.aliyuncs.com/compatible-mode/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.DashScopeBaseURL }, baseEdit: func(e personaEdit) *string { return e.DashScopeBaseURL },
+		baseDefault: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+	},
+	{
+		key: "nvidiaApiKey", label: "NVIDIA NIM API key", provider: "NVIDIA NIM", env: "MOONY_NVIDIA_API_KEY",
+		desc: "MOONY_NVIDIA_API_KEY: authenticates integrate.api.nvidia.com. Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.NvidiaAPIKey }, edit: func(e personaEdit) *string { return e.NvidiaAPIKey },
+		baseKey: "nvidiaBaseUrl", baseLabel: "NVIDIA NIM base URL", baseEnv: "MOONY_NVIDIA_BASE_URL",
+		baseDesc: "MOONY_NVIDIA_BASE_URL: override the NVIDIA NIM base (default https://integrate.api.nvidia.com/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.NvidiaBaseURL }, baseEdit: func(e personaEdit) *string { return e.NvidiaBaseURL },
+		baseDefault: "https://integrate.api.nvidia.com/v1",
+	},
+	{
+		key: "huggingfaceApiKey", label: "Hugging Face API key", provider: "Hugging Face", env: "MOONY_HUGGINGFACE_API_KEY",
+		desc: "MOONY_HUGGINGFACE_API_KEY: authenticates router.huggingface.co. Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.HuggingFaceAPIKey }, edit: func(e personaEdit) *string { return e.HuggingFaceAPIKey },
+		baseKey: "huggingfaceBaseUrl", baseLabel: "Hugging Face base URL", baseEnv: "MOONY_HUGGINGFACE_BASE_URL",
+		baseDesc: "MOONY_HUGGINGFACE_BASE_URL: override the Hugging Face router base (default https://router.huggingface.co/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.HuggingFaceBaseURL }, baseEdit: func(e personaEdit) *string { return e.HuggingFaceBaseURL },
+		baseDefault: "https://router.huggingface.co/v1",
+	},
+	{
+		key: "veniceApiKey", label: "Venice API key", provider: "Venice", env: "MOONY_VENICE_API_KEY",
+		desc: "MOONY_VENICE_API_KEY: authenticates api.venice.ai. Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.VeniceAPIKey }, edit: func(e personaEdit) *string { return e.VeniceAPIKey },
+		baseKey: "veniceBaseUrl", baseLabel: "Venice base URL", baseEnv: "MOONY_VENICE_BASE_URL",
+		baseDesc: "MOONY_VENICE_BASE_URL: override the Venice base (default https://api.venice.ai/api/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.VeniceBaseURL }, baseEdit: func(e personaEdit) *string { return e.VeniceBaseURL },
+		baseDefault: "https://api.venice.ai/api/v1",
 	},
 	{
 		key: "ollamaToken", label: "Ollama token", provider: "Ollama", env: "MOONY_OLLAMA_TOKEN",
