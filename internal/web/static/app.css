@@ -896,7 +896,7 @@ div.persona-toggle  { justify-content: space-between; } /* select: label left, c
 .persona-status { color: rgb(var(--c-faint)); font-size: 12px; }
 
 /* Provider credential card: collapsible key+base-URL pair with a set/unset dot. */
-.persona-provider { border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md, 8px); overflow: hidden; }
+.persona-provider { flex: 0 0 auto; border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md, 8px); overflow: hidden; }
 .persona-provider-head {
   display: flex; align-items: center; gap: .5rem; width: 100%;
   padding: .5rem .65rem; background: rgb(var(--c-base)); color: rgb(var(--c-ink));
