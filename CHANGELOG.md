@@ -5,6 +5,46 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.1.0] — 2026-07-09
+
+### Added
+
+- **SQE Anthropic provider** (`/provider sqe-anthropic`): Claude over the same
+  native Messages API and model set as public Anthropic, but defaulting to the
+  SQE LAN gateway (`MOONY_SQE_ANTHROPIC_BASE_URL`, default
+  `http://192.168.33.158:8787`). Its key (`MOONY_SQE_ANTHROPIC_API_KEY`) falls
+  back to `MOONY_ANTHROPIC_API_KEY` when unset.
+- **Provider credentials in the web Persona panel**: each provider's API key
+  (masked to a last-4 hint) and base-URL override are editable in the browser
+  and saved to `~/.config/moony/.env`, so they persist across restarts.
+- **Optional OIDC per-user relay auth** with signed per-user connector tokens,
+  off by default (`MOONY_AUTH`). When off, the relay lists all connected
+  terminals as before.
+
+### Changed
+
+- The relay now **defaults on at `127.0.0.1:8771`** instead of off. Disable with
+  `/relay off` (persisted) or `MOONY_RELAY=off`.
+- The Ollama backend now uses the native `/api/chat` endpoint so `num_ctx` is
+  honored (`MOONY_OLLAMA_NUM_CTX`, default 32768) — fixing empty or truncated
+  replies when the prompt overflowed the server's default context.
+- Vendored the Material Symbols icon font locally (dropped the Google Fonts CDN
+  dependency).
+
+### Fixed
+
+- **Extended thinking on Claude 4.6+**: switch to adaptive thinking
+  (`thinking: {type: "adaptive"}` + `output_config.effort`) from the removed
+  fixed-budget shape, fixing a 400 on Opus 4.8 / Sonnet 5 / Fable 5.
+- **"Invalid signature in thinking block" 400 on replay**: preserve the thinking
+  block verbatim (including its signature and empty-text blocks), and auto-heal
+  the error some gateways return by stripping replayed thinking blocks and
+  retrying (`MOONY_ANTHROPIC_STRIP_THINKING=1` forces it from the first request).
+- `/auth/me` returned 404 when relay auth was off — it now reports an anonymous
+  user, clearing the browser console error.
+- The header/composer provider picker could render off-screen for tall menus.
+- The jumping-Claude mascot animation didn't run (SVG `transform-box`).
+
 ## [1.0.0] — 2026-07-08
 
 Initial public release.
