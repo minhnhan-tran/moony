@@ -92,7 +92,7 @@ func TestHeaderMergesProjectAndGit(t *testing.T) {
 }
 
 // TestTranscriptLabels checks the speaker labels: the human defaults to "You"
-// (or the set username) and the assistant is "sqe code agent".
+// (or the set username) and the assistant is "moony".
 func TestTranscriptLabels(t *testing.T) {
 	tr := &transcript{width: 80}
 	tr.add(entry{kind: entryUser, text: "hi there"})
@@ -102,8 +102,8 @@ func TestTranscriptLabels(t *testing.T) {
 	if !strings.Contains(out, "You") {
 		t.Errorf("user label should default to 'You', got:\n%s", out)
 	}
-	if !strings.Contains(out, "sqe code agent") {
-		t.Errorf("assistant label should be 'sqe code agent', got:\n%s", out)
+	if !strings.Contains(out, "moony") {
+		t.Errorf("assistant label should be 'moony', got:\n%s", out)
 	}
 
 	// A resolved username replaces "You".

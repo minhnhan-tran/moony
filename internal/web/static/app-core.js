@@ -1151,11 +1151,11 @@ function handle(ev) {
       if (!asstBody) {
         endToolGroup(); // a new prose block ends the prior run of tool calls
         endWorkerGroup();
-        // Show the "sqe code agent" label once per answer; continuation blocks
+        // Show the "moony" label once per answer; continuation blocks
         // (a tool call splits the text stream) render without repeating it.
         const m = asstLabeled
           ? el("div", "msg msg-assistant")
-          : startMsg("sqe code agent", "text-brand", "cpu", "msg-assistant");
+          : startMsg("moony", "text-brand", "cpu", "msg-assistant");
         asstLabeled = true;
         asstBody = el("div", "md break-words");
         asstRaw = "";
@@ -1926,7 +1926,7 @@ function updateAvatar(s) {
   // per-session status updates (whose host changes when switching laptops) must
   // not clobber it.
   const who = (authUser && (authUser.display_name || authUser.accountname)) || (s && s.host) || "";
-  const title = (authUser && authUser.accountname) || (s && s.host) || "sqe code agent";
+  const title = (authUser && authUser.accountname) || (s && s.host) || "moony";
   if (userAvatarEl) { userAvatarEl.textContent = initialsFrom(who); userAvatarEl.title = title; }
 }
 
@@ -2201,7 +2201,7 @@ function draftPlanMarkdown(plan) {
 function renderDraftPlanInline(plan) {
   if (!draftPlanEl || !draftPlanEl.isConnected) {
     endAssistant(); // close any open streaming prose so the plan sits cleanly below it
-    draftPlanEl = startMsg("sqe code agent", "text-brand", "cpu", "msg-assistant");
+    draftPlanEl = startMsg("moony", "text-brand", "cpu", "msg-assistant");
     transcript.appendChild(draftPlanEl);
   }
   // Rebuild the block, keeping the startMsg speaker label (first child) intact.

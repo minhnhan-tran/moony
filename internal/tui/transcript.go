@@ -209,7 +209,7 @@ func (t *transcript) renderEntry(i, streamingIdx int) string {
 		}
 		b.WriteString(indent(body, 2))
 	case entryAssistant:
-		alabel := "sqe code agent"
+		alabel := "moony"
 		if e.side {
 			alabel = "↪ side note"
 		}

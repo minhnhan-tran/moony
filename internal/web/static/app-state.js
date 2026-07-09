@@ -20,7 +20,7 @@ let apiBase = "";                                // API path prefix for the focu
 let laptopPollTimer = null;                      // tree-mode poll that reflects connector connect/disconnect live
 let menuLoadingTimer = null;                      // safety timeout that clears a stuck #menu loader if no menu event arrives
 let asstBody = null, asstRaw = "";       // current streaming assistant block
-let asstLabeled = false;                 // has this answer's "sqe code agent" label shown yet?
+let asstLabeled = false;                 // has this answer's "moony" label shown yet?
 let turnTodos = null;                    // per-question todo card recorded in the transcript (history)
 let phaseTimes = {};                     // per-turn phase timing (index → {start, dur}); client-side, live turns only
 let toolGroup = null;                    // current run of consecutive tool calls → one "N tool calls" disclosure
