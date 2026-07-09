@@ -22,10 +22,16 @@ type savedPrefs struct {
 	ReasoningByModel map[string]string `json:"reasoning_by_model,omitempty"`
 	ApprovalPolicy   string            `json:"approval_policy,omitempty"`
 	SandboxMode      string            `json:"sandbox_mode,omitempty"`
-	RelayAddr        string            `json:"relay_addr,omitempty"`
-	ContextWindow    int               `json:"context_window,omitempty"`
-	VerifyCommand    string            `json:"verify_command,omitempty"`
-	VerifyMaxRetries int               `json:"verify_max_retries,omitempty"`
+	// RelayAddr is a pointer for the same nil-vs-set distinction as the persona
+	// overrides below: nil (never configured) keeps the built-in default
+	// (defaultRelayAddr, on); a non-nil value is an explicit user choice — an
+	// address to connect to, or "" to disable (set via /relay off). Without the
+	// pointer, "" (disabled) and "unset" (use default) would be indistinguishable
+	// now that the default is non-empty.
+	RelayAddr        *string `json:"relay_addr,omitempty"`
+	ContextWindow    int     `json:"context_window,omitempty"`
+	VerifyCommand    string  `json:"verify_command,omitempty"`
+	VerifyMaxRetries int     `json:"verify_max_retries,omitempty"`
 	// Persona-explicit overrides: pointer types so an explicit false/empty is
 	// distinguishable from "never set" (nil). Applied AFTER env vars in Load()
 	// so a user's persona choice survives deployment env changes across restarts.
@@ -80,7 +86,7 @@ func (c *Config) Save() error {
 		ReasoningByModel: c.ReasoningByModel,
 		ApprovalPolicy:   c.ApprovalPolicy,
 		SandboxMode:      c.SandboxMode,
-		RelayAddr:        c.RelayAddr,
+		RelayAddr:        &c.RelayAddr, // non-nil: persists the explicit choice (addr, or "" for off)
 		ContextWindow:    c.ContextWindow,
 		VerifyCommand:    c.VerifyCommand,
 		VerifyMaxRetries: c.VerifyMaxRetries,

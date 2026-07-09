@@ -527,6 +527,42 @@ func TestRelayEnvOverride(t *testing.T) {
 	}
 }
 
+// TestRelayDefaultsOn: with no saved relay and no MOONY_RELAY, the relay defaults
+// to defaultRelayAddr (on).
+func TestRelayDefaultsOn(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MOONY_RELAY", "") // Load treats empty as unset
+	if got := Load().RelayAddr; got != defaultRelayAddr {
+		t.Errorf("RelayAddr = %q, want default %q", got, defaultRelayAddr)
+	}
+}
+
+// TestRelayOffPersists: `/relay off` saves an explicit empty string. The pointer
+// distinguishes that from "never configured", so a saved "" disables the relay on
+// the next load instead of reverting to the default.
+func TestRelayOffPersists(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MOONY_RELAY", "")
+	(&Config{RelayAddr: ""}).Save() // mirrors `/relay off`
+	if got := Load().RelayAddr; got != "" {
+		t.Errorf("RelayAddr = %q, want \"\" — explicit off must persist, not revert to the default", got)
+	}
+}
+
+// TestRelayEnvOffDisables: MOONY_RELAY=off disables the relay even when a saved
+// (or default) address would otherwise turn it on.
+func TestRelayEnvOffDisables(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	(&Config{RelayAddr: "saved.example:1"}).Save()
+	t.Setenv("MOONY_RELAY", "off")
+	if got := Load().RelayAddr; got != "" {
+		t.Errorf("RelayAddr = %q, want \"\" — MOONY_RELAY=off must disable", got)
+	}
+}
+
 // TestBatchContextEnvOverride covers the MOONY_BATCH_CONTEXT toggle: on by
 // default, disabled when set to a falsey value.
 func TestBatchContextEnvOverride(t *testing.T) {

@@ -294,7 +294,9 @@ type Config struct {
 	MaxReadLines int
 	// RelayAddr is the host:port of a relay to auto-connect to in the
 	// background at startup (so a remote browser can view/drive this terminal
-	// session). Empty disables it. Saved as a preference; MOONY_RELAY overrides.
+	// session). Defaults to defaultRelayAddr (on); disable with `/relay off` or
+	// MOONY_RELAY=off. Empty at runtime means disabled. MOONY_RELAY overrides the
+	// saved preference.
 	RelayAddr string
 	// ContextWindow, when > 0, overrides the per-model context-window size used
 	// for the "ctx N%" indicator (e.g. set 1_000_000 for a 1M-token model whose
@@ -347,6 +349,11 @@ func parseSemver(v string) ([3]int, bool) {
 // DefaultModel is the model a fresh install starts with (Ollama's default;
 // see internal/provider.OllamaDefaultModel).
 const DefaultModel = "llama3.1:8b"
+
+// defaultRelayAddr is the relay this terminal auto-connects to when the user has
+// never configured one (no saved relay_addr and no MOONY_RELAY). Disable with
+// `/relay off` (persisted) or MOONY_RELAY=off.
+const defaultRelayAddr = "127.0.0.1:8771"
 
 // Wire protocols. Anthropic's Messages API and everything else's
 // OpenAI-compatible Chat Completions API. Derived 1:1 from LLMProvider (see
@@ -1086,6 +1093,7 @@ func Load() *Config {
 		FireworksBaseURL:   "https://api.fireworks.ai/inference/v1",
 		LLMProvider:        "ollama",
 		Model:              DefaultModel,
+		RelayAddr:          defaultRelayAddr, // on by default; prefs/env can override or disable
 		MaxTokens:          8192,
 		MaxToolOutputBytes: 16000,
 		MaxAgentSteps:      80,
@@ -1137,7 +1145,11 @@ func Load() *Config {
 	if prefs.SandboxMode != "" {
 		c.SandboxMode = NormalizeSandboxMode(prefs.SandboxMode)
 	}
-	c.RelayAddr = strings.TrimSpace(prefs.RelayAddr)
+	if prefs.RelayAddr != nil {
+		// Explicit saved choice (an address, or "" from `/relay off`) overrides the
+		// built-in default. nil = never configured, so the default stands.
+		c.RelayAddr = strings.TrimSpace(*prefs.RelayAddr)
+	}
 	if prefs.ContextWindow > 0 {
 		c.ContextWindow = prefs.ContextWindow
 	}
@@ -1247,7 +1259,14 @@ func Load() *Config {
 		c.AutoDelegate = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
 	if v := strings.TrimSpace(os.Getenv("MOONY_RELAY")); v != "" {
-		c.RelayAddr = v // env overrides the saved relay address
+		// env overrides the saved relay address; an off sentinel disables it even
+		// when the default/saved value is on.
+		switch strings.ToLower(v) {
+		case "off", "none", "disable", "0", "false", "no":
+			c.RelayAddr = ""
+		default:
+			c.RelayAddr = v
+		}
 	}
 	if v := strings.TrimSpace(os.Getenv("MOONY_CONTEXT_WINDOW")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n > 0 {
