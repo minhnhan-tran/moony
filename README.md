@@ -2,11 +2,11 @@
   <img src=".github/banner.svg" alt="moony" width="560">
 </p>
 
-A terminal coding agent in the spirit of [OpenCode](https://github.com/sst/opencode) / Claude Code, written in Go. It works with a local **[Ollama](https://ollama.com)** server (default, no API key) or a hosted provider — **OpenAI**, **Anthropic (Claude)**, **OpenRouter**, **Google Gemini**, **DeepSeek**, **Groq**, **xAI (Grok)**, **Mistral**, **Together.ai**, or **Fireworks.ai** — via their OpenAI/Anthropic-compatible APIs. It streams responses, calls tools (read/write/edit files, run shell commands, search the tree), and loops until your task is done — all inside a Bubble Tea TUI.
+A terminal coding agent in the spirit of [OpenCode](https://github.com/sst/opencode) / Claude Code, written in Go. It works with a local **[Ollama](https://ollama.com)** server (default, no API key) or a hosted provider — **OpenAI**, **Anthropic (Claude)**, **OpenRouter**, **Google Gemini**, **DeepSeek**, **Groq**, **xAI (Grok)**, **Mistral**, **Together.ai**, **Fireworks.ai**, **Moonshot (Kimi)**, **Z.AI (GLM)**, **DashScope (Qwen)**, **NVIDIA NIM**, **Hugging Face**, or **Venice** — via their OpenAI/Anthropic-compatible APIs. It streams responses, calls tools (read/write/edit files, run shell commands, search the tree), and loops until your task is done — all inside a Bubble Tea TUI.
 
 Highlights:
 - **Streaming TUI** with live markdown rendering (token-by-token), tool activity, token & **cost** counters, mouse-wheel scroll, todo panel.
-- **Multiple providers** (`/provider`) — **Ollama** (local, default, no key), plus hosted **OpenAI**, **Anthropic (Claude)**, **OpenRouter**, **Google Gemini**, **DeepSeek**, **Groq**, **xAI (Grok)**, **Mistral**, **Together.ai**, and **Fireworks.ai**. Switch at runtime; the choice is saved.
+- **Multiple providers** (`/provider`) — **Ollama** (local, default, no key), plus hosted **OpenAI**, **Anthropic (Claude)**, **OpenRouter**, **Google Gemini**, **DeepSeek**, **Groq**, **xAI (Grok)**, **Mistral**, **Together.ai**, **Fireworks.ai**, **Moonshot (Kimi)**, **Z.AI (GLM)**, **DashScope (Qwen)**, **NVIDIA NIM**, **Hugging Face**, and **Venice**. Switch at runtime; the choice is saved.
 - **Model picker** (`/models` — live from your Ollama server) and **extended thinking** (`/reasoning`), with your choices saved across launches.
 - **Built-in tools**: `read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash` (with `background` jobs via `bash_output`/`bash_kill`), `web_fetch`/`batch_web_fetch`, `todo_write`, and git (`git_status`, `git_diff`, `git_log`, `git_commit`, `git_branch`).
 - **Plan vs Build modes** — `/plan` disables `write_file`/`edit_file`/`multi_edit`/`apply_patch`/`bash`/`task` for safe exploration; `/build` re-enables.
@@ -130,7 +130,7 @@ The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash
 
 ## Requirements
 
-- One of: a running **[Ollama](https://ollama.com)** server (default; local `http://localhost:11434` or remote via `MOONY_OLLAMA_HOST`) with a model pulled, **or** an API key for a hosted provider (OpenAI, Anthropic, OpenRouter, Gemini, DeepSeek, Groq, xAI, Mistral, Together.ai, or Fireworks.ai).
+- One of: a running **[Ollama](https://ollama.com)** server (default; local `http://localhost:11434` or remote via `MOONY_OLLAMA_HOST`) with a model pulled, **or** an API key for a hosted provider (OpenAI, Anthropic, OpenRouter, Gemini, DeepSeek, Groq, xAI, Mistral, Together.ai, Fireworks.ai, Moonshot, Z.AI, DashScope, NVIDIA NIM, Hugging Face, or Venice).
 - **Go 1.26+** (to build from source).
 - Network access to your chosen provider.
 
@@ -354,6 +354,12 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 | `MOONY_MISTRAL_API_KEY` | _(unset)_ | Mistral API key for the `mistral` provider (falls back to `MISTRAL_API_KEY`) |
 | `MOONY_TOGETHER_API_KEY` | _(unset)_ | Together.ai API key for the `together` provider (falls back to `TOGETHER_API_KEY`) |
 | `MOONY_FIREWORKS_API_KEY` | _(unset)_ | Fireworks.ai API key for the `fireworks` provider (falls back to `FIREWORKS_API_KEY`) |
+| `MOONY_MOONSHOT_API_KEY` | _(unset)_ | Moonshot API key for the `moonshot` provider (falls back to `MOONSHOT_API_KEY`) |
+| `MOONY_ZAI_API_KEY` | _(unset)_ | Z.AI API key for the `zai` provider (falls back to `ZAI_API_KEY`) |
+| `MOONY_DASHSCOPE_API_KEY` | _(unset)_ | DashScope API key for the `dashscope` provider (falls back to `DASHSCOPE_API_KEY`) |
+| `MOONY_NVIDIA_API_KEY` | _(unset)_ | NVIDIA NIM API key for the `nvidia` provider (falls back to `NVIDIA_API_KEY`) |
+| `MOONY_HUGGINGFACE_API_KEY` | _(unset)_ | Hugging Face API key for the `huggingface` provider (falls back to `HF_TOKEN`) |
+| `MOONY_VENICE_API_KEY` | _(unset)_ | Venice API key for the `venice` provider (falls back to `VENICE_API_KEY`) |
 | `MOONY_<PROVIDER>_BASE_URL` | provider default | override any provider's API base URL (e.g. `MOONY_OPENAI_BASE_URL`, `MOONY_GEMINI_BASE_URL`) — useful for proxies or self-hosted gateways |
 | `MOONY_REASONING` | `off` | extended-thinking level (model-dependent: `off`/`minimal`/`low`/`medium`/`high`/`x-high`/`max`; clamped to what the model supports) |
 | `MOONY_MAX_STEPS` | `150` | max model↔tool rounds per turn before the agent stops (raise for long, todo-driven tasks; a runaway-loop guard, not a budget) |
@@ -370,6 +376,12 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 | `MOONY_TERSE` | _(on)_ | verbosity steering: add an "OUTPUT BUDGET" directive to the system prompt so the model spends fewer (pricier) output tokens on ceremony — preambles, sign-offs, restated context, re-printed unchanged code — without skipping actual work; `0`/`off` disables |
 | `MOONY_CODE_OUTLINE` | _(on)_ | compress oversized `read_file` output on source files into a signatures/declarations outline (line numbers kept, bodies collapsed into `… (N lines elided)`) instead of a blunt byte clip, so the model keeps the file's shape and can re-read a range; `0`/`off` disables |
 | `MOONY_DYNAMIC_EFFORT` | _(on)_ | dynamic effort routing (`auto` reasoning only): run steps that just digest a routine/benign tool batch (edits, a listing, a todo update — no errors) at a lower reasoning floor, while new requests and tool errors still get full effort; `0`/`off` disables |
+| `MOONY_ADAPTIVE_MODEL` | _(on)_ | run the main turn on the cheaper fast model until it shows sustained friction (tool errors / rejected stops), then escalate to the session model for the rest of the turn — right-sizing the model to the task; `0`/`off` disables. No-op when the fast model equals the session model, or on ultrathink turns |
+| `MOONY_CHEAP_READS` | _(on)_ | route pure read-only rounds (no edits/writes yet) to the fast model, restoring the full session model once the turn hits friction; `0`/`off` disables. No-op when the fast model equals the session model |
+| `MOONY_FAST_MODEL` | provider default | pin the cheap/fast model used by `MOONY_ADAPTIVE_MODEL`/`MOONY_CHEAP_READS` (and as a fallback for `MOONY_AUX_MODEL`) instead of the provider's own default fast model |
+| `MOONY_AUX_MODEL` | _(falls back to `MOONY_FAST_MODEL`)_ | pin the model used for small mechanical sub-tasks (e.g. summarization); checked before `MOONY_FAST_MODEL` |
+| `MOONY_AUTO_PLAN` | `0` (off) | auto-enter read-only plan mode for a build-mode turn that looks like a large/multi-step change, drafting a plan for approval before touching files; toggle at runtime with `/plan auto on|off`. `/build` always overrides it for a turn |
+| `MOONY_AUTO_DELEGATE` | `0` (off) | auto-delegate a clearly read-heavy investigation ("how/where/why does X work", "investigate …") to the read-only `explore` sub-agent, so bulky reads stay in its (discarded) context instead of re-billing this turn every round. Requires the task tool; skipped in plan mode |
 | `MOONY_PARALLEL_TOOLS` | _(on)_ | run independent tool calls in a turn concurrently (read-only tools and sub-agents); set to `0` to force sequential execution, or a number to cap concurrency (default 8) |
 | `MOONY_AGENT_MESSAGING` | _(on)_ | enable agent-to-agent message board for concurrent sub-agents; `0`/`off` disables |
 | `MOONY_RG` | _(on)_ | use `ripgrep` (`rg`) for the `grep` tool when it's installed (faster on large trees); set to `0`/`off` to always use the built-in Go scanner. Output is identical either way |
@@ -431,7 +443,7 @@ Behavior:
 
 
 
-The agent supports eleven backends, selected with `/provider` (or `MOONY_PROVIDER`):
+The agent supports seventeen backends, selected with `/provider` (or `MOONY_PROVIDER`):
 
 - **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MOONY_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MOONY_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
 - **OpenAI** — `api.openai.com`, `MOONY_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
