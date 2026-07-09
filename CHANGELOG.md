@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.6.0] — 2026-07-09
+
+### Changed
+
+- config: default MOONY_ADAPTIVE_MODEL and MOONY_CHEAP_READS to on
+
 ## [1.5.3] — 2026-07-09
 
 ### Changed
