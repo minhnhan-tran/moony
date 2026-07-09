@@ -1002,6 +1002,7 @@ function selectSession(id) {
     loadSessions();
   }
   es = new EventSource(api(`/api/sessions/${id}/events`));
+  historyLoaded = false; // this connection replays history first; the "history_end" marker flips it true
   es.onmessage = (m) => handle(JSON.parse(m.data));
   // EventSource auto-reconnects on error and hides the HTTP status, so a 401 from
   // an expired session would otherwise loop forever with a stale UI. When auth is
@@ -1127,6 +1128,10 @@ function handle(ev) {
       asstBody = null; asstRaw = ""; thinkBody = null; asstLabeled = false;
       break;
     }
+    case "history_end": {
+      historyLoaded = true; // past this marker every event is live, not replayed history
+      break;
+    }
     case "thinking": {
       // The provider redacts the reasoning text but still emits a marker so we know
       // reasoning happened. Don't render an empty "thinking" bubble for it.
@@ -1135,13 +1140,22 @@ function handle(ev) {
         endToolGroup();
         endWorkerGroup();
         const m = el("div", "msg msg-thinking");
-        const head = el("div", "msg-label flex items-center gap-1.5 mb-1 text-faint");
+        const head = el("button", "msg-label think-toggle flex items-center gap-1.5 mb-1 text-faint");
+        head.type = "button";
+        const chev = sym("chevron.right"); chev.classList.add("think-chevron");
+        head.appendChild(chev);
         head.appendChild(sym("sparkles"));
         head.appendChild(el("span", null, "thinking"));
         m.appendChild(head);
-        thinkBody = el("div", "think-body text-faint text-[13px] italic whitespace-pre-wrap break-words pl-3");
-        m.appendChild(thinkBody);
+        const bodyEl = el("div", "think-body text-faint text-[13px] italic whitespace-pre-wrap break-words pl-3");
+        m.appendChild(bodyEl);
+        // Reasoning replayed from history starts collapsed; live reasoning streams expanded.
+        // Closures capture the local bodyEl (the module-level thinkBody gets nulled between blocks).
+        const setCollapsed = (v) => { m.classList.toggle("collapsed", v); bodyEl.hidden = v; head.setAttribute("aria-expanded", String(!v)); };
+        setCollapsed(!historyLoaded);
+        head.onclick = () => setCollapsed(!bodyEl.hidden);
         transcript.appendChild(m);
+        thinkBody = bodyEl;
       }
       thinkBody.textContent += ev.text;
       break;

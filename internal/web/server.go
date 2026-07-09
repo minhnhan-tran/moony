@@ -509,6 +509,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	flusher.Flush()
 
+	writeSSE(w, wireEvent{Type: "history_end"}) // marks the history/live boundary (client renders replayed thinking blocks collapsed)
+	flusher.Flush()
+
 	ka := time.NewTicker(sseKeepalive)
 	defer ka.Stop()
 	for {

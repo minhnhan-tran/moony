@@ -21,6 +21,7 @@ let laptopPollTimer = null;                      // tree-mode poll that reflects
 let menuLoadingTimer = null;                      // safety timeout that clears a stuck #menu loader if no menu event arrives
 let asstBody = null, asstRaw = "";       // current streaming assistant block
 let asstLabeled = false;                 // has this answer's "moony" label shown yet?
+let historyLoaded = false;               // flips true at the SSE history/live boundary; replayed thinking blocks render collapsed
 let turnTodos = null;                    // per-question todo card recorded in the transcript (history)
 let phaseTimes = {};                     // per-turn phase timing (index → {start, dur}); client-side, live turns only
 let todosSig = "";                       // signature of the last renderTodos() build — skip no-op rebuilds so the in-progress spinner isn't recreated (recreation restarts its CSS animation)

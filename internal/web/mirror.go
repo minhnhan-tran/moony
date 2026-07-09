@@ -95,6 +95,7 @@ func (s *MirrorServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	// Authoritative trailing state on connect (carrying CanQueue) so a viewer that
 	// connects mid-turn keeps the composer enabled for type-ahead queueing, even
 	// if no state transition happens to be buffered in history yet.
+	writeSSE(w, wireEvent{Type: "history_end"}) // history/live boundary (client renders replayed thinking blocks collapsed)
 	writeSSE(w, wireEvent{Type: "state", State: state, CanQueue: true})
 	flusher.Flush()
 

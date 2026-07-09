@@ -339,6 +339,12 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
 
 /* Thinking: dim and italic, on its own dashed hairline rail. */
 .msg-thinking { opacity: .85; }
+/* Collapsible reasoning block: the label doubles as a toggle; the chevron rotates
+   when expanded. Replayed (historical) thinking starts collapsed via .collapsed. */
+.think-toggle { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.think-toggle:hover { color: rgb(var(--c-ink)); }
+.think-chevron { transition: transform .15s ease; }
+.msg-thinking:not(.collapsed) .think-chevron { transform: rotate(90deg); }
 .think-body { border-left: 2px dashed rgb(var(--c-edge)); }
 
 /* Info lines: a muted blue-accented callout. */
