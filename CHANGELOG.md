@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.2.1] — 2026-07-09
+
+### Changed
+
+- llm: use the configured provider (not hardcoded anthropic) when deciding if thinking is active
+
 ## [1.2.0] — 2026-07-09
 
 ### Added
