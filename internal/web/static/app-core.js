@@ -1283,8 +1283,10 @@ function handle(ev) {
       // note (compaction, auto-continue, etc.).
       const provSwitch = ev.text.match(/^Provider set to (.+?)(?: — model set to (.+))?$/);
       const modelSwitch = !provSwitch && ev.text.match(/^Model set to (.+?)(?: \((.+)\))?$/);
-      const d = el("div", "msg msg-info text-sm" + (provSwitch || modelSwitch ? " msg-info-model" : ""));
-      d.appendChild(sym(provSwitch || modelSwitch ? "cpu" : "info.circle.fill", "msg-info-icon"));
+      const provList = !provSwitch && !modelSwitch && ev.text.match(/^Model providers:\n([\s\S]+)$/);
+      const isModel = !!(provSwitch || modelSwitch || provList);
+      const d = el("div", "msg msg-info text-sm" + (isModel ? " msg-info-model" : ""));
+      d.appendChild(sym(isModel ? "cpu" : "info.circle.fill", "msg-info-icon"));
       const body = el("div", "md");
       if (provSwitch) {
         body.append("Provider set to ", el("span", "msg-info-pill", provSwitch[1]));
@@ -1292,6 +1294,8 @@ function handle(ev) {
       } else if (modelSwitch) {
         body.append("Model set to ", el("span", "msg-info-pill", modelSwitch[1]));
         if (modelSwitch[2]) body.append(" (", el("span", "msg-info-pill", modelSwitch[2]), ")");
+      } else if (provList) {
+        body.appendChild(renderProviderList(provList[1]));
       } else {
         body.innerHTML = renderMD(ev.text);
         highlightCommands(body); // bold-brand the slash commands the note references

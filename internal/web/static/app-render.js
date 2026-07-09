@@ -902,6 +902,50 @@ function providerLabel(id) {
   }
 }
 
+// renderProviderList turns the "/provider" command's raw "Model providers:"
+// text (fixed-width columns meant for a monospace terminal, which HTML
+// collapses into a run-on paragraph) into a scannable row list: an id pill,
+// the friendly label, and the description with any MOONY_* env var set as
+// inline code. `rest` is everything after the "Model providers:\n" header
+// line, including the trailing "(* = active. ...)" footer note.
+function renderProviderList(rest) {
+  const wrap = el("div", "msg-provider-list");
+  for (const line of rest.split("\n")) {
+    if (!line) continue;
+    if (line.startsWith("(")) {
+      wrap.appendChild(el("div", "text-faint text-xs mt-2", line));
+      continue;
+    }
+    const m = line.match(/^(.)\s(\S+)\s+(.*)$/);
+    if (!m) continue;
+    const [, mark, id, desc] = m;
+    const active = mark === "*";
+    const row = el("div", "msg-provider-row" + (active ? " is-active" : ""));
+    row.appendChild(el("span", "msg-info-pill", id));
+    const label = providerLabel(id);
+    if (label) row.appendChild(el("span", "msg-provider-label", label));
+    if (active) row.appendChild(sym("checkmark.circle.fill", "msg-provider-check"));
+    const descEl = el("span", "msg-provider-desc");
+    appendWithCode(descEl, desc, /MOONY_[A-Z0-9_]+/g);
+    row.appendChild(descEl);
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+// appendWithCode appends `text` to `node` as child nodes, wrapping every
+// match of `re` (a global regex) in a <code> element instead of plain text.
+function appendWithCode(node, text, re) {
+  let last = 0, m;
+  re.lastIndex = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) node.append(text.slice(last, m.index));
+    node.appendChild(el("code", "", m[0]));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) node.append(text.slice(last));
+}
+
 // fmtDateTime renders a Date as a readable local "YYYY-MM-DD HH:MM" stamp for the
 // per-turn / per-message footer (e.g. "2026-06-19 08:52").
 function fmtDateTime(d) {

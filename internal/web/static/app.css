@@ -383,6 +383,21 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
   border-radius: 999px;
   white-space: nowrap;
 }
+/* /provider list: one scannable row per backend instead of the raw
+   fixed-width text (whose column alignment HTML can't preserve). */
+.msg-provider-list { display: flex; flex-direction: column; gap: .3rem; }
+.msg-provider-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .4rem;
+  padding: .15rem 0;
+}
+.msg-provider-row.is-active { background: rgb(var(--c-brand) / .08); border-radius: var(--r-sm); padding: .15rem .4rem; margin: 0 -.4rem; }
+.msg-provider-label { font-weight: 600; color: rgb(var(--c-ink-bright)); }
+.msg-provider-check { color: rgb(var(--c-ok)); font-size: 13px; order: -1; }
+.msg-provider-desc { color: rgb(var(--c-faint)); flex-basis: 100%; }
+.msg-provider-row.is-active .msg-provider-desc { color: rgb(var(--c-ink-soft)); }
 
 /* Errors: a red-accented callout. */
 .msg-error {
