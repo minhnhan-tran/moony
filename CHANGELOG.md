@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.7.0] — 2026-07-10
+
+### Changed
+
+- tools,lsp: add lint and LSP go-to-definition/references/hover tools
+
 ## [1.6.5] — 2026-07-10
 
 ### Changed
