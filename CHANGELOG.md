@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.6.5] — 2026-07-10
+
+### Changed
+
+- web: drop the 'needs MOONY_*_API_KEY' clause from the /provider hdrMenu
+
 ## [1.6.4] — 2026-07-09
 
 ### Changed
