@@ -28,6 +28,7 @@ func (r *Registry) RegisterDefaults(maxOutputBytes int) {
 	r.Register(&gitCommitTool{r: r, max: maxOutputBytes})
 	r.Register(&gitBranchTool{r: r})
 	r.Register(&gitWorktreeTool{r: r, max: maxOutputBytes})
+	r.Register(&lintTool{r: r, max: maxOutputBytes})
 	r.Register(&askUserTool{})
 	r.Register(&exitPlanTool{})
 }
@@ -58,6 +59,7 @@ func RegisterAllowed(r *Registry, maxOutputBytes int, allowed map[string]bool) {
 		&gitCommitTool{r: r, max: maxOutputBytes},
 		&gitBranchTool{r: r},
 		&gitWorktreeTool{r: r, max: maxOutputBytes},
+		&lintTool{r: r, max: maxOutputBytes},
 	}
 	for _, t := range all {
 		if allowed[t.Name()] {

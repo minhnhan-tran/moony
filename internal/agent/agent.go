@@ -392,8 +392,13 @@ func (a *Agent) AttachHooks(h *hooks.Set) { a.hooks = h }
 
 // AttachLSP wires a language-server manager. After each successful
 // write_file/edit_file the manager is asked for diagnostics, which are
-// appended to the tool output so the model sees errors immediately.
-func (a *Agent) AttachLSP(m *lsp.Manager) { a.lsp = m }
+// appended to the tool output so the model sees errors immediately. Also
+// (re-)registers the lsp_definition/lsp_references/lsp_hover tools against
+// the new manager, so a `/lsp reload` picks up freshly started servers.
+func (a *Agent) AttachLSP(m *lsp.Manager) {
+	a.lsp = m
+	a.tools.RegisterLSP(m)
+}
 
 // LSP returns the attached language-server manager (nil if none), so callers
 // hot-reloading servers can close the previous one.
