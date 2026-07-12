@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.1] — 2026-07-12
+
+### Fixed
+
+- **Plan gate no longer haunts follow-up turns.** An approved or completed plan could silently revert to *draft* status and keep blocking the mutating tools (`bash`, `edit_file`, …) on later, unrelated turns — forcing a redundant `exit_plan`/`/plan approve` each time. The agent's internal "mark plan done / retire / restore-on-resume" writes went through `PlanStore.Set`, which fires the same notify the `plan_write` tool uses (`applyDraftPlan`, which forces `Status=draft`), so each completion immediately undid itself. Those host-side mirror writes now use a new silent `PlanStore.Sync`; only genuine model `plan_write` calls fire the notify.
+
+### Changed
+
+- web: place the transcript pager position indicator directly under the prev button.
+
 ## [1.11.0] — 2026-07-12
 
 ### Added
