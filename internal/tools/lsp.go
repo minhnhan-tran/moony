@@ -22,6 +22,7 @@ func (r *Registry) RegisterLSP(mgr *lsp.Manager) {
 	r.Register(&lspDefinitionTool{r: r, mgr: mgr})
 	r.Register(&lspReferencesTool{r: r, mgr: mgr})
 	r.Register(&lspHoverTool{r: r, mgr: mgr})
+	r.Register(&lspDiagnosticsTool{r: r, mgr: mgr})
 }
 
 const lspPositionSchema = `
@@ -185,6 +186,56 @@ func (t *lspHoverTool) Schema() json.RawMessage {
 	return schema(`{"type": "object", "properties": {` + lspPositionSchema + `}, "required": ["path", "line", "column"]}`)
 }
 func (t *lspHoverTool) Mutates() bool { return false }
+
+// lspDiagnosticsTool pulls live compiler/linter diagnostics for a file from the
+// running language server — the errors/warnings an IDE underlines — without
+// having to build or run the file first.
+type lspDiagnosticsTool struct {
+	r   *Registry
+	mgr *lsp.Manager
+}
+
+func (t *lspDiagnosticsTool) Name() string { return "lsp_diagnostics" }
+func (t *lspDiagnosticsTool) Description() string {
+	return "Report the language server's live diagnostics (compiler/linter errors and warnings, with severity, " +
+		"line and message) for a file — the same squiggles an IDE shows — using the current on-disk contents. " +
+		"Use this to check whether an edit compiles cleanly BEFORE running a full build/test; it's faster and " +
+		"more precise than scraping `bash` output. Returns 'No diagnostics.' when the file is clean."
+}
+func (t *lspDiagnosticsTool) Schema() json.RawMessage {
+	return schema(`{"type": "object", "properties": {
+			"path": {"type": "string", "description": "File to fetch diagnostics for."}
+		}, "required": ["path"]}`)
+}
+func (t *lspDiagnosticsTool) Mutates() bool { return false }
+
+func (t *lspDiagnosticsTool) Execute(ctx context.Context, input json.RawMessage) (string, error) {
+	var in struct {
+		Path string `json:"path"`
+	}
+	if err := decode(input, &in); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(in.Path) == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	abs, err := t.r.resolve(in.Path)
+	if err != nil {
+		return "", err
+	}
+	if !t.mgr.Handles(abs) {
+		return noServerMsg(abs), nil
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", in.Path, err)
+	}
+	report := strings.TrimSpace(t.mgr.DiagnosticsFor(ctx, abs, string(data)))
+	if report == "" {
+		return "No diagnostics.", nil
+	}
+	return report, nil
+}
 
 func (t *lspHoverTool) Execute(ctx context.Context, input json.RawMessage) (string, error) {
 	var in struct {

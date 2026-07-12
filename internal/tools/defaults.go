@@ -21,6 +21,7 @@ func (r *Registry) RegisterDefaults(maxOutputBytes int) {
 	wf := &webFetchTool{r: r}
 	r.Register(wf)
 	r.Register(&batchWebFetchTool{r: r, wf: wf})
+	r.Register(&webSearchTool{})
 	r.Register(&browserTool{r: r})
 	r.Register(&gitStatusTool{r: r, max: maxOutputBytes})
 	r.Register(&gitDiffTool{r: r, max: maxOutputBytes})
@@ -29,6 +30,7 @@ func (r *Registry) RegisterDefaults(maxOutputBytes int) {
 	r.Register(&gitBranchTool{r: r})
 	r.Register(&gitWorktreeTool{r: r, max: maxOutputBytes})
 	r.Register(&lintTool{r: r, max: maxOutputBytes})
+	r.Register(&testRunTool{r: r, max: maxOutputBytes})
 	r.Register(&askUserTool{})
 	r.Register(&exitPlanTool{})
 }
@@ -52,6 +54,7 @@ func RegisterAllowed(r *Registry, maxOutputBytes int, allowed map[string]bool) {
 		&bashKillTool{r: r},
 		&webFetchTool{r: r},
 		&batchWebFetchTool{r: r},
+		&webSearchTool{},
 		&browserTool{r: r},
 		&gitStatusTool{r: r, max: maxOutputBytes},
 		&gitDiffTool{r: r, max: maxOutputBytes},
@@ -60,6 +63,7 @@ func RegisterAllowed(r *Registry, maxOutputBytes int, allowed map[string]bool) {
 		&gitBranchTool{r: r},
 		&gitWorktreeTool{r: r, max: maxOutputBytes},
 		&lintTool{r: r, max: maxOutputBytes},
+		&testRunTool{r: r, max: maxOutputBytes},
 	}
 	for _, t := range all {
 		if allowed[t.Name()] {

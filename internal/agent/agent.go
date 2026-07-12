@@ -272,6 +272,15 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 	if registry != nil {
 		registry.Register(&enableToolsetTool{a: a})
 		registry.SetConciseSchemas(cfg.ConciseToolSchemas)
+		// Wire the usage tool to this agent's live session so it can report
+		// token/cost totals; returns nil (tool says "no data") when persistence
+		// is disabled.
+		registry.RegisterUsage(func() []session.TurnMeta {
+			if a.sess == nil {
+				return nil
+			}
+			return a.sess.TurnMetas
+		})
 		// Enable hybrid semantic reranking in search_code when an embeddings
 		// model is configured and the client can produce embeddings.
 		if cfg.EmbeddingsModel != "" {

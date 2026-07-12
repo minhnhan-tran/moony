@@ -142,6 +142,22 @@ func startOne(ctx context.Context, root string, cfg Config, logger func(string))
 // Empty reports whether no servers are running.
 func (m *Manager) Empty() bool { return m == nil || len(m.servers) == 0 }
 
+// Handles reports whether any running server handles path's extension. Used by
+// the lsp_diagnostics tool to distinguish "no server for this language" from
+// "server ran and found nothing".
+func (m *Manager) Handles(path string) bool {
+	if m.Empty() {
+		return false
+	}
+	ext := filepath.Ext(path)
+	for _, srv := range m.servers {
+		if srv.HandlesExtension(ext) {
+			return true
+		}
+	}
+	return false
+}
+
 // Running returns the names of the currently-running servers (those that
 // started successfully), sorted. Used by /lsp to show live state.
 func (m *Manager) Running() []string {

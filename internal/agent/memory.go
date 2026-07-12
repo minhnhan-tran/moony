@@ -229,6 +229,31 @@ func (a *Agent) AttachMemory(sink *tools.MemorySink) {
 	sink.SetSave(func(text, category string) (string, error) {
 		return a.Remember(text, category, false)
 	})
+	// Feed the recall tool: flatten every AGENTS.md bullet (project + global)
+	// into notes tagged with their section heading.
+	sink.SetList(func() []tools.MemoryNote {
+		var notes []tools.MemoryNote
+		for _, global := range []bool{false, true} {
+			scope := "project"
+			if global {
+				scope = "global"
+			}
+			for _, s := range a.AgentsSections(global) {
+				section := strings.TrimSpace(s.Heading)
+				if section == "" {
+					section = scope
+				} else {
+					section = scope + " · " + section
+				}
+				for _, bullet := range s.Bullets {
+					if b := strings.TrimSpace(bullet); b != "" {
+						notes = append(notes, tools.MemoryNote{Section: section, Text: b})
+					}
+				}
+			}
+		}
+		return notes
+	})
 }
 
 // MemorySection is one AGENTS.md heading and its bullet lines, for the web editor

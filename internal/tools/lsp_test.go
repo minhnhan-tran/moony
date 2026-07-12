@@ -12,7 +12,7 @@ import (
 )
 
 func TestLSPToolsReadOnly(t *testing.T) {
-	if (&lspDefinitionTool{}).Mutates() || (&lspReferencesTool{}).Mutates() || (&lspHoverTool{}).Mutates() {
+	if (&lspDefinitionTool{}).Mutates() || (&lspReferencesTool{}).Mutates() || (&lspHoverTool{}).Mutates() || (&lspDiagnosticsTool{}).Mutates() {
 		t.Error("lsp_* tools should never be reported as mutating")
 	}
 }
@@ -76,6 +76,26 @@ func TestLSPToolsNoServerConfigured(t *testing.T) {
 			t.Errorf("%s: expected a no-server message, got: %s", tool.Name(), out)
 		}
 	}
+
+	// lsp_diagnostics takes only a path; with no server it should also report the
+	// no-server message rather than erroring.
+	diag := &lspDiagnosticsTool{r: reg, mgr: mgr}
+	in, _ := json.Marshal(map[string]any{"path": "a.go"})
+	out, err := diag.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("lsp_diagnostics: unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "No language server") {
+		t.Errorf("lsp_diagnostics: expected a no-server message, got: %s", out)
+	}
+	if _, err := diag.Execute(context.Background(), mustJSON(map[string]any{"path": ""})); err == nil {
+		t.Error("lsp_diagnostics: empty path should be rejected")
+	}
+}
+
+func mustJSON(v any) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
 }
 
 func TestFormatLocationsEmpty(t *testing.T) {
