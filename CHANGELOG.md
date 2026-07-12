@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.8] — 2026-07-12
+
+### Changed
+
+- web: order Fast/Self-review tier fields as provider > model > reasoning
+
 ## [1.11.7] — 2026-07-12
 
 ### Changed
