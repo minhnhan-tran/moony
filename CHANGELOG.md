@@ -5,6 +5,27 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.9.0] — 2026-07-12
+
+### Added
+
+- **Per-tier provider + reasoning level for the Fast and Self-review models.**
+  The Persona panel's **Fast model** (`MOONY_FAST_MODEL`) and **Self-review
+  model** (`MOONY_AUX_MODEL`) settings each gain a **provider** select and a
+  **reasoning-level** select, so either tier can run on a *different provider*
+  than the session and at a chosen reasoning level — e.g. a session on Opus via
+  the SQE gateway with cheap-reads/adaptive downshifts routed to a local Ollama
+  model, or self-review sent to a cheaper provider. Picking a cross-provider
+  tier repopulates its model dropdown with that provider's known models so the
+  exact model is selectable ("Full model picker"). New env vars
+  `MOONY_FAST_PROVIDER` / `MOONY_FAST_REASONING` / `MOONY_AUX_PROVIDER` /
+  `MOONY_AUX_REASONING` (aux provider falls back to the fast provider; aux
+  reasoning defaults to off and does not inherit the fast level). All four
+  persist across restarts. **Inherit-when-unset:** with nothing chosen, routing
+  is byte-identical to before — the fast provider/reasoning apply only on a
+  downshifted round, and self-review still forces reasoning off unless a level
+  is set.
+
 ## [1.8.1] — 2026-07-12
 
 ### Fixed
