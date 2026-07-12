@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.4] — 2026-07-12
+
+### Fixed
+
+- **The Persona panel's Fast / Self-review model dropdown now repopulates when
+  you change that tier's provider.** Two problems: `ModelFallback` only had a real
+  catalogue for Anthropic/SQE/Gemini, so a cross-provider tier's model dropdown
+  showed just that provider's single default; and it only re-rendered on Save. Now
+  the panel **live-fetches the chosen tier provider's own catalogue** (via a
+  config clone that already carries every provider's key/base-URL — falling back
+  to the static list if unauthenticated), and changing the Fast/Self-review
+  provider select **re-renders immediately** so its model list updates on the spot.
+
 ## [1.10.3] — 2026-07-12
 
 ### Changed
