@@ -204,7 +204,7 @@ func (a *Agent) maybeSelfReview(ctx context.Context, emit func(Event), attempts 
 	if d == "" {
 		return false
 	}
-	reviewModel := config.AuxModel(a.cfg.Model, a.cfg.LLMProvider)
+	reviewModel, _, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
 	reviewingText := "Self-reviewing the diff for introduced bugs… (" + shortModelName(reviewModel) + ")"
 	emit(Info{Text: reviewingText})
 	a.noteInfo(reviewingText)

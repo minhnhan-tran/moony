@@ -253,6 +253,15 @@ type Config struct {
 	AutoPlanPersona      *bool
 	SelfReviewPersona    *bool
 	AdaptiveModelPersona *bool
+	// FastProviderPersona/FastReasoningPersona/AuxProviderPersona/AuxReasoningPersona
+	// hold the per-tier provider + reasoning-level chosen in the Persona modal for
+	// the Fast and Self-review (aux) models. Empty/nil = inherit (byte-identical to
+	// today). Managed only by applyPersonaEdit + Load(), persisted in savedPrefs,
+	// and consumed via Fast/AuxProvider + Fast/AuxReasoning + Fast/AuxModelRoute.
+	FastProviderPersona  *string
+	FastReasoningPersona *string
+	AuxProviderPersona   *string
+	AuxReasoningPersona  *string
 	// VerifyCommand, when non-empty, is a shell command (e.g. a test/build) run
 	// automatically at the end of a turn that edited files; if it exits non-zero
 	// the failure is fed back so the agent self-corrects before finishing. Set it
@@ -555,6 +564,107 @@ func cheapModel(parent, llmProvider, def string, envVars ...string) string {
 		}
 	}
 	return def
+}
+
+// firstTrimmedEnv returns the first non-empty, trimmed value among the named env
+// vars, or "" when none is set.
+func firstTrimmedEnv(names ...string) string {
+	for _, n := range names {
+		if v := strings.TrimSpace(os.Getenv(n)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// ProvidersEqual reports whether two provider ids normalize to the same backend
+// route (e.g. "sqe-anthropic" and "anthropic" are distinct ids but share the
+// Anthropic wire — they are NOT equal here, since they use different base URLs).
+func ProvidersEqual(a, b string) bool { return provider.Normalize(a) == provider.Normalize(b) }
+
+// normalizedProviderEnv returns the normalized provider id from the first
+// non-empty env var among names, or "" when unset or unknown. An unknown id
+// yields "" (inherit) rather than an error, so a stale/typo'd value fails safe.
+func normalizedProviderEnv(names ...string) string {
+	v := firstTrimmedEnv(names...)
+	if v == "" {
+		return ""
+	}
+	if _, ok := provider.Lookup(v); !ok {
+		return ""
+	}
+	return provider.Normalize(v)
+}
+
+// FastProvider is the provider the Fast tier (adaptive/cheap-reads downshift,
+// read-only sub-agents, workflow judge) runs on. "" = inherit the session
+// provider (MOONY_FAST_PROVIDER).
+func FastProvider() string { return normalizedProviderEnv("MOONY_FAST_PROVIDER") }
+
+// AuxProvider is the provider the Self-review (aux) tier runs on. It falls back
+// to MOONY_FAST_PROVIDER, so a single "route my cheap work to X" pin covers both.
+// "" = inherit the session provider.
+func AuxProvider() string { return normalizedProviderEnv("MOONY_AUX_PROVIDER", "MOONY_FAST_PROVIDER") }
+
+// reasoningEnv returns the normalized reasoning level from the named env var, or
+// "" (inherit) when it is unset. A set-but-unrecognized value normalizes to
+// "off" (NormalizeReasoning's safe default), not inherit.
+func reasoningEnv(name string) string {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return ""
+	}
+	return NormalizeReasoning(v)
+}
+
+// FastReasoning is the reasoning level for Fast-tier rounds. "" = inherit the
+// turn's computed effort (MOONY_FAST_REASONING).
+func FastReasoning() string { return reasoningEnv("MOONY_FAST_REASONING") }
+
+// AuxReasoning is the reasoning level for Self-review (aux) calls. "" keeps aux's
+// default of reasoning OFF (a quick, cheap answer); it deliberately does NOT fall
+// back to MOONY_FAST_REASONING, so a fast-tier level can't silently raise aux
+// cost (MOONY_AUX_REASONING).
+func AuxReasoning() string { return reasoningEnv("MOONY_AUX_REASONING") }
+
+// FastModelRoute resolves where a Fast-tier downshift runs: the model id, a
+// provider override ("" = inherit the session provider), and whether this route
+// differs from the session at all. differs==false means there is nothing to
+// change (no cheaper model and no cross-provider override) — the caller must NOT
+// downshift, matching today's no-op.
+//
+// When a Fast provider is explicitly set AND differs from the session provider,
+// the cheapModel guards (keep-parent-when-unpinned, never-upgrade-a-cheaper-
+// parent) are bypassed: those guards assume the same backend as the session, and
+// returning the parent model would send a session-provider id to a different
+// provider (404). Instead the pinned Fast model is used, or that provider's
+// default when unpinned. Otherwise this is exactly FastModel with guards intact.
+func FastModelRoute(parentModel, sessionProvider string) (model, providerOverride string, differs bool) {
+	if fp := FastProvider(); fp != "" && !ProvidersEqual(fp, sessionProvider) {
+		m := firstTrimmedEnv("MOONY_FAST_MODEL")
+		if m == "" {
+			m = provider.DefaultModelFor(fp)
+		}
+		return m, fp, true
+	}
+	m := FastModel(parentModel, sessionProvider)
+	return m, "", m != parentModel
+}
+
+// AuxModelRoute mirrors FastModelRoute for the Self-review (aux) tier: the aux
+// model/provider fallbacks apply (aux model falls back to MOONY_FAST_MODEL, aux
+// provider to MOONY_FAST_PROVIDER). differs is returned for symmetry; aux callers
+// generally ignore it since streamAux always runs.
+func AuxModelRoute(parentModel, sessionProvider string) (model, providerOverride string, differs bool) {
+	if ap := AuxProvider(); ap != "" && !ProvidersEqual(ap, sessionProvider) {
+		m := firstTrimmedEnv("MOONY_AUX_MODEL", "MOONY_FAST_MODEL")
+		if m == "" {
+			m = provider.DefaultModelFor(ap)
+		}
+		return m, ap, true
+	}
+	m := AuxModel(parentModel, sessionProvider)
+	return m, "", m != parentModel
 }
 
 // ProviderLabel is the user-facing name of a route, e.g. "anthropic-native".
@@ -1568,6 +1678,46 @@ func Load() *Config {
 			os.Setenv("MOONY_AUX_MODEL", am)
 		} else {
 			os.Unsetenv("MOONY_AUX_MODEL")
+		}
+	}
+	// Per-tier provider + reasoning for the Fast and Self-review (aux) models. Each
+	// mirrors the FastModel/AuxModel pattern: remember the persona pointer and
+	// re-apply the env var so the resolvers (Fast/AuxProvider, Fast/AuxReasoning,
+	// Fast/AuxModelRoute) see a saved choice across restarts. Empty = inherit.
+	if prefs.FastProvider != nil {
+		fp := strings.TrimSpace(*prefs.FastProvider)
+		c.FastProviderPersona = &fp
+		if fp != "" {
+			os.Setenv("MOONY_FAST_PROVIDER", fp)
+		} else {
+			os.Unsetenv("MOONY_FAST_PROVIDER")
+		}
+	}
+	if prefs.FastReasoning != nil {
+		fr := strings.TrimSpace(*prefs.FastReasoning)
+		c.FastReasoningPersona = &fr
+		if fr != "" {
+			os.Setenv("MOONY_FAST_REASONING", fr)
+		} else {
+			os.Unsetenv("MOONY_FAST_REASONING")
+		}
+	}
+	if prefs.AuxProvider != nil {
+		ap := strings.TrimSpace(*prefs.AuxProvider)
+		c.AuxProviderPersona = &ap
+		if ap != "" {
+			os.Setenv("MOONY_AUX_PROVIDER", ap)
+		} else {
+			os.Unsetenv("MOONY_AUX_PROVIDER")
+		}
+	}
+	if prefs.AuxReasoning != nil {
+		ar := strings.TrimSpace(*prefs.AuxReasoning)
+		c.AuxReasoningPersona = &ar
+		if ar != "" {
+			os.Setenv("MOONY_AUX_REASONING", ar)
+		} else {
+			os.Unsetenv("MOONY_AUX_REASONING")
 		}
 	}
 

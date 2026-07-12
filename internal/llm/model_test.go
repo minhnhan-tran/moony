@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/provider"
 )
 
 // TestWithModelRoundTrip verifies the per-call model override carried on the
@@ -68,5 +70,58 @@ func TestStreamMessagesModelOverride(t *testing.T) {
 	}
 	if c.cfg.Model != "base-model" {
 		t.Errorf("override mutated the shared client's config: cfg.Model = %q", c.cfg.Model)
+	}
+}
+
+// TestWithProviderRoundTrip verifies the per-call provider override carried on
+// the context: WithProvider sets it, WithProvider("") is a no-op, and
+// providerFrom reads it back. This is what lets the Fast / Self-review tiers
+// route a single call to a different provider than the session.
+func TestWithProviderRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	if got := providerFrom(ctx); got != "" {
+		t.Errorf("providerFrom(empty ctx) = %q, want \"\"", got)
+	}
+	if got := providerFrom(WithProvider(ctx, "")); got != "" {
+		t.Errorf("WithProvider(ctx, \"\") should be a no-op, got %q", got)
+	}
+	if got := providerFrom(WithProvider(ctx, "anthropic")); got != "anthropic" {
+		t.Errorf("providerFrom after WithProvider = %q, want anthropic", got)
+	}
+}
+
+// TestStreamMessagesProviderOverride verifies the per-call provider override
+// re-routes a single call: an Ollama-configured client, told via WithProvider to
+// use Anthropic, sends the request to the Anthropic base URL — without mutating
+// the shared client's provider.
+func TestStreamMessagesProviderOverride(t *testing.T) {
+	var sentHost, sentModel string
+	c := newTestClient(roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		sentHost = r.URL.Host
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Model string `json:"model"`
+		}
+		_ = json.Unmarshal(body, &req)
+		sentModel = req.Model
+		return resp(200, anthropicModelSSE), nil
+	}))
+	c.cfg.AnthropicBaseURL = "https://anthropic.test"
+	c.cfg.AnthropicAPIKey = "test-key"
+
+	// Route THIS call to Anthropic (different from the ollama session) with an
+	// Anthropic model: the clone re-selects the Anthropic wire + its base URL.
+	ctx := WithModel(WithProvider(context.Background(), "anthropic"), "claude-haiku-4-5")
+	if _, err := c.StreamMessages(ctx, "sys", []Message{UserText("hi")}, nil, Handler{}); err != nil {
+		t.Fatalf("StreamMessages (provider override): %v", err)
+	}
+	if sentHost != "anthropic.test" {
+		t.Errorf("request host = %q, want anthropic.test (routed to the overridden provider)", sentHost)
+	}
+	if sentModel != "claude-haiku-4-5" {
+		t.Errorf("request model = %q, want claude-haiku-4-5", sentModel)
+	}
+	if c.cfg.LLMProvider != provider.Ollama {
+		t.Errorf("provider override mutated the shared client: cfg.LLMProvider = %q, want ollama", c.cfg.LLMProvider)
 	}
 }

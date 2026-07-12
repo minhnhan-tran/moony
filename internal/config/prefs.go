@@ -45,6 +45,12 @@ type savedPrefs struct {
 	AdaptiveModel *bool   `json:"adaptive_model,omitempty"`
 	FastModel     *string `json:"fast_model,omitempty"`
 	AuxModel      *string `json:"aux_model,omitempty"`
+	// Per-tier provider + reasoning for the Fast and Self-review (aux) models.
+	// Empty/nil = inherit (see config.Fast/AuxProvider, Fast/AuxReasoning).
+	FastProvider  *string `json:"fast_provider,omitempty"`
+	FastReasoning *string `json:"fast_reasoning,omitempty"`
+	AuxProvider   *string `json:"aux_provider,omitempty"`
+	AuxReasoning  *string `json:"aux_reasoning,omitempty"`
 }
 
 // prefsPath returns the path to the persisted preferences file.
@@ -97,6 +103,10 @@ func (c *Config) Save() error {
 		AdaptiveModel:    c.AdaptiveModelPersona,
 		FastModel:        c.FastModelPersona,
 		AuxModel:         c.AuxModelPersona,
+		FastProvider:     c.FastProviderPersona,
+		FastReasoning:    c.FastReasoningPersona,
+		AuxProvider:      c.AuxProviderPersona,
+		AuxReasoning:     c.AuxReasoningPersona,
 	}, "", "  ")
 	if err != nil {
 		return err

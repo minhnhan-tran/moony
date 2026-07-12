@@ -72,7 +72,16 @@ func judge(ctx context.Context, client llm.Streamer, base *config.Config, system
 	if client == nil {
 		return "", errors.New("no llm client")
 	}
-	ctx = llm.WithModel(ctx, config.FastModel(base.Model, base.LLMProvider))
+	// The judge runs on the Fast tier, which may route to a different provider
+	// and reasoning level than the session (Fast model provider/reasoning).
+	m, prov, _ := config.FastModelRoute(base.Model, base.LLMProvider)
+	ctx = llm.WithModel(ctx, m)
+	if prov != "" {
+		ctx = llm.WithProvider(ctx, prov)
+	}
+	if fr := config.FastReasoning(); fr != "" {
+		ctx = llm.WithEffort(ctx, fr)
+	}
 	resp, err := client.StreamMessages(ctx, system, []llm.Message{llm.UserText(user)}, nil, llm.Handler{})
 	if err != nil {
 		return "", err

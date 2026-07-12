@@ -696,11 +696,20 @@ func (a *Agent) resetAuxCost() { a.turnAuxCostBits.Store(0) }
 // shows up in the turn's displayed/persisted cost instead of being silently
 // dropped.
 func (a *Agent) streamAux(ctx context.Context, system string, messages []llm.Message) (*llm.Response, error) {
-	auxModel := config.AuxModel(a.cfg.Model, a.cfg.LLMProvider) // aux calls want a cheap quick answer, not the (pricier) session/fast model
+	// aux calls want a cheap quick answer, not the (pricier) session/fast model —
+	// and may run on a different provider than the session (Self-review provider).
+	auxModel, auxProv, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
 	ctx = llm.WithModel(ctx, auxModel)
+	if auxProv != "" {
+		ctx = llm.WithProvider(ctx, auxProv)
+	}
 	var resp *llm.Response
 	var err error
-	if nt, ok := a.client.(noThinkStreamer); ok {
+	if ar := config.AuxReasoning(); ar != "" {
+		// The user pinned a Self-review reasoning level — honor it instead of the
+		// default of forcing reasoning OFF for the auxiliary call.
+		resp, err = a.client.StreamMessages(llm.WithEffort(ctx, ar), system, messages, nil, llm.Handler{})
+	} else if nt, ok := a.client.(noThinkStreamer); ok {
 		resp, err = nt.StreamMessagesNoThink(ctx, system, messages, nil, llm.Handler{})
 	} else {
 		resp, err = a.client.StreamMessages(ctx, system, messages, nil, llm.Handler{})
@@ -1103,9 +1112,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// turn) and a no-op when FastModel == the session model (already cheap, or a
 		// non-hosted backend) or on an ultrathink turn.
 		turnModel := a.cfg.Model
+		turnProvider := "" // "" = inherit the session provider; set on a cross-provider downshift
 		var downshiftReason string
 		if a.cfg.AdaptiveModel && !ultra {
-			if fast := config.FastModel(a.cfg.Model, a.cfg.LLMProvider); fast != a.cfg.Model {
+			if fast, fastProv, differs := config.FastModelRoute(a.cfg.Model, a.cfg.LLMProvider); differs {
 				underFriction := int(a.turnFriction.Load()) >= autoFrictionMedium
 				switch {
 				case a.turnHard:
@@ -1117,6 +1127,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 					}
 				default:
 					turnModel = fast
+					turnProvider = fastProv
 					downshiftReason = "adaptive model"
 				}
 			}
@@ -1128,9 +1139,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// writing, runs bash, or encounters any friction. Composes with AdaptiveModel
 		// (either alone can downgrade; friction/hard/ultrathink override both).
 		if a.cfg.CheapReads && !ultra && !a.turnHard && lastStepReadOnly {
-			if fast := config.FastModel(a.cfg.Model, a.cfg.LLMProvider); fast != a.cfg.Model {
+			if fast, fastProv, differs := config.FastModelRoute(a.cfg.Model, a.cfg.LLMProvider); differs {
 				if int(a.turnFriction.Load()) < autoFrictionMedium {
 					turnModel = fast
+					turnProvider = fastProv
 					if downshiftReason == "" {
 						downshiftReason = "cheap reads"
 					} else {
@@ -1151,7 +1163,18 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			cheapStreakActive = false
 		}
 
-		resp, err := a.client.StreamMessages(llm.WithModel(llm.WithEffort(ctx, effort), turnModel), turnSystem, a.messages, a.visibleTools(), llm.Handler{
+		// Thread the turn's model + effort. On a downshifted round, also route to
+		// the Fast tier's provider (if cross-provider) and apply the Fast reasoning
+		// level; both are no-ops when unset, so a non-downshifted round is
+		// byte-identical to before.
+		callCtx := llm.WithEffort(ctx, effort)
+		if downshiftReason != "" {
+			if turnProvider != "" {
+				callCtx = llm.WithProvider(callCtx, turnProvider)
+			}
+			callCtx = llm.WithEffort(callCtx, config.FastReasoning()) // "" => no-op, keeps `effort`
+		}
+		resp, err := a.client.StreamMessages(llm.WithModel(callCtx, turnModel), turnSystem, a.messages, a.visibleTools(), llm.Handler{
 			OnTextDelta:     func(s string) { emit(TextDelta{Text: s}) },
 			OnThinkingDelta: func(s string) { emit(ThinkingDelta{Text: s}) },
 			OnRetry: func(err error) {

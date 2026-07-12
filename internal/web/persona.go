@@ -25,6 +25,7 @@ import (
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/llm"
 	"github.com/pysty1995/moony/internal/mcp"
+	"github.com/pysty1995/moony/internal/provider"
 	"github.com/pysty1995/moony/internal/skills"
 	"github.com/pysty1995/moony/internal/subagents"
 )
@@ -73,6 +74,12 @@ type personaEdit struct {
 	AutoContinue  *string `json:"autoContinue"`
 	SqeFastModel  *string `json:"sqeFastModel"`
 	SqeAuxModel   *string `json:"sqeAuxModel"`
+	// Per-tier provider + reasoning for the Fast and Self-review (aux) models.
+	// Empty string = inherit (unsets the env); see config.Fast/AuxModelRoute.
+	FastProvider  *string `json:"fastProvider"`
+	FastReasoning *string `json:"fastReasoning"`
+	AuxProvider   *string `json:"auxProvider"`
+	AuxReasoning  *string `json:"auxReasoning"`
 	// Session-history encryption at rest (read by session.NewStore from the env).
 	// These are runtime env overrides and take effect on the NEXT restart, since
 	// the store resolves its key once at open.
@@ -360,6 +367,18 @@ func personaEditedFields(e personaEdit) []string {
 	if e.SqeAuxModel != nil {
 		f = append(f, fmt.Sprintf("sqeAuxModel=%q", *e.SqeAuxModel))
 	}
+	if e.FastProvider != nil {
+		f = append(f, fmt.Sprintf("fastProvider=%q", *e.FastProvider))
+	}
+	if e.FastReasoning != nil {
+		f = append(f, fmt.Sprintf("fastReasoning=%q", *e.FastReasoning))
+	}
+	if e.AuxProvider != nil {
+		f = append(f, fmt.Sprintf("auxProvider=%q", *e.AuxProvider))
+	}
+	if e.AuxReasoning != nil {
+		f = append(f, fmt.Sprintf("auxReasoning=%q", *e.AuxReasoning))
+	}
 	if e.SessionEncrypt != nil {
 		f = append(f, "sqeSessionEncrypt")
 	}
@@ -553,6 +572,29 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		am := strings.TrimSpace(*e.SqeAuxModel)
 		c.AuxModelPersona = &am // remember as explicit persona choice
 	}
+	// Per-tier provider + reasoning for the Fast and Self-review (aux) models.
+	// setEnvPlain clears the env on an empty value, so posting "" (Inherit) unsets
+	// the override → inherit. The resolvers normalize on read.
+	if e.FastProvider != nil {
+		setEnvPlain("MOONY_FAST_PROVIDER", e.FastProvider)
+		v := strings.TrimSpace(*e.FastProvider)
+		c.FastProviderPersona = &v
+	}
+	if e.FastReasoning != nil {
+		setEnvPlain("MOONY_FAST_REASONING", e.FastReasoning)
+		v := strings.TrimSpace(*e.FastReasoning)
+		c.FastReasoningPersona = &v
+	}
+	if e.AuxProvider != nil {
+		setEnvPlain("MOONY_AUX_PROVIDER", e.AuxProvider)
+		v := strings.TrimSpace(*e.AuxProvider)
+		c.AuxProviderPersona = &v
+	}
+	if e.AuxReasoning != nil {
+		setEnvPlain("MOONY_AUX_REASONING", e.AuxReasoning)
+		v := strings.TrimSpace(*e.AuxReasoning)
+		c.AuxReasoningPersona = &v
+	}
 	// Session-encryption vars live only in the process env (session.NewStore reads
 	// them). Secrets keep their existing value when submitted empty; plain fields
 	// (mode/path) apply as given and clear when blanked.
@@ -614,6 +656,20 @@ func setEnvPlain(name string, v *string) {
 
 // personaFields snapshots c into the panel's field list (secrets masked).
 func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
+	// Per-tier model catalogs for the "Full model picker": when the Fast or
+	// Self-review tier points at a DIFFERENT provider than the session, list that
+	// provider's known models so its exact model is pickable in the dropdown. Uses
+	// the static per-provider catalogue (config.ModelFallback) — no extra network
+	// call — which is the same list /models falls back to when a live fetch fails.
+	// When a tier inherits the session provider, its dropdown keeps the live list.
+	fastModels := models
+	if fp := config.FastProvider(); fp != "" && !config.ProvidersEqual(fp, c.LLMProvider) {
+		fastModels = config.ModelFallback(fp)
+	}
+	auxModels := models
+	if ap := config.AuxProvider(); ap != "" && !config.ProvidersEqual(ap, c.LLMProvider) {
+		auxModels = config.ModelFallback(ap)
+	}
 	fields := []personaField{
 		{Key: "ollamaHost", Label: "Ollama host", Type: "text", Value: c.OllamaBaseURL,
 			Desc: "Ollama server (MOONY_OLLAMA_HOST), used by the ollama backend."},
@@ -633,12 +689,28 @@ func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
 			Desc: "How many times a turn auto-extends past the step limit when the model is still working (default 1). Hard ceiling = MaxAgentSteps × (1 + AutoContinue). Runtime override — resets on restart."},
 		{Key: "sqeFastModel", Label: "Fast model (MOONY_FAST_MODEL)", Type: "select",
 			Value:   os.Getenv("MOONY_FAST_MODEL"),
-			Options: fastModelSelectOptions(models),
+			Options: fastModelSelectOptions(fastModels),
 			Desc:    "Model used for cheap-reads rounds, AdaptiveModel exploration, and sub-agent aux calls. 'Auto' uses the built-in default. Runtime override — resets on restart."},
+		{Key: "fastProvider", Label: "Fast model provider (MOONY_FAST_PROVIDER)", Type: "select",
+			Value:   os.Getenv("MOONY_FAST_PROVIDER"),
+			Options: providerSelectOptions("Inherit (session provider)"),
+			Desc:    "Provider the Fast model runs on. Inherit = the session provider. A different provider must have its API key / base URL configured below. Pick it, Save, then choose its model above. Persists."},
+		{Key: "fastReasoning", Label: "Fast model reasoning (MOONY_FAST_REASONING)", Type: "select",
+			Value:   os.Getenv("MOONY_FAST_REASONING"),
+			Options: reasoningSelectOptions("Inherit (turn effort)"),
+			Desc:    "Reasoning level for Fast-model rounds (adaptive/cheap-reads downshift, read-only sub-agents, goal judge). Inherit = the turn's computed effort. Persists."},
 		{Key: "sqeAuxModel", Label: "Self-review model (MOONY_AUX_MODEL)", Type: "select",
 			Value:   os.Getenv("MOONY_AUX_MODEL"),
-			Options: auxModelSelectOptions(models),
+			Options: auxModelSelectOptions(auxModels),
 			Desc:    "Model for self-review diffs, checkpoint distillation, goal-judge, and session titling — all tool-less 'quick answer' calls. 'Auto' falls back to Fast model, else the built-in Haiku default. Runtime override — resets on restart."},
+		{Key: "auxProvider", Label: "Self-review model provider (MOONY_AUX_PROVIDER)", Type: "select",
+			Value:   os.Getenv("MOONY_AUX_PROVIDER"),
+			Options: providerSelectOptions("Inherit (Fast provider, else session)"),
+			Desc:    "Provider for self-review / aux calls. Inherit falls back to the Fast model provider if set, else the session provider. Pick it, Save, then choose its model above. Persists."},
+		{Key: "auxReasoning", Label: "Self-review model reasoning (MOONY_AUX_REASONING)", Type: "select",
+			Value:   os.Getenv("MOONY_AUX_REASONING"),
+			Options: reasoningSelectOptions("Default (off)"),
+			Desc:    "Reasoning for self-review / aux calls. Default is OFF (a quick answer); set a level to make these calls think. Does not inherit the Fast reasoning level. Persists."},
 	}
 	// Provider API keys + base-URL overrides (and the optional Ollama token).
 	// Secrets masked to a last-4 hint; leaving a key blank on save keeps the
@@ -775,6 +847,54 @@ func lastFour(s string) string {
 	}
 }
 
+// providerSelectOptions builds a provider dropdown for the Fast / Self-review
+// tier selects: an inherit sentinel (empty value, caller-supplied label) first,
+// then every registered provider in display order.
+func providerSelectOptions(inheritLabel string) []personaSelectOption {
+	opts := []personaSelectOption{{Value: "", Label: inheritLabel}}
+	for _, p := range provider.List() {
+		opts = append(opts, personaSelectOption{Value: p.ID, Label: p.Label})
+	}
+	return opts
+}
+
+// reasoningSelectOptions builds a reasoning-level dropdown: an inherit/default
+// sentinel (empty value, caller-supplied label) first, then the common
+// selectable levels (off/low/medium/high). Routes clamp per model, so the same
+// set is safe across providers.
+func reasoningSelectOptions(inheritLabel string) []personaSelectOption {
+	opts := []personaSelectOption{{Value: "", Label: inheritLabel}}
+	for _, l := range config.ReasoningLevels {
+		opts = append(opts, personaSelectOption{Value: l, Label: reasoningOptionLabel(l)})
+	}
+	return opts
+}
+
+// reasoningOptionLabel title-cases a reasoning level for display ("off" → "Off").
+func reasoningOptionLabel(l string) string {
+	if l == "" {
+		return l
+	}
+	return strings.ToUpper(l[:1]) + l[1:]
+}
+
+// ensurePinnedOption guarantees the currently-pinned model id is selectable even
+// when it isn't in the catalog — e.g. a cross-provider or custom id. Without it
+// the browser <select> would fall back to option 0 and silently drop the pin on
+// the next save.
+func ensurePinnedOption(opts []personaSelectOption, pinned string) []personaSelectOption {
+	pinned = strings.TrimSpace(pinned)
+	if pinned == "" {
+		return opts
+	}
+	for _, o := range opts {
+		if o.Value == pinned {
+			return opts
+		}
+	}
+	return append(opts, personaSelectOption{Value: pinned, Label: pinned + " (pinned)"})
+}
+
 // fastModelSelectOptions builds the Fast-model dropdown from a live model list
 // (identical source to /models). The empty-value entry means "auto" (FastModel
 // resolves to config.FastDefaultModel); its label is derived from that model's
@@ -793,7 +913,7 @@ func fastModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 			opts = append(opts, personaSelectOption{Value: m.ID, Label: m.Name})
 		}
 	}
-	return opts
+	return ensurePinnedOption(opts, os.Getenv("MOONY_FAST_MODEL"))
 }
 
 // auxModelSelectOptions builds the Self-review-model dropdown. The empty-value
@@ -819,5 +939,5 @@ func auxModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 			opts = append(opts, personaSelectOption{Value: m.ID, Label: m.Name})
 		}
 	}
-	return opts
+	return ensurePinnedOption(opts, os.Getenv("MOONY_AUX_MODEL"))
 }

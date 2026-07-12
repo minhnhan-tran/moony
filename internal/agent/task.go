@@ -440,8 +440,17 @@ func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 	case persona.ReadOnly():
 		// Read-only surveyors (explore, code-reviewer, …) do grunt reading that
 		// feeds the parent's synthesis — run them on the cheaper fast model unless
-		// the persona pins its own model above.
-		c.SetModel(config.FastModel(c.Model, c.LLMProvider))
+		// the persona pins its own model above. The fast tier may route to a
+		// different provider (and reasoning level) than the session; apply both to
+		// the sub-agent's config so its whole run uses that route.
+		fm, fastProv, _ := config.FastModelRoute(c.Model, c.LLMProvider)
+		if fastProv != "" {
+			c.LLMProvider = fastProv // FastModelRoute returns a normalized id
+		}
+		c.SetModel(fm) // sets Model + derives the wire route from LLMProvider
+		if fr := config.FastReasoning(); fr != "" {
+			c.SetReasoningFor(fm, fr) // after SetModel so c.ReasoningLevel syncs
+		}
 	}
 	// (A pinned model that the current backend can't serve — e.g. a hosted model id
 	// pinned then run under Ollama, or an Ollama id under a hosted provider — is ignored by

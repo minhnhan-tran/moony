@@ -300,6 +300,131 @@ func TestAuxModelFallsBackToFastEnv(t *testing.T) {
 	}
 }
 
+// TestFastAuxProviderReasoningResolvers covers the per-tier provider/reasoning
+// env resolvers: unset = inherit (""), known provider normalizes, an unknown
+// provider fails safe to "", and aux does NOT inherit the fast reasoning level.
+func TestFastAuxProviderReasoningResolvers(t *testing.T) {
+	// All unset → inherit.
+	if got := FastProvider(); got != "" {
+		t.Errorf("FastProvider unset = %q, want inherit", got)
+	}
+	if got := AuxProvider(); got != "" {
+		t.Errorf("AuxProvider unset = %q, want inherit", got)
+	}
+	if got := FastReasoning(); got != "" {
+		t.Errorf("FastReasoning unset = %q, want inherit", got)
+	}
+	if got := AuxReasoning(); got != "" {
+		t.Errorf("AuxReasoning unset = %q, want default(off) sentinel", got)
+	}
+
+	// Known provider normalizes; unknown fails safe to inherit.
+	t.Setenv("MOONY_FAST_PROVIDER", provider.Anthropic)
+	if got := FastProvider(); got != provider.Anthropic {
+		t.Errorf("FastProvider = %q, want %q", got, provider.Anthropic)
+	}
+	// Aux falls back to the fast provider when its own isn't set.
+	if got := AuxProvider(); got != provider.Anthropic {
+		t.Errorf("AuxProvider (fallback to fast) = %q, want %q", got, provider.Anthropic)
+	}
+	t.Setenv("MOONY_AUX_PROVIDER", provider.OpenAI)
+	if got := AuxProvider(); got != provider.OpenAI {
+		t.Errorf("AuxProvider = %q, want %q", got, provider.OpenAI)
+	}
+	t.Setenv("MOONY_FAST_PROVIDER", "not-a-provider")
+	if got := FastProvider(); got != "" {
+		t.Errorf("FastProvider unknown = %q, want inherit (fail safe)", got)
+	}
+
+	// Reasoning: known normalizes; aux does not inherit fast's level.
+	t.Setenv("MOONY_FAST_REASONING", "high")
+	if got := FastReasoning(); got != ReasoningHigh {
+		t.Errorf("FastReasoning = %q, want high", got)
+	}
+	t.Setenv("MOONY_AUX_REASONING", "")
+	if got := AuxReasoning(); got != "" {
+		t.Errorf("AuxReasoning with only fast set = %q, want inherit(default off), no fallback to fast", got)
+	}
+	t.Setenv("MOONY_AUX_REASONING", "low")
+	if got := AuxReasoning(); got != ReasoningLow {
+		t.Errorf("AuxReasoning = %q, want low", got)
+	}
+}
+
+// TestFastModelRoute covers cross-provider routing and the guard bypass.
+func TestFastModelRoute(t *testing.T) {
+	ClearRuntimePricing()
+	const oll = provider.Ollama
+
+	// No override on ollama with no pin → keep the parent, no provider override.
+	m, prov, differs := FastModelRoute("gemma4:31b", oll)
+	if m != "gemma4:31b" || prov != "" || differs {
+		t.Errorf("no-override route = (%q,%q,%v), want (gemma4:31b,\"\",false)", m, prov, differs)
+	}
+
+	// Cross-provider, no model pin → that provider's default, provider override set.
+	t.Setenv("MOONY_FAST_PROVIDER", provider.Anthropic)
+	m, prov, differs = FastModelRoute("gemma4:31b", oll)
+	if want := provider.DefaultModelFor(provider.Anthropic); m != want || prov != provider.Anthropic || !differs {
+		t.Errorf("cross-provider route = (%q,%q,%v), want (%q,%q,true)", m, prov, differs, want, provider.Anthropic)
+	}
+
+	// Cross-provider + pinned model → pinned model wins, bypassing the cheapModel
+	// price/keep-parent guards entirely (those assume the session provider).
+	t.Setenv("MOONY_FAST_MODEL", "anthropic.claude-haiku-4-5")
+	m, prov, differs = FastModelRoute("gemma4:31b", oll)
+	if m != "anthropic.claude-haiku-4-5" || prov != provider.Anthropic || !differs {
+		t.Errorf("cross-provider pinned route = (%q,%q,%v), want (anthropic.claude-haiku-4-5,%q,true)", m, prov, differs, provider.Anthropic)
+	}
+
+	// A fast provider equal to the session provider is treated as inherit.
+	t.Setenv("MOONY_FAST_PROVIDER", oll)
+	t.Setenv("MOONY_FAST_MODEL", "")
+	m, prov, differs = FastModelRoute("gemma4:31b", oll)
+	if m != "gemma4:31b" || prov != "" || differs {
+		t.Errorf("same-provider route = (%q,%q,%v), want inherit (gemma4:31b,\"\",false)", m, prov, differs)
+	}
+}
+
+// TestAuxModelRoute mirrors TestFastModelRoute for the aux tier, including the
+// aux→fast provider/model fallbacks.
+func TestAuxModelRoute(t *testing.T) {
+	ClearRuntimePricing()
+	const oll = provider.Ollama
+
+	// No override → today's AuxModel behavior, no provider override.
+	m, prov, _ := AuxModelRoute("gemma4:31b", oll)
+	if m != "gemma4:31b" || prov != "" {
+		t.Errorf("no-override aux route = (%q,%q), want (gemma4:31b,\"\")", m, prov)
+	}
+
+	// Only the fast provider is set → aux inherits it; aux model falls back to fast.
+	t.Setenv("MOONY_FAST_PROVIDER", provider.Anthropic)
+	t.Setenv("MOONY_FAST_MODEL", "anthropic.claude-haiku-4-5")
+	m, prov, differs := AuxModelRoute("gemma4:31b", oll)
+	if m != "anthropic.claude-haiku-4-5" || prov != provider.Anthropic || !differs {
+		t.Errorf("aux fallback route = (%q,%q,%v), want (anthropic.claude-haiku-4-5,%q,true)", m, prov, differs, provider.Anthropic)
+	}
+}
+
+// TestInheritWhenUnset is the core invariant: with none of the four per-tier env
+// vars set, the *Route resolvers return exactly the legacy FastModel/AuxModel
+// result and no provider override — so routing is byte-identical to before.
+func TestInheritWhenUnset(t *testing.T) {
+	ClearRuntimePricing()
+	const oll = provider.Ollama
+	for _, parent := range []string{"gemma4:31b", "gemma4:8b"} {
+		fm, fp, _ := FastModelRoute(parent, oll)
+		if fp != "" || fm != FastModel(parent, oll) {
+			t.Errorf("FastModelRoute(%q) = (%q,%q), want (%q,\"\")", parent, fm, fp, FastModel(parent, oll))
+		}
+		am, ap, _ := AuxModelRoute(parent, oll)
+		if ap != "" || am != AuxModel(parent, oll) {
+			t.Errorf("AuxModelRoute(%q) = (%q,%q), want (%q,\"\")", parent, am, ap, AuxModel(parent, oll))
+		}
+	}
+}
+
 // TestHigherReasoning verifies the escalation helper never lowers the level.
 func TestHigherReasoning(t *testing.T) {
 	if got := HigherReasoning(ReasoningHigh, ReasoningMedium); got != ReasoningHigh {

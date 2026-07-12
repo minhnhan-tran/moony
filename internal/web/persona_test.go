@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pysty1995/moony/internal/config"
+	"github.com/pysty1995/moony/internal/provider"
 )
 
 func strptr(s string) *string { return &s }
@@ -144,6 +145,99 @@ func TestPersonaFieldsIncludesAuxModel(t *testing.T) {
 	}
 	if f.Options[0].Value != "" || !strings.Contains(f.Options[0].Label, "Auto") {
 		t.Errorf("first option = %+v, want the empty-value Auto default", f.Options[0])
+	}
+}
+
+// TestApplyPersonaEditFastAuxProviderReasoning verifies the four per-tier
+// provider/reasoning selects set their env var + persona pointer, and that
+// posting "" (Inherit) unsets them.
+func TestApplyPersonaEditFastAuxProviderReasoning(t *testing.T) {
+	for _, k := range []string{"MOONY_FAST_PROVIDER", "MOONY_FAST_REASONING", "MOONY_AUX_PROVIDER", "MOONY_AUX_REASONING"} {
+		defer os.Unsetenv(k)
+	}
+	c := &config.Config{}
+	applyPersonaEdit(c, personaEdit{
+		FastProvider:  strptr("anthropic"),
+		FastReasoning: strptr("high"),
+		AuxProvider:   strptr("openai"),
+		AuxReasoning:  strptr("low"),
+	})
+	checks := []struct {
+		env, want string
+		persona   *string
+	}{
+		{"MOONY_FAST_PROVIDER", "anthropic", c.FastProviderPersona},
+		{"MOONY_FAST_REASONING", "high", c.FastReasoningPersona},
+		{"MOONY_AUX_PROVIDER", "openai", c.AuxProviderPersona},
+		{"MOONY_AUX_REASONING", "low", c.AuxReasoningPersona},
+	}
+	for _, ch := range checks {
+		if got := os.Getenv(ch.env); got != ch.want {
+			t.Errorf("%s = %q, want %q", ch.env, got, ch.want)
+		}
+		if ch.persona == nil || *ch.persona != ch.want {
+			t.Errorf("%s persona pointer = %v, want %q remembered", ch.env, ch.persona, ch.want)
+		}
+	}
+	// Posting "" (Inherit) unsets each override.
+	applyPersonaEdit(c, personaEdit{
+		FastProvider:  strptr(""),
+		FastReasoning: strptr(""),
+		AuxProvider:   strptr(""),
+		AuxReasoning:  strptr(""),
+	})
+	for _, ch := range checks {
+		if got := os.Getenv(ch.env); got != "" {
+			t.Errorf("%s after clearing = %q, want unset", ch.env, got)
+		}
+	}
+}
+
+// TestPersonaFieldsIncludesProviderReasoning verifies the four per-tier selects
+// are present, each a "select" whose first option is the empty inherit sentinel,
+// and that the provider selects list every registered provider.
+func TestPersonaFieldsIncludesProviderReasoning(t *testing.T) {
+	for _, k := range []string{"MOONY_FAST_PROVIDER", "MOONY_FAST_REASONING", "MOONY_AUX_PROVIDER", "MOONY_AUX_REASONING"} {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
+	fields := personaFields(&config.Config{LLMProvider: provider.Ollama}, config.AllKnownModels())
+	byKey := map[string]personaField{}
+	for _, f := range fields {
+		byKey[f.Key] = f
+	}
+	for _, key := range []string{"fastProvider", "auxProvider", "fastReasoning", "auxReasoning"} {
+		f, ok := byKey[key]
+		if !ok {
+			t.Fatalf("%s field missing from personaFields", key)
+		}
+		if f.Type != "select" {
+			t.Errorf("%s type = %q, want select", key, f.Type)
+		}
+		if len(f.Options) == 0 || f.Options[0].Value != "" {
+			t.Errorf("%s first option = %+v, want the empty inherit sentinel", key, f.Options)
+		}
+	}
+	// Provider selects list inherit + every registered provider.
+	if got, want := len(byKey["fastProvider"].Options), len(provider.List())+1; got != want {
+		t.Errorf("fastProvider options = %d, want inherit + all providers (%d)", got, want)
+	}
+}
+
+// TestFastModelSelectOptionsInjectsPinned verifies a pinned id absent from the
+// catalog (e.g. a cross-provider model) is injected as a selectable option so it
+// round-trips instead of being reset to option 0.
+func TestFastModelSelectOptionsInjectsPinned(t *testing.T) {
+	t.Setenv("MOONY_FAST_MODEL", "acme/cross-provider-model")
+	opts := fastModelSelectOptions([]config.ModelInfo{{ID: "a", Name: "A"}, {ID: "b", Name: "B"}})
+	var found bool
+	for _, o := range opts {
+		if o.Value == "acme/cross-provider-model" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("pinned id absent from catalog was not injected; options = %+v", opts)
 	}
 }
 

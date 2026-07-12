@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pysty1995/moony/internal/config"
+	"github.com/pysty1995/moony/internal/provider"
 )
 
 // Client talks to the Ollama-compatible API.
@@ -100,13 +101,34 @@ type Handler struct {
 // "mcp.<server>.<tool>") and mapped back on the response, so the agent keeps
 // StreamMessages streams a chat completion turn to Ollama, dispatching on tool names.
 func (c *Client) StreamMessages(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
-	// Honor a per-call model override. The web server shares this *Client across
-	// sessions, but each session's /model picker changes only its own config copy;
-	// without this the request would keep using the client's original model.
-	if m := modelFrom(ctx); m != "" && c.cfg != nil && m != c.cfg.Model {
+	// Honor per-call model and/or provider overrides on a private clone, so the
+	// override applies to THIS call only and never mutates the client the web
+	// server shares across sessions. A model override comes from each session's
+	// /model picker; a provider override lets the Fast / Self-review tiers route a
+	// single call to a different provider — and since routing keys off
+	// cfg.LLMProvider, setting it on the copy re-selects that provider's base URL
+	// and API key. When neither differs from the client's config, no clone is made
+	// and behavior is byte-identical.
+	mOverride := modelFrom(ctx)
+	pOverride := providerFrom(ctx)
+	if c.cfg != nil && ((mOverride != "" && mOverride != c.cfg.Model) ||
+		(pOverride != "" && provider.Normalize(pOverride) != provider.Normalize(c.cfg.LLMProvider))) {
 		cc := *c
 		cfgCopy := *c.cfg
-		cfgCopy.Model = m
+		if mOverride != "" {
+			cfgCopy.Model = mOverride
+		}
+		if pOverride != "" {
+			cfgCopy.LLMProvider = provider.Normalize(pOverride)
+			// Keep the derived wire field coherent with the new route. It's unread
+			// in this package today (routing uses LLMProvider), but correct for any
+			// future reader of the cloned config.
+			if provider.UsesAnthropicWire(cfgCopy.LLMProvider) {
+				cfgCopy.Provider = config.ProviderAnthropic
+			} else {
+				cfgCopy.Provider = config.ProviderOpenAI
+			}
+		}
 		cc.cfg = &cfgCopy
 		c = &cc
 	}
@@ -201,6 +223,35 @@ func modelFrom(ctx context.Context) string {
 // ModelFrom exposes the per-call model override carried on ctx (the model a turn
 // will actually use after WithModel), for callers/tests that need to know it.
 func ModelFrom(ctx context.Context) string { return modelFrom(ctx) }
+
+// providerKey carries a per-call provider override on the context. The Fast and
+// Self-review tiers can route a single call to a different provider than the
+// session (see config.Fast/AuxModelRoute); because llm routing keys off
+// cfg.LLMProvider, StreamMessages applies this by cloning the config with the new
+// provider so the right base URL + API key are selected for that call only.
+type providerKey struct{}
+
+// WithProvider returns ctx carrying a provider override for the next model
+// call(s). An empty id is ignored (ctx unchanged), so callers can wrap
+// unconditionally.
+func WithProvider(ctx context.Context, id string) context.Context {
+	if id == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, providerKey{}, id)
+}
+
+// providerFrom returns the per-call provider override on ctx, or "" if none.
+func providerFrom(ctx context.Context) string {
+	if v, ok := ctx.Value(providerKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// ProviderFrom exposes the per-call provider override carried on ctx (or "" if
+// none), for callers/tests that need to observe the route a call will take.
+func ProviderFrom(ctx context.Context) string { return providerFrom(ctx) }
 
 // streamMessages performs the actual request/stream for one turn, dispatching by
 // route. Callers go through StreamMessages, which handles tool-name translation.
