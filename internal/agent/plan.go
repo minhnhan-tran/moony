@@ -147,7 +147,7 @@ func (a *Agent) maybeCompletePlan() bool {
 	a.sess.Plan.Status = session.PlanDone
 	a.persist()
 	if a.plan != nil {
-		a.plan.Set(toToolPlan(a.sess.Plan))
+		a.plan.Sync(toToolPlan(a.sess.Plan))
 	}
 	return true
 }
@@ -185,7 +185,7 @@ func (a *Agent) retireExecutedPlan() bool {
 	a.sess.Plan.Status = session.PlanDone
 	a.persist()
 	if a.plan != nil {
-		a.plan.Set(toToolPlan(a.sess.Plan))
+		a.plan.Sync(toToolPlan(a.sess.Plan))
 	}
 	return true
 }
@@ -256,7 +256,7 @@ func (a *Agent) trackPlanAbandon(ranBefore bool) bool {
 	a.planIdleTurns = 0
 	a.persist()
 	if a.plan != nil {
-		a.plan.Set(toToolPlan(a.sess.Plan))
+		a.plan.Sync(toToolPlan(a.sess.Plan))
 	}
 	return true
 }

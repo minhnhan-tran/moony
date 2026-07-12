@@ -44,7 +44,9 @@ func (s *PlanStore) SetNotify(fn func(*Plan)) {
 }
 
 // Set replaces the draft plan and fires the notification (outside the lock).
-// A nil plan clears the store.
+// A nil plan clears the store. Called by the plan_write TOOL only — genuine
+// model-authored drafts/revisions, which is what the notify callback (wired to
+// applyDraftPlan) interprets this as.
 func (s *PlanStore) Set(p *Plan) {
 	s.mu.Lock()
 	s.plan = clonePlan(p)
@@ -54,6 +56,18 @@ func (s *PlanStore) Set(p *Plan) {
 	if cb != nil {
 		cb(snapshot)
 	}
+}
+
+// Sync updates the cached snapshot WITHOUT firing the notify callback. Use this
+// for host-side mirroring of a status change that already happened elsewhere
+// (e.g. the agent retiring or completing a plan) — as opposed to Set, which the
+// plan_write tool uses for genuine model-authored drafts. Without this, an
+// internal mirror write would re-enter applyDraftPlan via the notify and reset
+// the plan's Status back to draft, undoing the completion/retirement.
+func (s *PlanStore) Sync(p *Plan) {
+	s.mu.Lock()
+	s.plan = clonePlan(p)
+	s.mu.Unlock()
 }
 
 // Get returns a copy of the current draft plan, or nil when none is set.

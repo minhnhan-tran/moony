@@ -329,7 +329,7 @@ func (a *Agent) Reset() {
 		a.todos.Set(nil) // a fresh session has no task list
 	}
 	if a.plan != nil {
-		a.plan.Set(nil) // a fresh session has no plan
+		a.plan.Sync(nil) // a fresh session has no plan (host-side reset, no notify)
 	}
 }
 
@@ -351,7 +351,10 @@ func (a *Agent) Resume(sess *session.Session) {
 	}
 	if a.plan != nil {
 		// Restore the resumed session's plan artifact (nil clears the panel).
-		a.plan.Set(toToolPlan(sess.Plan))
+		// Sync, not Set: this is a host-side mirror of persisted state, and Set
+		// would fire the plan_write notify (applyDraftPlan) and demote a resumed
+		// approved/done plan back to draft.
+		a.plan.Sync(toToolPlan(sess.Plan))
 	}
 	// planRanATurn is in-memory only; a persisted, not-yet-done plan survived from
 	// a prior turn, so it has effectively already "run a turn". Mark it so the next

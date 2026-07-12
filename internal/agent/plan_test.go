@@ -384,3 +384,59 @@ func TestTrackPlanAbandonKeepsProgressing(t *testing.T) {
 		t.Fatal("a continuously progressing plan stays approved until maybeCompletePlan marks it done")
 	}
 }
+
+// TestCompleteAndRetireSurviveNotify is the regression test for the bug where a
+// completed/retired plan silently reverted to draft and kept blocking mutating
+// tools on later turns. RunWith wires the plan_write notify (→ applyDraftPlan,
+// which forces Status=draft) for the whole turn. maybeCompletePlan /
+// retireExecutedPlan / trackPlanAbandon mirror their status change into the plan
+// store; if that mirror uses Set (which fires the notify) instead of Sync, the
+// notify re-enters applyDraftPlan and stomps the just-written Done back to
+// draft. hasDraftPlan() then gates bash/edit_file on every following turn.
+func TestCompleteAndRetireSurviveNotify(t *testing.T) {
+	wireNotify := func(ag *Agent, ps *tools.PlanStore) {
+		ps.SetNotify(func(p *tools.Plan) { ag.applyDraftPlan(p) })
+	}
+
+	t.Run("maybeCompletePlan stays done", func(t *testing.T) {
+		ag, ps := newPlanAgent(t)
+		wireNotify(ag, ps)
+		td := tools.NewTodoStore()
+		ag.AttachTodoStore(td)
+		ag.SetPlan(&session.Plan{Steps: []session.PlanStep{{Title: "ship it"}}})
+		if !ag.ApprovePlan() {
+			t.Fatal("approve failed")
+		}
+		td.Set([]tools.Todo{{Content: "ship it", Status: tools.TodoCompleted}})
+
+		if !ag.maybeCompletePlan() {
+			t.Fatal("plan with all todos resolved should complete")
+		}
+		if got := ag.Plan(); got == nil || got.Status != session.PlanDone {
+			t.Fatalf("completed plan must stay done, got %+v", got)
+		}
+		if ag.hasDraftPlan() {
+			t.Fatal("completed plan must not revert to a tool-blocking draft")
+		}
+	})
+
+	t.Run("retireExecutedPlan stays done", func(t *testing.T) {
+		ag, ps := newPlanAgent(t)
+		wireNotify(ag, ps)
+		// An approved+executed plan with no pending todos, resumed into a new turn.
+		resumed := session.New("m", ag.cfg.WorkingDir)
+		resumed.Plan = &session.Plan{Title: "carried", Status: session.PlanApproved,
+			Steps: []session.PlanStep{{Title: "done already"}}}
+		ag.Resume(resumed)
+
+		if !ag.retireExecutedPlan() {
+			t.Fatal("executed approved plan should retire")
+		}
+		if got := ag.Plan(); got == nil || got.Status != session.PlanDone {
+			t.Fatalf("retired plan must stay done, got %+v", got)
+		}
+		if ag.hasDraftPlan() {
+			t.Fatal("retired plan must not revert to a tool-blocking draft")
+		}
+	})
+}
