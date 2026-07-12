@@ -967,7 +967,7 @@ function clearView() {
   upgrading = false; upgradeStartVer = ""; syncUpgradeBtn(); // drop any stale "Updating…" state (button + mascot) when the view is torn down (e.g. the focused laptop dropped)
   usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // reset per-session usage history
   boardMsgs = []; renderBoardMsgs(); // reset the agent-messages panel
-  transcript.innerHTML = ""; statsEl.innerHTML = ""; hdrMetaEl.innerHTML = ""; setHeaderVersion(); approval.classList.add("hidden"); hidePalette(); hideMentions(); hideMenu();
+  transcript.innerHTML = ""; resetPairs(); statsEl.innerHTML = ""; hdrMetaEl.innerHTML = ""; setHeaderVersion(); approval.classList.add("hidden"); hidePalette(); hideMentions(); hideMenu();
   closeHdrMenu(); // close the header approval/reasoning picker if it was open
   if (composerAgentEl) { composerAgentEl.textContent = ""; const c = composerAgentEl.parentElement; if (c) { c.classList.remove("has-agent"); c.style.removeProperty("--agent-base"); c.style.removeProperty("--agent-hue"); } } // clear the composer agent legend + its color
   if (composerMetaEl) { composerMetaEl.innerHTML = ""; composerMetaEl.removeAttribute("title"); } // clear the composer model·reasoning legend
@@ -1117,7 +1117,7 @@ function handle(ev) {
         m.appendChild(renderAttachments(ev.attachments));
       }
       m.appendChild(userMetaFooter(ev.text || "", ev.time ? new Date(ev.time) : new Date()));
-      transcript.appendChild(m);
+      startPair(m); // the question becomes this pair's pinned header; its answer follows in the scroll body
       break;
     }
     case "stream_reset": {
@@ -1154,7 +1154,7 @@ function handle(ev) {
         const setCollapsed = (v) => { m.classList.toggle("collapsed", v); bodyEl.hidden = v; head.setAttribute("aria-expanded", String(!v)); };
         setCollapsed(!historyLoaded);
         head.onclick = () => setCollapsed(!bodyEl.hidden);
-        transcript.appendChild(m);
+        appendMsg(m);
         thinkBody = bodyEl;
       }
       thinkBody.textContent += ev.text;
@@ -1174,7 +1174,7 @@ function handle(ev) {
         asstBody = el("div", "md break-words");
         asstRaw = "";
         m.appendChild(asstBody);
-        transcript.appendChild(m);
+        appendMsg(m);
       }
       asstRaw += ev.text;
       scheduleAsstRender();
@@ -1330,7 +1330,7 @@ function handle(ev) {
         highlightCommands(body); // bold-brand the slash commands the note references
       }
       d.appendChild(body);
-      transcript.appendChild(d);
+      appendMsg(d);
       break;
     }
     case "context": {
@@ -1344,7 +1344,7 @@ function handle(ev) {
       const d = el("div", "msg msg-error flex items-center gap-1.5 text-danger");
       d.appendChild(sym("exclamationmark.triangle.fill"));
       d.appendChild(el("span", null, ev.text));
-      transcript.appendChild(d);
+      appendMsg(d);
       break;
     }
     case "approval": {
@@ -1479,7 +1479,7 @@ function handle(ev) {
     }
     case "reset": {
       endAssistant(); endToolGroup(); endWorkerGroup();
-      transcript.innerHTML = ""; tools = {}; turnTodos = null; phaseTimes = {}; turnActive = false; approval.classList.add("hidden"); questionEl.classList.add("hidden"); hideMenu();
+      transcript.innerHTML = ""; resetPairs(); tools = {}; turnTodos = null; phaseTimes = {}; turnActive = false; approval.classList.add("hidden"); questionEl.classList.add("hidden"); hideMenu();
       removeDraftPlanInline(); // drop the inline draft-plan ref + reset its expand state (transcript was just cleared)
       usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; renderUsage(); // clear the usage panel on a session reset
       boardMsgs = []; renderBoardMsgs(); // clear the agent-messages panel on a session reset
@@ -2232,7 +2232,7 @@ function renderContextBreakdown(ctx) {
 
   card.appendChild(el("div", "ctx-foot text-faint text-xs", "Estimates (~bytes/4). The status bar's ctx% reflects the last turn's measured input."));
 
-  transcript.appendChild(card);
+  appendMsg(card);
 }
 
 // draftPlanMarkdown renders a draft plan's STEPS as a markdown numbered list
@@ -2270,7 +2270,7 @@ function renderDraftPlanInline(plan) {
   if (!draftPlanEl || !draftPlanEl.isConnected) {
     endAssistant(); // close any open streaming prose so the plan sits cleanly below it
     draftPlanEl = startMsg("moony", "text-brand", "cpu", "msg-assistant");
-    transcript.appendChild(draftPlanEl);
+    appendMsg(draftPlanEl);
   }
   // Rebuild the block, keeping the startMsg speaker label (first child) intact.
   while (draftPlanEl.childNodes.length > 1) draftPlanEl.removeChild(draftPlanEl.lastChild);
@@ -2419,7 +2419,7 @@ function renderTurnTodos(todos) {
     const m = el("div", "msg phase-block");
     turnTodos = el("div", "phase-timeline");
     m.appendChild(turnTodos);
-    transcript.appendChild(m);
+    appendMsg(m);
     scrollBottom();
   }
   const now = Date.now();
@@ -2766,8 +2766,8 @@ function appendToolImages(ref, images) {
 function flash(msg) {
   const note = el("div", "msg msg-info text-warn text-xs");
   note.textContent = msg;
-  transcript.appendChild(note);
-  transcript.scrollTop = transcript.scrollHeight;
+  appendMsg(note);
+  const h = answerHost || transcript; h.scrollTop = h.scrollHeight;
 }
 
 async function approve(d) {
@@ -3190,14 +3190,77 @@ if (phoneMQ.addEventListener) phoneMQ.addEventListener("change", syncInputPlaceh
 else if (phoneMQ.addListener) phoneMQ.addListener(syncInputPlaceholder); // Safari < 14 fallback
 
 
-// Scroll-to-bottom: auto-stick only while near the bottom; the button appears
-// when scrolled up and jumps back down (re-enabling stick) on click.
-transcript.addEventListener("scroll", () => {
-  const nearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 80;
-  stickBottom = nearBottom;
+// --- Paged transcript: one Q&A pair shown at a time -------------------------
+// startPair opens a new pair (pinned question header + scrollable answer body),
+// makes its body the append target for the answer, and jumps the view to it.
+function startPair(questionMsg) {
+  const root = el("div", "pair");
+  const q = el("div", "pair-q");
+  q.appendChild(questionMsg);
+  const answer = el("div", "pair-a");
+  answer.addEventListener("scroll", () => onAnswerScroll(answer));
+  root.appendChild(q); root.appendChild(answer);
+  transcript.appendChild(root);
+  pairs.push({ root, answer });
+  answerHost = answer;   // new answer content appends here, even if the user pages away
+  stickBottom = true;
+  setActivePair(pairs.length - 1); // show the newest pair
+}
+
+// setActivePair shows one pair (by index) and updates the pager. answerHost is
+// NOT changed here — new content always streams into the latest pair, so paging
+// back to read history never redirects a live answer.
+function setActivePair(idx) {
+  if (idx < 0 || idx >= pairs.length) return;
+  activePairIdx = idx;
+  for (let i = 0; i < pairs.length; i++) pairs[i].root.classList.toggle("pair-active", i === idx);
+  renderPager();
+  updateScrollBtn();
+}
+
+// renderPager shows "n / total" with prev/next, hidden entirely for ≤1 pair.
+function renderPager() {
+  if (!pager) return;
+  const n = pairs.length;
+  if (n <= 1) { pager.hidden = true; return; }
+  pager.hidden = false;
+  if (pagerPos) pagerPos.textContent = (activePairIdx + 1) + " / " + n;
+  if (pagerPrev) pagerPrev.disabled = activePairIdx <= 0;
+  if (pagerNext) pagerNext.disabled = activePairIdx >= n - 1;
+}
+
+// resetPairs clears pager state when the transcript is wiped (session switch/reset).
+function resetPairs() {
+  pairs = []; activePairIdx = -1; answerHost = null;
+  if (scrollBtn) scrollBtn.hidden = true;
+  renderPager();
+}
+
+// The scroll-to-bottom button + auto-stick track the VIEWED answer; auto-stick
+// only follows the latest pair (the one new content streams into).
+function onAnswerScroll(a) {
+  const cur = pairs[activePairIdx];
+  if (!cur || cur.answer !== a) return; // ignore scrolls in hidden pairs
+  const nearBottom = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
   if (scrollBtn) scrollBtn.hidden = nearBottom;
-});
-if (scrollBtn) scrollBtn.onclick = () => { stickBottom = true; transcript.scrollTop = transcript.scrollHeight; scrollBtn.hidden = true; };
+  if (activePairIdx === pairs.length - 1) stickBottom = nearBottom;
+}
+function updateScrollBtn() {
+  if (!scrollBtn) return;
+  const cur = pairs[activePairIdx];
+  if (!cur) { scrollBtn.hidden = true; return; }
+  const a = cur.answer;
+  scrollBtn.hidden = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
+}
+
+if (scrollBtn) scrollBtn.onclick = () => {
+  const cur = pairs[activePairIdx];
+  if (cur) cur.answer.scrollTop = cur.answer.scrollHeight;
+  if (activePairIdx === pairs.length - 1) stickBottom = true;
+  scrollBtn.hidden = true;
+};
+if (pagerPrev) pagerPrev.onclick = () => setActivePair(activePairIdx - 1);
+if (pagerNext) pagerNext.onclick = () => setActivePair(activePairIdx + 1);
 
 input.addEventListener("input", () => { syncInputHighlight(); hideMenu(); paletteIdx = 0; renderPalette(); mentionIdx = 0; renderMentions(); });
 

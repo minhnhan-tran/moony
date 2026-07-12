@@ -28,6 +28,14 @@ let todosSig = "";                       // signature of the last renderTodos() 
 let turnTodosSig = "";                   // same guard for the transcript phase-timeline spinner
 let toolGroup = null;                    // current run of consecutive tool calls → one "N tool calls" disclosure
 let workerGroup = null;                  // current run of delegated-worker progress lines → one "N worker updates" disclosure
+// Paged transcript: the transcript shows ONE Q&A pair at a time — the question
+// pinned on top, the answer in its own scrollable region — with a prev/next pager
+// to walk earlier pairs. `pairs` is one {root, answer} per turn; `answerHost` is
+// the LATEST pair's scrollable body (where new answer content appends, regardless
+// of which pair is being viewed); `activePairIdx` is the pair the pager shows.
+let pairs = [];
+let activePairIdx = -1;
+let answerHost = null;
 let turnStartMs = 0, turnActive = false; // turn timing for the per-answer meta footer
 let lastTurnCost = 0;                    // this turn's answering cost (from turn_done), for the footer
 let lastTurnModel = "";                  // this turn's actual serving model (from turn_done); differs from the status model on an adaptive/cheap-reads downshift
@@ -82,7 +90,7 @@ const SF_TO_MATERIAL = {
   "checklist": "checklist", "checkmark": "check", "checkmark.circle": "check_circle",
   "checkmark.circle.fill": "check_circle", "checkmark.shield.fill": "verified_user",
   "checkmark.square.fill": "check_box", "chevron.down": "expand_more",
-  "chevron.left.forwardslash.chevron.right": "code", "chevron.right": "chevron_right",
+  "chevron.left.forwardslash.chevron.right": "code", "chevron.left": "chevron_left", "chevron.right": "chevron_right",
   "chevron.up": "expand_less", "circle": "circle", "circle.dotted": "circle",
   "circle.fill": "circle", "circle.lefthalf.filled": "contrast", "clock": "schedule",
   "clock.arrow.circlepath": "history", "cloud.fill": "cloud", "cpu": "memory",
@@ -280,6 +288,7 @@ if (composerMetaEl) {
 }
 const mentionsEl = $("#mentions");
 const scrollBtn = $("#scrollBtn");
+const pager = $("#pager"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");
 // queueCapable: the current session supports queuing messages while busy (set

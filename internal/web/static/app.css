@@ -2408,6 +2408,49 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .scroll-btn[hidden] { display: none; }
 .scroll-btn app-icon { font-size: 15px; }
 
+/* ---- Paged transcript ------------------------------------------------------
+   The transcript shows one Q&A pair at a time: the question pinned as a fixed
+   header (.pair-q) over the answer in its own scrollable region (.pair-a). A
+   centered pager (.pair-pager) walks earlier pairs; the scroll-to-bottom button
+   shifts to the bottom-right so it never collides with the pager. ---- */
+#empty, #connLoader { margin: auto; }        /* center within the flex-column transcript */
+.pair { display: none; min-height: 0; }
+.pair.pair-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.pair-q {
+  flex: none;
+  max-height: 40%; overflow-y: auto;         /* cap a long prompt; it scrolls, the answer keeps room */
+  padding: 1rem 1rem .75rem;
+  border-bottom: 1px solid rgb(var(--c-edge) / .6);
+  background: rgb(var(--c-surface) / .4);
+}
+.pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
+.pair-a {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 1rem;
+  display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
+}
+
+/* Scroll-to-bottom shifts to the bottom-right so the centered pager has room. */
+#scrollBtn { left: auto; right: .85rem; transform: none; }
+#scrollBtn:hover { transform: translateY(-1px); }
+
+/* Pager: prev · position · next, centered at the bottom like the scroll button. */
+.pair-pager {
+  position: absolute; left: 50%; bottom: .85rem; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: .5rem; z-index: 6;
+}
+.pair-pager[hidden] { display: none; }
+.pager-btn { position: static; transform: none; }        /* override .scroll-btn's absolute centering */
+.pager-btn:hover { transform: translateY(-1px); }
+.pager-btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
+.pager-pos {
+  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgb(var(--c-ink-soft));
+  background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-full); padding: .4rem .6rem;
+  box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
+}
+
 /* ---- Tool-call viewer: every tool in a group renders as a code card — a header
         bar (collapse + state + "tool  summary" + diff badge + copy) over a
         collapsible, line-numbered body (diff-colored for diffs, syntax-

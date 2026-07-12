@@ -504,9 +504,16 @@ function highlightCommands(root) {
   }
 }
 
-// scrollBottom keeps the view pinned to the latest output, but only while the
-// user is already at the bottom — so scrolling up to read isn't yanked back.
-function scrollBottom() { if (stickBottom) transcript.scrollTop = transcript.scrollHeight; }
+// appendMsg adds one answer node to the CURRENT (latest) pair's scrollable body,
+// falling back to the transcript itself before the first question exists. All
+// answer content (prose, thinking, tool/worker groups, notices, footers) flows
+// through here so it lands in the right pair; the question itself is the pair's
+// pinned header, added separately in the "user" event.
+function appendMsg(node) { (answerHost || transcript).appendChild(node); }
+
+// scrollBottom keeps the latest answer pinned to its newest output, but only
+// while the user is already at the bottom — so scrolling up to read isn't yanked.
+function scrollBottom() { const h = answerHost || transcript; if (stickBottom) h.scrollTop = h.scrollHeight; }
 
 // --- tool-call grouping -----------------------------------------------------
 // Consecutive tool calls collapse into one "N tool calls" disclosure; any
@@ -526,7 +533,7 @@ function ensureToolGroup() {
   const body = el("div", "tool-group-body hidden");
   head.onclick = () => { head.classList.toggle("is-open", !body.classList.toggle("hidden")); };
   wrap.appendChild(head); wrap.appendChild(body);
-  transcript.appendChild(wrap);
+  appendMsg(wrap);
   toolGroup = { body, label, count: 0 };
   return toolGroup;
 }
@@ -552,7 +559,7 @@ function ensureWorkerGroup() {
   const body = el("div", "worker-group-body hidden");
   head.onclick = () => { head.classList.toggle("is-open", !body.classList.toggle("hidden")); };
   wrap.appendChild(head); wrap.appendChild(body);
-  transcript.appendChild(wrap);
+  appendMsg(wrap);
   workerGroup = { body, label, count: 0 };
   return workerGroup;
 }
@@ -1015,7 +1022,7 @@ function renderTurnMeta() {
   if (s.reasoning) parts.push("reasoning: " + s.reasoning); // thinking/reasoning level
   if (curStep > 0) parts.push(curStep + (curStep === 1 ? " call" : " calls")); // model calls made this turn
   parts.push(...tokenMetaParts(lastTurnIn, lastTurnOut, lastTurnCacheRead)); // total tokens ↑↓ + prompt-cache hit rate
-  transcript.appendChild(turnMetaLine(parts));
+  appendMsg(turnMetaLine(parts));
   scrollBottom();
 }
 
@@ -1033,7 +1040,7 @@ function renderReplayedTurnMeta(meta) {
   if (meta.calls > 0) parts.push(meta.calls + (meta.calls === 1 ? " call" : " calls"));
   parts.push(...tokenMetaParts(meta.inTokens, meta.outTokens, meta.cacheReadTokens)); // total tokens ↑↓ + prompt-cache hit rate
   if (!parts.length) return;
-  transcript.appendChild(turnMetaLine(parts));
+  appendMsg(turnMetaLine(parts));
 }
 
 // renderTaskMeta appends a per-delegation footer (duration · cost · model ·
