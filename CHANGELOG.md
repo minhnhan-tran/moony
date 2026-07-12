@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.8.1] — 2026-07-12
+
+### Fixed
+
+- A turn no longer ends **silently** when the provider returns an empty response
+  (HTTP 200 with no text, no tool call, and zero tokens — seen with unconfigured
+  routes behind gateways like OmniRoute). moony now emits a notice naming the
+  model and pointing at `/model`, instead of looking like it froze.
+
 ## [1.8.0] — 2026-07-12
 
 ### Added
