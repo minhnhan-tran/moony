@@ -2331,7 +2331,13 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    ============================================================================ */
 
 /* Positioning context so the scroll button can float over the scrolling list. */
-.transcript-wrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.transcript-wrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* #transcript is a non-scrolling flex column clipped to .transcript-wrap: the
+   active .pair fills it and its .pair-a scrolls. Styled here rather than via
+   utility classes because min-h-0 / overflow-hidden aren't in the prebuilt
+   (purged) tailwind.css — relying on them left it block/overflow:visible, so the
+   answer overflowed down over the #question panel. */
+#transcript { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 /* Inline code as warm amber chips (matches the reference) — same in the user
    bubble. The text color gets a light-theme override below (the bright #e3b341
