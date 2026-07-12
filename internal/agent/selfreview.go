@@ -23,6 +23,7 @@ import (
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/diff"
 	"github.com/pysty1995/moony/internal/llm"
+	"github.com/pysty1995/moony/internal/provider"
 )
 
 const (
@@ -204,8 +205,22 @@ func (a *Agent) maybeSelfReview(ctx context.Context, emit func(Event), attempts 
 	if d == "" {
 		return false
 	}
-	reviewModel, _, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
-	reviewingText := "Self-reviewing the diff for introduced bugs… (" + shortModelName(reviewModel) + ")"
+	reviewModel, reviewProv, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
+	// Name the provider + reasoning the review actually runs at, like the
+	// downshift notice. Provider defaults to the session provider; aux forces
+	// reasoning OFF unless MOONY_AUX_REASONING pins a level (see streamAux).
+	if reviewProv == "" {
+		reviewProv = a.cfg.LLMProvider
+	}
+	reviewProvLabel := reviewProv
+	if p, ok := provider.Lookup(reviewProv); ok {
+		reviewProvLabel = p.Label
+	}
+	reviewReasoning := config.AuxReasoning()
+	if reviewReasoning == "" {
+		reviewReasoning = config.ReasoningOff
+	}
+	reviewingText := fmt.Sprintf("Self-reviewing the diff for introduced bugs… (%s on %s, reasoning: %s)", reviewModel, reviewProvLabel, reviewReasoning)
 	emit(Info{Text: reviewingText})
 	a.noteInfo(reviewingText)
 	ok, findings, usage := a.runSelfReview(ctx, d)

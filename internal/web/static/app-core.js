@@ -1288,7 +1288,11 @@ function handle(ev) {
       // fast tier reads at a glance.
       const autoRoute = !provSwitch && !modelSwitch &&
         ev.text.match(/^auto: using (.+?) on (.+?) \(reasoning: (.+?)\) for this round \((.+?)\)\.?$/);
-      const provList = !provSwitch && !modelSwitch && !autoRoute && ev.text.match(/^Model providers:\n([\s\S]+)$/);
+      // Self-review status: style its model / provider / reasoning as pills too,
+      // but keep the plain info icon (it's a review action, not a backend switch).
+      const selfReview = !provSwitch && !modelSwitch && !autoRoute &&
+        ev.text.match(/^Self-reviewing the diff for introduced bugs… \((.+?) on (.+?), reasoning: (.+?)\)$/);
+      const provList = !provSwitch && !modelSwitch && !autoRoute && !selfReview && ev.text.match(/^Model providers:\n([\s\S]+)$/);
       const isModel = !!(provSwitch || modelSwitch || autoRoute || provList);
       const d = el("div", "msg msg-info text-sm" + (isModel ? " msg-info-model" : ""));
       d.appendChild(sym(isModel ? "cpu" : "info.circle.fill", "msg-info-icon"));
@@ -1308,6 +1312,16 @@ function handle(ev) {
           " (reasoning: ",
           el("span", "msg-info-pill msg-info-pill-reasoning", autoRoute[3]),
           ") for this round (" + autoRoute[4] + ").",
+        );
+      } else if (selfReview) {
+        body.append(
+          "Self-reviewing the diff for introduced bugs… (",
+          el("span", "msg-info-pill msg-info-pill-model", selfReview[1]),
+          " on ",
+          el("span", "msg-info-pill msg-info-pill-provider", selfReview[2]),
+          ", reasoning: ",
+          el("span", "msg-info-pill msg-info-pill-reasoning", selfReview[3]),
+          ")",
         );
       } else if (provList) {
         body.appendChild(renderProviderList(provList[1]));
