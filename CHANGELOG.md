@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.0] — 2026-07-12
+
+### Added
+
+- **Paged single-pair transcript.** The web transcript now shows one Q&A pair at
+  a time instead of a continuous scroll: the user's question is pinned as a fixed
+  header over the model's answer in its own scrollable region, with a centered
+  **prev / next pager** (and an `n / total` counter) to walk earlier pairs. A new
+  question always jumps to the latest pair, and answer content keeps streaming
+  into the latest pair even while you're reading an older one. The
+  scroll-to-bottom button is kept for the answer region (moved to the bottom-right
+  so it doesn't collide with the pager).
+
 ## [1.9.3] — 2026-07-12
 
 ### Changed
