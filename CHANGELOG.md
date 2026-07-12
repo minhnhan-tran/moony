@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.4] — 2026-07-12
+
+### Changed
+
+- web: expand the tool-call group by default instead of starting collapsed
+
 ## [1.11.3] — 2026-07-12
 
 ### Changed
