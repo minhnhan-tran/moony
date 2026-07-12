@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.1] — 2026-07-12
+
+### Changed
+
+- **The transcript pager moved to the right edge** (from a centered row at the
+  bottom): the **previous** button is pinned to the top-right, **next** to the
+  bottom-right, and the `n / total` position sits centered on the right edge
+  between them — a vertical pager down the transcript's edge. The
+  scroll-to-bottom button returns to bottom-center now that the pager has vacated
+  it.
+
 ## [1.10.0] — 2026-07-12
 
 ### Added
