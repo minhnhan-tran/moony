@@ -2430,25 +2430,27 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
 }
 
-/* Scroll-to-bottom shifts to the bottom-right so the centered pager has room. */
-#scrollBtn { left: auto; right: .85rem; transform: none; }
-#scrollBtn:hover { transform: translateY(-1px); }
+/* Scroll-to-bottom sits bottom-center (its .scroll-btn base); the pager now
+   lives on the right edge, so no override is needed here. */
 
-/* Pager: prev · position · next, centered at the bottom like the scroll button. */
-.pair-pager {
-  position: absolute; left: 50%; bottom: .85rem; transform: translateX(-50%);
-  display: inline-flex; align-items: center; gap: .5rem; z-index: 6;
-}
+/* Pager: a vertical control column pinned to the transcript's right edge —
+   previous at the top-right, next at the bottom-right, and the "n / total"
+   position centered between them. Positioned relative to .transcript-wrap
+   (the nearest positioned ancestor); DOM order doesn't matter. */
 .pair-pager[hidden] { display: none; }
-.pager-btn { position: static; transform: none; }        /* override .scroll-btn's absolute centering */
-.pager-btn:hover { transform: translateY(-1px); }
+#pagerPrev, #pagerNext { position: absolute; left: auto; right: .85rem; transform: none; }
+#pagerPrev { top: .85rem; bottom: auto; }
+#pagerNext { top: auto; bottom: .85rem; }
+#pagerPrev:hover, #pagerNext:hover { transform: translateY(-1px); }
 .pager-btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
 .pager-pos {
+  position: absolute; right: .85rem; top: 50%; transform: translateY(-50%); z-index: 6;
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: rgb(var(--c-ink-soft));
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
-  border-radius: var(--r-full); padding: .4rem .6rem;
+  border-radius: var(--r-full); padding: .4rem .5rem;
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
+  text-align: center; min-width: 2.4rem;
 }
 
 /* ---- Tool-call viewer: every tool in a group renders as a code card — a header
