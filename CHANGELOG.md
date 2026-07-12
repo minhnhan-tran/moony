@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.3] — 2026-07-12
+
+### Changed
+
+- **Self-review result line now names the provider, model, and reasoning level.** The `Self-review: no issues found. …` and `Self-review flagged possible issues …` notices now carry the reviewer's `model on provider, reasoning: level` alongside the token/cost metrics — matching the `Self-reviewing the diff…` starting notice — and the web transcript renders the three as the same colored pills.
+
 ## [1.11.2] — 2026-07-12
 
 ### Fixed
