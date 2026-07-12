@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.8.0] — 2026-07-12
+
+### Added
+
+- **OmniRoute provider** (`/provider omniroute`): a self-hosted, OpenAI-compatible
+  gateway ([diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute))
+  defaulting to `http://localhost:20128/v1` (override `MOONY_OMNIROUTE_BASE_URL`),
+  authed with `MOONY_OMNIROUTE_API_KEY`, and starting on its zero-config `auto`
+  router model. Routes through the existing OpenAI-compatible backend; selectable
+  in the TUI `/provider` list and the web provider picker, with its own Persona
+  key/base-URL card.
+
 ## [1.7.0] — 2026-07-10
 
 ### Changed
