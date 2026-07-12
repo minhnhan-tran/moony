@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.9.2] — 2026-07-12
+
+### Changed
+
+- **The adaptive / cheap-reads downshift notice is now styled and persisted.** In
+  the web transcript the three parts of `auto: using <model> on <provider>
+  (reasoning: <level>) …` render as distinct colored pills (model = brand,
+  provider = violet, reasoning = green), matching the provider/model-switch
+  confirmations. The notice is also saved to session history, so it replays in
+  place (with the same styling) when a session is reopened instead of vanishing.
+
 ## [1.9.1] — 2026-07-12
 
 ### Fixed
