@@ -39,6 +39,7 @@ let answerHost = null;
 let turnStartMs = 0, turnActive = false; // turn timing for the per-answer meta footer
 let lastTurnCost = 0;                    // this turn's answering cost (from turn_done), for the footer
 let lastTurnModel = "";                  // this turn's actual serving model (from turn_done); differs from the status model on an adaptive/cheap-reads downshift
+let lastTurnReasoning = "";              // this turn's actual serving reasoning level (from turn_done); differs from the status level on a Fast-tier downshift
 let lastTurnIn = 0, lastTurnOut = 0, lastTurnCacheRead = 0; // this turn's total tokens + cached-input subset (from turn_done), for the footer
 let cumTurnIn = 0, cumTurnOut = 0; // running session totals summed from per-turn meta (replayed + live), so the status bar matches the turn-meta footers even after a reopen
 let stickBottom = true;                  // auto-scroll only when the user is already at the bottom

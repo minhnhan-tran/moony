@@ -123,3 +123,52 @@ func TestRecordTurnMetaUsesServingModelOnDownshift(t *testing.T) {
 		t.Errorf("TurnMeta.Model = %q, want the serving (fast) model %q — not the session model %q", got, fast, main)
 	}
 }
+
+// TestRecordTurnMetaUsesFastReasoningOnDownshift is the reasoning-level analogue
+// of TestRecordTurnMetaUsesServingModelOnDownshift: when AdaptiveModel
+// downshifts a round to the Fast tier and MOONY_FAST_REASONING pins a distinct
+// level, the per-turn footer must report the Fast tier's reasoning (what
+// actually ran), not the session model's configured level.
+func TestRecordTurnMetaUsesFastReasoningOnDownshift(t *testing.T) {
+	isolateConfig(t)
+	t.Setenv("MOONY_FAST_MODEL", "test-fast-model")
+	t.Setenv("MOONY_FAST_REASONING", "low")
+	dir := t.TempDir()
+	store, err := session.NewStoreAt(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	main := "anthropic.claude-opus-4-8"
+	fast := config.FastModel(main, "")
+	if fast == main {
+		t.Skipf("no distinct FastModel for %q; can't exercise a downshift", main)
+	}
+	cfg := &config.Config{
+		Model:              main,
+		ReasoningLevel:     "high", // the session (main) model's level
+		AdaptiveModel:      true,
+		MaxTokens:          256,
+		MaxToolOutputBytes: 1 << 20,
+		MaxAgentSteps:      10,
+		ApprovalPolicy:     config.ApprovalAuto,
+		WorkingDir:         dir,
+	}
+	fake := &scriptedStreamer{turns: []llm.Response{
+		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("done")}, Usage: llm.Usage{InputTokens: 100, OutputTokens: 50}},
+	}}
+	ag := New(cfg, fake, tools.NewRegistry(dir), store, nil)
+
+	if err := ag.Run(context.Background(), "hi", func(Event) {}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	saved, err := store.Load(ag.SessionID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.TurnMetas) != 1 {
+		t.Fatalf("TurnMetas = %d, want 1", len(saved.TurnMetas))
+	}
+	if got := saved.TurnMetas[0].Reasoning; got != "low" {
+		t.Errorf("TurnMeta.Reasoning = %q, want the Fast tier's %q — not the session level %q", got, "low", cfg.ReasoningLevel)
+	}
+}

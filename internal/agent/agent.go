@@ -1197,6 +1197,21 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			cheapStreakActive = false
 		}
 
+		// The reasoning level ACTUALLY applied to this round's model call — the
+		// recordTurnMeta counterpart of turnModel. Must mirror the callCtx
+		// derivation just below, or a downshifted round's persisted footer
+		// misleadingly shows the main model's configured reasoning instead of the
+		// Fast tier's.
+		turnReasoning := effort
+		if turnReasoning == "" {
+			turnReasoning = a.cfg.ReasoningLevel
+		}
+		if downshiftReason != "" {
+			if fr := config.FastReasoning(); fr != "" {
+				turnReasoning = fr
+			}
+		}
+
 		// Thread the turn's model + effort. On a downshifted round, also route to
 		// the Fast tier's provider (if cross-provider) and apply the Fast reasoning
 		// level; both are no-ops when unset, so a non-downshifted round is
@@ -1288,10 +1303,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			emit(Info{Text: reason})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
 			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel)
+			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
 			a.recordTaskMetas(taskAcct)
 			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel})
+			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1304,10 +1319,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			emit(Info{Text: fmt.Sprintf("Goal token budget reached (%d/%d) — stopping. Raise it with /goal budget <n>, remove it with /goal budget off, or send a message to keep going.", a.goalTokensUsed, a.goalBudgetTokens)})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
 			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel)
+			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
 			a.recordTaskMetas(taskAcct)
 			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel})
+			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1371,10 +1386,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			}
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
 			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel)
+			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
 			a.recordTaskMetas(taskAcct)
 			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel})
+			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
 			a.persist()
 			// An approved plan whose mirrored todos are all resolved is finished:
 			// mark it done so its "carry it out" context stops being re-injected.

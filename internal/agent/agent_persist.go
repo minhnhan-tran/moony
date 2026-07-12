@@ -105,7 +105,7 @@ func (a *Agent) noteInfo(text string) {
 // configured main model never ran a single round this turn. Recording the
 // session model here would mislabel the cost (and the round(s) that earned it)
 // against a model that was never called.
-func (a *Agent) recordTurnMeta(start time.Time, usage llm.Usage, cost float64, calls int, model string) {
+func (a *Agent) recordTurnMeta(start time.Time, usage llm.Usage, cost float64, calls int, model, reasoning string) {
 	if a.sess == nil {
 		return
 	}
@@ -121,7 +121,7 @@ func (a *Agent) recordTurnMeta(start time.Time, usage llm.Usage, cost float64, c
 		DurationMS:      time.Since(start).Milliseconds(),
 		CostUSD:         cost,
 		Model:           model,
-		Reasoning:       a.cfg.ReasoningLevel,
+		Reasoning:       reasoning,
 		MsgCount:        len(a.messages),
 		Calls:           calls,
 		InTokens:        usage.InputTokens,

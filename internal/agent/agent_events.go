@@ -103,6 +103,11 @@ type TurnDone struct {
 	// an AdaptiveModel/CheapReads downshift can make differ from the session's
 	// configured model — so the live footer labels the cost against what really ran.
 	Model string
+	// Reasoning is the effort level that actually served this turn (the last
+	// round's turnReasoning). Like Model, a Fast-tier downshift can make it differ
+	// from the session's configured level, so the live footer must use this rather
+	// than the current status/composer reasoning.
+	Reasoning string
 }
 
 // Info is an out-of-band notice (e.g. compaction happened).

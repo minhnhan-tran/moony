@@ -126,6 +126,11 @@ func TestToWire(t *testing.T) {
 	if sw := toWire(agent.StepUpdate{Step: 7, Max: 150}); sw.Type != "step" || sw.Step != 7 || sw.MaxSteps != 150 {
 		t.Errorf("step mapping wrong: %+v", sw)
 	}
+	// A downshifted turn's live footer must carry the ACTUAL serving model and
+	// reasoning (not the session's), so the browser shows what really ran.
+	if tw := toWire(agent.TurnDone{Model: "fast-model", Reasoning: "low"}); tw.Model != "fast-model" || tw.Reasoning != "low" {
+		t.Errorf("turn_done should carry serving model+reasoning, got model=%q reasoning=%q", tw.Model, tw.Reasoning)
+	}
 	qw := toWire(agent.QuestionRequest{
 		Question: "Which?",
 		Multiple: true,

@@ -1019,7 +1019,10 @@ function renderTurnMeta() {
   // downshift so the session model never ran); fall back to the status model.
   const turnModel = lastTurnModel || s.model;
   if (turnModel) parts.push(prettyModel(turnModel)); // polite model name with version, e.g. "Claude Opus 4.8"
-  if (s.reasoning) parts.push("reasoning: " + s.reasoning); // thinking/reasoning level
+  // Prefer the reasoning that actually served this turn (a Fast-tier downshift
+  // can make it differ from the composer's level); fall back to the status level.
+  const turnReasoning = lastTurnReasoning || s.reasoning;
+  if (turnReasoning) parts.push("reasoning: " + turnReasoning); // thinking/reasoning level
   if (curStep > 0) parts.push(curStep + (curStep === 1 ? " call" : " calls")); // model calls made this turn
   parts.push(...tokenMetaParts(lastTurnIn, lastTurnOut, lastTurnCacheRead)); // total tokens ↑↓ + prompt-cache hit rate
   appendMsg(turnMetaLine(parts));

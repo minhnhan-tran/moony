@@ -963,7 +963,7 @@ async function newSession() {
 function clearView() {
   if (es) { es.close(); es = null; }
   current = null; asstBody = null; asstRaw = ""; asstLabeled = false; turnTodos = null; phaseTimes = {}; toolGroup = null; workerGroup = null; turnActive = false; turnStartMs = 0; stickBottom = true; thinkBody = null; tools = {}; lastStatus = null; curStep = 0; maxStep = 0;
-  cumTurnIn = 0; cumTurnOut = 0; lastTurnCost = 0; lastTurnModel = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; // reset session token/cost accumulators; the new session replays its own turn-meta
+  cumTurnIn = 0; cumTurnOut = 0; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; // reset session token/cost accumulators; the new session replays its own turn-meta
   upgrading = false; upgradeStartVer = ""; syncUpgradeBtn(); // drop any stale "Updating…" state (button + mascot) when the view is torn down (e.g. the focused laptop dropped)
   usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // reset per-session usage history
   boardMsgs = []; renderBoardMsgs(); // reset the agent-messages panel
@@ -1103,7 +1103,7 @@ function handle(ev) {
       asstLabeled = false; // a new turn → the next assistant answer gets a fresh label
       turnTodos = null;    // and a fresh per-question todo card in the transcript
       phaseTimes = {};     // reset per-phase timing for the new turn
-      turnStartMs = Date.now(); turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
+      turnStartMs = Date.now(); turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
       lastTodos = [];      // drop the previous turn's todos so a plan event can't resurrect them
       renderTodos([]);     // hide the previous turn's task-list bar until new todos arrive
       const m = startMsg("you", "text-ok", "person.crop.circle", "msg-user");
@@ -1273,7 +1273,7 @@ function handle(ev) {
       // and the final "idle" status at end of replay fires renderTurnMeta(),
       // appending a SECOND footer stamped with the load time (new Date()).
       turnActive = false; turnStartMs = 0;
-      lastTurnCost = 0; lastTurnModel = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0;
+      lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0;
       break;
     }
     case "info": {
@@ -1444,6 +1444,7 @@ function handle(ev) {
       // session goes idle) shows the per-turn cost, not the session total.
       if (ev.costUSD > 0) lastTurnCost = ev.costUSD;
       lastTurnModel = ev.model || ""; // the model that actually served this turn (may be an adaptive/cheap-reads downshift)
+      lastTurnReasoning = ev.reasoning || ""; // …and the reasoning level it actually used (may be a Fast-tier downshift)
       // …and its total tokens + cached-input subset for the cache-hit display.
       if (ev.turnIn > 0) lastTurnIn = ev.turnIn;
       if (ev.turnOut > 0) lastTurnOut = ev.turnOut;

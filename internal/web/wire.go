@@ -34,7 +34,12 @@ type wireEvent struct {
 	// Model is set on a `task` "tool_start" with the delegated sub-agent's model
 	// id, so the browser can show which model the delegation runs on.
 	Model string `json:"model,omitempty"`
-	State string `json:"state,omitempty"`
+	// Reasoning is set on "turn_done" with the effort level that actually served
+	// the turn (which a Fast-tier downshift can make differ from the session
+	// level), so the live footer shows what really ran rather than the composer's
+	// current reasoning.
+	Reasoning string `json:"reasoning,omitempty"`
+	State     string `json:"state,omitempty"`
 	// CanQueue is set on a "state" event emitted by a web-native session to tell
 	// the browser this session supports queuing messages while busy (the relay
 	// terminal-mirror path doesn't emit it, so that view keeps its old
@@ -311,7 +316,7 @@ func toWire(ev agent.Event) wireEvent {
 		}
 		return wireEvent{Type: "tool_end", Tool: e.Name, ToolID: e.ID, Output: e.Output, IsError: e.IsError, Images: imgs, ParentID: e.ParentID, Agent: e.Agent}
 	case agent.TurnDone:
-		return wireEvent{Type: "turn_done", CostUSD: e.CostUSD, Model: e.Model,
+		return wireEvent{Type: "turn_done", CostUSD: e.CostUSD, Model: e.Model, Reasoning: e.Reasoning,
 			TurnIn: e.TurnUsage.InputTokens, TurnOut: e.TurnUsage.OutputTokens,
 			TurnCacheRead: e.TurnUsage.CacheReadInputTokens}
 	case agent.TaskMeta:
