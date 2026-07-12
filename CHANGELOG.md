@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.6] — 2026-07-12
+
+### Changed
+
+- web: widen the manageOverlay modal (640px -> 880px cap)
+
 ## [1.11.5] — 2026-07-12
 
 ### Changed
