@@ -19,6 +19,7 @@ import (
 	"github.com/pysty1995/moony/internal/llm"
 	"github.com/pysty1995/moony/internal/lsp"
 	"github.com/pysty1995/moony/internal/permissions"
+	"github.com/pysty1995/moony/internal/provider"
 	"github.com/pysty1995/moony/internal/session"
 	"github.com/pysty1995/moony/internal/subagents"
 	"github.com/pysty1995/moony/internal/tools"
@@ -1157,7 +1158,26 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		if downshiftReason != "" {
 			if !cheapStreakActive {
 				cheapStreakActive = true
-				emit(Info{Text: fmt.Sprintf("auto: using %s for this round (%s).", shortModelName(turnModel), downshiftReason)})
+				// Name the provider, the (full, unmangled) model id, and the reasoning
+				// level this round actually uses — so a cross-provider / cross-reasoning
+				// fast tier is visible, not just "using <model>". Provider defaults to
+				// the session provider; reasoning to the Fast level, else the turn's.
+				prov := turnProvider
+				if prov == "" {
+					prov = a.cfg.LLMProvider
+				}
+				provLabel := prov
+				if p, ok := provider.Lookup(prov); ok {
+					provLabel = p.Label
+				}
+				reasoning := config.FastReasoning()
+				if reasoning == "" {
+					reasoning = effort
+				}
+				if reasoning == "" {
+					reasoning = "default"
+				}
+				emit(Info{Text: fmt.Sprintf("auto: using %s on %s (reasoning: %s) for this round (%s).", turnModel, provLabel, reasoning, downshiftReason)})
 			}
 		} else {
 			cheapStreakActive = false
