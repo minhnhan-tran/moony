@@ -12,6 +12,7 @@ package web
 // config and s.cfg together.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -442,7 +443,9 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 		if err != nil || len(models) == 0 {
 			models = config.ModelFallback(cfg.LLMProvider)
 		}
-		writeJSON(w, map[string]any{"fields": personaFields(cfg, models)})
+		fastModels := tierModels(r.Context(), cfg, models, config.FastProvider())
+		auxModels := tierModels(r.Context(), cfg, models, config.AuxProvider())
+		writeJSON(w, map[string]any{"fields": personaFields(cfg, models, fastModels, auxModels)})
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -492,7 +495,9 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	if err2 != nil || len(models2) == 0 {
 		models2 = config.ModelFallback(cfg.LLMProvider)
 	}
-	writeJSON(w, map[string]any{"fields": personaFields(cfg, models2)})
+	fastModels2 := tierModels(r.Context(), cfg, models2, config.FastProvider())
+	auxModels2 := tierModels(r.Context(), cfg, models2, config.AuxProvider())
+	writeJSON(w, map[string]any{"fields": personaFields(cfg, models2, fastModels2, auxModels2)})
 }
 
 // providerEnvPersist collects the provider env vars an edit should write to the
@@ -654,22 +659,31 @@ func setEnvPlain(name string, v *string) {
 	}
 }
 
-// personaFields snapshots c into the panel's field list (secrets masked).
-func personaFields(c *config.Config, models []config.ModelInfo) []personaField {
-	// Per-tier model catalogs for the "Full model picker": when the Fast or
-	// Self-review tier points at a DIFFERENT provider than the session, list that
-	// provider's known models so its exact model is pickable in the dropdown. Uses
-	// the static per-provider catalogue (config.ModelFallback) — no extra network
-	// call — which is the same list /models falls back to when a live fetch fails.
-	// When a tier inherits the session provider, its dropdown keeps the live list.
-	fastModels := models
-	if fp := config.FastProvider(); fp != "" && !config.ProvidersEqual(fp, c.LLMProvider) {
-		fastModels = config.ModelFallback(fp)
+// tierModels returns the model catalogue to offer for a Fast/Self-review tier:
+// the session list when the tier inherits or matches the session provider, else
+// that provider's OWN catalogue — fetched live (the cloned config already carries
+// every provider's key/base-URL, so only the provider id needs changing), falling
+// back to its static list on error. This is what lets the Fast/Self-review model
+// dropdown repopulate with the chosen provider's models.
+func tierModels(ctx context.Context, cfg *config.Config, sessionModels []config.ModelInfo, tierProvider string) []config.ModelInfo {
+	if tierProvider == "" || config.ProvidersEqual(tierProvider, cfg.LLMProvider) {
+		return sessionModels
 	}
-	auxModels := models
-	if ap := config.AuxProvider(); ap != "" && !config.ProvidersEqual(ap, c.LLMProvider) {
-		auxModels = config.ModelFallback(ap)
+	clone := *cfg
+	clone.LLMProvider = tierProvider
+	clone.Model = provider.DefaultModelFor(tierProvider)
+	if m, err := llm.NewClient(&clone).ListModels(ctx); err == nil && len(m) > 0 {
+		return m
 	}
+	return config.ModelFallback(tierProvider)
+}
+
+// personaFields snapshots c into the panel's field list (secrets masked). models
+// is the session provider's catalogue; fastModels/auxModels are the Fast and
+// Self-review tiers' catalogues (their own provider's list when cross-provider,
+// else the session list) — resolved by the caller via tierModels so this stays
+// free of network calls.
+func personaFields(c *config.Config, models, fastModels, auxModels []config.ModelInfo) []personaField {
 	fields := []personaField{
 		{Key: "ollamaHost", Label: "Ollama host", Type: "text", Value: c.OllamaBaseURL,
 			Desc: "Ollama server (MOONY_OLLAMA_HOST), used by the ollama backend."},

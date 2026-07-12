@@ -3974,6 +3974,24 @@ async function renderPersona() {
   try { const r = await fetch(api(`/api/sessions/${current}/persona`)); if (r.ok) fields = (await r.json()).fields || []; } catch (_) {}
   const form = el("div", "persona-form");
   const readers = {}; // key -> () => current input value
+  const status = el("span", "persona-status");
+  // persist saves all fields, then re-renders from the server response. Shared by
+  // the Save button and the provider selects — changing the Fast/Self-review
+  // provider must refetch that provider's model catalogue into the model dropdown.
+  const persist = async () => {
+    const payload = {};
+    for (const f of fields) {
+      const v = readers[f.key] ? readers[f.key]() : undefined;
+      if (f.type === "secret") { if (v) payload[f.key] = v; } // blank secret => keep existing
+      else payload[f.key] = v;
+    }
+    status.textContent = "Saving…";
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/persona`), { method: "POST", body: JSON.stringify(payload) });
+      status.textContent = r.ok ? "Saved — applied to this terminal." : `Save failed (${r.status}).`;
+      if (r.ok) renderPersona();
+    } catch (_) { status.textContent = "Save failed."; }
+  };
   const makeField = (f) => {
     const field = el("div", "persona-field");
     if (f.type === "bool") {
@@ -3997,6 +4015,9 @@ async function renderPersona() {
       field.append(row);
       if (f.desc) field.append(el("div", "persona-desc", f.desc));
       readers[f.key] = () => sel.value;
+      // Changing a tier provider refetches its model catalogue into the model
+      // dropdown, so persist + re-render on change (the model list is server-side).
+      if (f.key === "fastProvider" || f.key === "auxProvider") sel.onchange = () => { persist(); };
     } else {
       field.append(el("div", "persona-label", f.label));
       if (f.desc) field.append(el("div", "persona-desc", f.desc));
@@ -4066,22 +4087,8 @@ async function renderPersona() {
     }
   }
   body.append(form);
-  const status = el("span", "persona-status");
   const save = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Save");
-  save.onclick = async () => {
-    const payload = {};
-    for (const f of fields) {
-      const v = readers[f.key] ? readers[f.key]() : undefined;
-      if (f.type === "secret") { if (v) payload[f.key] = v; } // skip blank → keep existing
-      else payload[f.key] = v;
-    }
-    status.textContent = "Saving…";
-    try {
-      const r = await fetch(api(`/api/sessions/${current}/persona`), { method: "POST", body: JSON.stringify(payload) });
-      status.textContent = r.ok ? "Saved — applied to this terminal." : `Save failed (${r.status}).`;
-      if (r.ok) renderPersona();
-    } catch (_) { status.textContent = "Save failed."; }
-  };
+  save.onclick = () => persist();
   const actions = el("div", "persona-actions"); actions.append(save, status);
   body.append(actions);
 }

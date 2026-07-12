@@ -127,7 +127,8 @@ func TestApplyPersonaEditAuxModel(t *testing.T) {
 // field is present with an "Auto" default option and the full model catalog.
 func TestPersonaFieldsIncludesAuxModel(t *testing.T) {
 	c := &config.Config{}
-	fields := personaFields(c, config.AllKnownModels())
+	m := config.AllKnownModels()
+	fields := personaFields(c, m, m, m)
 	var f *personaField
 	for i := range fields {
 		if fields[i].Key == "sqeAuxModel" {
@@ -201,7 +202,8 @@ func TestPersonaFieldsIncludesProviderReasoning(t *testing.T) {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
 	}
-	fields := personaFields(&config.Config{LLMProvider: provider.Ollama}, config.AllKnownModels())
+	pm := config.AllKnownModels()
+	fields := personaFields(&config.Config{LLMProvider: provider.Ollama}, pm, pm, pm)
 	byKey := map[string]personaField{}
 	for _, f := range fields {
 		byKey[f.Key] = f
@@ -247,7 +249,8 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 		os.Unsetenv(k)
 	}
 	// The five MOONY_SESSION_* fields are surfaced, with the right secret/text types.
-	fields := personaFields(&config.Config{}, config.AllKnownModels())
+	sm := config.AllKnownModels()
+	fields := personaFields(&config.Config{}, sm, sm, sm)
 	byKey := map[string]personaField{}
 	for _, f := range fields {
 		byKey[f.Key] = f
@@ -309,7 +312,8 @@ func TestPersonaProviderKeyFields(t *testing.T) {
 	}
 	c := &config.Config{OpenAIAPIKey: "sk-live-abcd1234"} // pre-set one key
 	byKey := map[string]personaField{}
-	for _, f := range personaFields(c, config.AllKnownModels()) {
+	km := config.AllKnownModels()
+	for _, f := range personaFields(c, km, km, km) {
 		byKey[f.Key] = f
 	}
 	// Every providerCreds row must appear as a secret field, plus a text base-URL
