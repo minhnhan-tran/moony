@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.2] — 2026-07-12
+
+### Fixed
+
+- **Turn-meta footer now shows the reasoning level that actually served the turn.** When AdaptiveModel/CheapReads downshifted a round to the Fast tier (with `MOONY_FAST_REASONING` set to a different level), the per-turn footer kept showing the *session/main model's* configured reasoning instead of the Fast tier's — even though the footer already correctly showed the downshifted *model*. Both paths are fixed: the persisted `TurnMeta.Reasoning` (used on session reopen/replay) now records the effective per-turn level, and the live `turn_done` event carries it to the browser, which uses it instead of the composer's current level.
+
+### Changed
+
+- docs: note the PlanStore.Set-vs-Sync distinction for future plan-status mirror writes.
+
 ## [1.11.1] — 2026-07-12
 
 ### Fixed
