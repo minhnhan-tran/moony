@@ -1149,10 +1149,11 @@ function handle(ev) {
         m.appendChild(head);
         const bodyEl = el("div", "think-body text-faint text-[13px] italic whitespace-pre-wrap break-words pl-3");
         m.appendChild(bodyEl);
-        // Reasoning replayed from history starts collapsed; live reasoning streams expanded.
-        // Closures capture the local bodyEl (the module-level thinkBody gets nulled between blocks).
+        // Thinking blocks always start expanded (live and replayed alike); the
+        // header still toggles collapse on click. Closures capture the local bodyEl
+        // (the module-level thinkBody gets nulled between blocks).
         const setCollapsed = (v) => { m.classList.toggle("collapsed", v); bodyEl.hidden = v; head.setAttribute("aria-expanded", String(!v)); };
-        setCollapsed(!historyLoaded);
+        setCollapsed(false);
         head.onclick = () => setCollapsed(!bodyEl.hidden);
         appendMsg(m);
         thinkBody = bodyEl;
