@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.0] — 2026-07-12
+
+### Added
+
+- **`lsp_diagnostics` tool** — surfaces the language server's live compiler/linter diagnostics (severity, line, message) for a file from its current on-disk contents, so the agent can check an edit compiles cleanly without a full build.
+- **`web_search` tool** — queries a web search engine and returns ranked title/URL/snippet results so the agent can *discover* pages (not just fetch known URLs); keyless DuckDuckGo HTML by default, or the Brave Search API when `MOONY_SEARCH_API_KEY` is set, honouring the Domains allow/deny rules.
+- **`test_run` tool** — runs the project's tests and returns a structured summary (passed/failed/skipped, coverage, failing-test names + output), parsing `go test -json` for Go and running the conventional command for npm/Cargo/pytest projects; a failing suite is a normal result, not a tool error.
+- **`recall` tool** — retrieves persisted long-term memory notes (from project + global `AGENTS.md`) ranked by relevance to a query using BM25 over identifier-aware tokens — the read-side companion to `remember`.
+- **`usage` tool** — reports the session's token and cost usage (input/output/cached tokens, estimated USD, call counts) with a per-model or per-turn breakdown.
+
 ## [1.10.5] — 2026-07-12
 
 ### Fixed
