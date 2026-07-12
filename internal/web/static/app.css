@@ -383,6 +383,10 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
   border-radius: 999px;
   white-space: nowrap;
 }
+/* Downshift-notice pills: the model keeps the brand hue; the provider and the
+   reasoning level get their own so the three parts read as distinct. */
+.msg-info-pill-provider { background: rgb(var(--c-violet) / .16); color: rgb(var(--c-violet)); }
+.msg-info-pill-reasoning { background: rgb(var(--c-ok) / .16); color: rgb(var(--c-ok)); }
 /* /provider list: one scannable row per backend instead of the raw
    fixed-width text (whose column alignment HTML can't preserve). */
 .msg-provider-list { display: flex; flex-direction: column; gap: .3rem; }

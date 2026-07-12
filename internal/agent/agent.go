@@ -1177,7 +1177,9 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				if reasoning == "" {
 					reasoning = "default"
 				}
-				emit(Info{Text: fmt.Sprintf("auto: using %s on %s (reasoning: %s) for this round (%s).", turnModel, provLabel, reasoning, downshiftReason)})
+				text := fmt.Sprintf("auto: using %s on %s (reasoning: %s) for this round (%s).", turnModel, provLabel, reasoning, downshiftReason)
+				emit(Info{Text: text})
+				a.noteInfo(text) // persist so the routing note replays on reload
 			}
 		} else {
 			cheapStreakActive = false

@@ -1283,8 +1283,13 @@ function handle(ev) {
       // note (compaction, auto-continue, etc.).
       const provSwitch = ev.text.match(/^Provider set to (.+?)(?: — model set to (.+))?$/);
       const modelSwitch = !provSwitch && ev.text.match(/^Model set to (.+?)(?: \((.+)\))?$/);
-      const provList = !provSwitch && !modelSwitch && ev.text.match(/^Model providers:\n([\s\S]+)$/);
-      const isModel = !!(provSwitch || modelSwitch || provList);
+      // Adaptive/cheap-reads downshift routing: name the model, provider, and
+      // reasoning level as distinct pills so a cross-provider / cross-reasoning
+      // fast tier reads at a glance.
+      const autoRoute = !provSwitch && !modelSwitch &&
+        ev.text.match(/^auto: using (.+?) on (.+?) \(reasoning: (.+?)\) for this round \((.+?)\)\.?$/);
+      const provList = !provSwitch && !modelSwitch && !autoRoute && ev.text.match(/^Model providers:\n([\s\S]+)$/);
+      const isModel = !!(provSwitch || modelSwitch || autoRoute || provList);
       const d = el("div", "msg msg-info text-sm" + (isModel ? " msg-info-model" : ""));
       d.appendChild(sym(isModel ? "cpu" : "info.circle.fill", "msg-info-icon"));
       const body = el("div", "md");
@@ -1294,6 +1299,16 @@ function handle(ev) {
       } else if (modelSwitch) {
         body.append("Model set to ", el("span", "msg-info-pill", modelSwitch[1]));
         if (modelSwitch[2]) body.append(" (", el("span", "msg-info-pill", modelSwitch[2]), ")");
+      } else if (autoRoute) {
+        body.append(
+          "auto: using ",
+          el("span", "msg-info-pill msg-info-pill-model", autoRoute[1]),
+          " on ",
+          el("span", "msg-info-pill msg-info-pill-provider", autoRoute[2]),
+          " (reasoning: ",
+          el("span", "msg-info-pill msg-info-pill-reasoning", autoRoute[3]),
+          ") for this round (" + autoRoute[4] + ").",
+        );
       } else if (provList) {
         body.appendChild(renderProviderList(provList[1]));
       } else {
