@@ -530,7 +530,11 @@ function ensureToolGroup() {
   head.appendChild(sym("wrench.and.screwdriver.fill", "tool-group-dot shrink-0"));
   const label = el("span", "tool-group-label", "0 tool calls");
   head.appendChild(label);
-  const body = el("div", "tool-group-body hidden");
+  // Expanded by default (unlike the worker-update group below) — tool calls are
+  // usually the interesting part of a turn, so showing them without an extra
+  // click is the better default; the user can still collapse via the chevron.
+  const body = el("div", "tool-group-body");
+  head.classList.add("is-open");
   head.onclick = () => { head.classList.toggle("is-open", !body.classList.toggle("hidden")); };
   wrap.appendChild(head); wrap.appendChild(body);
   appendMsg(wrap);
@@ -545,7 +549,8 @@ function bumpToolGroup(g) {
 // --- worker-update grouping -------------------------------------------------
 // A delegated worker streams discrete progress lines; rather than spraying them
 // across the transcript, collapse a run into one "N worker updates" disclosure
-// (collapsed by default), mirroring the tool-call group above.
+// (collapsed by default — unlike the tool-call group above, which starts
+// expanded), grouped the same way.
 function endWorkerGroup() { workerGroup = null; }
 function ensureWorkerGroup() {
   if (workerGroup) return workerGroup;
