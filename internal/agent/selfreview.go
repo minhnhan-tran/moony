@@ -224,7 +224,7 @@ func (a *Agent) maybeSelfReview(ctx context.Context, emit func(Event), attempts 
 	emit(Info{Text: reviewingText})
 	a.noteInfo(reviewingText)
 	ok, findings, usage := a.runSelfReview(ctx, d)
-	meta := selfReviewMeta(reviewModel, usage)
+	meta := selfReviewMeta(reviewModel, reviewProvLabel, reviewReasoning, usage)
 	if ok {
 		doneText := "Self-review: no issues found. (" + meta + ")"
 		emit(Info{Text: doneText})
@@ -285,13 +285,21 @@ func isAllDigits(s string) bool {
 // selfReviewMeta formats the reviewer call's model, token usage, and real cost
 // for a status line, e.g. "claude-haiku-4-5 · 1.2k↑ 340↓ · $0.0021". Falls back
 // to just the model name when no usage was recorded (reviewer skipped/unreachable).
-func selfReviewMeta(model string, u llm.Usage) string {
+// selfReviewMeta formats the reviewer call's model, provider, reasoning level,
+// token usage, and real cost for a status line, e.g. "claude-haiku-4-5 on
+// Anthropic, reasoning: off · 1.2k↑ 340↓ · $0.0021" — the same provider/
+// reasoning naming as the "Self-reviewing…" starting notice, so the result
+// line can be attributed to a specific tier/config too. Falls back to just
+// "model on provider, reasoning: level" when no usage was recorded (reviewer
+// skipped/unreachable).
+func selfReviewMeta(model, providerLabel, reasoning string, u llm.Usage) string {
 	name := shortModelName(model)
+	head := fmt.Sprintf("%s on %s, reasoning: %s", name, providerLabel, reasoning)
 	if u.InputTokens == 0 && u.OutputTokens == 0 {
-		return name
+		return head
 	}
 	return fmt.Sprintf("%s · %s↑ %s↓ · $%.4f",
-		name, compactTokens(u.InputTokens), compactTokens(u.OutputTokens), u.CostUSD(model))
+		head, compactTokens(u.InputTokens), compactTokens(u.OutputTokens), u.CostUSD(model))
 }
 
 // compactTokens renders a token count compactly: 1234 -> "1.2k", 950 -> "950".

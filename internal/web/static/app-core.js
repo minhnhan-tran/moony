@@ -1293,7 +1293,12 @@ function handle(ev) {
       // but keep the plain info icon (it's a review action, not a backend switch).
       const selfReview = !provSwitch && !modelSwitch && !autoRoute &&
         ev.text.match(/^Self-reviewing the diff for introduced bugs… \((.+?) on (.+?), reasoning: (.+?)\)$/);
-      const provList = !provSwitch && !modelSwitch && !autoRoute && !selfReview && ev.text.match(/^Model providers:\n([\s\S]+)$/);
+      // Self-review RESULT lines (clean / flagged) carry the same model · provider
+      // · reasoning attribution plus token/cost metrics — pill the first three,
+      // leave the metrics plain.
+      const selfReviewResult = !provSwitch && !modelSwitch && !autoRoute && !selfReview &&
+        ev.text.match(/^(Self-review: no issues found\.|Self-review flagged possible issues — feeding them back to fix\.) \((.+?) on (.+?), reasoning: (.+?)(?: · (.+))?\)$/);
+      const provList = !provSwitch && !modelSwitch && !autoRoute && !selfReview && !selfReviewResult && ev.text.match(/^Model providers:\n([\s\S]+)$/);
       const isModel = !!(provSwitch || modelSwitch || autoRoute || provList);
       const d = el("div", "msg msg-info text-sm" + (isModel ? " msg-info-model" : ""));
       d.appendChild(sym(isModel ? "cpu" : "info.circle.fill", "msg-info-icon"));
@@ -1323,6 +1328,16 @@ function handle(ev) {
           ", reasoning: ",
           el("span", "msg-info-pill msg-info-pill-reasoning", selfReview[3]),
           ")",
+        );
+      } else if (selfReviewResult) {
+        body.append(
+          selfReviewResult[1] + " (",
+          el("span", "msg-info-pill msg-info-pill-model", selfReviewResult[2]),
+          " on ",
+          el("span", "msg-info-pill msg-info-pill-provider", selfReviewResult[3]),
+          ", reasoning: ",
+          el("span", "msg-info-pill msg-info-pill-reasoning", selfReviewResult[4]),
+          (selfReviewResult[5] ? " · " + selfReviewResult[5] : "") + ")",
         );
       } else if (provList) {
         body.appendChild(renderProviderList(provList[1]));

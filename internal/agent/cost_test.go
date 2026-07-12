@@ -111,13 +111,17 @@ func TestShortModelName(t *testing.T) {
 }
 
 func TestSelfReviewMeta(t *testing.T) {
-	// No usage → model name only.
-	if got := selfReviewMeta("anthropic.claude-haiku-4-5-20251001-v1:0", llm.Usage{}); got != "claude-haiku-4-5" {
-		t.Errorf("empty usage meta = %q, want bare model name", got)
+	// No usage → model on provider, reasoning level (no tokens/cost).
+	got := selfReviewMeta("anthropic.claude-haiku-4-5-20251001-v1:0", "Anthropic", "off", llm.Usage{})
+	if got != "claude-haiku-4-5 on Anthropic, reasoning: off" {
+		t.Errorf("empty-usage meta = %q, want model+provider+reasoning head", got)
 	}
-	// With usage → model · tokens · cost.
-	got := selfReviewMeta("anthropic.claude-haiku-4-5-20251001-v1:0", llm.Usage{InputTokens: 1234, OutputTokens: 340})
-	if got == "claude-haiku-4-5" || got == "" {
+	// With usage → head · tokens · cost, and still carries provider + reasoning.
+	got = selfReviewMeta("anthropic.claude-haiku-4-5-20251001-v1:0", "Anthropic", "high", llm.Usage{InputTokens: 1234, OutputTokens: 340})
+	if !strings.Contains(got, "on Anthropic") || !strings.Contains(got, "reasoning: high") {
+		t.Errorf("meta should name provider + reasoning, got %q", got)
+	}
+	if !strings.Contains(got, "↑") || !strings.Contains(got, "$") {
 		t.Errorf("meta with usage should include tokens/cost, got %q", got)
 	}
 }
