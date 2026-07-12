@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.3] — 2026-07-12
+
+### Changed
+
+- **Thinking (reasoning) blocks now always start expanded**, including reasoning
+  replayed from a reopened session — previously only live reasoning streamed
+  expanded while replayed reasoning started collapsed (1.3.0). The header still
+  toggles collapse on click.
+
 ## [1.10.2] — 2026-07-12
 
 ### Changed
