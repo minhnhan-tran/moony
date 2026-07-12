@@ -1763,6 +1763,7 @@ const PROVIDER_OPTIONS = [
   { id: "nvidia", label: "NVIDIA NIM", desc: "integrate.api.nvidia.com" },
   { id: "huggingface", label: "Hugging Face", desc: "router.huggingface.co" },
   { id: "venice", label: "Venice", desc: "api.venice.ai" },
+  { id: "omniroute", label: "OmniRoute", desc: "local OmniRoute gateway (default http://localhost:20128/v1) — needs MOONY_OMNIROUTE_API_KEY" },
 ];
 function hdrMenuOpen() { return hdrMenuEl && !hdrMenuEl.classList.contains("hidden"); }
 function closeHdrMenu() { if (hdrMenuEl) { hdrMenuEl.classList.add("hidden"); hdrMenuEl.innerHTML = ""; hdrMenuEl.dataset.kind = ""; } }

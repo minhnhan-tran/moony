@@ -37,7 +37,7 @@ func isRemoteProvider(id string) bool {
 	switch id {
 	case provider.OpenAI, provider.OpenRouter, provider.Gemini, provider.DeepSeek,
 		provider.Groq, provider.XAI, provider.Mistral, provider.Together, provider.Fireworks,
-		provider.Moonshot, provider.ZAI, provider.DashScope, provider.NVIDIA, provider.HuggingFace, provider.Venice:
+		provider.Moonshot, provider.ZAI, provider.DashScope, provider.NVIDIA, provider.HuggingFace, provider.Venice, provider.OmniRoute:
 		return true
 	}
 	return false
@@ -67,6 +67,8 @@ func (c *Client) remoteBackend() remoteBackend {
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.HuggingFaceBaseURL, "https://router.huggingface.co/v1"), apiKey: strings.TrimSpace(c.cfg.HuggingFaceAPIKey), keyEnv: "MOONY_HUGGINGFACE_API_KEY"}
 	case provider.Venice:
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.VeniceBaseURL, "https://api.venice.ai/api/v1"), apiKey: strings.TrimSpace(c.cfg.VeniceAPIKey), keyEnv: "MOONY_VENICE_API_KEY"}
+	case provider.OmniRoute:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.OmniRouteBaseURL, "http://localhost:20128/v1"), apiKey: strings.TrimSpace(c.cfg.OmniRouteAPIKey), keyEnv: "MOONY_OMNIROUTE_API_KEY"}
 	case provider.OpenRouter:
 		return remoteBackend{
 			id:      id,

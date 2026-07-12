@@ -898,6 +898,7 @@ function providerLabel(id) {
     case "nvidia": return "NVIDIA NIM";
     case "huggingface": return "Hugging Face";
     case "venice": return "Venice";
+    case "omniroute": return "OmniRoute";
     default: return "";
   }
 }

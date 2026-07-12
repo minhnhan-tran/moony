@@ -125,6 +125,12 @@ type Config struct {
 	// VeniceBaseURL overrides the Venice base URL (default
 	// https://api.venice.ai/api/v1). Set via MOONY_VENICE_BASE_URL.
 	VeniceBaseURL string
+	// OmniRouteAPIKey authenticates a local OmniRoute gateway. Set via
+	// MOONY_OMNIROUTE_API_KEY (falls back to OMNIROUTE_API_KEY).
+	OmniRouteAPIKey string
+	// OmniRouteBaseURL overrides the OmniRoute base URL (default
+	// http://localhost:20128/v1). Set via MOONY_OMNIROUTE_BASE_URL.
+	OmniRouteBaseURL string
 	// LLMProvider selects the backend model provider: "ollama" (default),
 	// "openai", "anthropic", "openrouter", "gemini", "deepseek", "groq", "xai",
 	// "mistral", "together", "fireworks", "moonshot", "zai", "dashscope",
@@ -1170,6 +1176,7 @@ func Load() *Config {
 		NvidiaBaseURL:       "https://integrate.api.nvidia.com/v1",
 		HuggingFaceBaseURL:  "https://router.huggingface.co/v1",
 		VeniceBaseURL:       "https://api.venice.ai/api/v1",
+		OmniRouteBaseURL:    "http://localhost:20128/v1",
 		LLMProvider:         "ollama",
 		Model:               DefaultModel,
 		RelayAddr:           defaultRelayAddr, // on by default; prefs/env can override or disable
@@ -1338,6 +1345,10 @@ func Load() *Config {
 	c.VeniceAPIKey = strings.TrimSpace(firstEnv("MOONY_VENICE_API_KEY", "VENICE_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_VENICE_BASE_URL")); v != "" {
 		c.VeniceBaseURL = v
+	}
+	c.OmniRouteAPIKey = strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_API_KEY", "OMNIROUTE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_BASE_URL")); v != "" {
+		c.OmniRouteBaseURL = v
 	}
 	if v := os.Getenv("MOONY_MODEL"); v != "" {
 		c.Model = v

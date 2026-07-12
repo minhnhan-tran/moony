@@ -604,6 +604,37 @@ func TestSQEAnthropicOwnCredentials(t *testing.T) {
 	}
 }
 
+// TestOmniRouteProvider: the omniroute backend is a remote OpenAI-compatible
+// provider defaulting to the local gateway; MOONY_OMNIROUTE_BASE_URL overrides it.
+func TestOmniRouteProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MOONY_PROVIDER", "omniroute")
+	t.Setenv("MOONY_OMNIROUTE_API_KEY", "omni-key")
+	c := Load()
+	if c.LLMProvider != provider.OmniRoute {
+		t.Errorf("LLMProvider = %q, want %q", c.LLMProvider, provider.OmniRoute)
+	}
+	if c.Provider != ProviderOpenAI {
+		t.Errorf("wire = %q, want OpenAI-compatible", c.Provider)
+	}
+	if c.OmniRouteBaseURL != "http://localhost:20128/v1" {
+		t.Errorf("OmniRoute base URL = %q, want the default local gateway", c.OmniRouteBaseURL)
+	}
+	if c.OmniRouteAPIKey != "omni-key" {
+		t.Errorf("OmniRoute key = %q, want omni-key", c.OmniRouteAPIKey)
+	}
+	// A non-default provider with no MOONY_MODEL starts on that provider's default.
+	if c.Model != provider.OmniRouteDefaultModel {
+		t.Errorf("model = %q, want the OmniRoute default %q", c.Model, provider.OmniRouteDefaultModel)
+	}
+
+	t.Setenv("MOONY_OMNIROUTE_BASE_URL", "http://box:9999/v1")
+	if c2 := Load(); c2.OmniRouteBaseURL != "http://box:9999/v1" {
+		t.Errorf("OmniRoute base URL override = %q", c2.OmniRouteBaseURL)
+	}
+}
+
 // TestBatchContextEnvOverride covers the MOONY_BATCH_CONTEXT toggle: on by
 // default, disabled when set to a falsey value.
 func TestBatchContextEnvOverride(t *testing.T) {

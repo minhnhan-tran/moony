@@ -37,6 +37,7 @@ const (
 	NVIDIA      = "nvidia"
 	HuggingFace = "huggingface"
 	Venice      = "venice"
+	OmniRoute   = "omniroute"
 
 	// SQEAnthropic is the public Anthropic backend reached through the SQE LAN
 	// gateway (a Bedrock-style proxy). Same wire protocol and models as Anthropic;
@@ -68,6 +69,9 @@ const (
 	NVIDIADefaultModel      = "nvidia/llama-3.1-nemotron-70b-instruct"
 	HuggingFaceDefaultModel = "meta-llama/Llama-3.3-70B-Instruct"
 	VeniceDefaultModel      = "llama-3.3-70b"
+	// OmniRouteDefaultModel is OmniRoute's zero-config "smart router" id — it picks
+	// a backend automatically, so it's the safest starting model.
+	OmniRouteDefaultModel = "auto"
 )
 
 // list is the fixed registry, in the order shown by /provider.
@@ -90,6 +94,7 @@ var list = []Provider{
 	{ID: NVIDIA, Label: "NVIDIA NIM", Desc: "integrate.api.nvidia.com — hosted open models — needs MOONY_NVIDIA_API_KEY"},
 	{ID: HuggingFace, Label: "Hugging Face", Desc: "router.huggingface.co inference router — needs MOONY_HUGGINGFACE_API_KEY"},
 	{ID: Venice, Label: "Venice", Desc: "api.venice.ai — privacy-focused open models — needs MOONY_VENICE_API_KEY"},
+	{ID: OmniRoute, Label: "OmniRoute", Desc: "local OmniRoute gateway (default http://localhost:20128/v1) — needs MOONY_OMNIROUTE_API_KEY; use prefix/model ids or auto"},
 }
 
 // List returns a copy of the provider registry, in display order.
@@ -162,6 +167,7 @@ var defaultModels = map[string]string{
 	NVIDIA:       NVIDIADefaultModel,
 	HuggingFace:  HuggingFaceDefaultModel,
 	Venice:       VeniceDefaultModel,
+	OmniRoute:    OmniRouteDefaultModel,
 }
 
 // DefaultModelFor returns the model a provider starts with when freshly

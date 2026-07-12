@@ -102,6 +102,7 @@ type personaEdit struct {
 	NvidiaAPIKey       *string `json:"nvidiaApiKey"`
 	HuggingFaceAPIKey  *string `json:"huggingfaceApiKey"`
 	VeniceAPIKey       *string `json:"veniceApiKey"`
+	OmniRouteAPIKey    *string `json:"omnirouteApiKey"`
 	OllamaToken        *string `json:"ollamaToken"`
 	// Provider base-URL overrides (MOONY_*_BASE_URL). Plain text: empty clears the
 	// override so the built-in default is used. Ollama's host is the top-level
@@ -123,6 +124,7 @@ type personaEdit struct {
 	NvidiaBaseURL       *string `json:"nvidiaBaseUrl"`
 	HuggingFaceBaseURL  *string `json:"huggingfaceBaseUrl"`
 	VeniceBaseURL       *string `json:"veniceBaseUrl"`
+	OmniRouteBaseURL    *string `json:"omnirouteBaseUrl"`
 }
 
 // providerCred ties one provider's Persona fields (API key + optional base-URL
@@ -306,6 +308,15 @@ var providerCreds = []providerCred{
 		baseDesc: "MOONY_VENICE_BASE_URL: override the Venice base (default https://api.venice.ai/api/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.VeniceBaseURL }, baseEdit: func(e personaEdit) *string { return e.VeniceBaseURL },
 		baseDefault: "https://api.venice.ai/api/v1",
+	},
+	{
+		key: "omnirouteApiKey", label: "OmniRoute API key", provider: "OmniRoute", env: "MOONY_OMNIROUTE_API_KEY",
+		desc: "MOONY_OMNIROUTE_API_KEY: authenticates the local OmniRoute gateway (Dashboard → Endpoints). Applied live and saved to ~/.config/moony/.env (persists).",
+		cfg:  func(c *config.Config) *string { return &c.OmniRouteAPIKey }, edit: func(e personaEdit) *string { return e.OmniRouteAPIKey },
+		baseKey: "omnirouteBaseUrl", baseLabel: "OmniRoute base URL", baseEnv: "MOONY_OMNIROUTE_BASE_URL",
+		baseDesc: "MOONY_OMNIROUTE_BASE_URL: override the OmniRoute base (default http://localhost:20128/v1). Blank uses the default.",
+		baseCfg:  func(c *config.Config) *string { return &c.OmniRouteBaseURL }, baseEdit: func(e personaEdit) *string { return e.OmniRouteBaseURL },
+		baseDefault: "http://localhost:20128/v1",
 	},
 	{
 		key: "ollamaToken", label: "Ollama token", provider: "Ollama", env: "MOONY_OLLAMA_TOKEN",
