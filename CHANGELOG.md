@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.9.3] — 2026-07-12
+
+### Changed
+
+- **The self-review notice now names the review's provider and reasoning level,
+  styled as pills.** `Self-reviewing the diff for introduced bugs… (<model> on
+  <provider>, reasoning: <level>)` renders the model / provider / reasoning as the
+  same colored pills as the downshift notice, and shows the full model id instead
+  of a shortened one. The level reflects what self-review actually runs at — off
+  by default, or the `MOONY_AUX_REASONING` level when set.
+
 ## [1.9.2] — 2026-07-12
 
 ### Changed
