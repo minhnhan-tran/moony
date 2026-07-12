@@ -4057,9 +4057,35 @@ async function renderPersona() {
   // Toggles + selects (auto-delegate / auto-plan / cheap-reads / fast-model) pinned
   // to the top; the rest of the env vars go into a scrollable region so a long
   // token list doesn't grow the panel.
-  const toggles = fields.filter((f) => f.type === "bool" || f.type === "select");
+  // Fast model and Self-review model each have 3 fields (model list, provider,
+  // reasoning level); group them side by side in one 2-column row instead of
+  // interleaving all 6 with the other toggles, so the two tiers read as
+  // distinct, comparable blocks.
+  const tierKeys = {
+    fast: ["sqeFastModel", "fastProvider", "fastReasoning"],
+    aux: ["sqeAuxModel", "auxProvider", "auxReasoning"],
+  };
+  const tierKeySet = new Set([...tierKeys.fast, ...tierKeys.aux]);
+  const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
+  const toggles = fields.filter((f) => (f.type === "bool" || f.type === "select") && !tierKeySet.has(f.key));
   const rest = fields.filter((f) => f.type !== "bool" && f.type !== "select");
   for (const f of toggles) form.append(makeField(f));
+  const tierCol = (heading, keys) => {
+    const present = keys.map((k) => byKey[k]).filter(Boolean);
+    if (!present.length) return null;
+    const col = el("div", "persona-tier-col");
+    col.append(el("div", "persona-tier-heading", heading));
+    for (const f of present) col.append(makeField(f));
+    return col;
+  };
+  const fastCol = tierCol("Fast model", tierKeys.fast);
+  const auxCol = tierCol("Self-review model", tierKeys.aux);
+  if (fastCol || auxCol) {
+    const grid = el("div", "persona-tier-grid");
+    if (fastCol) grid.append(fastCol);
+    if (auxCol) grid.append(auxCol);
+    form.append(grid);
+  }
   if (rest.length) {
     // Ungrouped fields (session encryption, MCP tokens) stay in the first scroll;
     // provider credentials (grouped) go in a second "Provider" scroll below it.
