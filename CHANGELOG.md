@@ -5,6 +5,13 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.2] — 2026-07-12
+
+### Changed
+
+- agent,web: turn-meta footer shows the reasoning that actually served the turn, not the main model's
+- docs: note the PlanStore.Set-vs-Sync distinction for future plan-status mirror writes
+
 ## [1.11.1] — 2026-07-12
 
 ### Fixed
