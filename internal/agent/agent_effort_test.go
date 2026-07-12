@@ -44,3 +44,31 @@ func TestResponseThought(t *testing.T) {
 		t.Error("redacted thinking block → true")
 	}
 }
+
+// TestResponseHasAnswer: a tool call or non-whitespace text counts as an answer;
+// an empty completion, whitespace-only text, or thinking-only does not (that's
+// what triggers the empty-response notice).
+func TestResponseHasAnswer(t *testing.T) {
+	yes := []*llm.Response{
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: "hello"}}},
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockToolUse, Name: "read"}}},
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockThinking, Thinking: "hmm"}, {Type: llm.BlockText, Text: "answer"}}},
+	}
+	no := []*llm.Response{
+		nil,
+		{Blocks: nil},
+		{Blocks: []llm.ContentBlock{}},
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: "   \n"}}},
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockThinking, Thinking: "reasoned but never answered"}}},
+	}
+	for i, r := range yes {
+		if !responseHasAnswer(r) {
+			t.Errorf("yes[%d] should count as an answer", i)
+		}
+	}
+	for i, r := range no {
+		if responseHasAnswer(r) {
+			t.Errorf("no[%d] should NOT count as an answer", i)
+		}
+	}
+}

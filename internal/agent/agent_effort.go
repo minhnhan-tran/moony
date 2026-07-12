@@ -350,6 +350,27 @@ func responseThought(resp *llm.Response) bool {
 	return false
 }
 
+// responseHasAnswer reports whether a model response carries something the turn
+// can act on or show — a tool call, or a text block with non-whitespace content.
+// A truly empty completion (or thinking only) returns false, which the turn loop
+// treats as "the provider returned nothing" and surfaces to the user.
+func responseHasAnswer(resp *llm.Response) bool {
+	if resp == nil {
+		return false
+	}
+	for _, b := range resp.Blocks {
+		switch b.Type {
+		case llm.BlockToolUse:
+			return true
+		case llm.BlockText:
+			if strings.TrimSpace(b.Text) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // debugReasoning logs the per-step auto-reasoning decision when MOONY_REASONING_DEBUG
 // is set — the inputs (predicted base, friction, model-think tally, passive) and
 // the resolved effort plus the model's observed signal (thinking present, output

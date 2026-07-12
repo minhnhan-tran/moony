@@ -1165,6 +1165,13 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			return err
 		}
 		a.messages = append(a.messages, resp.AssistantMessage())
+		// Empty-response notice: some provider routes (e.g. an unconfigured backend
+		// behind an OpenAI-compatible gateway) return HTTP 200 with no content at
+		// all, which would otherwise end the turn silently and look like a freeze.
+		// Surface it so a dead model/route is obvious and actionable.
+		if !responseHasAnswer(resp) {
+			emit(Info{Text: fmt.Sprintf("The model returned an empty response (no content) — %q or its provider route may be unavailable. Try a different model with /model.", turnModel)})
+		}
 		// Model-driven difficulty signal (#2): when adaptive thinking engaged heavily
 		// on this step (a thinking block present AND a large output), count it so the
 		// auto floor rises for the rest of the turn (see modelThinkFloor). Only in
