@@ -5,6 +5,14 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.2] — 2026-07-12
+
+### Changed
+
+- The transcript pager's previous/next buttons now use **up / down chevrons**
+  (previous = up, next = down) to match their vertical top-right / bottom-right
+  placement, instead of left / right.
+
 ## [1.10.1] — 2026-07-12
 
 ### Changed
