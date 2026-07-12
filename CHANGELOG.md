@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.9.1] — 2026-07-12
+
+### Fixed
+
+- **The adaptive / cheap-reads downshift notice now names the provider, the full
+  model id, and the reasoning level** — e.g. `auto: using gemma4:8b on Ollama
+  (reasoning: low) for this round (adaptive model).` It previously ran the model
+  through a shortener that split on the first `.`/`:`, mangling version-dotted
+  ids (a fast model could show up as a bare `2`), and it named neither the
+  provider nor the reasoning level — so a cross-provider / cross-reasoning Fast
+  tier (new in 1.9.0) was invisible in the notice.
+
 ## [1.9.0] — 2026-07-12
 
 ### Added
