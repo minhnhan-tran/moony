@@ -9,3 +9,7 @@
 ### Rules
 
 - After completing any code change, always add a CHANGELOG.md entry and bump config.Version via `make release` (BUMP=patch for fixes, minor for features, major for breaking) — do this automatically as part of finishing the work, don't wait to be asked.
+
+### Notes
+
+- PlanStore.Set fires the plan_write notify (applyDraftPlan → forces Status=draft); host-side mirror writes of plan status (retire/complete/resume-restore in internal/agent/plan.go & agent.go) must use the silent PlanStore.Sync instead, or an approved/done plan reverts to draft and blocks mutating tools on later turns.
