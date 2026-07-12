@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.10.5] — 2026-07-12
+
+### Fixed
+
+- **The transcript no longer overflows over the question / approval panel.** The
+  1.10.0 paged view put `min-h-0` and `overflow-hidden` utility classes on
+  `#transcript`, but the prebuilt (purged) `tailwind.css` doesn't include those
+  two — so `#transcript` stayed `display:block` / `overflow:visible` and grew to
+  full content height, spilling the answer down over the translucent `#question`
+  (and `#approval`) panels below it. `#transcript`'s flex-column clip is now
+  defined in `app.css` (loaded verbatim, not purged), so the answer scrolls within
+  its slot.
+
 ## [1.10.4] — 2026-07-12
 
 ### Fixed
