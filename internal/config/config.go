@@ -332,12 +332,18 @@ type Config struct {
 	// setups.
 	ConciseToolSchemas bool
 	// EmbeddingsModel, when non-empty, enables hybrid semantic reranking of
-	// search_code results: the top BM25 candidates are re-scored by embedding
-	// cosine similarity to the query and blended with their lexical score. The
-	// embeddings are fetched from the OpenAI-compatible {base}/embeddings
-	// endpoint (works on any OpenAI-compatible provider). Empty disables it
-	// (pure BM25). Env: MOONY_EMBEDDINGS_MODEL.
+	// search_code and recall results: the top BM25 candidates are re-scored by
+	// embedding cosine similarity to the query and blended with their lexical
+	// score. Empty disables it (pure BM25). Env: MOONY_EMBEDDINGS_MODEL.
 	EmbeddingsModel string
+	// EmbeddingsProvider selects which backend Embed calls, independent of the
+	// session's main LLMProvider — so a session on e.g. Anthropic can still
+	// point embeddings at OpenAI (or any other OpenAI-compatible provider)
+	// without switching its main model. Empty (or "ollama") uses Ollama's
+	// native {host}/v1/embeddings endpoint, matching the historical behavior;
+	// Anthropic has no embeddings API and is rejected with a clear error.
+	// Env: MOONY_EMBEDDINGS_PROVIDER.
+	EmbeddingsProvider string
 	// CompactThresholdTokens is the estimated history size that triggers
 	// context compaction before a turn.
 	CompactThresholdTokens int
@@ -1641,6 +1647,9 @@ func Load() *Config {
 	}
 	if v := strings.TrimSpace(os.Getenv("MOONY_EMBEDDINGS_MODEL")); v != "" {
 		c.EmbeddingsModel = v
+	}
+	if v := normalizedProviderEnv("MOONY_EMBEDDINGS_PROVIDER"); v != "" {
+		c.EmbeddingsProvider = v
 	}
 
 	// Persona-explicit overrides — applied LAST so a user's explicit save from

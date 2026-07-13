@@ -78,8 +78,11 @@ func (t *rememberTool) Execute(_ context.Context, input json.RawMessage) (string
 	return t.sink.save(in.Text, in.Category)
 }
 
-// RegisterRemember adds the remember and recall tools, backed by sink.
+// RegisterRemember adds the remember and recall tools, backed by sink. recall
+// also gets a Registry reference so it can reuse whatever embedder SetEmbedder
+// installs for search_code's semantic rerank (set after registration, so the
+// tool must read r.embedder lazily rather than capturing it here).
 func (r *Registry) RegisterRemember(sink *MemorySink) {
 	r.Register(&rememberTool{sink: sink})
-	r.Register(&recallTool{sink: sink})
+	r.Register(&recallTool{sink: sink, r: r})
 }

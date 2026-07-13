@@ -19,8 +19,8 @@ func TestRankNotesBM25(t *testing.T) {
 	if len(ranked) == 0 {
 		t.Fatal("expected at least one match")
 	}
-	if !strings.Contains(ranked[0].Text, "relay rebuilt") {
-		t.Errorf("top match = %q, want the relay note", ranked[0].Text)
+	if !strings.Contains(ranked[0].note.Text, "relay rebuilt") {
+		t.Errorf("top match = %q, want the relay note", ranked[0].note.Text)
 	}
 
 	// Query with no overlap returns nothing.
@@ -64,5 +64,60 @@ func TestRecallToolExecute(t *testing.T) {
 	got, err := empty.Execute(context.Background(), in)
 	if err != nil || !strings.Contains(got, "not available") {
 		t.Errorf("unwired recall = %q (err %v)", got, err)
+	}
+}
+
+// TestRecallSemanticRerank mirrors TestSearchCodeSemanticRerankFlipsOrder: a
+// BM25-losing candidate that carries the fakeEmbedder's marker should outrank
+// a lexically-stronger but unmarked one once an embedder is configured, and
+// BM25 order must be untouched without one.
+func TestRecallSemanticRerank(t *testing.T) {
+	notes := []MemoryNote{
+		// Higher lexical frequency of the query term -> ranks first under BM25.
+		{Section: "Notes", Text: "database database database plan"},
+		// Lower frequency, but carries the semantic marker.
+		{Section: "Notes", Text: "database MARKER rollback"},
+	}
+	query := "database"
+
+	// Control: no embedder configured -> pure BM25 order preserved.
+	noEmbed := &recallTool{r: &Registry{}}
+	cand := rankNotesBM25(query, notes, recallRerankCandidates)
+	if len(cand) != 2 {
+		t.Fatalf("expected 2 candidates, got %d", len(cand))
+	}
+	if !strings.Contains(cand[0].note.Text, "database database database") {
+		t.Fatalf("BM25 baseline expected the high-frequency note first, got %q", cand[0].note.Text)
+	}
+	noEmbed.semanticRerank(context.Background(), query, cand)
+	if !strings.Contains(cand[0].note.Text, "database database database") {
+		t.Errorf("no embedder configured should leave BM25 order intact, got %q first", cand[0].note.Text)
+	}
+
+	// With a semantic embedder favoring the marker note, rerank should flip it
+	// to first despite losing on pure BM25.
+	r := &Registry{}
+	r.SetEmbedder(fakeEmbedder{marker: "MARKER"})
+	withEmbed := &recallTool{r: r}
+	cand2 := rankNotesBM25(query, notes, recallRerankCandidates)
+	withEmbed.semanticRerank(context.Background(), query, cand2)
+	if !strings.Contains(cand2[0].note.Text, "MARKER") {
+		t.Errorf("semantic rerank expected the marked note first, got %q", cand2[0].note.Text)
+	}
+}
+
+// TestRecallRerankNoopOnEmbedError mirrors TestSearchCodeRerankNoopOnEmbedError.
+func TestRecallRerankNoopOnEmbedError(t *testing.T) {
+	notes := []MemoryNote{
+		{Section: "Notes", Text: "widget one"},
+		{Section: "Notes", Text: "widget two three"},
+	}
+	r := &Registry{}
+	r.SetEmbedder(badEmbedder{})
+	tool := &recallTool{r: r}
+	cand := rankNotesBM25("widget", notes, recallRerankCandidates)
+	tool.semanticRerank(context.Background(), "widget", cand) // must not panic or corrupt cand
+	if len(cand) != 2 {
+		t.Errorf("expected candidates to survive an embed error, got %d", len(cand))
 	}
 }

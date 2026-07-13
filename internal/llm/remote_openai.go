@@ -54,6 +54,13 @@ func (c *Client) remoteBackend() remoteBackend {
 	if c.cfg != nil {
 		id = provider.Normalize(c.cfg.LLMProvider)
 	}
+	return c.remoteBackendFor(id)
+}
+
+// remoteBackendFor is remoteBackend's id-parametrized core, split out so
+// Embed can resolve a DIFFERENT provider (EmbeddingsProvider) than the
+// session's main chat provider without a second copy of this switch.
+func (c *Client) remoteBackendFor(id string) remoteBackend {
 	switch id {
 	case provider.Moonshot:
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.MoonshotBaseURL, "https://api.moonshot.ai/v1"), apiKey: strings.TrimSpace(c.cfg.MoonshotAPIKey), keyEnv: "MOONY_MOONSHOT_API_KEY"}

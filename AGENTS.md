@@ -9,6 +9,7 @@
 ### Rules
 
 - After completing any code change, always add a CHANGELOG.md entry and bump config.Version via `make release` (BUMP=patch for fixes, minor for features, major for breaking) — do this automatically as part of finishing the work, don't wait to be asked.
+- After every git commit (including release commits), always run `git push origin main --tags` immediately — don't leave pushes pending.
 
 ### Notes
 

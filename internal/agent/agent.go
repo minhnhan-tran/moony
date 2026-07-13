@@ -281,8 +281,11 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 			}
 			return a.sess.TurnMetas
 		})
-		// Enable hybrid semantic reranking in search_code when an embeddings
-		// model is configured and the client can produce embeddings.
+		// Enable hybrid semantic reranking in search_code and recall when an
+		// embeddings model is configured and the client can produce embeddings.
+		// Client.Embed resolves its own backend from cfg.EmbeddingsProvider
+		// internally (independent of this session's main LLMProvider), so no
+		// provider plumbing is needed here.
 		if cfg.EmbeddingsModel != "" {
 			if ec, ok := client.(embedderClient); ok {
 				base := boundEmbedder{c: ec, model: cfg.EmbeddingsModel}
