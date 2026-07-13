@@ -2450,25 +2450,25 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 /* Scroll-to-bottom sits bottom-center (its .scroll-btn base); the pager now
    lives on the right edge, so no override is needed here. */
 
-/* Pager: a vertical control column pinned to the transcript's right edge —
-   previous at the top-right, the "n / total" position directly under it, and
-   next at the bottom-right. Positioned relative to .transcript-wrap (the
-   nearest positioned ancestor); DOM order doesn't matter. */
+/* Pager: a single "< n/total >" control pinned to the transcript's top-right
+   corner. The middle "n/total" is a button that opens a dropdown listing every
+   question in the turn — pick one to jump straight to it. Positioned relative
+   to .transcript-wrap (the nearest positioned ancestor); DOM order doesn't
+   matter. */
 .pair-pager[hidden] { display: none; }
-#pagerPrev, #pagerNext { position: absolute; left: auto; right: .85rem; transform: none; }
-#pagerPrev { top: .85rem; bottom: auto; }
-#pagerNext { top: auto; bottom: .85rem; }
+.pair-pager { position: absolute; top: .85rem; right: .85rem; z-index: 6; display: flex; align-items: center; gap: .4rem; }
+#pagerPrev, #pagerNext { position: relative; left: auto; right: auto; top: auto; bottom: auto; transform: none; }
 #pagerPrev:hover, #pagerNext:hover { transform: translateY(-1px); }
 .pager-btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
 .pager-pos {
-  position: absolute; right: .85rem; top: calc(.85rem + 34px + .5rem); transform: none; z-index: 6;
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: rgb(var(--c-ink-soft));
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
-  border-radius: var(--r-full); padding: .4rem .5rem;
+  border-radius: var(--r-full); padding: .4rem .6rem;
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
-  text-align: center; min-width: 2.4rem;
+  text-align: center; min-width: 2.4rem; cursor: pointer;
 }
+.pager-pos:hover { background: rgb(var(--c-edge)); }
 
 /* ---- Tool-call viewer: every tool in a group renders as a code card — a header
         bar (collapse + state + "tool  summary" + diff badge + copy) over a

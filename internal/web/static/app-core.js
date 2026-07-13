@@ -3218,7 +3218,7 @@ function startPair(questionMsg) {
   answer.addEventListener("scroll", () => onAnswerScroll(answer));
   root.appendChild(q); root.appendChild(answer);
   transcript.appendChild(root);
-  pairs.push({ root, answer });
+  pairs.push({ root, answer, q });
   answerHost = answer;   // new answer content appends here, even if the user pages away
   stickBottom = true;
   setActivePair(pairs.length - 1); // show the newest pair
@@ -3235,15 +3235,42 @@ function setActivePair(idx) {
   updateScrollBtn();
 }
 
-// renderPager shows "n / total" with prev/next, hidden entirely for ≤1 pair.
+// renderPager shows "< n/total >" as one merged control, hidden entirely for
+// ≤1 pair. The middle "n/total" is itself a button that opens a dropdown of
+// every question in the turn, so paging back doesn't require clicking prev
+// one at a time.
 function renderPager() {
   if (!pager) return;
   const n = pairs.length;
-  if (n <= 1) { pager.hidden = true; return; }
+  if (n <= 1) { pager.hidden = true; if (hdrMenuEl && hdrMenuEl.dataset.kind === "pager") { closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); } return; }
   pager.hidden = false;
-  if (pagerPos) pagerPos.textContent = (activePairIdx + 1) + " / " + n;
+  if (pagerPos) pagerPos.textContent = (activePairIdx + 1) + "/" + n;
   if (pagerPrev) pagerPrev.disabled = activePairIdx <= 0;
   if (pagerNext) pagerNext.disabled = activePairIdx >= n - 1;
+}
+
+// openPagerMenu lists every question in the turn (newest last) in the shared
+// header dropdown; picking one jumps straight to that pair, like the prev/next
+// buttons but without the clicks. Mirrors openHdrMenu's item styling/role, but
+// dispatches a local setActivePair instead of a slash command.
+function openPagerMenu() {
+  if (!hdrMenuEl || !pagerPos) return;
+  if (hdrMenuOpen() && hdrMenuEl.dataset.kind === "pager") { closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); return; }
+  hdrMenuEl.innerHTML = "";
+  hdrMenuEl.dataset.kind = "pager";
+  pairs.forEach((p, i) => {
+    const isCurrent = i === activePairIdx;
+    const item = el("button", "hdr-menu-item" + (isCurrent ? " is-current" : ""));
+    item.type = "button";
+    item.setAttribute("role", "menuitemradio");
+    item.setAttribute("aria-checked", isCurrent ? "true" : "false");
+    const text = ((p.q && p.q.textContent) || "").trim().replace(/\s+/g, " ") || "(empty)";
+    item.appendChild(el("span", "hdr-menu-label", (i + 1) + ". " + text.slice(0, 80)));
+    item.onclick = (e) => { e.stopPropagation(); closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); if (!isCurrent) setActivePair(i); };
+    hdrMenuEl.appendChild(item);
+  });
+  placeHdrMenu(pagerPos);
+  pagerPos.setAttribute("aria-expanded", "true");
 }
 
 // resetPairs clears pager state when the transcript is wiped (session switch/reset).
@@ -3276,6 +3303,7 @@ if (scrollBtn) scrollBtn.onclick = () => {
   if (activePairIdx === pairs.length - 1) stickBottom = true;
   scrollBtn.hidden = true;
 };
+if (pagerPos) pagerPos.onclick = (e) => { e.stopPropagation(); openPagerMenu(); };
 if (pagerPrev) pagerPrev.onclick = () => setActivePair(activePairIdx - 1);
 if (pagerNext) pagerNext.onclick = () => setActivePair(activePairIdx + 1);
 

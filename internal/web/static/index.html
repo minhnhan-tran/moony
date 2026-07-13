@@ -132,14 +132,15 @@
       <button id="scrollBtn" class="scroll-btn" type="button" aria-label="Scroll to bottom" hidden>
         <app-icon name="chevron.down"></app-icon>
       </button>
-      <!-- Pager: walk the Q&A pairs (prev / position / next). Hidden until ≥2 pairs. -->
+      <!-- Pager: walk the Q&A pairs as "< n/total >"; clicking n/total opens a
+           dropdown of every question in the turn. Hidden until ≥2 pairs. -->
       <div id="pager" class="pair-pager" hidden>
-        <button id="pagerPrev" class="scroll-btn pager-btn" type="button" aria-label="Previous answer">
-          <app-icon name="chevron.up"></app-icon>
+        <button id="pagerPrev" class="scroll-btn pager-btn" type="button" aria-label="Previous question">
+          <app-icon name="chevron.left"></app-icon>
         </button>
-        <span id="pagerPos" class="pager-pos"></span>
-        <button id="pagerNext" class="scroll-btn pager-btn" type="button" aria-label="Next answer">
-          <app-icon name="chevron.down"></app-icon>
+        <button id="pagerPos" class="pager-pos" type="button" aria-haspopup="menu" aria-expanded="false" title="Jump to a question"></button>
+        <button id="pagerNext" class="scroll-btn pager-btn" type="button" aria-label="Next question">
+          <app-icon name="chevron.right"></app-icon>
         </button>
       </div>
     </div>
