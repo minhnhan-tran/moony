@@ -2428,7 +2428,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 /* ---- Paged transcript ------------------------------------------------------
    The transcript shows one Q&A pair at a time: the question pinned as a fixed
    header (.pair-q) over the answer in its own scrollable region (.pair-a). A
-   A pager pill (.pair-pager) walks earlier pairs; the scroll-to-bottom button
+   A pager control (.pair-pager) walks earlier pairs; the scroll-to-bottom button
    stays bottom-center so it never collides with the pager (bottom-right). ---- */
 #empty, #connLoader { margin: auto; }        /* center within the flex-column transcript */
 .pair { display: none; min-height: 0; }
@@ -2450,7 +2450,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 /* Scroll-to-bottom sits bottom-center (its .scroll-btn base); the pager now
    lives on the right edge, so no override is needed here. */
 
-/* Pager: a single pill "< n/total >" pinned to the transcript's bottom-right
+/* Pager: a single rectangular control "< n/total >" pinned to the transcript's bottom-right
    corner (one shared background/border/shadow, not three separate buttons).
    The middle "n/total" opens a dropdown listing every question in the turn —
    pick one to jump straight to it. Positioned relative to .transcript-wrap
@@ -2460,12 +2460,12 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   position: absolute; bottom: .85rem; right: .85rem; z-index: 6;
   display: flex; align-items: center; gap: .1rem;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
-  border-radius: var(--r-full); padding: .3rem;
+  border-radius: var(--r-lg); padding: .3rem;
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
 }
 .pager-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 1.7rem; height: 1.7rem; border: 0; border-radius: var(--r-full);
+  width: 1.7rem; height: 1.7rem; border: 0; border-radius: var(--r-sm);
   background: transparent; color: rgb(var(--c-ink-soft)); cursor: pointer; transition: background .12s ease;
 }
 .pager-btn app-icon { font-size: 13px; }
@@ -2474,7 +2474,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pager-pos {
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: rgb(var(--c-ink)); background: transparent; border: 0;
-  padding: 0 .5rem; min-width: 2.6rem; text-align: center; cursor: pointer; border-radius: var(--r-full);
+  padding: 0 .5rem; min-width: 2.6rem; text-align: center; cursor: pointer; border-radius: var(--r-sm);
 }
 .pager-pos:hover { background: rgb(var(--c-edge)); }
 
