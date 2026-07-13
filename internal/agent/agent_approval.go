@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pysty1995/moony/internal/config"
+	"github.com/pysty1995/moony/internal/notify"
 	"github.com/pysty1995/moony/internal/tools"
 )
 
@@ -95,6 +96,11 @@ func (a *Agent) turnHardStopReason(maxCalls int, maxCost float64, rounds int, co
 func (a *Agent) requestApproval(ctx context.Context, emit func(Event), tool, summary, diff string) Decision {
 	reply := make(chan Decision, 1)
 	emit(ApprovalRequest{Tool: tool, Summary: summary, Diff: diff, Reply: reply})
+	text := fmt.Sprintf("moony: approval needed for %s", tool)
+	if summary != "" {
+		text += " — " + summary
+	}
+	notify.Send(notify.Approval, text, 0)
 	select {
 	case d := <-reply:
 		return d

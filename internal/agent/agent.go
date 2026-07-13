@@ -1305,11 +1305,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		if reason := a.turnHardStopReason(maxCalls, maxCost, rounds, turnCostUSD+a.auxCostUSD()); reason != "" {
 			emit(Info{Text: reason})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
-			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
-			a.recordTaskMetas(taskAcct)
-			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1321,11 +1317,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		if a.goalBudgetExceeded() {
 			emit(Info{Text: fmt.Sprintf("Goal token budget reached (%d/%d) — stopping. Raise it with /goal budget <n>, remove it with /goal budget off, or send a message to keep going.", a.goalTokensUsed, a.goalBudgetTokens)})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
-			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
-			a.recordTaskMetas(taskAcct)
-			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1388,11 +1380,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				continue
 			}
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
-			finalCostUSD := turnCostUSD + a.auxCostUSD()
-			a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
-			a.recordTaskMetas(taskAcct)
-			a.recordBoardMessages(board)
-			emit(TurnDone{Usage: resp.Usage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			// An approved plan whose mirrored todos are all resolved is finished:
 			// mark it done so its "carry it out" context stops being re-injected.

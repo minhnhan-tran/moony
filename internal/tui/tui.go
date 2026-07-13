@@ -2218,6 +2218,7 @@ func (m Model) handleStream(msg streamMsg) (tea.Model, tea.Cmd) {
 	case agent.ApprovalRequest:
 		// Pause for the user's decision; do NOT re-issue waitForStream here.
 		// The agent goroutine is blocked until decide() replies.
+		ringBell()
 		req := ev
 		m.pending = &req
 		m.state = stateAwaitingApproval
@@ -2253,6 +2254,7 @@ func (m Model) handleStream(msg streamMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case agent.TurnDone:
+		ringBell()
 		m.streamingIdx = -1
 		m.thinkingIdx = -1
 		m.activeTool = ""
