@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.15.0] — 2026-07-13
+
+### Added
+
+- **GitHub + GitLab PR tooling: `pr_create`, `pr_list`, `pr_comments`, `pr_checks`.** A new `internal/githost` package normalizes GitHub's REST v3 and GitLab's REST v4 behind one `Client` interface (GitHub "pull request" vs GitLab "merge request" terminology absorbed there), so the tools don't need to know which host a repo lives on — resolved automatically from `git remote get-url origin`, including self-hosted instances via `MOONY_GITHUB_BASE_URL`/`MOONY_GITLAB_BASE_URL`. `pr_create` opens a PR/MR from the current branch (mutates, has a Preview). `pr_list` lists open PRs/MRs or views one in detail. `pr_comments` lists review comment threads, or posts a reply/new comment when given a body (mutates only then). `pr_checks` reports CI check-run/pipeline status. Auth resolves in order: `MOONY_GITHUB_TOKEN`/`MOONY_GITLAB_TOKEN` (or the bare `GITHUB_TOKEN`/`GITLAB_TOKEN`), `gh auth token`/`glab auth token`, then `~/.netrc`.
+
 ## [1.14.0] — 2026-07-13
 
 ### Added
