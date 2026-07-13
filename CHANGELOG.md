@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.16.0] — 2026-07-13
+
+### Added
+
+- **Cross-session cost budgets and completion notifications.** `MOONY_DAILY_BUDGET`/`MOONY_MONTHLY_BUDGET` cap spend across *all* sessions (unlike the existing per-turn-only `MOONY_TURN_WARN_COST`/`MOONY_TURN_MAX_COST`), tracked in a small ledger (`usage_ledger.json`) and warn-only — crossing a cap surfaces an Info message, it never blocks a turn. `MOONY_NOTIFY_WEBHOOK_URL` fires a fire-and-forget outbound webhook on turn completion / approval-needed, with a body compatible with both Slack/Mattermost and Discord incoming webhooks (filtered by `MOONY_NOTIFY_EVENTS`, gated for turn-done by `MOONY_NOTIFY_MIN_SECONDS` so quick turns don't ping you). The TUI also rings the terminal bell on turn-done/approval-needed (`MOONY_TUI_BELL`, default on).
+
 ## [1.15.0] — 2026-07-13
 
 ### Added
