@@ -2411,25 +2411,11 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   opacity: .8;
 }
 
-/* Floating scroll-to-bottom button, centered near the transcript's bottom. */
-.scroll-btn {
-  position: absolute; left: 50%; bottom: .85rem; transform: translateX(-50%);
-  width: 34px; height: 34px; border-radius: var(--r-full);
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgb(var(--c-raised)); color: rgb(var(--c-ink-soft)); border: 1px solid rgb(var(--c-edge));
-  box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
-  cursor: pointer; z-index: 5;
-  transition: background-color .12s ease, transform .12s ease;
-}
-.scroll-btn:hover { background: rgb(var(--c-edge)); transform: translateX(-50%) translateY(-1px); }
-.scroll-btn[hidden] { display: none; }
-.scroll-btn app-icon { font-size: 15px; }
-
 /* ---- Paged transcript ------------------------------------------------------
    The transcript shows one Q&A pair at a time: the question pinned as a fixed
    header (.pair-q) over the answer in its own scrollable region (.pair-a). A
-   A pager control (.pair-pager) walks earlier pairs; the scroll-to-bottom button
-   stays bottom-center so it never collides with the pager (bottom-right). ---- */
+   single bottom-right control (.pair-pager) merges scroll-to-bottom with the
+   prev/pos/next pager — see below. ---- */
 #empty, #connLoader { margin: auto; }        /* center within the flex-column transcript */
 .pair { display: none; min-height: 0; }
 .pair.pair-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
@@ -2443,18 +2429,19 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
 .pair-a {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 1rem;
+  padding: 1rem 1rem 3.75rem;   /* extra bottom clearance: content never sits under the floating .pair-pager */
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
 }
 
-/* Scroll-to-bottom sits bottom-center (its .scroll-btn base); the pager now
-   lives on the right edge, so no override is needed here. */
-
-/* Pager: a single rectangular control "< n/total >" pinned to the transcript's bottom-right
-   corner (one shared background/border/shadow, not three separate buttons).
-   The middle "n/total" opens a dropdown listing every question in the turn —
-   pick one to jump straight to it. Positioned relative to .transcript-wrap
-   (the nearest positioned ancestor); DOM order doesn't matter. */
+/* Pager: one bottom-right control merging scroll-to-bottom (#scrollBtn) with
+   the prev/pos/next pair navigator (#pagerNav) — a single shared
+   background/border/shadow, not separate floating buttons. Either sub-part
+   shows/hides on its own (scrollBtn per scroll position, pagerNav per pair
+   count); the container itself is hidden only when NEITHER is needed (see
+   syncPagerVisibility). The middle "n/total" opens a dropdown listing every
+   question in the turn. Positioned relative to .transcript-wrap (the nearest
+   positioned ancestor); DOM order doesn't matter. Its 3.75rem clearance in
+   .pair-a above keeps it from ever overlapping the answer text. */
 .pair-pager[hidden] { display: none; }
 .pair-pager {
   position: absolute; bottom: .85rem; right: .85rem; z-index: 6;
@@ -2463,6 +2450,9 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   border-radius: var(--r-lg); padding: .3rem;
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
 }
+#pagerNav { display: flex; align-items: center; gap: .1rem; }
+#pagerNav[hidden] { display: none; }
+#scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .2rem; padding-left: .3rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
 .pager-btn {
   display: flex; align-items: center; justify-content: center;
   width: 1.7rem; height: 1.7rem; border: 0; border-radius: var(--r-sm);
@@ -2471,6 +2461,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pager-btn app-icon { font-size: 13px; }
 .pager-btn:hover { background: rgb(var(--c-edge)); }
 .pager-btn:disabled { opacity: .35; cursor: default; pointer-events: none; background: transparent; }
+.pager-btn[hidden] { display: none; }
 .pager-pos {
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: rgb(var(--c-ink)); background: transparent; border: 0;

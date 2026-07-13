@@ -3235,18 +3235,31 @@ function setActivePair(idx) {
   updateScrollBtn();
 }
 
-// renderPager shows "< n/total >" as one merged control, hidden entirely for
-// ≤1 pair. The middle "n/total" is itself a button that opens a dropdown of
-// every question in the turn, so paging back doesn't require clicking prev
-// one at a time.
+// renderPager shows the "< n/total >" nav (#pagerNav) once there are ≥2
+// pairs, hidden for a single pair; syncPagerVisibility then decides whether
+// the shared #pager container itself needs to show (it also hosts
+// #scrollBtn, so a single pair with a long scrolled-up answer still gets a
+// visible control). The middle "n/total" opens a dropdown of every question
+// in the turn, so paging back doesn't require clicking prev one at a time.
 function renderPager() {
-  if (!pager) return;
+  if (!pager || !pagerNav) return;
   const n = pairs.length;
-  if (n <= 1) { pager.hidden = true; if (hdrMenuEl && hdrMenuEl.dataset.kind === "pager") { closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); } return; }
-  pager.hidden = false;
+  pagerNav.hidden = n <= 1;
+  if (pagerNav.hidden && hdrMenuEl && hdrMenuEl.dataset.kind === "pager") { closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); }
   if (pagerPos) pagerPos.textContent = (activePairIdx + 1) + "/" + n;
   if (pagerPrev) pagerPrev.disabled = activePairIdx <= 0;
   if (pagerNext) pagerNext.disabled = activePairIdx >= n - 1;
+  syncPagerVisibility();
+}
+
+// syncPagerVisibility shows the shared #pager container whenever either half
+// (scroll-to-bottom or the pair nav) needs to be visible, and hides it only
+// when NEITHER does — so it never lingers as an empty shell.
+function syncPagerVisibility() {
+  if (!pager) return;
+  const navVisible = pagerNav && !pagerNav.hidden;
+  const scrollVisible = scrollBtn && !scrollBtn.hidden;
+  pager.hidden = !navVisible && !scrollVisible;
 }
 
 // openPagerMenu lists every question in the turn (newest last) in the shared
@@ -3277,7 +3290,7 @@ function openPagerMenu() {
 function resetPairs() {
   pairs = []; activePairIdx = -1; answerHost = null;
   if (scrollBtn) scrollBtn.hidden = true;
-  renderPager();
+  renderPager(); // also re-syncs #pager's own visibility
 }
 
 // The scroll-to-bottom button + auto-stick track the VIEWED answer; auto-stick
@@ -3288,13 +3301,15 @@ function onAnswerScroll(a) {
   const nearBottom = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
   if (scrollBtn) scrollBtn.hidden = nearBottom;
   if (activePairIdx === pairs.length - 1) stickBottom = nearBottom;
+  syncPagerVisibility();
 }
 function updateScrollBtn() {
   if (!scrollBtn) return;
   const cur = pairs[activePairIdx];
-  if (!cur) { scrollBtn.hidden = true; return; }
+  if (!cur) { scrollBtn.hidden = true; syncPagerVisibility(); return; }
   const a = cur.answer;
   scrollBtn.hidden = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
+  syncPagerVisibility();
 }
 
 if (scrollBtn) scrollBtn.onclick = () => {
@@ -3302,6 +3317,7 @@ if (scrollBtn) scrollBtn.onclick = () => {
   if (cur) cur.answer.scrollTop = cur.answer.scrollHeight;
   if (activePairIdx === pairs.length - 1) stickBottom = true;
   scrollBtn.hidden = true;
+  syncPagerVisibility();
 };
 if (pagerPos) pagerPos.onclick = (e) => { e.stopPropagation(); openPagerMenu(); };
 if (pagerPrev) pagerPrev.onclick = () => setActivePair(activePairIdx - 1);

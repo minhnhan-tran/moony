@@ -298,7 +298,7 @@ if (composerMetaEl) {
 }
 const mentionsEl = $("#mentions");
 const scrollBtn = $("#scrollBtn");
-const pager = $("#pager"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
+const pager = $("#pager"), pagerNav = $("#pagerNav"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");
 // queueCapable: the current session supports queuing messages while busy (set
