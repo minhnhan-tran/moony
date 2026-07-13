@@ -2414,7 +2414,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 /* ---- Paged transcript ------------------------------------------------------
    The transcript shows one Q&A pair at a time: the question pinned as a fixed
    header (.pair-q) over the answer in its own scrollable region (.pair-a). A
-   single bottom-left control (.pair-pager) merges scroll-to-bottom with the
+   single bottom-right control (.pair-pager) merges scroll-to-bottom with the
    prev/pos/next pager — see below. ---- */
 #empty, #connLoader { margin: auto; }        /* center within the flex-column transcript */
 .pair { display: none; min-height: 0; }
@@ -2433,10 +2433,10 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
 }
 
-/* Pager: one bottom-left control merging scroll-to-bottom (#scrollBtn) with
+/* Pager: one bottom-right control merging scroll-to-bottom (#scrollBtn) with
    the prev/pos/next pair navigator (#pagerNav) — a single shared
-   background/border/shadow, not separate floating buttons. Bottom-left (not
-   -right) so it never sits over .pair-a's scrollbar. Either sub-part
+   background/border/shadow, not separate floating buttons. Its +10px right
+   offset keeps it clear of .pair-a's scrollbar track. Either sub-part
    shows/hides on its own (scrollBtn per scroll position, pagerNav per pair
    count); the container itself is hidden only when NEITHER is needed (see
    syncPagerVisibility). The middle "n/total" opens a dropdown listing every
@@ -2445,7 +2445,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    .pair-a above keeps it from ever overlapping the answer text. */
 .pair-pager[hidden] { display: none; }
 .pair-pager {
-  position: absolute; bottom: .85rem; left: .85rem; z-index: 6;
+  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;   /* +10px clears .pair-a's scrollbar track */
   display: flex; align-items: center; gap: .1rem;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
   border-radius: var(--r-md); padding: .2rem;
