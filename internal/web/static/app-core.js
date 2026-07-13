@@ -962,7 +962,7 @@ async function newSession() {
 // open a new stream — selectSession does that, while deleteSession leaves it empty.
 function clearView() {
   if (es) { es.close(); es = null; }
-  current = null; asstBody = null; asstRaw = ""; asstLabeled = false; turnTodos = null; phaseTimes = {}; toolGroup = null; workerGroup = null; turnActive = false; turnStartMs = 0; stickBottom = true; thinkBody = null; tools = {}; lastStatus = null; curStep = 0; maxStep = 0;
+  current = null; asstBody = null; asstRaw = ""; asstLabeled = false; turnTodos = null; phaseTimes = {}; toolGroup = null; workerGroup = null; turnActive = false; turnStartMs = 0; stickBottom = true; thinkBody = null; tools = {}; lastStatus = null; curStep = 0; maxStep = 0; compactingMsg = null;
   cumTurnIn = 0; cumTurnOut = 0; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; // reset session token/cost accumulators; the new session replays its own turn-meta
   upgrading = false; upgradeStartVer = ""; syncUpgradeBtn(); // drop any stale "Updating…" state (button + mascot) when the view is torn down (e.g. the focused laptop dropped)
   usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // reset per-session usage history
@@ -1278,6 +1278,13 @@ function handle(ev) {
     }
     case "info": {
       endAssistant(); endToolGroup(); endWorkerGroup();
+      // Track compaction progress so the status bar can show a chip while the
+      // summarise LLM call is in flight.
+      if (ev.text.startsWith("Compacting ")) {
+        compactingMsg = ev.text; renderStatusBar();
+      } else if (ev.text.startsWith("Compacted ")) {
+        compactingMsg = null; renderStatusBar();
+      }
       // Model/provider switch confirmations get their own look (cpu icon +
       // name pills) instead of the generic info box, so they read as a
       // distinct "backend changed" cue rather than blending into every other
@@ -2051,6 +2058,16 @@ function renderStatusBar() {
     step.appendChild(sym("circle.dotted"));
     step.appendChild(el("span", null, `step ${curStep}/${maxStep}`));
     statusEl.appendChild(step);
+  }
+  if (state === "busy" && compactingMsg) {
+    // Context compaction in progress — show a brief chip while the summarise
+    // LLM call runs so the user knows why there's a quiet moment mid-turn.
+    const m = compactingMsg.match(/^Compacting (\d+)/i);
+    const label = m ? `compacting ${m[1]} messages…` : "compacting…";
+    const chip = el("span", "inline-flex items-center gap-1 text-faint");
+    chip.appendChild(sym("arrow.counterclockwise"));
+    chip.appendChild(el("span", null, label));
+    statusEl.appendChild(chip);
   }
   if (queuedMsgs.length > 0) {
     const q = el("span", "inline-flex items-center gap-1 text-faint");

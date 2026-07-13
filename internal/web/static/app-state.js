@@ -61,6 +61,7 @@ let paletteItems = [], paletteIdx = 0;   // current palette matches + highlighte
 let mentionList = [];                    // @-mention candidates (agents + workers)
 let mentionItems = [], mentionIdx = 0;   // current @-mention matches + highlighted row
 let curStep = 0, maxStep = 0;            // turn progress (tool-call loop)
+let compactingMsg = null;               // non-null while context compaction is running — shown in the status bar
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
