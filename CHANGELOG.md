@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.12.1] — 2026-07-13
+
+### Changed
+
+- web: unify the pager into one pill (< n/total >, shared bg/border) and move it to the transcript's bottom-right
+
 ## [1.12.0] — 2026-07-13
 
 ### Added
