@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.17.0] — 2026-07-13
+
+### Added
+
+- **Debug Adapter Protocol integration.** 14 new tools (`dap_connect`, `dap_disconnect`, `dap_launch`, `dap_attach`, `dap_set_breakpoints`, `dap_continue`, `dap_next`, `dap_step_in`, `dap_step_out`, `dap_pause`, `dap_stack_trace`, `dap_scopes`, `dap_variables`, `dap_evaluate`) backed by a new `internal/dap` package — a pure-stdlib TCP DAP client with Content-Length framing, request/response correlation, and async event dispatch. Stepping tools block until the next stopped event and return the new file:line + accumulated output. `dap_launch`/`dap_attach` handle the full handshake (launch → initialized event → optional inline breakpoints → configurationDone → first stop). Set `MOONY_DAP_ADDR=host:port` to auto-connect at startup, or call `dap_connect` interactively. Works with `dlv dap` (Go), `debugpy` (Python), `node --inspect` (Node.js), and any DAP-compliant adapter.
+
 ## [1.16.0] — 2026-07-13
 
 ### Added
