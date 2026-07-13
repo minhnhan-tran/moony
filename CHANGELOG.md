@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.13.0] — 2026-07-13
+
+### Changed
+
+- **Merged `scrollBtn` into the pager, and the pager no longer overlaps answer text.** The scroll-to-bottom button and the "< n/total >" pair pager were two separate floating controls (bottom-center and bottom-right); they're now one shared bottom-right control — each half shows/hides independently (scroll-to-bottom per scroll position, the pair nav per pair count), and the container itself only hides when neither is needed. `.pair-a` also gained bottom clearance so its content never renders underneath the floating control, even scrolled all the way down.
+
 ## [1.12.3] — 2026-07-13
 
 ### Fixed
