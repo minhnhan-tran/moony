@@ -370,7 +370,7 @@ type Config struct {
 // Version is the moony release version. It's the single source of
 // truth: surfaced by `--version`, and the TUI header.
 // Keep it in sync with the top entry of CHANGELOG.md.
-const Version = "1.13.2"
+const Version = "1.13.3"
 
 // VersionLess reports whether semantic version a is strictly older than b, where
 // each is "x.y.z" (an optional leading "v" is tolerated). It returns false when

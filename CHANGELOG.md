@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.13.3] — 2026-07-13
+
+### Changed
+
+- web: move the pager back to bottom-right, clear of pair-a's scrollbar (not the opposite corner)
+
 ## [1.13.2] — 2026-07-13
 
 ### Changed
