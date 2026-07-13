@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.14.0] — 2026-07-13
+
+### Added
+
+- **Provider-agnostic embeddings, and `recall` gets the same hybrid semantic rerank `search_code` already had.** `Client.Embed` previously only ever hit Ollama's native `/embeddings` endpoint, regardless of the session's main provider. It now routes through the same `remoteBackendFor` plumbing chat completions use, gated by a new `EmbeddingsProvider` field (`MOONY_EMBEDDINGS_PROVIDER`, independent of the main `LLMProvider`) — so a session running on Anthropic can still point embeddings at OpenAI (or any other OpenAI-compatible provider) without switching its main model. Anthropic itself has no embeddings API and is rejected with a clear error rather than silently misrouted. `recall` was pure BM25 until now; it reuses the same `Registry.embedder`/`cosineSim`/blend-scoring `search_code` uses, so a paraphrased query can surface a memory note without shared keywords — a no-op when no embedder is configured.
+
 ## [1.13.3] — 2026-07-13
 
 ### Changed
