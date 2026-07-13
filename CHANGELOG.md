@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.12.3] — 2026-07-13
+
+### Fixed
+
+- **`pagerPrev`'s left chevron was still invisible after the previous "fix."** The real cause wasn't a missing codepoint mapping — `fontTools` confirms the bundled `material-symbols.woff2` subset (144 glyphs) genuinely has no `chevron_left` glyph (only `chevron_right`, since nothing used the former before the pager). Pointing `MATERIAL_CP["chevron_left"]` at the textbook codepoint (as v1.12.2 did) rendered a real but *absent* glyph, i.e. nothing. `AppIcon._render()` now detects `chevron_left` and renders `chevron_right`'s (present) glyph mirrored via `transform: scaleX(-1)` instead — no font file changes needed.
+
 ## [1.12.2] — 2026-07-13
 
 ### Fixed
