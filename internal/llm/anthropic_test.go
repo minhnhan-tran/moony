@@ -150,12 +150,18 @@ func mustMarshal(t *testing.T, v any) string {
 	return string(b)
 }
 
-// TestIsThinkingSignatureError matches only the backend's replayed-signature
-// rejection (message naming both "thinking" and "signature"), not other errors.
+// TestIsThinkingSignatureError matches the backend's replayed-signature
+// rejection (message naming both "thinking" and "signature") and the
+// structural "assistant turn must start with a thinking block" rejection hit
+// on escalation from a non-thinking Fast/Aux round — not other errors.
 func TestIsThinkingSignatureError(t *testing.T) {
 	yes := errors.New("anthropic returned 400 Bad Request: ValidationException: messages.1.content.0: Invalid `signature` in `thinking` block")
 	if !isThinkingSignatureError(yes) {
 		t.Error("should match the thinking-signature 400")
+	}
+	yes2 := errors.New("anthropic returned 400 Bad Request: messages.3: when `thinking` is enabled, an assistant turn with tool_use must start with a thinking block")
+	if !isThinkingSignatureError(yes2) {
+		t.Error("should match the must-start-with-thinking-block 400 (Fast/Aux downshift escalation)")
 	}
 	for _, e := range []error{
 		nil,

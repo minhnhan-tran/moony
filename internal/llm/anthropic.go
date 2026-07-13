@@ -270,15 +270,29 @@ func anthropicStripThinkingEnv() bool {
 	return false
 }
 
-// isThinkingSignatureError reports whether err is a backend's rejection of a
-// replayed thinking-block signature (a 400 whose message names both a
-// "thinking" block and its "signature").
+// isThinkingSignatureError reports whether err is Anthropic's rejection of a
+// replayed assistant turn's thinking content — either (a) a 400 naming both a
+// "thinking" block and its "signature" (the replayed signature can't be
+// re-verified, e.g. behind a Bedrock/Vertex gateway), or (b) a 400 saying an
+// assistant turn with tool_use must start with a thinking block. (b) fires
+// specifically when AdaptiveModel/CheapReads or Self-review ran a round on a
+// non-thinking Fast/Aux tier (possibly a different provider) and the turn then
+// escalates back to a thinking-enabled call: the immediately preceding,
+// replayed assistant message has tool_use but no leading thinking block. Both
+// are 400s a same-history retry can't fix by itself, so the caller strips all
+// historical thinking (prepareMessages with thinkingEnabled=false) and retries;
+// the fresh response still gets its own leading thinking block since thinking
+// stays enabled for THIS call, which also clears the condition for any later
+// round in the turn.
 func isThinkingSignatureError(err error) bool {
 	if err == nil {
 		return false
 	}
 	m := strings.ToLower(err.Error())
-	return strings.Contains(m, "thinking") && strings.Contains(m, "signature")
+	if !strings.Contains(m, "thinking") {
+		return false
+	}
+	return strings.Contains(m, "signature") || strings.Contains(m, "must start with")
 }
 
 func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte) (*http.Request, error) {
