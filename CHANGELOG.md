@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.11.9] — 2026-07-13
+
+### Fixed
+
+- **Escalating from a non-thinking Fast/Aux round back to a thinking-enabled call could 400 forever on Anthropic.** AdaptiveModel/CheapReads (and Self-review) can serve a round on the Fast/Aux tier without extended thinking, possibly on a different provider; when the turn then escalates back to a thinking-enabled call, the replayed history's last assistant turn (tool_use, no thinking block) violates Anthropic's "an assistant turn must start with a thinking block" rule. The existing self-heal (strip all historical thinking, retry) already fixes this class of error for the replayed-signature case; `isThinkingSignatureError` now also matches this structural rejection so the same retry kicks in here too — a one-time strip-and-retry, since the fresh response gets its own leading thinking block.
+
 ## [1.11.8] — 2026-07-12
 
 ### Changed
