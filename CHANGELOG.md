@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.12.0] — 2026-07-13
+
+### Added
+
+- **Pager merged into one `< n/total >` control, and `n/total` now opens a question-jump dropdown.** `pagerPrev`/`pagerPos`/`pagerNext` were three separate controls in a vertical stack; they're now a single horizontal `< n/total >` row. Clicking `n/total` opens a dropdown listing every question asked this turn — pick one to jump straight to that Q&A pair instead of stepping through prev/next one at a time.
+
 ## [1.11.9] — 2026-07-13
 
 ### Fixed
