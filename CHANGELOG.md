@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.17.1] — 2026-07-13
+
+### Changed
+
+- Status bar shows a **"↺ compacting N messages…"** chip while context compaction is in progress (the summarise LLM call), so a quiet mid-turn pause is no longer unexplained. The chip clears automatically once compaction completes.
+
 ## [1.17.0] — 2026-07-13
 
 ### Added
