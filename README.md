@@ -401,6 +401,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 | `MOONY_NOTIFY_EVENTS` | `turn_done,approval` (both) | comma-separated subset to actually notify for |
 | `MOONY_NOTIFY_MIN_SECONDS` | `20` | only fire a `turn_done` webhook for turns that ran at least this long (avoids pinging you for trivial quick turns); `approval` always fires regardless — it's blocking |
 | `MOONY_TUI_BELL` | `1` (on) | ring the terminal bell (`\a`) on turn-done / approval-needed in the TUI; `0` to disable |
+| `MOONY_DAP_ADDR` | _(unset)_ | auto-connect to a Debug Adapter Protocol server at `host:port` on startup; if unset, use `dap_connect` interactively |
 | `MOONY_AUTO_PLAN` | `0` (off) | auto-enter read-only plan mode for a build-mode turn that looks like a large/multi-step change, drafting a plan for approval before touching files; toggle at runtime with `/plan auto on|off`. `/build` always overrides it for a turn |
 | `MOONY_AUTO_DELEGATE` | `0` (off) | auto-delegate a clearly read-heavy investigation ("how/where/why does X work", "investigate …") to the read-only `explore` sub-agent, so bulky reads stay in its (discarded) context instead of re-billing this turn every round. Requires the task tool; skipped in plan mode |
 | `MOONY_PARALLEL_TOOLS` | _(on)_ | run independent tool calls in a turn concurrently (read-only tools and sub-agents); set to `0` to force sequential execution, or a number to cap concurrency (default 8) |
@@ -649,6 +650,45 @@ Add `~/.config/moony/lsp.json` or `./.sqe/lsp.json` to wire up language servers.
 ```
 
 This is a minimal, diagnostics-only LSP client — `textDocument/didOpen`/`didChange` plus `publishDiagnostics`. Hover, go-to-definition, completions, and other LSP features are out of scope.
+
+### Debug Adapter Protocol (interactive debugger)
+
+Point moony at a running [DAP](https://microsoft.github.io/debug-adapter-protocol/) adapter and the agent gains 14 debugger tools: connect, launch/attach, set breakpoints, step (over/in/out), pause, inspect the call stack, list variable scopes, expand variables, and evaluate expressions.
+
+**Quick start (Go with `dlv`):**
+
+```bash
+# In one terminal — start the Delve DAP server
+dlv dap --listen=:54321
+
+# In another terminal — run moony with the adapter address
+MOONY_DAP_ADDR=localhost:54321 moony
+```
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `MOONY_DAP_ADDR` | _(unset)_ | Auto-connect to a DAP adapter at startup (`host:port`). If unset, call `dap_connect` from within a session instead. |
+
+**Tools (always registered; error gracefully if not connected):**
+
+| Tool | Description |
+|---|---|
+| `dap_connect` | Connect to a DAP adapter at `addr`; all other tools become available. |
+| `dap_disconnect` | Send `disconnect` and close the adapter connection. |
+| `dap_launch` | Launch a debug target with adapter-specific `args` (e.g. `{"program":"./main","stopOnEntry":true}`), wait for the first stop. |
+| `dap_attach` | Attach to a running process (e.g. `{"processId":12345}`), same lifecycle as launch. |
+| `dap_set_breakpoints` | Set or replace all breakpoints in a file by line number, with optional conditions. |
+| `dap_continue` | Resume a stopped thread; blocks until the next breakpoint or timeout. |
+| `dap_next` | Step over one statement; returns the new file:line + any output. |
+| `dap_step_in` | Step into a function call. |
+| `dap_step_out` | Step out of the current function. |
+| `dap_pause` | Pause a running thread. |
+| `dap_stack_trace` | Return the call stack with frame IDs, function names, and file:line. |
+| `dap_scopes` | List variable scopes for a frame (Locals, Globals, …) and their `variablesReference` handles. |
+| `dap_variables` | Expand a scope or nested variable reference into a name/type/value table. |
+| `dap_evaluate` | Evaluate an expression (`watch`, `repl`, or `hover` context) and return its value. |
+
+Works with any DAP-compliant adapter: `dlv dap` (Go), `debugpy` (Python), `node --inspect` (Node.js), VS Code's extension hosts, and more.
 
 ### Code formatters (format-on-write)
 

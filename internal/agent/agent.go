@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pysty1995/moony/internal/config"
+	"github.com/pysty1995/moony/internal/dap"
 	"github.com/pysty1995/moony/internal/format"
 	"github.com/pysty1995/moony/internal/hooks"
 	"github.com/pysty1995/moony/internal/llm"
@@ -419,6 +420,20 @@ func (a *Agent) AttachLSP(m *lsp.Manager) {
 // LSP returns the attached language-server manager (nil if none), so callers
 // hot-reloading servers can close the previous one.
 func (a *Agent) LSP() *lsp.Manager { return a.lsp }
+
+// AttachDAP connects to a Debug Adapter Protocol server at addr, wires the
+// resulting session into the DAP tools, and registers a closer so the
+// connection is torn down cleanly when the registry is closed. Non-fatal:
+// callers should warn on error and continue (matching the AttachLSP pattern).
+func (a *Agent) AttachDAP(addr string) error {
+	sess, err := dap.Dial(addr)
+	if err != nil {
+		return err
+	}
+	a.tools.DAPHolder().Set(sess)
+	a.tools.AddCloser(func() { _ = sess.Close() })
+	return nil
+}
 
 // AttachFormatter wires a code-formatter manager. After each successful
 // write_file/edit_file/multi_edit/apply_patch the changed files are formatted

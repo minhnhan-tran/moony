@@ -241,6 +241,15 @@ func main() {
 			ag.AttachLSP(lspMgr)
 		}
 	}
+
+	// Auto-connect to a DAP adapter when MOONY_DAP_ADDR is set. Non-fatal:
+	// a bad address just means the dap_* tools will error "not connected" until
+	// the user calls dap_connect manually.
+	if dapAddr := strings.TrimSpace(os.Getenv("MOONY_DAP_ADDR")); dapAddr != "" {
+		if err := ag.AttachDAP(dapAddr); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: DAP auto-connect to %s failed: %v\n", dapAddr, err)
+		}
+	}
 	defer mgr.Close()
 	defer func() {
 		if lspMgr != nil {

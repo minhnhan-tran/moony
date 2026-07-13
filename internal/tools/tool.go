@@ -14,6 +14,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/pysty1995/moony/internal/dap"
 	"github.com/pysty1995/moony/internal/llm"
 )
 
@@ -131,6 +132,11 @@ type Registry struct {
 	// cosine similarity to the query and blended with their lexical score. nil
 	// means pure BM25 (the default).
 	embedder Embedder
+
+	// dapHolder is the shared live DAP debug session reference. nil = not
+	// connected. Populated by dap_connect or Agent.AttachDAP at startup;
+	// shared across all 14 DAP tool instances so they see the same session.
+	dapHolder *dap.SessionHolder
 }
 
 // Embedder produces an embedding vector for each input string (a query and
@@ -340,6 +346,7 @@ func NewRegistry(workingDir string) *Registry {
 		ignore:    LoadIgnore(workingDir),
 		jobs:      newJobStore(),
 		tempRoots: tempDirs(),
+		dapHolder: &dap.SessionHolder{},
 	}
 }
 
@@ -354,6 +361,14 @@ func (r *Registry) addCloser(f func()) {
 	r.closers = append(r.closers, f)
 	r.closeMu.Unlock()
 }
+
+// AddCloser is the exported form of addCloser for use by packages that hold a
+// *Registry (e.g. the agent package wiring DAP from outside the tools package).
+func (r *Registry) AddCloser(f func()) { r.addCloser(f) }
+
+// DAPHolder returns the shared DAP session reference so the agent package can
+// pre-populate it from MOONY_DAP_ADDR before any tool call is made.
+func (r *Registry) DAPHolder() *dap.SessionHolder { return r.dapHolder }
 
 // Close reaps everything this registry started: registered closers (e.g. a
 // headless browser) and any background bash jobs. Hosts should defer it on

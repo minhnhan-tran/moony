@@ -37,6 +37,7 @@ func (r *Registry) RegisterDefaults(maxOutputBytes int) {
 	r.Register(&testRunTool{r: r, max: maxOutputBytes})
 	r.Register(&askUserTool{})
 	r.Register(&exitPlanTool{})
+	r.RegisterDAP(r.dapHolder)
 }
 
 // RegisterAllowed registers only the standard tools whose name is in `allowed`.// Useful for sub-agents that should run with a restricted toolset (e.g. a
