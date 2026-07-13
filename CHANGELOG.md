@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.12.2] — 2026-07-13
+
+### Fixed
+
+- **`pagerPrev` (and any `chevron.left` icon) rendered a "help" glyph instead of a left chevron.** `SF_TO_MATERIAL` mapped `chevron.left` → `chevron_left`, but the `MATERIAL_CP` codepoint table had no `chevron_left` entry (only `chevron_right`), so the lookup's `||` fallback silently rendered the generic "help" icon. Added the missing codepoint.
+
+### Changed
+
+- web: make the pager a rectangle instead of a pill (`--r-lg`/`--r-sm` instead of `--r-full`/`--r-pill`).
+
 ## [1.12.1] — 2026-07-13
 
 ### Changed
