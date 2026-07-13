@@ -2429,7 +2429,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
 .pair-a {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 1rem 1rem 3.75rem;   /* extra bottom clearance: content never sits under the floating .pair-pager */
+  padding: 1rem 1rem 3rem;   /* extra bottom clearance: content never sits under the floating .pair-pager */
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
 }
 
@@ -2440,32 +2440,32 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    count); the container itself is hidden only when NEITHER is needed (see
    syncPagerVisibility). The middle "n/total" opens a dropdown listing every
    question in the turn. Positioned relative to .transcript-wrap (the nearest
-   positioned ancestor); DOM order doesn't matter. Its 3.75rem clearance in
+   positioned ancestor); DOM order doesn't matter. Its 3rem clearance in
    .pair-a above keeps it from ever overlapping the answer text. */
 .pair-pager[hidden] { display: none; }
 .pair-pager {
-  position: absolute; bottom: .85rem; right: .85rem; z-index: 6;
+  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;   /* +10px clears .pair-a's scrollbar track */
   display: flex; align-items: center; gap: .1rem;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
-  border-radius: var(--r-lg); padding: .3rem;
+  border-radius: var(--r-md); padding: .2rem;
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
 }
 #pagerNav { display: flex; align-items: center; gap: .1rem; }
 #pagerNav[hidden] { display: none; }
-#scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .2rem; padding-left: .3rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
+#scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
 .pager-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 1.7rem; height: 1.7rem; border: 0; border-radius: var(--r-sm);
+  width: 1.35rem; height: 1.35rem; border: 0; border-radius: var(--r-xs);
   background: transparent; color: rgb(var(--c-ink-soft)); cursor: pointer; transition: background .12s ease;
 }
-.pager-btn app-icon { font-size: 13px; }
+.pager-btn app-icon { font-size: 11px; }
 .pager-btn:hover { background: rgb(var(--c-edge)); }
 .pager-btn:disabled { opacity: .35; cursor: default; pointer-events: none; background: transparent; }
 .pager-btn[hidden] { display: none; }
 .pager-pos {
-  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   color: rgb(var(--c-ink)); background: transparent; border: 0;
-  padding: 0 .5rem; min-width: 2.6rem; text-align: center; cursor: pointer; border-radius: var(--r-sm);
+  padding: 0 .4rem; min-width: 2.1rem; text-align: center; cursor: pointer; border-radius: var(--r-xs);
 }
 .pager-pos:hover { background: rgb(var(--c-edge)); }
 
