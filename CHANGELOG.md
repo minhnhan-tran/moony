@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.18.1] — 2026-07-18
+
+### Changed
+
+- **Split the README into focused docs.** The top-level `README.md` is now a concise intro + feature overview; the detailed material moved into `docs/`: [getting-started.md](docs/getting-started.md) (how it works, tools, requirements, install, build, releasing), [web-and-relay.md](docs/web-and-relay.md), [commands-and-configuration.md](docs/commands-and-configuration.md), [extensibility.md](docs/extensibility.md), and [development.md](docs/development.md). No behavior changes.
+
 ## [1.18.0] — 2026-07-13
 
 ### Added
