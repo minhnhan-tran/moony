@@ -172,7 +172,7 @@ type goTestSummary struct {
 	passed   int
 	failed   int
 	skipped  int
-	coverage string   // e.g. "72.4% of statements" (best/last package seen)
+	coverage string // e.g. "72.4% of statements" (best/last package seen)
 	failures []testFailure
 	pkgFail  []string // packages that failed to build/setup (no per-test events)
 }

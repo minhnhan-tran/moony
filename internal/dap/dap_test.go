@@ -20,9 +20,9 @@ import (
 // fakeServer is a minimal in-process DAP adapter for testing. It listens on a
 // TCP port, echoes the connection through fakeHandler, and closes cleanly.
 type fakeServer struct {
-	ln  net.Listener
-	mu  sync.Mutex
-	wg  sync.WaitGroup
+	ln net.Listener
+	mu sync.Mutex
+	wg sync.WaitGroup
 }
 
 func startFakeServer(t *testing.T, handler func(conn net.Conn)) *fakeServer {
@@ -185,7 +185,9 @@ func TestSessionSendCorrelation(t *testing.T) {
 
 		// Respond to initialize.
 		raw := readDAP(t, rd)
-		var req struct{ Seq int `json:"seq"` }
+		var req struct {
+			Seq int `json:"seq"`
+		}
 		_ = json.Unmarshal(raw, &req)
 		sendResponse(t, conn, req.Seq, "initialize", map[string]bool{"supportsConfigurationDoneRequest": true})
 
@@ -226,7 +228,9 @@ func TestStoppedEventUpdatesState(t *testing.T) {
 
 		// Respond to initialize.
 		raw := readDAP(t, rd)
-		var req struct{ Seq int `json:"seq"` }
+		var req struct {
+			Seq int `json:"seq"`
+		}
 		_ = json.Unmarshal(raw, &req)
 		sendResponse(t, conn, req.Seq, "initialize", nil)
 
@@ -263,7 +267,9 @@ func TestOutputEventIsBuffered(t *testing.T) {
 		rd := bufio.NewReader(conn)
 
 		raw := readDAP(t, rd)
-		var req struct{ Seq int `json:"seq"` }
+		var req struct {
+			Seq int `json:"seq"`
+		}
 		_ = json.Unmarshal(raw, &req)
 		sendResponse(t, conn, req.Seq, "initialize", nil)
 
@@ -298,7 +304,9 @@ func TestWaitStoppedTimesOut(t *testing.T) {
 		rd := bufio.NewReader(conn)
 
 		raw := readDAP(t, rd)
-		var req struct{ Seq int `json:"seq"` }
+		var req struct {
+			Seq int `json:"seq"`
+		}
 		_ = json.Unmarshal(raw, &req)
 		sendResponse(t, conn, req.Seq, "initialize", nil)
 		// Never fire a stopped event.

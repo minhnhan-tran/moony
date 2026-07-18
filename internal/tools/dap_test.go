@@ -162,12 +162,12 @@ func TestDAPToolSchemasHaveRequiredFields(t *testing.T) {
 
 	// Tools that specify "required" in their schema — spot-check a few.
 	required := map[string][]string{
-		"dap_connect":          {"addr"},
-		"dap_set_breakpoints":  {"file", "lines"},
-		"dap_continue":         {"thread_id"},
-		"dap_stack_trace":      {"thread_id"},
-		"dap_evaluate":         {"expression"},
-		"dap_variables":        {"variables_reference"},
+		"dap_connect":         {"addr"},
+		"dap_set_breakpoints": {"file", "lines"},
+		"dap_continue":        {"thread_id"},
+		"dap_stack_trace":     {"thread_id"},
+		"dap_evaluate":        {"expression"},
+		"dap_variables":       {"variables_reference"},
 	}
 
 	schemas := r.Schemas()
@@ -217,19 +217,19 @@ func TestDAPToolsErrorWhenNotConnected(t *testing.T) {
 
 	// Craft minimal valid JSON for each tool.
 	validInput := map[string]string{
-		"dap_disconnect":     `{}`,
-		"dap_launch":         `{"args":{"program":"./main"}}`,
-		"dap_attach":         `{"args":{"processId":1}}`,
+		"dap_disconnect":      `{}`,
+		"dap_launch":          `{"args":{"program":"./main"}}`,
+		"dap_attach":          `{"args":{"processId":1}}`,
 		"dap_set_breakpoints": `{"file":"main.go","lines":[1]}`,
-		"dap_continue":       `{"thread_id":1}`,
-		"dap_next":           `{"thread_id":1}`,
-		"dap_step_in":        `{"thread_id":1}`,
-		"dap_step_out":       `{"thread_id":1}`,
-		"dap_pause":          `{"thread_id":1}`,
-		"dap_stack_trace":    `{"thread_id":1}`,
-		"dap_scopes":         `{"frame_id":0}`,
-		"dap_variables":      `{"variables_reference":1}`,
-		"dap_evaluate":       `{"expression":"x"}`,
+		"dap_continue":        `{"thread_id":1}`,
+		"dap_next":            `{"thread_id":1}`,
+		"dap_step_in":         `{"thread_id":1}`,
+		"dap_step_out":        `{"thread_id":1}`,
+		"dap_pause":           `{"thread_id":1}`,
+		"dap_stack_trace":     `{"thread_id":1}`,
+		"dap_scopes":          `{"frame_id":0}`,
+		"dap_variables":       `{"variables_reference":1}`,
+		"dap_evaluate":        `{"expression":"x"}`,
 	}
 
 	// Use execute via the registry's internal Execute helper — access via

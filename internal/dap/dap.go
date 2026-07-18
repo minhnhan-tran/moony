@@ -63,12 +63,12 @@ type rawEvent struct {
 
 // InitializeArgs are sent in the mandatory initialize request.
 type InitializeArgs struct {
-	ClientID         string `json:"clientID"`
-	AdapterID        string `json:"adapterID"`
-	LinesStartAt1    bool   `json:"linesStartAt1"`
-	ColumnsStartAt1  bool   `json:"columnsStartAt1"`
-	PathFormat       string `json:"pathFormat"`
-	SupportsRunInTerminalRequest bool `json:"supportsRunInTerminalRequest,omitempty"`
+	ClientID                     string `json:"clientID"`
+	AdapterID                    string `json:"adapterID"`
+	LinesStartAt1                bool   `json:"linesStartAt1"`
+	ColumnsStartAt1              bool   `json:"columnsStartAt1"`
+	PathFormat                   string `json:"pathFormat"`
+	SupportsRunInTerminalRequest bool   `json:"supportsRunInTerminalRequest,omitempty"`
 }
 
 // SetBreakpointsArgs sends breakpoints for a single source file.
@@ -96,11 +96,11 @@ type SetBreakpointsBody struct {
 
 // Breakpoint is a single breakpoint as reported by the adapter.
 type Breakpoint struct {
-	ID       int    `json:"id,omitempty"`
-	Verified bool   `json:"verified"`
-	Message  string `json:"message,omitempty"`
+	ID       int        `json:"id,omitempty"`
+	Verified bool       `json:"verified"`
+	Message  string     `json:"message,omitempty"`
 	Source   *SourceRef `json:"source,omitempty"`
-	Line     int    `json:"line,omitempty"`
+	Line     int        `json:"line,omitempty"`
 }
 
 // StackTraceArgs requests the call stack for one thread.
@@ -117,12 +117,12 @@ type StackTraceBody struct {
 
 // StackFrame is one level of the call stack.
 type StackFrame struct {
-	ID                          int        `json:"id"`
-	Name                        string     `json:"name"`
-	Source                      *SourceRef `json:"source,omitempty"`
-	Line                        int        `json:"line"`
-	Column                      int        `json:"column"`
-	PresentationHint            string     `json:"presentationHint,omitempty"`
+	ID               int        `json:"id"`
+	Name             string     `json:"name"`
+	Source           *SourceRef `json:"source,omitempty"`
+	Line             int        `json:"line"`
+	Column           int        `json:"column"`
+	PresentationHint string     `json:"presentationHint,omitempty"`
 }
 
 // ScopesArgs requests the scopes for a stack frame.
@@ -199,8 +199,8 @@ type Session struct {
 	conn net.Conn
 	rd   *bufio.Reader
 
-	mu      sync.Mutex      // serialises writes + pending map
-	nextSeq int             // next outgoing sequence number
+	mu      sync.Mutex             // serialises writes + pending map
+	nextSeq int                    // next outgoing sequence number
 	pending map[int]chan *Response // inflight requests; keyed by request seq
 
 	// state updated by the readLoop goroutine; all protected by stateMu
@@ -213,7 +213,7 @@ type Session struct {
 	initializedCh chan struct{} // closed once the "initialized" event arrives
 
 	done chan struct{} // closed when readLoop exits (connection gone)
-	seq  atomic.Int64 // monotonic counter; used only in tests that don't dial
+	seq  atomic.Int64  // monotonic counter; used only in tests that don't dial
 }
 
 // Dial opens a TCP connection to addr, sends the mandatory DAP initialize
