@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.18.0] — 2026-07-13
+
+### Added
+
+- **GitHub Copilot provider.** A 20th model provider (`/provider copilot`), driven through the official [github/copilot-sdk](https://github.com/github/copilot-sdk) Go SDK rather than a plain HTTP API — the SDK spawns and talks to the local `copilot` CLI over JSON-RPC. It runs in **autonomous mode**: the Copilot CLI plans and calls its *own* built-in tools (file read/write, shell, etc.) with its permission prompts auto-approved, and moony streams the assistant's text, reasoning, and tool activity into the TUI as a normal turn. Requires the `copilot` CLI installed and on `PATH` (or `MOONY_COPILOT_CLI_PATH`) and a GitHub token via `MOONY_COPILOT_TOKEN` (falls back to `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`, else the CLI's stored credentials). `/reasoning` maps to Copilot's reasoning-effort levels; `/models` lists the account's available models. New backend: `internal/llm/copilot.go`. Note: because Copilot's CLI executes its own tools, moony's approval policy / sandbox / tool logging do **not** cover what it does on disk.
+
 ## [1.17.1] — 2026-07-13
 
 ### Changed

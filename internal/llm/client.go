@@ -67,6 +67,8 @@ func streamRetriesFromEnv(def int) int {
 // CheckAuth verifies that Ollama is reachable.
 func (c *Client) CheckAuth(ctx context.Context) error {
 	switch {
+	case c.usesCopilot():
+		return c.checkCopilotAuth(ctx)
 	case c.usesAnthropic():
 		return c.checkAnthropicAuth(ctx)
 	case c.usesRemote():
@@ -141,6 +143,8 @@ func (c *Client) StreamMessages(ctx context.Context, system string, messages []M
 		err  error
 	)
 	switch {
+	case c.usesCopilot():
+		resp, err = c.streamCopilot(ctx, system, wireMsgs, wireTools, wrapped)
 	case c.usesAnthropic():
 		resp, err = c.streamAnthropic(ctx, system, wireMsgs, wireTools, wrapped)
 	case c.usesRemote():

@@ -39,6 +39,12 @@ const (
 	Venice      = "venice"
 	OmniRoute   = "omniroute"
 
+	// Copilot is GitHub Copilot, driven through the github/copilot-sdk Go SDK
+	// (it spawns and talks to the local `copilot` CLI over JSON-RPC) rather than
+	// a plain HTTP API. It runs autonomously with its own built-in tools — see
+	// internal/llm/copilot.go.
+	Copilot = "copilot"
+
 	// SQEAnthropic is the public Anthropic backend reached through the SQE LAN
 	// gateway (a Bedrock-style proxy). Same wire protocol and models as Anthropic;
 	// only the default base URL (and, optionally, the API key) differ.
@@ -72,6 +78,9 @@ const (
 	// OmniRouteDefaultModel is OmniRoute's zero-config "smart router" id — it picks
 	// a backend automatically, so it's the safest starting model.
 	OmniRouteDefaultModel = "auto"
+	// CopilotDefaultModel is empty so the Copilot CLI uses its own configured
+	// default model; users can still pick a specific one with /model.
+	CopilotDefaultModel = ""
 )
 
 // list is the fixed registry, in the order shown by /provider.
@@ -95,6 +104,7 @@ var list = []Provider{
 	{ID: HuggingFace, Label: "Hugging Face", Desc: "router.huggingface.co inference router — needs MOONY_HUGGINGFACE_API_KEY"},
 	{ID: Venice, Label: "Venice", Desc: "api.venice.ai — privacy-focused open models — needs MOONY_VENICE_API_KEY"},
 	{ID: OmniRoute, Label: "OmniRoute", Desc: "local OmniRoute gateway (default http://localhost:20128/v1) — needs MOONY_OMNIROUTE_API_KEY; use prefix/model ids or auto"},
+	{ID: Copilot, Label: "GitHub Copilot", Desc: "GitHub Copilot via the copilot CLI (autonomous, its own tools) — needs the `copilot` CLI installed and a GitHub token (MOONY_COPILOT_TOKEN / GH_TOKEN)"},
 }
 
 // List returns a copy of the provider registry, in display order.
@@ -145,6 +155,14 @@ func UsesAnthropicWire(id string) bool {
 	return false
 }
 
+// UsesCopilotSDK reports whether a provider is driven through the GitHub
+// Copilot SDK/CLI rather than a direct HTTP API. Such providers run
+// autonomously (their own agent loop + tools), so the agent treats a turn as a
+// live SDK session instead of a stateless request. See internal/llm/copilot.go.
+func UsesCopilotSDK(id string) bool {
+	return Normalize(id) == Copilot
+}
+
 // defaultModels maps each provider id to its starting model. Kept as a map
 // (rather than a switch) so adding a provider only means adding one entry here
 // and one to list above.
@@ -168,6 +186,7 @@ var defaultModels = map[string]string{
 	HuggingFace:  HuggingFaceDefaultModel,
 	Venice:       VeniceDefaultModel,
 	OmniRoute:    OmniRouteDefaultModel,
+	Copilot:      CopilotDefaultModel,
 }
 
 // DefaultModelFor returns the model a provider starts with when freshly

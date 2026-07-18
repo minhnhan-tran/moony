@@ -350,7 +350,7 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, or `venice`. Overrides the saved `/provider` choice for the run |
+| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, or `copilot`. Overrides the saved `/provider` choice for the run |
 | `MOONY_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
 | `MOONY_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
 | `MOONY_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
@@ -370,6 +370,8 @@ Only the **browser→relay** hop is TLS; the connector tunnel (`:8771`) stays pl
 | `MOONY_NVIDIA_API_KEY` | _(unset)_ | NVIDIA NIM API key for the `nvidia` provider (falls back to `NVIDIA_API_KEY`) |
 | `MOONY_HUGGINGFACE_API_KEY` | _(unset)_ | Hugging Face API key for the `huggingface` provider (falls back to `HF_TOKEN`) |
 | `MOONY_VENICE_API_KEY` | _(unset)_ | Venice API key for the `venice` provider (falls back to `VENICE_API_KEY`) |
+| `MOONY_COPILOT_TOKEN` | _(unset)_ | GitHub token for the `copilot` provider (falls back to `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`; else the CLI's stored credentials) |
+| `MOONY_COPILOT_CLI_PATH` | _(unset)_ | path to the `copilot` CLI executable for the `copilot` provider (falls back to `COPILOT_CLI_PATH`; else `copilot` is looked up on `PATH`) |
 | `MOONY_<PROVIDER>_BASE_URL` | provider default | override any provider's API base URL (e.g. `MOONY_OPENAI_BASE_URL`, `MOONY_GEMINI_BASE_URL`) — useful for proxies or self-hosted gateways |
 | `MOONY_REASONING` | `off` | extended-thinking level (model-dependent: `off`/`minimal`/`low`/`medium`/`high`/`x-high`/`max`; clamped to what the model supports) |
 | `MOONY_MAX_STEPS` | `150` | max model↔tool rounds per turn before the agent stops (raise for long, todo-driven tasks; a runaway-loop guard, not a budget) |
@@ -465,7 +467,7 @@ Behavior:
 
 
 
-The agent supports seventeen backends, selected with `/provider` (or `MOONY_PROVIDER`):
+The agent supports twenty backends, selected with `/provider` (or `MOONY_PROVIDER`):
 
 - **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MOONY_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MOONY_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
 - **OpenAI** — `api.openai.com`, `MOONY_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
@@ -484,8 +486,10 @@ The agent supports seventeen backends, selected with `/provider` (or `MOONY_PROV
 - **NVIDIA NIM** — `integrate.api.nvidia.com`, `MOONY_NVIDIA_API_KEY` (or `NVIDIA_API_KEY`); hosted open models.
 - **Hugging Face** — `router.huggingface.co`, `MOONY_HUGGINGFACE_API_KEY` (or `HF_TOKEN`); inference router across many open models.
 - **Venice** — `api.venice.ai`, `MOONY_VENICE_API_KEY` (or `VENICE_API_KEY`); privacy-focused open models.
+- **OmniRoute** — a local OmniRoute gateway (default `http://localhost:20128/v1`), `MOONY_OMNIROUTE_API_KEY` (or `OMNIROUTE_API_KEY`); use `prefix/model` ids or `auto` to let it route.
+- **GitHub Copilot** — driven through the [github/copilot-sdk](https://github.com/github/copilot-sdk) Go SDK (not a plain HTTP API): it spawns and talks to the local **`copilot` CLI** over JSON-RPC. Runs **autonomously** — the Copilot CLI plans and calls its *own* built-in tools (file read/write, shell, …) with permission prompts auto-approved, while moony streams its text/reasoning/tool-activity into the TUI. Requires the `copilot` CLI on `PATH` (or `MOONY_COPILOT_CLI_PATH`) and a GitHub token via `MOONY_COPILOT_TOKEN` (falls back to `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`, else the CLI's stored credentials). Note: because Copilot's CLI runs its own tools, moony's approval policy / sandbox / tool logging do **not** cover what it does on disk.
 
-Every provider except Anthropic speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**. Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
+Every provider except Anthropic and GitHub Copilot speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**, and GitHub Copilot is driven through its SDK/CLI (autonomous). Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted HTTP provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
 
 Sessions are stored under `~/.config/moony/sessions/`. Your model and reasoning-level choices (set via `/model`, `/models`, or `/reasoning`) persist to `~/.config/moony/config.json` and are restored on the next launch. Precedence is **flags > environment variables > saved config > built-in defaults**. Approval and compaction thresholds (`ApprovalEnabled`, `CompactThresholdTokens`, `CompactKeepTokens`) live in `internal/config`.
 

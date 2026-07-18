@@ -31,6 +31,8 @@ var sensitiveEnvKeys = map[string]bool{
 	"TOGETHER_API_KEY":         true,
 	"MOONY_FIREWORKS_API_KEY":  true,
 	"FIREWORKS_API_KEY":        true,
+	"MOONY_COPILOT_TOKEN":      true, // GitHub token for the Copilot provider
+	"COPILOT_GITHUB_TOKEN":     true,
 	"MOONY_ENV_FILE":           true, // points at the secrets file
 }
 

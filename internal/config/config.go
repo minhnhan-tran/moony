@@ -131,6 +131,16 @@ type Config struct {
 	// OmniRouteBaseURL overrides the OmniRoute base URL (default
 	// http://localhost:20128/v1). Set via MOONY_OMNIROUTE_BASE_URL.
 	OmniRouteBaseURL string
+	// CopilotToken is the GitHub token used by the GitHub Copilot provider
+	// (which drives the local `copilot` CLI through the copilot-sdk). Set via
+	// MOONY_COPILOT_TOKEN, falling back to the CLI's own COPILOT_GITHUB_TOKEN /
+	// GH_TOKEN / GITHUB_TOKEN. When empty, the SDK/CLI uses its own stored
+	// GitHub credentials.
+	CopilotToken string
+	// CopilotCLIPath overrides the path to the `copilot` CLI executable. Set
+	// via MOONY_COPILOT_CLI_PATH (falls back to COPILOT_CLI_PATH). When empty,
+	// the SDK looks for `copilot` on PATH.
+	CopilotCLIPath string
 	// LLMProvider selects the backend model provider: "ollama" (default),
 	// "openai", "anthropic", "openrouter", "gemini", "deepseek", "groq", "xai",
 	// "mistral", "together", "fireworks", "moonshot", "zai", "dashscope",
@@ -376,7 +386,7 @@ type Config struct {
 // Version is the moony release version. It's the single source of
 // truth: surfaced by `--version`, and the TUI header.
 // Keep it in sync with the top entry of CHANGELOG.md.
-const Version = "1.17.1"
+const Version = "1.18.0"
 
 // VersionLess reports whether semantic version a is strictly older than b, where
 // each is "x.y.z" (an optional leading "v" is tolerated). It returns false when
@@ -1121,7 +1131,7 @@ func ReasoningActive(llmProvider, model, level string) bool {
 		return strings.Contains(m, "qwq") || strings.Contains(m, "r1")
 	case provider.Mistral:
 		return strings.Contains(strings.ToLower(model), "magistral")
-	case provider.OpenRouter, provider.Gemini, provider.Together, provider.Fireworks:
+	case provider.OpenRouter, provider.Gemini, provider.Together, provider.Fireworks, provider.Copilot:
 		return true
 	default: // ollama, anthropic
 		return ModelSupportsThinking(model)
@@ -1466,6 +1476,8 @@ func Load() *Config {
 	if v := strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_BASE_URL")); v != "" {
 		c.OmniRouteBaseURL = v
 	}
+	c.CopilotToken = strings.TrimSpace(firstEnv("MOONY_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))
+	c.CopilotCLIPath = strings.TrimSpace(firstEnv("MOONY_COPILOT_CLI_PATH", "COPILOT_CLI_PATH"))
 	if v := os.Getenv("MOONY_MODEL"); v != "" {
 		c.Model = v
 	} else if prefs.Model == "" && c.LLMProvider != provider.Default {

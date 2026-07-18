@@ -19,6 +19,8 @@ func ModelServableBy(model, llmProvider string) bool {
 // Users can still select any id via `/model <id>`.
 func (c *Client) ListModels(ctx context.Context) ([]config.ModelInfo, error) {
 	switch {
+	case c.usesCopilot():
+		return c.listCopilotModels(ctx)
 	case c.usesAnthropic():
 		return c.listAnthropicModels(ctx)
 	case c.usesRemote():
