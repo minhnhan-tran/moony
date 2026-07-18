@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.18.2] — 2026-07-18
+
+### Changed
+
+- **Cheaper live markdown while streaming.** The in-progress assistant reply is no longer re-parsed through Glamour on a fixed 60ms timer regardless of content. Two changes cut the CPU cost of long/fast replies: (1) an append-only content guard skips the Glamour pass entirely when the streamed text hasn't grown since the last render (so refreshes from non-text events mid-turn are free), and (2) the render throttle is now adaptive — short replies stay snappy at 60ms while longer ones scale up toward 300ms, keeping total render work roughly bounded instead of O(n²) over the turn. No visible change to output; the completed reply is still rendered in full. Live markdown can still be disabled with `MOONY_STREAM_MARKDOWN=0`.
+
 ## [1.18.1] — 2026-07-18
 
 ### Changed

@@ -89,12 +89,15 @@ type entry struct {
 	renderedW int
 
 	// streamCache holds the most recent live-markdown render of an in-progress
-	// assistant entry. It's refreshed at most once per streamRenderInterval (see
-	// streamingBody) so a fast token stream stays smooth; streamCacheW tracks
-	// the width it was rendered at. Distinct from rendered so the final,
-	// non-streaming render is always recomputed once in full.
-	streamCache  string
-	streamCacheW int
+	// assistant entry. It's refreshed at most once per the (adaptive) stream
+	// interval (see streamingBody) so a fast token stream stays smooth;
+	// streamCacheW tracks the width it was rendered at and streamCacheLen the
+	// byte length of the text it covered (streaming is append-only, so an
+	// unchanged length means there's nothing new to show). Distinct from
+	// rendered so the final, non-streaming render is always recomputed in full.
+	streamCache    string
+	streamCacheW   int
+	streamCacheLen int
 
 	// side marks an entry that belongs to a `/btw` side-question exchange.
 	// Side entries are answered out-of-band (via Agent.AskSide) and never
@@ -470,25 +473,56 @@ func (t *transcript) markdown(s string) string {
 	return strings.Trim(out, "\n")
 }
 
-// streamRenderInterval bounds how often the in-progress assistant message is
-// re-rendered through Glamour while streaming. Capping this keeps live markdown
-// smooth even when tokens arrive in a rapid burst (re-parsing the whole message
-// on every delta would be O(n²) over the turn).
-const streamRenderInterval = 60 * time.Millisecond
+// Live-markdown render pacing while an assistant reply streams. Re-parsing the
+// whole partial message through Glamour on every token would be O(n²) over the
+// turn, so streamingBody throttles it. The interval is adaptive: short replies
+// stay snappy at streamRenderMinInterval, but as the message grows (each render
+// costs more) the interval scales up toward streamRenderMaxInterval so total
+// render work stays roughly bounded regardless of reply length.
+const (
+	streamRenderMinInterval = 60 * time.Millisecond
+	streamRenderMaxInterval = 300 * time.Millisecond
+	// streamRenderStepBytes is how many bytes of accumulated reply add one
+	// streamRenderMinInterval to the throttle (capped at the max). ~2 KB ≈ a
+	// few paragraphs, so ordinary answers never slow down.
+	streamRenderStepBytes = 2048
+)
+
+// streamRenderInterval returns the throttle window for a partial reply of n
+// bytes: streamRenderMinInterval for short text, scaling linearly up to
+// streamRenderMaxInterval as the message grows.
+func streamRenderInterval(n int) time.Duration {
+	d := streamRenderMinInterval * time.Duration(1+n/streamRenderStepBytes)
+	if d > streamRenderMaxInterval {
+		return streamRenderMaxInterval
+	}
+	return d
+}
 
 // streamingBody renders the in-progress assistant entry. With live markdown on
-// (the default), it renders the partial text through Glamour, throttled to
-// streamRenderInterval and cached on the entry; the completed turn always gets a
-// final, full render via the non-streaming path. Set MOONY_STREAM_MARKDOWN=0 to
-// stream raw text instead (rendered as markdown only once the turn completes).
+// (the default), it renders the partial text through Glamour, throttled to an
+// adaptive interval (see streamRenderInterval) and cached on the entry; the
+// completed turn always gets a final, full render via the non-streaming path.
+// Set MOONY_STREAM_MARKDOWN=0 to stream raw text instead (rendered as markdown
+// only once the turn completes).
 func (t *transcript) streamingBody(e *entry) string {
 	if !streamMarkdownEnabled() {
 		return indent(t.wrap(e.text), 2)
 	}
+	// Streaming is append-only: if neither the text length nor the width has
+	// changed since the last render, there's nothing new to show — reuse the
+	// cache and skip Glamour entirely (this also absorbs refreshes triggered by
+	// non-text events mid-turn, e.g. status/spinner updates).
+	if e.streamCache != "" && e.streamCacheW == t.width && len(e.text) == e.streamCacheLen {
+		return e.streamCache
+	}
 	now := time.Now()
-	if e.streamCache == "" || e.streamCacheW != t.width || now.Sub(t.lastStreamRender) >= streamRenderInterval {
+	widthChanged := e.streamCacheW != t.width
+	due := now.Sub(t.lastStreamRender) >= streamRenderInterval(len(e.text))
+	if e.streamCache == "" || widthChanged || due {
 		e.streamCache = t.markdown(e.text)
 		e.streamCacheW = t.width
+		e.streamCacheLen = len(e.text)
 		t.lastStreamRender = now
 	}
 	return e.streamCache

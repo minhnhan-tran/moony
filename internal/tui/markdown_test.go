@@ -46,10 +46,45 @@ func TestStreamingBodyThrottle(t *testing.T) {
 	}
 
 	// Once the interval elapses, the next call reflects the new text.
-	tr.lastStreamRender = time.Now().Add(-streamRenderInterval - time.Millisecond)
+	tr.lastStreamRender = time.Now().Add(-streamRenderInterval(len(tr.entries[0].text)) - time.Millisecond)
 	third := tr.streamingBody(&tr.entries[0])
 	if third == second {
 		t.Errorf("after the throttle interval the render should refresh to the new text")
+	}
+}
+
+// TestStreamingBodyUnchangedTextSkipsRender verifies that when the throttle
+// window has elapsed but the text hasn't grown (e.g. a refresh triggered by a
+// non-text event mid-turn), streamingBody reuses the cache instead of paying
+// for another Glamour pass.
+func TestStreamingBodyUnchangedTextSkipsRender(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("MOONY_STREAM_MARKDOWN", "")
+	m := sized(t, newTestModel(t), 100, 30)
+	tr := &m.trans
+	tr.entries = []entry{{kind: entryAssistant, text: "# Title"}}
+
+	_ = tr.streamingBody(&tr.entries[0])
+	// Force the throttle window open, but leave the text (and width) unchanged.
+	before := tr.lastStreamRender.Add(-time.Hour)
+	tr.lastStreamRender = before
+	_ = tr.streamingBody(&tr.entries[0])
+	if !tr.lastStreamRender.Equal(before) {
+		t.Error("unchanged text should not trigger a re-render (lastStreamRender moved)")
+	}
+}
+
+// TestStreamRenderInterval checks the adaptive throttle grows with reply size
+// and is clamped to the max.
+func TestStreamRenderInterval(t *testing.T) {
+	if got := streamRenderInterval(0); got != streamRenderMinInterval {
+		t.Errorf("short reply: interval = %v, want %v", got, streamRenderMinInterval)
+	}
+	if got := streamRenderInterval(streamRenderStepBytes); got != 2*streamRenderMinInterval {
+		t.Errorf("one step of growth: interval = %v, want %v", got, 2*streamRenderMinInterval)
+	}
+	if got := streamRenderInterval(1 << 20); got != streamRenderMaxInterval {
+		t.Errorf("huge reply: interval = %v, want clamp %v", got, streamRenderMaxInterval)
 	}
 }
 
