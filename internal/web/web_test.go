@@ -18,6 +18,7 @@ import (
 	"github.com/pysty1995/moony/internal/lsp"
 	"github.com/pysty1995/moony/internal/mcp"
 	"github.com/pysty1995/moony/internal/provider"
+	"github.com/pysty1995/moony/internal/selfupdate"
 	sessionpkg "github.com/pysty1995/moony/internal/session"
 	"github.com/pysty1995/moony/internal/tools"
 	"github.com/pysty1995/moony/internal/worker"
@@ -1436,7 +1437,7 @@ func TestSlashUpdateHeadless(t *testing.T) {
 	}
 
 	// Relay reports our own version → already current: no apply, no restart.
-	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	stub := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/relay" {
 			fmt.Fprintf(w, `{"version":%q}`, config.Version)
 			return
@@ -1444,6 +1445,9 @@ func TestSlashUpdateHeadless(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer stub.Close()
+	// Self-update refuses non-https hosts, so use a TLS stub and trust its
+	// self-signed cert via the stub's own client.
+	defer selfupdate.SetHTTPClientForTest(stub.Client())()
 	t.Setenv("MOONY_UPDATE_URL", stub.URL)
 
 	srv.runSelfUpdate(sess)
@@ -1467,7 +1471,7 @@ func TestSlashUpdateBehindFailsCleanly(t *testing.T) {
 	srv.SetUpdateRestart(func() { restarted <- struct{}{} })
 
 	// Newer version advertised, but no binary served → Apply fails.
-	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	stub := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/relay" {
 			fmt.Fprint(w, `{"version":"999.0.0"}`)
 			return
@@ -1475,6 +1479,7 @@ func TestSlashUpdateBehindFailsCleanly(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer stub.Close()
+	defer selfupdate.SetHTTPClientForTest(stub.Client())()
 	t.Setenv("MOONY_UPDATE_URL", stub.URL)
 
 	srv.runSelfUpdate(sess)

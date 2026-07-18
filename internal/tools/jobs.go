@@ -158,6 +158,10 @@ func (s *JobStore) start(set sandboxSetting, roots []string, command string) *jo
 	cmd.Env = scrubbedEnvFor(roots[0]) // secrets stripped; $PWD pinned to the working dir
 	cmd.Stdout = j
 	cmd.Stderr = j
+	// Make the job killable as a unit (its own process group on Unix) and bound
+	// how long Wait() may block after cancel, so grandchildren of the shell
+	// (e.g. `sleep` under dash) can't keep the job alive or wedge Wait().
+	configureProcess(cmd)
 
 	s.add(j)
 

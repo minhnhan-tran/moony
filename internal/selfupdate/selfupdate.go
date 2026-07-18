@@ -34,6 +34,17 @@ const maxDownload = 256 << 20
 // serve canned responses without binding a port.
 var httpClient = http.DefaultClient
 
+// SetHTTPClientForTest overrides the HTTP client used for update requests and
+// returns a function that restores the previous one. It lets tests in other
+// packages point self-update at an httptest TLS stub (whose self-signed cert
+// the default client would reject) while keeping the production https-only
+// guard intact. Test-only; not part of the stable API.
+func SetHTTPClientForTest(c *http.Client) func() {
+	old := httpClient
+	httpClient = c
+	return func() { httpClient = old }
+}
+
 // BaseURL is the configured release host from MOONY_UPDATE_URL (trailing slash
 // trimmed), or "" when self-update isn't configured. There is no built-in
 // default host.
