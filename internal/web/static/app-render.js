@@ -911,6 +911,16 @@ function providerLabel(id) {
     case "huggingface": return "Hugging Face";
     case "venice": return "Venice";
     case "omniroute": return "OmniRoute";
+    case "cerebras": return "Cerebras";
+    case "perplexity": return "Perplexity";
+    case "cohere": return "Cohere";
+    case "deepinfra": return "DeepInfra";
+    case "lmstudio": return "LM Studio";
+    case "llamacpp": return "llama.cpp";
+    case "azure": return "Azure OpenAI";
+    case "vertex": return "Vertex AI";
+    case "bedrock": return "AWS Bedrock";
+    case "copilot": return "GitHub Copilot";
     default: return "";
   }
 }

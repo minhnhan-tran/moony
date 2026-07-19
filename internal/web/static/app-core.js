@@ -1817,6 +1817,16 @@ const PROVIDER_OPTIONS = [
   { id: "huggingface", label: "Hugging Face", desc: "router.huggingface.co" },
   { id: "venice", label: "Venice", desc: "api.venice.ai" },
   { id: "omniroute", label: "OmniRoute", desc: "local OmniRoute gateway (default http://localhost:20128/v1) — needs MN_OMNIROUTE_API_KEY" },
+  { id: "cerebras", label: "Cerebras", desc: "api.cerebras.ai — very fast inference for open models" },
+  { id: "perplexity", label: "Perplexity", desc: "api.perplexity.ai (Sonar) — web-grounded answers with citations" },
+  { id: "cohere", label: "Cohere", desc: "api.cohere.ai (Command, OpenAI-compatible)" },
+  { id: "deepinfra", label: "DeepInfra", desc: "api.deepinfra.com — large catalog of hosted open models, cheap" },
+  { id: "lmstudio", label: "LM Studio", desc: "local LM Studio server (default http://localhost:1234/v1) — no API key" },
+  { id: "llamacpp", label: "llama.cpp", desc: "local llama.cpp / llama-server (default http://localhost:8080/v1) — no API key" },
+  { id: "azure", label: "Azure OpenAI", desc: "OpenAI models on your Azure resource — needs MN_AZURE_API_KEY + MN_AZURE_BASE_URL" },
+  { id: "vertex", label: "Vertex AI", desc: "Google Vertex AI (OpenAI-compatible) — needs MN_VERTEX_API_KEY + MN_VERTEX_PROJECT/MN_VERTEX_LOCATION" },
+  { id: "bedrock", label: "AWS Bedrock", desc: "Claude et al. on AWS, SigV4-signed — needs AWS credentials (MN_AWS_* / standard AWS env)" },
+  { id: "copilot", label: "GitHub Copilot", desc: "via the copilot CLI (autonomous, its own tools)" },
 ];
 function hdrMenuOpen() { return hdrMenuEl && !hdrMenuEl.classList.contains("hidden"); }
 function closeHdrMenu() { if (hdrMenuEl) { hdrMenuEl.classList.add("hidden"); hdrMenuEl.innerHTML = ""; hdrMenuEl.dataset.kind = ""; } }
