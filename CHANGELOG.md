@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.0.0] — 2026-07-19
+
+### Changed
+
+- **BREAKING: the environment variable prefix changed from `MOONY_` to `MN_`.** Every env var moony reads has been renamed (e.g. `MOONY_PROVIDER` → `MN_PROVIDER`, `MOONY_ANTHROPIC_API_KEY` → `MN_ANTHROPIC_API_KEY`, `MOONY_MODEL`, `MOONY_APPROVAL`, per-provider keys/base URLs, …). This is a clean break — `MOONY_*` is no longer read, with **no deprecated fallback**. Update your shell profile, `.env` files, and CI secrets from `MOONY_*` to `MN_*`. Vendor-standard fallback env vars (`OPENAI_API_KEY`, `AWS_*`, `GH_TOKEN`, etc.) are unaffected.
+
 ## [1.20.0] — 2026-07-19
 
 ### Added
