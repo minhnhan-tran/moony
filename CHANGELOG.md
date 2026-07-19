@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.0.1] — 2026-07-19
+
+### Fixed
+
+- The web composer's provider picker (and provider label) now lists all 29 providers. Two hardcoded lists in the web UI were stuck at the old 20-provider set, so the providers added since (Cerebras, Perplexity, Cohere, DeepInfra, LM Studio, llama.cpp, Azure, Vertex, Bedrock, Copilot) never showed up in the menu.
+
 ## [2.0.0] — 2026-07-19
 
 ### Changed
