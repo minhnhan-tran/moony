@@ -131,6 +131,65 @@ type Config struct {
 	// OmniRouteBaseURL overrides the OmniRoute base URL (default
 	// http://localhost:20128/v1). Set via MOONY_OMNIROUTE_BASE_URL.
 	OmniRouteBaseURL string
+	// CerebrasAPIKey authenticates api.cerebras.ai. Set via
+	// MOONY_CEREBRAS_API_KEY (falls back to CEREBRAS_API_KEY).
+	CerebrasAPIKey string
+	// CerebrasBaseURL overrides the Cerebras base URL (default
+	// https://api.cerebras.ai/v1). Set via MOONY_CEREBRAS_BASE_URL.
+	CerebrasBaseURL string
+	// PerplexityAPIKey authenticates api.perplexity.ai. Set via
+	// MOONY_PERPLEXITY_API_KEY (falls back to PERPLEXITY_API_KEY).
+	PerplexityAPIKey string
+	// PerplexityBaseURL overrides the Perplexity base URL (default
+	// https://api.perplexity.ai). Set via MOONY_PERPLEXITY_BASE_URL.
+	PerplexityBaseURL string
+	// CohereAPIKey authenticates api.cohere.ai. Set via MOONY_COHERE_API_KEY
+	// (falls back to CO_API_KEY / COHERE_API_KEY).
+	CohereAPIKey string
+	// CohereBaseURL overrides the Cohere OpenAI-compatible base URL (default
+	// https://api.cohere.ai/compatibility/v1). Set via MOONY_COHERE_BASE_URL.
+	CohereBaseURL string
+	// AzureAPIKey authenticates an Azure OpenAI resource. Set via
+	// MOONY_AZURE_API_KEY (falls back to AZURE_OPENAI_API_KEY / AZURE_API_KEY).
+	AzureAPIKey string
+	// AzureBaseURL is the Azure OpenAI resource endpoint, e.g.
+	// https://my-resource.openai.azure.com. Required (no default). Set via
+	// MOONY_AZURE_BASE_URL (falls back to AZURE_OPENAI_ENDPOINT).
+	AzureBaseURL string
+	// AzureAPIVersion is the Azure OpenAI api-version query param (default
+	// defaultAzureAPIVersion). Set via MOONY_AZURE_API_VERSION.
+	AzureAPIVersion string
+	// VertexAPIKey is a Google Cloud OAuth access token authorizing Vertex AI
+	// (e.g. `gcloud auth print-access-token`). Set via MOONY_VERTEX_API_KEY
+	// (falls back to GOOGLE_VERTEX_API_KEY / the standard GOOGLE_* creds are not
+	// read here — supply a token).
+	VertexAPIKey string
+	// VertexProject is the GCP project id for Vertex AI. Set via
+	// MOONY_VERTEX_PROJECT (falls back to GOOGLE_CLOUD_PROJECT).
+	VertexProject string
+	// VertexLocation is the Vertex AI region (default defaultVertexLocation,
+	// e.g. us-central1; "global" is also valid). Set via MOONY_VERTEX_LOCATION
+	// (falls back to GOOGLE_CLOUD_LOCATION / CLOUD_ML_REGION).
+	VertexLocation string
+	// VertexBaseURL fully overrides the computed Vertex base URL. Normally left
+	// empty and derived from project+location. Set via MOONY_VERTEX_BASE_URL.
+	VertexBaseURL string
+	// AWSAccessKeyID / AWSSecretAccessKey / AWSSessionToken are the credentials
+	// used to SigV4-sign AWS Bedrock requests. Each falls back to the standard
+	// AWS_* env var (and, when all are empty, the AWS SDK's default credential
+	// chain — shared config/SSO/instance role — is used). Set via
+	// MOONY_AWS_ACCESS_KEY_ID / MOONY_AWS_SECRET_ACCESS_KEY /
+	// MOONY_AWS_SESSION_TOKEN.
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSSessionToken    string
+	// AWSRegion is the AWS region for Bedrock (default defaultAWSRegion). Set
+	// via MOONY_AWS_REGION (falls back to AWS_REGION / AWS_DEFAULT_REGION).
+	AWSRegion string
+	// AWSProfile selects a named profile from the shared AWS config when the
+	// explicit keys above are empty. Set via MOONY_AWS_PROFILE (falls back to
+	// AWS_PROFILE).
+	AWSProfile string
 	// CopilotToken is the GitHub token used by the GitHub Copilot provider
 	// (which drives the local `copilot` CLI through the copilot-sdk). Set via
 	// MOONY_COPILOT_TOKEN, falling back to the CLI's own COPILOT_GITHUB_TOKEN /
@@ -432,6 +491,17 @@ const DefaultModel = "llama3.1:8b"
 // never configured one (no saved relay_addr and no MOONY_RELAY). Disable with
 // `/relay off` (persisted) or MOONY_RELAY=off.
 const defaultRelayAddr = "127.0.0.1:8771"
+
+// Defaults for the enterprise cloud providers whose base URL/region aren't a
+// single fixed host.
+const (
+	// defaultAzureAPIVersion is a recent stable Azure OpenAI data-plane version.
+	defaultAzureAPIVersion = "2024-10-21"
+	// defaultVertexLocation is the Vertex AI region used when none is set.
+	defaultVertexLocation = "us-central1"
+	// defaultAWSRegion is the AWS region used for Bedrock when none is set.
+	defaultAWSRegion = "us-east-1"
+)
 
 // DefaultSQEAnthropicBaseURL is the SQE LAN gateway the "sqe-anthropic" provider
 // targets by default (Bedrock-style proxy in front of Claude). Override with
@@ -1119,21 +1189,23 @@ func ReasoningActive(llmProvider, model, level string) bool {
 		return false
 	}
 	switch llmProvider {
-	case provider.OpenAI:
+	case provider.OpenAI, provider.Azure:
 		return IsOpenAIReasoningModel(model)
 	case provider.DeepSeek:
 		return strings.Contains(strings.ToLower(model), "reasoner")
 	case provider.XAI:
 		m := strings.ToLower(model)
 		return strings.Contains(m, "grok-3-mini") || strings.Contains(m, "grok-4")
-	case provider.Groq:
+	case provider.Groq, provider.Cerebras:
 		m := strings.ToLower(model)
-		return strings.Contains(m, "qwq") || strings.Contains(m, "r1")
+		return strings.Contains(m, "qwq") || strings.Contains(m, "r1") || strings.Contains(m, "thinking")
 	case provider.Mistral:
 		return strings.Contains(strings.ToLower(model), "magistral")
-	case provider.OpenRouter, provider.Gemini, provider.Together, provider.Fireworks, provider.Copilot:
+	case provider.Perplexity:
+		return strings.Contains(strings.ToLower(model), "reasoning")
+	case provider.OpenRouter, provider.Gemini, provider.Vertex, provider.Together, provider.Fireworks, provider.Copilot:
 		return true
-	default: // ollama, anthropic
+	default: // ollama, anthropic, bedrock, cohere
 		return ModelSupportsThinking(model)
 	}
 }
@@ -1303,6 +1375,12 @@ func Load() *Config {
 		HuggingFaceBaseURL:  "https://router.huggingface.co/v1",
 		VeniceBaseURL:       "https://api.venice.ai/api/v1",
 		OmniRouteBaseURL:    "http://localhost:20128/v1",
+		CerebrasBaseURL:     "https://api.cerebras.ai/v1",
+		PerplexityBaseURL:   "https://api.perplexity.ai",
+		CohereBaseURL:       "https://api.cohere.ai/compatibility/v1",
+		AzureAPIVersion:     defaultAzureAPIVersion,
+		VertexLocation:      defaultVertexLocation,
+		AWSRegion:           defaultAWSRegion,
 		LLMProvider:         "ollama",
 		Model:               DefaultModel,
 		RelayAddr:           defaultRelayAddr, // on by default; prefs/env can override or disable
@@ -1476,6 +1554,40 @@ func Load() *Config {
 	if v := strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_BASE_URL")); v != "" {
 		c.OmniRouteBaseURL = v
 	}
+	c.CerebrasAPIKey = strings.TrimSpace(firstEnv("MOONY_CEREBRAS_API_KEY", "CEREBRAS_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_CEREBRAS_BASE_URL")); v != "" {
+		c.CerebrasBaseURL = v
+	}
+	c.PerplexityAPIKey = strings.TrimSpace(firstEnv("MOONY_PERPLEXITY_API_KEY", "PERPLEXITY_API_KEY", "PPLX_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_PERPLEXITY_BASE_URL")); v != "" {
+		c.PerplexityBaseURL = v
+	}
+	c.CohereAPIKey = strings.TrimSpace(firstEnv("MOONY_COHERE_API_KEY", "CO_API_KEY", "COHERE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_COHERE_BASE_URL")); v != "" {
+		c.CohereBaseURL = v
+	}
+	c.AzureAPIKey = strings.TrimSpace(firstEnv("MOONY_AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_AZURE_BASE_URL", "AZURE_OPENAI_ENDPOINT")); v != "" {
+		c.AzureBaseURL = v
+	}
+	if v := strings.TrimSpace(firstEnv("MOONY_AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION")); v != "" {
+		c.AzureAPIVersion = v
+	}
+	c.VertexAPIKey = strings.TrimSpace(firstEnv("MOONY_VERTEX_API_KEY", "GOOGLE_VERTEX_API_KEY"))
+	c.VertexProject = strings.TrimSpace(firstEnv("MOONY_VERTEX_PROJECT", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"))
+	if v := strings.TrimSpace(firstEnv("MOONY_VERTEX_LOCATION", "GOOGLE_CLOUD_LOCATION", "CLOUD_ML_REGION")); v != "" {
+		c.VertexLocation = v
+	}
+	if v := strings.TrimSpace(firstEnv("MOONY_VERTEX_BASE_URL")); v != "" {
+		c.VertexBaseURL = v
+	}
+	c.AWSAccessKeyID = strings.TrimSpace(firstEnv("MOONY_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"))
+	c.AWSSecretAccessKey = strings.TrimSpace(firstEnv("MOONY_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"))
+	c.AWSSessionToken = strings.TrimSpace(firstEnv("MOONY_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MOONY_AWS_REGION", "AWS_REGION", "AWS_DEFAULT_REGION")); v != "" {
+		c.AWSRegion = v
+	}
+	c.AWSProfile = strings.TrimSpace(firstEnv("MOONY_AWS_PROFILE", "AWS_PROFILE"))
 	c.CopilotToken = strings.TrimSpace(firstEnv("MOONY_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))
 	c.CopilotCLIPath = strings.TrimSpace(firstEnv("MOONY_COPILOT_CLI_PATH", "COPILOT_CLI_PATH"))
 	if v := os.Getenv("MOONY_MODEL"); v != "" {

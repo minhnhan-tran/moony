@@ -181,7 +181,25 @@ func (c *Client) streamAnthropic(ctx context.Context, system string, messages []
 // model is still asked to think on this turn.
 func (c *Client) streamAnthropicOnce(ctx context.Context, system string, messages []Message, tools []Tool, stripThinking bool, h Handler) (*Response, error) {
 	model := c.resolveAnthropicModel(ctx)
+	body := c.buildAnthropicBody(ctx, model, system, messages, tools, stripThinking)
+	body.Stream = true
+	applyPromptCache(body)
 
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	url := c.anthropicBaseURL() + "/v1/messages"
+	newReq := func() (*http.Request, error) { return c.newAnthropicRequest(ctx, url, raw) }
+	return c.streamWithRetry(ctx, newReq, "anthropic", parseStream, h)
+}
+
+// buildAnthropicBody assembles the shared Anthropic Messages request (model,
+// system, messages, tools, max_tokens, and thinking/effort controls). It's used
+// by both the native Anthropic backend and AWS Bedrock (which reuses the same
+// wire format — see bedrock.go); Stream, prompt-caching, and the Bedrock-only
+// anthropic_version field are applied by the callers.
+func (c *Client) buildAnthropicBody(ctx context.Context, model, system string, messages []Message, tools []Tool, stripThinking bool) *request {
 	level := effortFrom(ctx)
 	if level == "" && c.cfg != nil {
 		level = c.cfg.ReasoningLevel
@@ -205,7 +223,6 @@ func (c *Client) streamAnthropicOnce(ctx context.Context, system string, message
 		// when thinking is active AND this backend can round-trip their signatures.
 		Messages: prepareMessages(messages, thinkingActive && !stripThinking),
 		Tools:    tools,
-		Stream:   true,
 	}
 	if thinkingActive {
 		budget := anthropicBudget(level)
@@ -227,15 +244,7 @@ func (c *Client) streamAnthropicOnce(ctx context.Context, system string, message
 			body.Thinking = &thinking{Type: "enabled", BudgetTokens: budget}
 		}
 	}
-	applyPromptCache(body)
-
-	raw, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	url := c.anthropicBaseURL() + "/v1/messages"
-	newReq := func() (*http.Request, error) { return c.newAnthropicRequest(ctx, url, raw) }
-	return c.streamWithRetry(ctx, newReq, "anthropic", parseStream, h)
+	return body
 }
 
 // anthropicNoReplay remembers backends (keyed by base URL) that rejected a

@@ -50,7 +50,7 @@
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, or `copilot`. Overrides the saved `/provider` choice for the run |
+| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, `cerebras`, `perplexity`, `cohere`, `azure`, `vertex`, `bedrock`, or `copilot`. Overrides the saved `/provider` choice for the run |
 | `MOONY_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
 | `MOONY_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
 | `MOONY_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
@@ -70,6 +70,18 @@
 | `MOONY_NVIDIA_API_KEY` | _(unset)_ | NVIDIA NIM API key for the `nvidia` provider (falls back to `NVIDIA_API_KEY`) |
 | `MOONY_HUGGINGFACE_API_KEY` | _(unset)_ | Hugging Face API key for the `huggingface` provider (falls back to `HF_TOKEN`) |
 | `MOONY_VENICE_API_KEY` | _(unset)_ | Venice API key for the `venice` provider (falls back to `VENICE_API_KEY`) |
+| `MOONY_CEREBRAS_API_KEY` | _(unset)_ | Cerebras API key for the `cerebras` provider (falls back to `CEREBRAS_API_KEY`) |
+| `MOONY_PERPLEXITY_API_KEY` | _(unset)_ | Perplexity API key for the `perplexity` provider (falls back to `PERPLEXITY_API_KEY` / `PPLX_API_KEY`) |
+| `MOONY_COHERE_API_KEY` | _(unset)_ | Cohere API key for the `cohere` provider (falls back to `CO_API_KEY` / `COHERE_API_KEY`) |
+| `MOONY_AZURE_API_KEY` | _(unset)_ | Azure OpenAI key for the `azure` provider (falls back to `AZURE_OPENAI_API_KEY` / `AZURE_API_KEY`) |
+| `MOONY_AZURE_BASE_URL` | _(unset, required)_ | Azure OpenAI resource endpoint, e.g. `https://my-res.openai.azure.com` (falls back to `AZURE_OPENAI_ENDPOINT`) |
+| `MOONY_AZURE_API_VERSION` | `2024-10-21` | Azure OpenAI `api-version` query param |
+| `MOONY_VERTEX_API_KEY` | _(unset)_ | GCP access token for the `vertex` provider, e.g. `gcloud auth print-access-token` (falls back to `GOOGLE_VERTEX_API_KEY`) |
+| `MOONY_VERTEX_PROJECT` | _(unset)_ | GCP project id for `vertex` (falls back to `GOOGLE_CLOUD_PROJECT`) |
+| `MOONY_VERTEX_LOCATION` | `us-central1` | Vertex AI region for `vertex` (`global` also valid; falls back to `GOOGLE_CLOUD_LOCATION` / `CLOUD_ML_REGION`) |
+| `MOONY_AWS_ACCESS_KEY_ID` / `MOONY_AWS_SECRET_ACCESS_KEY` / `MOONY_AWS_SESSION_TOKEN` | _(unset)_ | AWS credentials for the `bedrock` provider; if unset, the standard `AWS_*` env vars / profile / default chain are used |
+| `MOONY_AWS_REGION` | `us-east-1` | AWS region for `bedrock` (falls back to `AWS_REGION` / `AWS_DEFAULT_REGION`) |
+| `MOONY_AWS_PROFILE` | _(unset)_ | named AWS profile for `bedrock` when explicit keys aren't set (falls back to `AWS_PROFILE`) |
 | `MOONY_COPILOT_TOKEN` | _(unset)_ | GitHub token for the `copilot` provider (falls back to `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`; else the CLI's stored credentials) |
 | `MOONY_COPILOT_CLI_PATH` | _(unset)_ | path to the `copilot` CLI executable for the `copilot` provider (falls back to `COPILOT_CLI_PATH`; else `copilot` is looked up on `PATH`) |
 | `MOONY_<PROVIDER>_BASE_URL` | provider default | override any provider's API base URL (e.g. `MOONY_OPENAI_BASE_URL`, `MOONY_GEMINI_BASE_URL`) — useful for proxies or self-hosted gateways |
@@ -167,7 +179,7 @@ Behavior:
 
 
 
-The agent supports twenty backends, selected with `/provider` (or `MOONY_PROVIDER`):
+The agent supports twenty-six backends, selected with `/provider` (or `MOONY_PROVIDER`):
 
 - **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MOONY_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MOONY_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
 - **OpenAI** — `api.openai.com`, `MOONY_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
@@ -187,9 +199,15 @@ The agent supports twenty backends, selected with `/provider` (or `MOONY_PROVIDE
 - **Hugging Face** — `router.huggingface.co`, `MOONY_HUGGINGFACE_API_KEY` (or `HF_TOKEN`); inference router across many open models.
 - **Venice** — `api.venice.ai`, `MOONY_VENICE_API_KEY` (or `VENICE_API_KEY`); privacy-focused open models.
 - **OmniRoute** — a local OmniRoute gateway (default `http://localhost:20128/v1`), `MOONY_OMNIROUTE_API_KEY` (or `OMNIROUTE_API_KEY`); use `prefix/model` ids or `auto` to let it route.
+- **Cerebras** — `api.cerebras.ai`, `MOONY_CEREBRAS_API_KEY` (or `CEREBRAS_API_KEY`); extremely fast inference for open models. `/reasoning` engages on thinking models (QwQ/R1/etc.).
+- **Perplexity (Sonar)** — `api.perplexity.ai`, `MOONY_PERPLEXITY_API_KEY` (or `PERPLEXITY_API_KEY` / `PPLX_API_KEY`); web-grounded answers with citations. `/reasoning` engages on the `sonar-reasoning` models.
+- **Cohere** — `api.cohere.ai` (OpenAI-compatible `/compatibility/v1`), `MOONY_COHERE_API_KEY` (or `CO_API_KEY` / `COHERE_API_KEY`); Command models with strong RAG/tool use.
+- **Azure OpenAI** — OpenAI models on your Azure resource. Needs `MOONY_AZURE_API_KEY` (or `AZURE_OPENAI_API_KEY`) **and** `MOONY_AZURE_BASE_URL` (your resource endpoint, e.g. `https://my-res.openai.azure.com`; or `AZURE_OPENAI_ENDPOINT`). Uses the `api-key` header, deployment-scoped paths, and an `api-version` query param (`MOONY_AZURE_API_VERSION`, default `2024-10-21`). `/model` is your **deployment name** (there's no universal default).
+- **Google Vertex AI** — Vertex's OpenAI-compatible endpoint. Auth is a short-lived GCP access token in `MOONY_VERTEX_API_KEY` (e.g. `gcloud auth print-access-token`), plus `MOONY_VERTEX_PROJECT` (or `GOOGLE_CLOUD_PROJECT`) and `MOONY_VERTEX_LOCATION` (default `us-central1`; `global` also works). The base URL is derived from project+location, or overridden with `MOONY_VERTEX_BASE_URL`.
+- **AWS Bedrock** — Claude (and other) models on AWS. Unlike the rest, requests are **SigV4-signed and streamed over the AWS event-stream protocol via the AWS SDK** (reusing the Anthropic wire format). Credentials come from `MOONY_AWS_ACCESS_KEY_ID`/`MOONY_AWS_SECRET_ACCESS_KEY`(/`MOONY_AWS_SESSION_TOKEN`), or a named profile (`MOONY_AWS_PROFILE`), or the standard AWS credential chain (shared config, SSO, env, instance role). Set `MOONY_AWS_REGION` (default `us-east-1`). `/model` is a Bedrock model or cross-region **inference-profile** id (default `us.anthropic.claude-sonnet-4-5-…`). `/reasoning` maps to Claude extended thinking. The standard `AWS_*` env vars are honored and, unlike the moony-prefixed keys, are **not** scrubbed from tool shells so your own `aws` CLI keeps working.
 - **GitHub Copilot** — driven through the [github/copilot-sdk](https://github.com/github/copilot-sdk) Go SDK (not a plain HTTP API): it spawns and talks to the local **`copilot` CLI** over JSON-RPC. Runs **autonomously** — the Copilot CLI plans and calls its *own* built-in tools (file read/write, shell, …) with permission prompts auto-approved, while moony streams its text/reasoning/tool-activity into the TUI. Requires the `copilot` CLI on `PATH` (or `MOONY_COPILOT_CLI_PATH`) and a GitHub token via `MOONY_COPILOT_TOKEN` (falls back to `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`, else the CLI's stored credentials). Note: because Copilot's CLI runs its own tools, moony's approval policy / sandbox / tool logging do **not** cover what it does on disk.
 
-Every provider except Anthropic and GitHub Copilot speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**, and GitHub Copilot is driven through its SDK/CLI (autonomous). Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted HTTP provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
+Every provider except Anthropic, AWS Bedrock, and GitHub Copilot speaks the **OpenAI-compatible Chat Completions** wire format; Anthropic uses its **native Messages API**, AWS Bedrock is SigV4-signed over the AWS event-stream protocol (reusing the Anthropic wire), and GitHub Copilot is driven through its SDK/CLI (autonomous). Either way the agent translates its conversation and tools to/from the provider's format automatically. Each hosted HTTP provider's base URL can be overridden with `MOONY_<PROVIDER>_BASE_URL` (e.g. for a proxy or self-hosted gateway). Switching provider moves you to that provider's default model; `/models` lists what's available and `/model <id>` (or `MOONY_MODEL`) selects one.
 
 Sessions are stored under `~/.config/moony/sessions/`. Your model and reasoning-level choices (set via `/model`, `/models`, or `/reasoning`) persist to `~/.config/moony/config.json` and are restored on the next launch. Precedence is **flags > environment variables > saved config > built-in defaults**. Approval and compaction thresholds (`ApprovalEnabled`, `CompactThresholdTokens`, `CompactKeepTokens`) live in `internal/config`.
 

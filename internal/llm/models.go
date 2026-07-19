@@ -21,6 +21,8 @@ func (c *Client) ListModels(ctx context.Context) ([]config.ModelInfo, error) {
 	switch {
 	case c.usesCopilot():
 		return c.listCopilotModels(ctx)
+	case c.usesBedrock():
+		return c.listBedrockModels(ctx)
 	case c.usesAnthropic():
 		return c.listAnthropicModels(ctx)
 	case c.usesRemote():

@@ -69,6 +69,8 @@ func (c *Client) CheckAuth(ctx context.Context) error {
 	switch {
 	case c.usesCopilot():
 		return c.checkCopilotAuth(ctx)
+	case c.usesBedrock():
+		return c.checkBedrockAuth(ctx)
 	case c.usesAnthropic():
 		return c.checkAnthropicAuth(ctx)
 	case c.usesRemote():
@@ -145,6 +147,8 @@ func (c *Client) StreamMessages(ctx context.Context, system string, messages []M
 	switch {
 	case c.usesCopilot():
 		resp, err = c.streamCopilot(ctx, system, wireMsgs, wireTools, wrapped)
+	case c.usesBedrock():
+		resp, err = c.streamBedrock(ctx, system, wireMsgs, wireTools, wrapped)
 	case c.usesAnthropic():
 		resp, err = c.streamAnthropic(ctx, system, wireMsgs, wireTools, wrapped)
 	case c.usesRemote():

@@ -38,6 +38,24 @@ const (
 	HuggingFace = "huggingface"
 	Venice      = "venice"
 	OmniRoute   = "omniroute"
+	Cerebras    = "cerebras"
+	Perplexity  = "perplexity"
+	Cohere      = "cohere"
+
+	// Azure is Azure OpenAI Service: OpenAI models on a per-resource host with
+	// deployment-based paths, an api-key header (not Bearer), and an
+	// api-version query param — see internal/llm/remote_openai.go.
+	Azure = "azure"
+
+	// Vertex is Google Vertex AI's OpenAI-compatible endpoint. Auth is a
+	// short-lived GCP OAuth access token (e.g. `gcloud auth print-access-token`)
+	// and the base URL embeds the project id and region.
+	Vertex = "vertex"
+
+	// Bedrock is AWS Bedrock. It has no OpenAI-compatible endpoint: requests are
+	// SigV4-signed and streamed over the AWS event-stream protocol via the AWS
+	// SDK, reusing the Anthropic wire types — see internal/llm/bedrock.go.
+	Bedrock = "bedrock"
 
 	// Copilot is GitHub Copilot, driven through the github/copilot-sdk Go SDK
 	// (it spawns and talks to the local `copilot` CLI over JSON-RPC) rather than
@@ -77,7 +95,18 @@ const (
 	VeniceDefaultModel      = "llama-3.3-70b"
 	// OmniRouteDefaultModel is OmniRoute's zero-config "smart router" id — it picks
 	// a backend automatically, so it's the safest starting model.
-	OmniRouteDefaultModel = "auto"
+	OmniRouteDefaultModel  = "auto"
+	CerebrasDefaultModel   = "llama-3.3-70b"
+	PerplexityDefaultModel = "sonar-pro"
+	CohereDefaultModel     = "command-a-03-2025"
+	// AzureDefaultModel is empty: Azure addresses models by the *deployment* name
+	// you created in your resource, which varies per account, so there's no safe
+	// universal default — pick yours with /model.
+	AzureDefaultModel  = ""
+	VertexDefaultModel = "google/gemini-2.5-pro"
+	// BedrockDefaultModel is a cross-region Claude inference-profile id, which is
+	// what on-demand Bedrock invocation expects.
+	BedrockDefaultModel = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 	// CopilotDefaultModel is empty so the Copilot CLI uses its own configured
 	// default model; users can still pick a specific one with /model.
 	CopilotDefaultModel = ""
@@ -104,6 +133,12 @@ var list = []Provider{
 	{ID: HuggingFace, Label: "Hugging Face", Desc: "router.huggingface.co inference router — needs MOONY_HUGGINGFACE_API_KEY"},
 	{ID: Venice, Label: "Venice", Desc: "api.venice.ai — privacy-focused open models — needs MOONY_VENICE_API_KEY"},
 	{ID: OmniRoute, Label: "OmniRoute", Desc: "local OmniRoute gateway (default http://localhost:20128/v1) — needs MOONY_OMNIROUTE_API_KEY; use prefix/model ids or auto"},
+	{ID: Cerebras, Label: "Cerebras", Desc: "api.cerebras.ai — extremely fast inference for open models — needs MOONY_CEREBRAS_API_KEY"},
+	{ID: Perplexity, Label: "Perplexity", Desc: "api.perplexity.ai (Sonar) — web-grounded answers with citations — needs MOONY_PERPLEXITY_API_KEY"},
+	{ID: Cohere, Label: "Cohere", Desc: "api.cohere.ai (Command, OpenAI-compatible) — strong RAG/tool-use — needs MOONY_COHERE_API_KEY"},
+	{ID: Azure, Label: "Azure OpenAI", Desc: "Azure OpenAI Service — OpenAI models on your resource — needs MOONY_AZURE_API_KEY + MOONY_AZURE_BASE_URL (your endpoint); /model = deployment name"},
+	{ID: Vertex, Label: "Vertex AI", Desc: "Google Vertex AI (OpenAI-compatible) — needs MOONY_VERTEX_API_KEY (a GCP access token) + MOONY_VERTEX_PROJECT/MOONY_VERTEX_LOCATION"},
+	{ID: Bedrock, Label: "AWS Bedrock", Desc: "AWS Bedrock (Claude et al., SigV4-signed) — needs AWS credentials (MOONY_AWS_* / standard AWS env) + MOONY_AWS_REGION"},
 	{ID: Copilot, Label: "GitHub Copilot", Desc: "GitHub Copilot via the copilot CLI (autonomous, its own tools) — needs the `copilot` CLI installed and a GitHub token (MOONY_COPILOT_TOKEN / GH_TOKEN)"},
 }
 
@@ -163,6 +198,14 @@ func UsesCopilotSDK(id string) bool {
 	return Normalize(id) == Copilot
 }
 
+// UsesBedrockRuntime reports whether a provider is served through AWS Bedrock,
+// which is SigV4-signed and streamed over the AWS event-stream protocol via the
+// AWS SDK (reusing the Anthropic wire types) rather than a plain HTTP API — see
+// internal/llm/bedrock.go.
+func UsesBedrockRuntime(id string) bool {
+	return Normalize(id) == Bedrock
+}
+
 // defaultModels maps each provider id to its starting model. Kept as a map
 // (rather than a switch) so adding a provider only means adding one entry here
 // and one to list above.
@@ -186,6 +229,12 @@ var defaultModels = map[string]string{
 	HuggingFace:  HuggingFaceDefaultModel,
 	Venice:       VeniceDefaultModel,
 	OmniRoute:    OmniRouteDefaultModel,
+	Cerebras:     CerebrasDefaultModel,
+	Perplexity:   PerplexityDefaultModel,
+	Cohere:       CohereDefaultModel,
+	Azure:        AzureDefaultModel,
+	Vertex:       VertexDefaultModel,
+	Bedrock:      BedrockDefaultModel,
 	Copilot:      CopilotDefaultModel,
 }
 

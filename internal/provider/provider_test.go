@@ -7,8 +7,8 @@ import (
 
 func TestListDefaultOllamaFirst(t *testing.T) {
 	l := List()
-	if len(l) != 20 {
-		t.Fatalf("expected 20 providers, got %d", len(l))
+	if len(l) != 26 {
+		t.Fatalf("expected 26 providers, got %d", len(l))
 	}
 	if Default != Ollama {
 		t.Fatalf("default provider should be ollama, got %q", Default)
@@ -16,7 +16,7 @@ func TestListDefaultOllamaFirst(t *testing.T) {
 	if l[0].ID != Ollama {
 		t.Fatalf("expected ollama first, got %q", l[0].ID)
 	}
-	for _, id := range []string{Ollama, OpenAI, Anthropic, SQEAnthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks, Moonshot, ZAI, DashScope, NVIDIA, HuggingFace, Venice, OmniRoute, Copilot} {
+	for _, id := range []string{Ollama, OpenAI, Anthropic, SQEAnthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks, Moonshot, ZAI, DashScope, NVIDIA, HuggingFace, Venice, OmniRoute, Cerebras, Perplexity, Cohere, Azure, Vertex, Bedrock, Copilot} {
 		if _, ok := Lookup(id); !ok {
 			t.Errorf("provider %q should be registered", id)
 		}
@@ -72,8 +72,9 @@ func TestDefaultModelFor(t *testing.T) {
 	}
 	for _, p := range List() {
 		// Copilot intentionally has an empty default so the copilot CLI uses
-		// its own configured model.
-		if p.ID == Copilot {
+		// its own configured model; Azure addresses models by deployment name,
+		// which is account-specific, so it has no universal default either.
+		if p.ID == Copilot || p.ID == Azure {
 			continue
 		}
 		if got := DefaultModelFor(p.ID); got == "" {

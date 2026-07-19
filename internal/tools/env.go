@@ -31,9 +31,28 @@ var sensitiveEnvKeys = map[string]bool{
 	"TOGETHER_API_KEY":         true,
 	"MOONY_FIREWORKS_API_KEY":  true,
 	"FIREWORKS_API_KEY":        true,
-	"MOONY_COPILOT_TOKEN":      true, // GitHub token for the Copilot provider
-	"COPILOT_GITHUB_TOKEN":     true,
-	"MOONY_ENV_FILE":           true, // points at the secrets file
+	"MOONY_CEREBRAS_API_KEY":   true,
+	"CEREBRAS_API_KEY":         true,
+	"MOONY_PERPLEXITY_API_KEY": true,
+	"PERPLEXITY_API_KEY":       true,
+	"PPLX_API_KEY":             true,
+	"MOONY_COHERE_API_KEY":     true,
+	"CO_API_KEY":               true,
+	"COHERE_API_KEY":           true,
+	"MOONY_AZURE_API_KEY":      true,
+	"AZURE_OPENAI_API_KEY":     true,
+	"AZURE_API_KEY":            true,
+	"MOONY_VERTEX_API_KEY":     true,
+	"GOOGLE_VERTEX_API_KEY":    true,
+	// AWS Bedrock: scrub the MOONY_-prefixed credentials. The standard AWS_*
+	// vars are deliberately left in place (like GH_TOKEN) so the agent's own
+	// `aws` CLI shell tools keep working.
+	"MOONY_AWS_ACCESS_KEY_ID":     true,
+	"MOONY_AWS_SECRET_ACCESS_KEY": true,
+	"MOONY_AWS_SESSION_TOKEN":     true,
+	"MOONY_COPILOT_TOKEN":         true, // GitHub token for the Copilot provider
+	"COPILOT_GITHUB_TOKEN":        true,
+	"MOONY_ENV_FILE":              true, // points at the secrets file
 }
 
 // scrubbedEnv returns the current environment with sensitiveEnvKeys removed, for
