@@ -39,7 +39,7 @@ func TestRunFiresCommandsAndPropagatesEnv(t *testing.T) {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg := `{"pre_tool": ["printf '%s\\n%s\\n' \"$MOONY_TOOL_NAME\" \"$MOONY_TOOL_INPUT\" > ` + out + `"]}`
+	cfg := `{"pre_tool": ["printf '%s\\n%s\\n' \"$MN_TOOL_NAME\" \"$MN_TOOL_INPUT\" > ` + out + `"]}`
 	if err := os.WriteFile(filepath.Join(cfgDir, "hooks.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}

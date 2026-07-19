@@ -20,7 +20,7 @@ func TestParseEnvLine(t *testing.T) {
 		{`# comment`, "", "", false},
 		{``, "", "", false},
 		{`novalue`, "", "", false},
-		{`MOONY_AUTH_SECRET=abc=def`, "MOONY_AUTH_SECRET", "abc=def", true}, // value may contain '='
+		{`MN_AUTH_SECRET=abc=def`, "MN_AUTH_SECRET", "abc=def", true}, // value may contain '='
 	}
 	for _, c := range cases {
 		k, v, ok := parseEnvLine(c.line)
@@ -34,20 +34,20 @@ func TestLoadDotEnvDoesNotOverride(t *testing.T) {
 	dir := t.TempDir()
 	envPath := filepath.Join(dir, "secrets.env")
 	if err := os.WriteFile(envPath, []byte(
-		"MOONY_OIDC_CLIENT_ID=from-file\n"+
-			"MOONY_AUTH_SECRET=file-secret\n"+
+		"MN_OIDC_CLIENT_ID=from-file\n"+
+			"MN_AUTH_SECRET=file-secret\n"+
 			"# a comment\n"+
-			"export MOONY_OIDC_ENV=uat\n",
+			"export MN_OIDC_ENV=uat\n",
 	), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("MOONY_ENV_FILE", envPath)
+	t.Setenv("MN_ENV_FILE", envPath)
 	// The "loads from file" cases must start UNSET so the file value applies.
 	// On a machine that exports these (e.g. a relay's real OIDC config) they'd
 	// otherwise win, since LoadDotEnv never overrides an already-set var. Unset
 	// them for the test and restore afterward so the test is hermetic. (t.Setenv
 	// can only set, not unset, so we manage these directly.)
-	for _, k := range []string{"MOONY_OIDC_CLIENT_ID", "MOONY_OIDC_ENV"} {
+	for _, k := range []string{"MN_OIDC_CLIENT_ID", "MN_OIDC_ENV"} {
 		if old, ok := os.LookupEnv(k); ok {
 			t.Cleanup(func() { _ = os.Setenv(k, old) })
 		} else {
@@ -56,23 +56,23 @@ func TestLoadDotEnvDoesNotOverride(t *testing.T) {
 		_ = os.Unsetenv(k)
 	}
 	// A value already in the real environment must win over the file (Whisper/prod).
-	t.Setenv("MOONY_AUTH_SECRET", "real-env-wins")
+	t.Setenv("MN_AUTH_SECRET", "real-env-wins")
 
 	LoadDotEnv()
 
-	if got := os.Getenv("MOONY_OIDC_CLIENT_ID"); got != "from-file" {
+	if got := os.Getenv("MN_OIDC_CLIENT_ID"); got != "from-file" {
 		t.Errorf("unset var should load from file: got %q", got)
 	}
-	if got := os.Getenv("MOONY_OIDC_ENV"); got != "uat" {
+	if got := os.Getenv("MN_OIDC_ENV"); got != "uat" {
 		t.Errorf("export-prefixed var should load: got %q", got)
 	}
-	if got := os.Getenv("MOONY_AUTH_SECRET"); got != "real-env-wins" {
+	if got := os.Getenv("MN_AUTH_SECRET"); got != "real-env-wins" {
 		t.Errorf("real env must NOT be overridden by .env: got %q", got)
 	}
 }
 
 func TestLoadDotEnvMissingFileIsNoop(t *testing.T) {
-	t.Setenv("MOONY_ENV_FILE", filepath.Join(t.TempDir(), "does-not-exist.env"))
+	t.Setenv("MN_ENV_FILE", filepath.Join(t.TempDir(), "does-not-exist.env"))
 	t.Setenv("HOME", t.TempDir()) // no ~/.config/.../.env
 	// Run from a dir with no ./.env.
 	wd, _ := os.Getwd()
@@ -85,19 +85,19 @@ func TestLoadDotEnvMissingFileIsNoop(t *testing.T) {
 // place, empty-valued keys are deleted, and unrelated lines/comments survive.
 func TestUpsertDotEnv(t *testing.T) {
 	envPath := filepath.Join(t.TempDir(), ".env")
-	t.Setenv("MOONY_ENV_FILE", envPath)
+	t.Setenv("MN_ENV_FILE", envPath)
 	if err := os.WriteFile(envPath, []byte(
 		"# my secrets\n"+
-			"MOONY_OPENAI_API_KEY=old-key\n"+
-			"MOONY_OTHER=keepme\n",
+			"MN_OPENAI_API_KEY=old-key\n"+
+			"MN_OTHER=keepme\n",
 	), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := UpsertDotEnv(map[string]string{
-		"MOONY_OPENAI_API_KEY":    "new-key", // update in place
-		"MOONY_ANTHROPIC_API_KEY": "sk-ant",  // append
-		"MOONY_OPENAI_BASE_URL":   "",        // empty → not written / deleted
+		"MN_OPENAI_API_KEY":    "new-key", // update in place
+		"MN_ANTHROPIC_API_KEY": "sk-ant",  // append
+		"MN_OPENAI_BASE_URL":   "",        // empty → not written / deleted
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -114,16 +114,16 @@ func TestUpsertDotEnv(t *testing.T) {
 			kv[k] = v
 		}
 	}
-	if kv["MOONY_OPENAI_API_KEY"] != "new-key" {
-		t.Errorf("update failed: %q", kv["MOONY_OPENAI_API_KEY"])
+	if kv["MN_OPENAI_API_KEY"] != "new-key" {
+		t.Errorf("update failed: %q", kv["MN_OPENAI_API_KEY"])
 	}
-	if kv["MOONY_ANTHROPIC_API_KEY"] != "sk-ant" {
-		t.Errorf("append failed: %q", kv["MOONY_ANTHROPIC_API_KEY"])
+	if kv["MN_ANTHROPIC_API_KEY"] != "sk-ant" {
+		t.Errorf("append failed: %q", kv["MN_ANTHROPIC_API_KEY"])
 	}
-	if kv["MOONY_OTHER"] != "keepme" {
-		t.Errorf("unrelated key not preserved: %q", kv["MOONY_OTHER"])
+	if kv["MN_OTHER"] != "keepme" {
+		t.Errorf("unrelated key not preserved: %q", kv["MN_OTHER"])
 	}
-	if _, ok := kv["MOONY_OPENAI_BASE_URL"]; ok {
+	if _, ok := kv["MN_OPENAI_BASE_URL"]; ok {
 		t.Errorf("empty-valued key should not be written")
 	}
 	if !containsLine(got, "# my secrets") {
@@ -131,11 +131,11 @@ func TestUpsertDotEnv(t *testing.T) {
 	}
 
 	// Deleting an existing key removes its line.
-	if err := UpsertDotEnv(map[string]string{"MOONY_ANTHROPIC_API_KEY": ""}); err != nil {
+	if err := UpsertDotEnv(map[string]string{"MN_ANTHROPIC_API_KEY": ""}); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(envPath)
-	if containsLine(string(data), "MOONY_ANTHROPIC_API_KEY=sk-ant") {
+	if containsLine(string(data), "MN_ANTHROPIC_API_KEY=sk-ant") {
 		t.Errorf("delete failed, key still present:\n%s", string(data))
 	}
 

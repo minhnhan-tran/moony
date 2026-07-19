@@ -66,7 +66,7 @@ func (c *Client) bedrockModelID() string {
 }
 
 // bedrockAWSConfig resolves the AWS config (region + credentials) for Bedrock.
-// Explicit MOONY_AWS_*/AWS_* keys win; otherwise the SDK's default chain
+// Explicit MN_AWS_*/AWS_* keys win; otherwise the SDK's default chain
 // (shared config, SSO, env, instance role) is used, optionally scoped to a
 // named profile.
 func (c *Client) bedrockAWSConfig(ctx context.Context) (aws.Config, error) {
@@ -190,7 +190,7 @@ func (c *Client) streamBedrock(ctx context.Context, system string, messages []Me
 func bedrockError(err error) error {
 	var access *brtypes.AccessDeniedException
 	if errors.As(err, &access) {
-		return fmt.Errorf("access denied — check your AWS credentials, region (MOONY_AWS_REGION), and that the model is enabled in your Bedrock account: %w", err)
+		return fmt.Errorf("access denied — check your AWS credentials, region (MN_AWS_REGION), and that the model is enabled in your Bedrock account: %w", err)
 	}
 	var notFound *brtypes.ResourceNotFoundException
 	if errors.As(err, &notFound) {
@@ -219,7 +219,7 @@ func (c *Client) bedrockCredentials(ctx context.Context) (aws.Credentials, error
 	}
 	creds, err := awsCfg.Credentials.Retrieve(ctx)
 	if err != nil {
-		return aws.Credentials{}, fmt.Errorf("bedrock: no usable AWS credentials — set MOONY_AWS_ACCESS_KEY_ID/MOONY_AWS_SECRET_ACCESS_KEY, MOONY_AWS_PROFILE, or a standard AWS credential source: %w", err)
+		return aws.Credentials{}, fmt.Errorf("bedrock: no usable AWS credentials — set MN_AWS_ACCESS_KEY_ID/MN_AWS_SECRET_ACCESS_KEY, MN_AWS_PROFILE, or a standard AWS credential source: %w", err)
 	}
 	return creds, nil
 }

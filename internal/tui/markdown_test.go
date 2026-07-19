@@ -7,17 +7,17 @@ import (
 )
 
 func TestStreamMarkdownEnabled(t *testing.T) {
-	t.Setenv("MOONY_STREAM_MARKDOWN", "")
+	t.Setenv("MN_STREAM_MARKDOWN", "")
 	if !streamMarkdownEnabled() {
 		t.Error("live streaming markdown should be enabled by default")
 	}
 	for _, v := range []string{"0", "off", "false", "no", "raw", "OFF"} {
-		t.Setenv("MOONY_STREAM_MARKDOWN", v)
+		t.Setenv("MN_STREAM_MARKDOWN", v)
 		if streamMarkdownEnabled() {
 			t.Errorf("%q should disable live streaming markdown", v)
 		}
 	}
-	t.Setenv("MOONY_STREAM_MARKDOWN", "yes")
+	t.Setenv("MN_STREAM_MARKDOWN", "yes")
 	if !streamMarkdownEnabled() {
 		t.Error("unknown values should leave it enabled")
 	}
@@ -27,7 +27,7 @@ func TestStreamMarkdownEnabled(t *testing.T) {
 // throttle window and refreshed once it elapses.
 func TestStreamingBodyThrottle(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_STREAM_MARKDOWN", "") // default on
+	t.Setenv("MN_STREAM_MARKDOWN", "") // default on
 	m := sized(t, newTestModel(t), 100, 30)
 	tr := &m.trans
 	if tr.renderer == nil {
@@ -59,7 +59,7 @@ func TestStreamingBodyThrottle(t *testing.T) {
 // for another Glamour pass.
 func TestStreamingBodyUnchangedTextSkipsRender(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_STREAM_MARKDOWN", "")
+	t.Setenv("MN_STREAM_MARKDOWN", "")
 	m := sized(t, newTestModel(t), 100, 30)
 	tr := &m.trans
 	tr.entries = []entry{{kind: entryAssistant, text: "# Title"}}
@@ -92,7 +92,7 @@ func TestStreamRenderInterval(t *testing.T) {
 // even within the throttle window.
 func TestStreamingBodyWidthChangeRefreshes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_STREAM_MARKDOWN", "")
+	t.Setenv("MN_STREAM_MARKDOWN", "")
 	m := sized(t, newTestModel(t), 100, 30)
 	tr := &m.trans
 	tr.entries = []entry{{kind: entryAssistant, text: "some streamed text that wraps"}}
@@ -114,7 +114,7 @@ func TestStreamingBodyWidthChangeRefreshes(t *testing.T) {
 // text (no markdown) while streaming.
 func TestStreamingBodyRawWhenDisabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_STREAM_MARKDOWN", "0")
+	t.Setenv("MN_STREAM_MARKDOWN", "0")
 	m := sized(t, newTestModel(t), 100, 30)
 	tr := &m.trans
 	tr.entries = []entry{{kind: entryAssistant, text: "**bold** _italic_"}}
@@ -130,7 +130,7 @@ func TestStreamingBodyRawWhenDisabled(t *testing.T) {
 // streaming index, confirming the streaming cache gets populated.
 func TestStreamingRenderViaRender(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_STREAM_MARKDOWN", "")
+	t.Setenv("MN_STREAM_MARKDOWN", "")
 	m := sized(t, newTestModel(t), 100, 30)
 	tr := &m.trans
 	tr.entries = []entry{{kind: entryAssistant, text: "## Heading\n\nbody text"}}

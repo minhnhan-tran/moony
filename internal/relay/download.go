@@ -158,7 +158,7 @@ case "$arch" in
 esac
 file="moony_${goos}_${goarch}"
 
-dest="${MOONY_INSTALL_DIR:-$HOME/.local/bin}"
+dest="${MN_INSTALL_DIR:-$HOME/.local/bin}"
 mkdir -p "$dest"
 tmp="$(mktemp)"
 echo "Downloading moony ($goos/$goarch) from $base ..."
@@ -207,9 +207,9 @@ case ":$PATH:" in
     ;;
   *)
     # $dest isn't on PATH yet — add it to the user's shell startup file
-    # automatically (idempotent). Set MOONY_NO_MODIFY_PATH=1 to skip and just print
+    # automatically (idempotent). Set MN_NO_MODIFY_PATH=1 to skip and just print
     # the hint instead.
-    if [ -n "${MOONY_NO_MODIFY_PATH:-}" ]; then
+    if [ -n "${MN_NO_MODIFY_PATH:-}" ]; then
       echo "Note: $dest is not on your PATH; add it, e.g.  export PATH=\"$dest:\$PATH\""
       echo "Done. Run it with: $dest/moony"
     else

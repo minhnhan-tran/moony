@@ -67,7 +67,7 @@ func (t *prCreateTool) Description() string {
 	return "Open a pull request (GitHub) or merge request (GitLab) from the current branch. head defaults to " +
 		"the current branch; base defaults to the repo's default branch. Resolves the host from `git remote " +
 		"get-url origin`; errors clearly if there's no supported remote or no token configured " +
-		"(MOONY_GITHUB_TOKEN/MOONY_GITLAB_TOKEN, gh/glab auth, or ~/.netrc)."
+		"(MN_GITHUB_TOKEN/MN_GITLAB_TOKEN, gh/glab auth, or ~/.netrc)."
 }
 func (t *prCreateTool) Schema() json.RawMessage {
 	return schema(`{"type": "object", "properties": {

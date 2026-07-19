@@ -27,7 +27,7 @@ import (
 
 // defaultCheckpointEvery is how many new messages must accrue since the last
 // checkpoint before it is refreshed. It keeps the extra model call infrequent
-// relative to ordinary turns. Override with MOONY_CHECKPOINT_EVERY (0 disables
+// relative to ordinary turns. Override with MN_CHECKPOINT_EVERY (0 disables
 // automatic checkpointing entirely).
 const defaultCheckpointEvery = 12
 
@@ -49,7 +49,7 @@ func (a *Agent) Checkpoint() string {
 // checkpointEvery reports the message interval between automatic checkpoints,
 // and whether automatic checkpointing is enabled at all.
 func checkpointEvery() (n int, enabled bool) {
-	v := strings.TrimSpace(os.Getenv("MOONY_CHECKPOINT_EVERY"))
+	v := strings.TrimSpace(os.Getenv("MN_CHECKPOINT_EVERY"))
 	if v == "" {
 		return defaultCheckpointEvery, true
 	}

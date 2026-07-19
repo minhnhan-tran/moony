@@ -23,7 +23,7 @@ const (
 // than dumping them all. It ranks the same notes the remember tool writes
 // (project + global AGENTS.md memory) with BM25 over identifier-aware tokens —
 // the same tokenizer search_code uses — so "config parsing" matches a note
-// about parseConfig. When an embedder is configured (MOONY_EMBEDDINGS_MODEL),
+// about parseConfig. When an embedder is configured (MN_EMBEDDINGS_MODEL),
 // the top BM25 candidates also get the same hybrid semantic rerank search_code
 // uses, so a paraphrased query ("don't tag versions by hand") can still surface
 // a note about the release flow even without shared keywords. Complements

@@ -3,11 +3,11 @@ package tui
 import "os"
 
 // tuiBellEnabled reports whether the terminal bell should ring on turn
-// completion / approval requests. On by default (MOONY_TUI_BELL="0" to
+// completion / approval requests. On by default (MN_TUI_BELL="0" to
 // disable) — most terminals either play a short sound or flash, and it's the
 // simplest cue that something needs attention while the pane isn't focused.
 func tuiBellEnabled() bool {
-	return os.Getenv("MOONY_TUI_BELL") != "0"
+	return os.Getenv("MN_TUI_BELL") != "0"
 }
 
 // ringBell writes the ASCII BEL character, which most terminal emulators

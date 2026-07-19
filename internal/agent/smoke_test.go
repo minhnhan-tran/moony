@@ -13,13 +13,13 @@ import (
 )
 
 // TestAgentSmoke exercises the full pipeline against a live hosted provider. It is
-// skipped unless MOONY_SMOKE=1 because it requires provider auth, network
+// skipped unless MN_SMOKE=1 because it requires provider auth, network
 // access, and consumes model quota.
 //
-//	MOONY_SMOKE=1 go test ./internal/agent -run TestAgentSmoke -v
+//	MN_SMOKE=1 go test ./internal/agent -run TestAgentSmoke -v
 func TestAgentSmoke(t *testing.T) {
-	if os.Getenv("MOONY_SMOKE") != "1" {
-		t.Skip("set MOONY_SMOKE=1 to run the live smoke test")
+	if os.Getenv("MN_SMOKE") != "1" {
+		t.Skip("set MN_SMOKE=1 to run the live smoke test")
 	}
 
 	cfg := config.Load()

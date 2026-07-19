@@ -34,7 +34,7 @@ func TestBuildSystemPromptDelegateExploreSteer(t *testing.T) {
 }
 
 // The always-on batching guideline should always be present; the stronger
-// "CONTEXT BUDGET" directive only when BatchContext (MOONY_BATCH_CONTEXT) is set.
+// "CONTEXT BUDGET" directive only when BatchContext (MN_BATCH_CONTEXT) is set.
 // The search_code steer should appear only when the search_code tool is
 // available, so the prompt never advertises a tool the session lacks.
 func TestBuildSystemPromptSearchCodeSteer(t *testing.T) {
@@ -74,7 +74,7 @@ func TestBuildSystemPromptBatchContext(t *testing.T) {
 }
 
 // The verbosity-steering "OUTPUT BUDGET" directive should appear only when Terse
-// (MOONY_TERSE) is set, so it can be turned off without code changes.
+// (MN_TERSE) is set, so it can be turned off without code changes.
 func TestBuildSystemPromptTerse(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	reg := tools.Default(t.TempDir(), 30000)

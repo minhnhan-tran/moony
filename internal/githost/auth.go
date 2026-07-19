@@ -14,8 +14,8 @@ import (
 // envGithubBaseURL/envGitlabBaseURL are the self-hosted API base URL
 // overrides. Vars (not direct os.Getenv calls) so tests can stub them.
 var (
-	envGithubBaseURL = func() string { return os.Getenv("MOONY_GITHUB_BASE_URL") }
-	envGitlabBaseURL = func() string { return os.Getenv("MOONY_GITLAB_BASE_URL") }
+	envGithubBaseURL = func() string { return os.Getenv("MN_GITHUB_BASE_URL") }
+	envGitlabBaseURL = func() string { return os.Getenv("MN_GITLAB_BASE_URL") }
 )
 
 // runCLIToken runs `<cli> auth token` and returns its trimmed stdout. Var so
@@ -28,15 +28,15 @@ var runCLIToken = func(ctx context.Context, cli string, args ...string) (string,
 }
 
 // Token resolves credentials for repo.Kind in order: the primary env var
-// (MOONY_GITHUB_TOKEN/MOONY_GITLAB_TOKEN), the CLI-conventional fallback
+// (MN_GITHUB_TOKEN/MN_GITLAB_TOKEN), the CLI-conventional fallback
 // (GITHUB_TOKEN/GITLAB_TOKEN), the host's CLI (`gh auth token`/`glab auth
 // token`) if installed and logged in, then a ~/.netrc entry for RemoteHost.
 func Token(ctx context.Context, repo *Repo) (string, error) {
 	switch repo.Kind {
 	case GitHub:
-		return resolveToken(ctx, repo, "MOONY_GITHUB_TOKEN", "GITHUB_TOKEN", "gh")
+		return resolveToken(ctx, repo, "MN_GITHUB_TOKEN", "GITHUB_TOKEN", "gh")
 	case GitLab:
-		return resolveToken(ctx, repo, "MOONY_GITLAB_TOKEN", "GITLAB_TOKEN", "glab")
+		return resolveToken(ctx, repo, "MN_GITLAB_TOKEN", "GITLAB_TOKEN", "glab")
 	default:
 		return "", fmt.Errorf("unsupported git host %q", repo.Kind)
 	}

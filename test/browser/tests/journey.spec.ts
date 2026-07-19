@@ -7,7 +7,7 @@ import { scriptedDecider, Script } from '../src/decider';
 
 // A file with a unique marker so the assertions can't be satisfied by unrelated
 // pre-existing state.
-const MARKER = 'MOONY_BOT_MARKER.md';
+const MARKER = 'MN_BOT_MARKER.md';
 const CONTENT = 'hello from the sqe browser bot';
 
 // A deterministic, LLM-free JOURNEY with concrete assertions. The USER side is
@@ -19,7 +19,7 @@ const CONTENT = 'hello from the sqe browser bot';
 //   1. no error banner surfaced,
 //   2. a file-writing tool acted on the marker file,
 //   3. the agent actually replied / finished,
-//   4. (opt-in, MOONY_WORKDIR) the file exists on disk with the expected content.
+//   4. (opt-in, MN_WORKDIR) the file exists on disk with the expected content.
 test('scripted journey: create a marker file (asserted)', async ({ page }) => {
   const script: Script = {
     messages: [
@@ -46,14 +46,14 @@ test('scripted journey: create a marker file (asserted)', async ({ page }) => {
   // 3. The agent actually produced a reply and the conversation finished.
   expect(history.some((t) => t.role === 'agent' && t.text.length > 0), 'agent never replied').toBeTruthy();
 
-  // 4. Strongest check (opt-in): verify the file on disk. Set MOONY_WORKDIR to the
+  // 4. Strongest check (opt-in): verify the file on disk. Set MN_WORKDIR to the
   //    session's working directory to enable it.
-  const workdir = process.env.MOONY_WORKDIR;
+  const workdir = process.env.MN_WORKDIR;
   if (workdir) {
     const file = path.join(workdir, MARKER);
     expect(fs.existsSync(file), `expected ${file} to exist`).toBeTruthy();
     expect(fs.readFileSync(file, 'utf8')).toContain(CONTENT);
   } else {
-    console.log('[journey] MOONY_WORKDIR not set — skipping the on-disk file check (UI assertions still ran).');
+    console.log('[journey] MN_WORKDIR not set — skipping the on-disk file check (UI assertions still ran).');
   }
 });

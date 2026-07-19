@@ -16,7 +16,7 @@ var errTunnelClosed = errors.New("relay: tunnel closed")
 // against h (the local web app's handler), streaming the response back frame by
 // frame. owner is the username of whoever launched the connector;
 // the relay uses it to show each web user only their own connectors. token, when
-// non-empty, is the per-user connector credential (MOONY_RELAY_TOKEN): a relay
+// non-empty, is the per-user connector credential (MN_RELAY_TOKEN): a relay
 // with auth enabled verifies it and derives the trusted owner from it, ignoring
 // owner; a relay without auth ignores token and trusts owner. version is
 // this terminal's build version, surfaced in GET /api/laptops so the web UI can

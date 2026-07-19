@@ -90,7 +90,7 @@ func TestServerRoutesActiveSessionToHub(t *testing.T) {
 // which is hub-aware). The write handlers now use catalogWD too, so they succeed on
 // the live mirror (the persona .md is a working-dir file; no live web agent needed).
 func TestAgentWriteHandlersOnLiveMirror(t *testing.T) {
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0")
 	srv, _ := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 
 	hub := bridge.New()

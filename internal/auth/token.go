@@ -3,12 +3,12 @@
 // HMAC-signed, stateless tokens used both for the browser session cookie and
 // for the connector (TUI/daemon) credential on the relay tunnel.
 //
-// Everything hinges on one shared secret (MOONY_AUTH_SECRET). Tokens carry the
+// Everything hinges on one shared secret (MN_AUTH_SECRET). Tokens carry the
 // authenticated account, an expiry, and an audience ("web" vs "connector") so a
 // browser cookie can never be replayed as a connector credential (or vice
 // versa). Nothing is persisted — verification is a signature + expiry check.
 //
-// Auth is opt-in: with MOONY_AUTH unset/off the relay runs exactly as before
+// Auth is opt-in: with MN_AUTH unset/off the relay runs exactly as before
 // (open, self-declared connector owners). See FromEnv.
 package auth
 

@@ -12,7 +12,7 @@ import (
 
 func grepReg(t *testing.T, files map[string]string) *grepTool {
 	t.Helper()
-	t.Setenv("MOONY_RG", "0") // force the pure-Go scanner so these tests are deterministic
+	t.Setenv("MN_RG", "0") // force the pure-Go scanner so these tests are deterministic
 	dir := t.TempDir()
 	for name, content := range files {
 		p := filepath.Join(dir, name)
@@ -258,14 +258,14 @@ func TestExpandBraces(t *testing.T) {
 }
 
 func TestRgEnabled(t *testing.T) {
-	t.Setenv("MOONY_RG", "")
+	t.Setenv("MN_RG", "")
 	if !rgEnabled() {
 		t.Error("rg should be enabled by default")
 	}
 	for _, v := range []string{"0", "off", "false", "no"} {
-		t.Setenv("MOONY_RG", v)
+		t.Setenv("MN_RG", v)
 		if rgEnabled() {
-			t.Errorf("MOONY_RG=%q should disable rg", v)
+			t.Errorf("MN_RG=%q should disable rg", v)
 		}
 	}
 }
@@ -318,8 +318,8 @@ func TestParseRgFileList(t *testing.T) {
 	}
 }
 
-// TestRipgrepParityIfPresent runs the same search via ripgrep (MOONY_RG unset) and
-// the Go scanner (MOONY_RG=0) and asserts identical output. When rg isn't
+// TestRipgrepParityIfPresent runs the same search via ripgrep (MN_RG unset) and
+// the Go scanner (MN_RG=0) and asserts identical output. When rg isn't
 // installed (or can't be spawned), the rg path falls back to Go, so this still
 // passes — it just doesn't exercise rg there.
 func TestRipgrepParityIfPresent(t *testing.T) {
@@ -341,11 +341,11 @@ func TestRipgrepParityIfPresent(t *testing.T) {
 	}
 	g := &grepTool{r: NewRegistry(dir)}
 	run := func(rg string, args map[string]any) string {
-		t.Setenv("MOONY_RG", rg)
+		t.Setenv("MN_RG", rg)
 		in, _ := json.Marshal(args)
 		out, err := g.Execute(context.Background(), in)
 		if err != nil {
-			t.Fatalf("grep (MOONY_RG=%q): %v", rg, err)
+			t.Fatalf("grep (MN_RG=%q): %v", rg, err)
 		}
 		return out
 	}

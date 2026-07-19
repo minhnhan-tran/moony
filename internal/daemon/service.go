@@ -284,7 +284,7 @@ func renderLaunchd(p launchdParams) string {
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>
-		<key>MOONY_RELAY</key>
+		<key>MN_RELAY</key>
 		<string>` + xmlEscape(p.Relay) + `</string>
 		<key>PATH</key>
 		<string>` + xmlEscape(p.Path) + `</string>
@@ -341,7 +341,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=` + p.Exe + ` daemon run
-Environment=MOONY_RELAY=` + p.Relay + `
+Environment=MN_RELAY=` + p.Relay + `
 Environment=PATH=` + p.Path + `
 Restart=always
 RestartSec=3

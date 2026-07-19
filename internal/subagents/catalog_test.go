@@ -32,7 +32,7 @@ func TestAgentInstall(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0") // keep discovery to sqe dirs only
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0") // keep discovery to sqe dirs only
 	wd := t.TempDir()
 
 	path, err := Install("explore", false, wd) // project scope

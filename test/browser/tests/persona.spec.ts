@@ -6,7 +6,7 @@ import { runConversation } from '../src/driver';
 import { llmDecider } from '../src/decider';
 
 // Working dir of the session under test (for the goal-completion on-disk check).
-const WORKDIR = process.env.MOONY_WORKDIR || path.resolve(process.cwd(), '..', '..');
+const WORKDIR = process.env.MN_WORKDIR || path.resolve(process.cwd(), '..', '..');
 
 // A configurable synthetic user (LLM persona). Override via env to test journeys.
 const PERSONA =
@@ -25,8 +25,8 @@ const MAX_STEPS = Number(process.env.SIM_MAX_STEPS || 10);
 // needed (e.g. sqe.toolCards(), sqe.errors()).
 test('LLM persona drives the agent through the browser', async ({ page }) => {
   test.skip(
-    process.env.MOONY_PERSONA_EXPLORE !== '1',
-    'exploratory: drives the agent to BUILD a feature, which mutates the repo — on an auto-approve session it really writes files. Opt in with MOONY_PERSONA_EXPLORE=1 on a throwaway repo.',
+    process.env.MN_PERSONA_EXPLORE !== '1',
+    'exploratory: drives the agent to BUILD a feature, which mutates the repo — on an auto-approve session it really writes files. Opt in with MN_PERSONA_EXPLORE=1 on a throwaway repo.',
   );
   const sqe = new Sqe(page);
   await runConversation(sqe, llmDecider(PERSONA, GOAL), {
@@ -40,7 +40,7 @@ test('LLM persona drives the agent through the browser', async ({ page }) => {
 // the file exists on disk with the expected content. Real agent + real persona (so
 // non-deterministic), but the goal is concrete enough to complete reliably.
 test('LLM persona reaches a concrete goal (file created)', async ({ page }) => {
-  const marker = 'MOONY_PERSONA_GOAL.md';
+  const marker = 'MN_PERSONA_GOAL.md';
   const content = 'persona goal reached';
   const persona =
     'You are a decisive engineer using a coding agent. State your goal clearly, approve reasonable edits, answer any question briefly, and STOP as soon as the goal is verifiably done. Do not chit-chat.';

@@ -28,7 +28,7 @@ make smoke   # live end-to-end tests against your Ollama server (needs `ollama s
 make eval    # run the live agent regression/eval harness on task fixtures
 ```
 
-Unit tests cover the pure logic (diff generation, session persistence, safe compaction boundaries). The live tests in `internal/agent` are skipped unless `MOONY_SMOKE=1`:
+Unit tests cover the pure logic (diff generation, session persistence, safe compaction boundaries). The live tests in `internal/agent` are skipped unless `MN_SMOKE=1`:
 - `TestAgentSmoke` — drives a real turn that calls `list_dir` and verifies a response.
 - `TestApprovalSmoke` — asks the model to create a file, asserts an approval request with a non-empty diff is raised, approves it, and verifies the file is written.
 

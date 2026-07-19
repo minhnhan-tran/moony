@@ -84,23 +84,23 @@ func TestProgressBar(t *testing.T) {
 }
 
 func TestContextBarEnabled(t *testing.T) {
-	t.Setenv("MOONY_CTX_BAR", "")
+	t.Setenv("MN_CTX_BAR", "")
 	if !contextBarEnabled() {
 		t.Error("default should be enabled")
 	}
-	t.Setenv("MOONY_CTX_BAR", "off")
+	t.Setenv("MN_CTX_BAR", "off")
 	if contextBarEnabled() {
 		t.Error("'off' should disable")
 	}
-	t.Setenv("MOONY_CTX_BAR", "0")
+	t.Setenv("MN_CTX_BAR", "0")
 	if contextBarEnabled() {
 		t.Error("'0' should disable")
 	}
-	t.Setenv("MOONY_CTX_BAR", "text")
+	t.Setenv("MN_CTX_BAR", "text")
 	if contextBarEnabled() {
 		t.Error("'text' should disable")
 	}
-	t.Setenv("MOONY_CTX_BAR", "anything-else")
+	t.Setenv("MN_CTX_BAR", "anything-else")
 	if !contextBarEnabled() {
 		t.Error("unknown values should leave it enabled")
 	}
@@ -108,7 +108,7 @@ func TestContextBarEnabled(t *testing.T) {
 
 func TestStatusBarShowsContextOnceTurnComplete(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_CTX_BAR", "off") // text-only so we can assert exact substring
+	t.Setenv("MN_CTX_BAR", "off") // text-only so we can assert exact substring
 	m := sized(t, newTestModel(t), 100, 24)
 
 	// Before any turn, the indicator is hidden.
@@ -126,7 +126,7 @@ func TestStatusBarShowsContextOnceTurnComplete(t *testing.T) {
 
 func TestStatusBarShowsProgressBarByDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MOONY_CTX_BAR", "") // default enabled
+	t.Setenv("MN_CTX_BAR", "") // default enabled
 	m := sized(t, newTestModel(t), 120, 24)
 	m.lastTurnInTokens = 100_000 // 50% of 200k
 

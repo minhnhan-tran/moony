@@ -34,9 +34,9 @@ const (
 	defaultAccountClaim = "email"
 )
 
-// enabled reports whether MOONY_AUTH requests the gate be on.
+// enabled reports whether MN_AUTH requests the gate be on.
 func enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_AUTH"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTH"))) {
 	case "on", "1", "true", "yes":
 		return true
 	}
@@ -44,8 +44,8 @@ func enabled() bool {
 }
 
 // FromEnv builds an Auth from the environment. It returns (nil, false, nil) when
-// MOONY_AUTH is unset/off — the relay then runs open, exactly as before. When
-// MOONY_AUTH is on it requires the full OIDC + secret set and performs OIDC
+// MN_AUTH is unset/off — the relay then runs open, exactly as before. When
+// MN_AUTH is on it requires the full OIDC + secret set and performs OIDC
 // discovery against the issuer; a missing var or unreachable issuer is a fatal
 // error (fail closed — never start half-secured).
 func FromEnv(ctx context.Context) (*Auth, bool, error) {
@@ -53,29 +53,29 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		return nil, false, nil
 	}
 	get := func(k string) string { return strings.TrimSpace(os.Getenv(k)) }
-	secret := get("MOONY_AUTH_SECRET")
-	issuer := get("MOONY_OIDC_ISSUER")
-	clientID := get("MOONY_OIDC_CLIENT_ID")
-	clientSecret := get("MOONY_OIDC_CLIENT_SECRET")
-	redirect := get("MOONY_OIDC_REDIRECT_URL")
+	secret := get("MN_AUTH_SECRET")
+	issuer := get("MN_OIDC_ISSUER")
+	clientID := get("MN_OIDC_CLIENT_ID")
+	clientSecret := get("MN_OIDC_CLIENT_SECRET")
+	redirect := get("MN_OIDC_REDIRECT_URL")
 
 	var missing []string
 	for k, v := range map[string]string{
-		"MOONY_AUTH_SECRET":        secret,
-		"MOONY_OIDC_ISSUER":        issuer,
-		"MOONY_OIDC_CLIENT_ID":     clientID,
-		"MOONY_OIDC_CLIENT_SECRET": clientSecret,
-		"MOONY_OIDC_REDIRECT_URL":  redirect,
+		"MN_AUTH_SECRET":        secret,
+		"MN_OIDC_ISSUER":        issuer,
+		"MN_OIDC_CLIENT_ID":     clientID,
+		"MN_OIDC_CLIENT_SECRET": clientSecret,
+		"MN_OIDC_REDIRECT_URL":  redirect,
 	} {
 		if v == "" {
 			missing = append(missing, k)
 		}
 	}
 	if len(missing) > 0 {
-		return nil, true, fmt.Errorf("MOONY_AUTH=on but missing required var(s): %s", strings.Join(missing, ", "))
+		return nil, true, fmt.Errorf("MN_AUTH=on but missing required var(s): %s", strings.Join(missing, ", "))
 	}
 	if len(secret) < 16 {
-		return nil, true, fmt.Errorf("MOONY_AUTH_SECRET must be at least 16 bytes")
+		return nil, true, fmt.Errorf("MN_AUTH_SECRET must be at least 16 bytes")
 	}
 
 	provider, err := oidc.NewProvider(ctx, issuer)
@@ -84,19 +84,19 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 	}
 
 	ttl := defaultSessionTTL
-	if v := get("MOONY_AUTH_TTL"); v != "" {
+	if v := get("MN_AUTH_TTL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			ttl = d
 		} else {
-			return nil, true, fmt.Errorf("MOONY_AUTH_TTL %q is not a valid duration (e.g. 12h)", v)
+			return nil, true, fmt.Errorf("MN_AUTH_TTL %q is not a valid duration (e.g. 12h)", v)
 		}
 	}
-	claim := get("MOONY_OIDC_ACCOUNT_CLAIM")
+	claim := get("MN_OIDC_ACCOUNT_CLAIM")
 	if claim == "" {
 		claim = defaultAccountClaim
 	}
 	admins := map[string]bool{}
-	for _, a := range strings.Split(get("MOONY_AUTH_ADMINS"), ",") {
+	for _, a := range strings.Split(get("MN_AUTH_ADMINS"), ",") {
 		if a = strings.ToLower(strings.TrimSpace(a)); a != "" {
 			admins[a] = true
 		}

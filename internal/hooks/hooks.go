@@ -17,12 +17,12 @@
 //
 // Each command is run via "sh -c", with these environment variables set:
 //
-//	MOONY_HOOK         the event name (pre_turn, post_turn, pre_tool, post_tool)
-//	MOONY_WORKING_DIR  the agent's working directory
-//	MOONY_TOOL_NAME    tool name (pre_tool / post_tool only)
-//	MOONY_TOOL_INPUT   the tool's JSON input (pre_tool only)
-//	MOONY_TOOL_OUTPUT  the tool's text output (post_tool only)
-//	MOONY_TOOL_ERROR   the tool's error message, or empty (post_tool only)
+//	MN_HOOK         the event name (pre_turn, post_turn, pre_tool, post_tool)
+//	MN_WORKING_DIR  the agent's working directory
+//	MN_TOOL_NAME    tool name (pre_tool / post_tool only)
+//	MN_TOOL_INPUT   the tool's JSON input (pre_tool only)
+//	MN_TOOL_OUTPUT  the tool's text output (post_tool only)
+//	MN_TOOL_ERROR   the tool's error message, or empty (post_tool only)
 //
 // Hooks are best-effort: any error is logged via the optional logger but never
 // blocks the agent. Each hook has a 10-second timeout.
@@ -134,20 +134,20 @@ func (s *Set) Run(ctx context.Context, ev Event, hctx Context) error {
 		return nil
 	}
 	env := append(os.Environ(),
-		"MOONY_HOOK="+string(ev),
-		"MOONY_WORKING_DIR="+hctx.WorkingDir,
+		"MN_HOOK="+string(ev),
+		"MN_WORKING_DIR="+hctx.WorkingDir,
 	)
 	if hctx.ToolName != "" {
-		env = append(env, "MOONY_TOOL_NAME="+hctx.ToolName)
+		env = append(env, "MN_TOOL_NAME="+hctx.ToolName)
 	}
 	if hctx.ToolInput != "" {
-		env = append(env, "MOONY_TOOL_INPUT="+hctx.ToolInput)
+		env = append(env, "MN_TOOL_INPUT="+hctx.ToolInput)
 	}
 	if hctx.ToolOutput != "" {
-		env = append(env, "MOONY_TOOL_OUTPUT="+hctx.ToolOutput)
+		env = append(env, "MN_TOOL_OUTPUT="+hctx.ToolOutput)
 	}
 	if hctx.ToolError != "" {
-		env = append(env, "MOONY_TOOL_ERROR="+hctx.ToolError)
+		env = append(env, "MN_TOOL_ERROR="+hctx.ToolError)
 	}
 	for _, c := range cmds {
 		s.runOne(ctx, c, env, hctx.WorkingDir)

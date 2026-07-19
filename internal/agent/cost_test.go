@@ -126,7 +126,7 @@ func TestSelfReviewMeta(t *testing.T) {
 	}
 }
 
-// TestAdaptiveModelDownshiftNotice verifies MOONY_ADAPTIVE_MODEL's routing
+// TestAdaptiveModelDownshiftNotice verifies MN_ADAPTIVE_MODEL's routing
 // decision is observable: the first round on the cheap FastModel emits an
 // "auto: using <model> for this round (adaptive model)." notice.
 func TestAdaptiveModelDownshiftNotice(t *testing.T) {
@@ -152,7 +152,7 @@ func TestAdaptiveModelDownshiftNotice(t *testing.T) {
 	}
 }
 
-// TestCheapReadsDownshiftNotice verifies MOONY_CHEAP_READS's routing decision is
+// TestCheapReadsDownshiftNotice verifies MN_CHEAP_READS's routing decision is
 // observable and correctly attributed (distinct from AdaptiveModel's reason).
 // Round 1 (a read_file call) sets lastStepReadOnly; round 2 should then be the
 // one CheapReads downgrades, since AdaptiveModel is off here.

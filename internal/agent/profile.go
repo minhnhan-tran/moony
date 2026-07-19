@@ -11,7 +11,7 @@ package agent
 // written into the repo, so it can't be accidentally committed or clobber a
 // user's files), injected into the system prompt as cacheable orientation, and
 // refreshed at most ~weekly per repo from the session transcript (merged with the
-// prior profile). OPT-IN via config.ProjectProfile (MOONY_PROJECT_PROFILE): it adds
+// prior profile). OPT-IN via config.ProjectProfile (MN_PROJECT_PROFILE): it adds
 // auto-generated content to every turn's prompt, which can mislead if it goes
 // stale, so it's off until the user turns it on.
 

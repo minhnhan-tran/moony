@@ -32,7 +32,7 @@ func titleAgent(t *testing.T, fake *scriptedStreamer) (*Agent, *session.Store) {
 }
 
 func TestAutoTitleReplacesHeuristic(t *testing.T) {
-	t.Setenv("MOONY_AUTO_TITLE", "1")
+	t.Setenv("MN_AUTO_TITLE", "1")
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("Here is a dark mode toggle.")}},
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("Add Dark Mode Toggle")}}, // the title call
@@ -65,7 +65,7 @@ func TestAutoTitleReplacesHeuristic(t *testing.T) {
 }
 
 func TestAutoTitleRunsOnlyOnce(t *testing.T) {
-	t.Setenv("MOONY_AUTO_TITLE", "1")
+	t.Setenv("MN_AUTO_TITLE", "1")
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("first answer")}},
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("First Task Title")}}, // title call (turn 1)
@@ -94,7 +94,7 @@ func TestAutoTitleRunsOnlyOnce(t *testing.T) {
 }
 
 func TestAutoTitleDisabled(t *testing.T) {
-	t.Setenv("MOONY_AUTO_TITLE", "0")
+	t.Setenv("MN_AUTO_TITLE", "0")
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("done")}},
 	}}
@@ -112,7 +112,7 @@ func TestAutoTitleDisabled(t *testing.T) {
 		t.Errorf("model calls = %d, want 1 (no extra title call when disabled)", fake.calls)
 	}
 	if titled {
-		t.Error("no TitleUpdate expected when MOONY_AUTO_TITLE=0")
+		t.Error("no TitleUpdate expected when MN_AUTO_TITLE=0")
 	}
 	saved, err := store.Load(ag.SessionID())
 	if err != nil {

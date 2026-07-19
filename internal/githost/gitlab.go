@@ -39,7 +39,7 @@ func (c *gitlabClient) do(ctx context.Context, method, path string, body any) (*
 		return nil, err
 	}
 	// Set both auth header conventions: PRIVATE-TOKEN covers personal/project
-	// access tokens (the common case for MOONY_GITLAB_TOKEN/GITLAB_TOKEN/netrc),
+	// access tokens (the common case for MN_GITLAB_TOKEN/GITLAB_TOKEN/netrc),
 	// Bearer covers OAuth2 tokens (e.g. from `glab auth token`). Harmless to
 	// send both; GitLab uses whichever it recognizes.
 	req.Header.Set("PRIVATE-TOKEN", c.token)

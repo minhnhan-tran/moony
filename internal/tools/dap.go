@@ -63,7 +63,7 @@ func (t *dapConnectTool) Name() string { return "dap_connect" }
 func (t *dapConnectTool) Description() string {
 	return "Connect to a running Debug Adapter Protocol server at host:port, sending the mandatory " +
 		"initialize handshake. All other DAP tools become available once this succeeds. If " +
-		"MOONY_DAP_ADDR is set the connection is established automatically at startup."
+		"MN_DAP_ADDR is set the connection is established automatically at startup."
 }
 func (t *dapConnectTool) Schema() json.RawMessage {
 	return schema(`{"type":"object","properties":{

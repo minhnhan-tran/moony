@@ -5,7 +5,7 @@ import { scriptedDecider, Script } from '../src/decider';
 
 // More real-human-interaction journeys, deterministic on the user side (scripted).
 // The agent is real, so assertions are outcome-based and tolerant of variation.
-// All run against your live stack (MOONY_BASE_URL + MOONY_STORAGE_STATE, see README).
+// All run against your live stack (MN_BASE_URL + MN_STORAGE_STATE, see README).
 
 // A natural multi-turn, read-only conversation: ask something, then a follow-up
 // that depends on the first answer. Exercises conversation continuity + the

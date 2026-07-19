@@ -16,7 +16,7 @@ import (
 // disabled so the only post-turn model call is the checkpoint.
 func checkpointAgent(t *testing.T, fake *scriptedStreamer) (*Agent, *session.Store) {
 	t.Helper()
-	t.Setenv("MOONY_AUTO_TITLE", "0")
+	t.Setenv("MN_AUTO_TITLE", "0")
 	isolateConfig(t)
 	dir := t.TempDir()
 	store, err := session.NewStoreAt(t.TempDir())
@@ -47,7 +47,7 @@ func TestCheckpointEveryParsing(t *testing.T) {
 		{"junk", defaultCheckpointEvery, true},
 	}
 	for _, c := range cases {
-		t.Setenv("MOONY_CHECKPOINT_EVERY", c.env)
+		t.Setenv("MN_CHECKPOINT_EVERY", c.env)
 		n, enabled := checkpointEvery()
 		if n != c.wantN || enabled != c.wantEnabled {
 			t.Errorf("checkpointEvery(env=%q) = (%d,%v), want (%d,%v)", c.env, n, enabled, c.wantN, c.wantEnabled)
@@ -59,7 +59,7 @@ func TestCheckpointEveryParsing(t *testing.T) {
 // checkpoint interval and verifies a checkpoint is distilled, persisted, and
 // reflected in the message-count watermark.
 func TestAutoCheckpointWritesAfterThreshold(t *testing.T) {
-	t.Setenv("MOONY_CHECKPOINT_EVERY", "2") // every 2 messages
+	t.Setenv("MN_CHECKPOINT_EVERY", "2") // every 2 messages
 
 	// First turn: user + assistant = 2 messages, crossing the interval, so a
 	// checkpoint call follows. Turn 1 reply, then the checkpoint distillation.
@@ -100,10 +100,10 @@ func TestAutoCheckpointWritesAfterThreshold(t *testing.T) {
 	}
 }
 
-// TestAutoCheckpointDisabled verifies MOONY_CHECKPOINT_EVERY=0 turns off the
+// TestAutoCheckpointDisabled verifies MN_CHECKPOINT_EVERY=0 turns off the
 // automatic checkpoint so no extra model call happens.
 func TestAutoCheckpointDisabled(t *testing.T) {
-	t.Setenv("MOONY_CHECKPOINT_EVERY", "0")
+	t.Setenv("MN_CHECKPOINT_EVERY", "0")
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("done")}},
 	}}
@@ -253,7 +253,7 @@ func TestWriteCheckpointManual(t *testing.T) {
 // checkpoint stall (len(messages) could never reach a pre-compaction watermark)
 // and forcing a prompt re-distill from the trimmed history.
 func TestCheckpointWatermarkResetAfterCompaction(t *testing.T) {
-	t.Setenv("MOONY_CHECKPOINT_EVERY", "2")
+	t.Setenv("MN_CHECKPOINT_EVERY", "2")
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("Goal: keep going")}},
 	}}
@@ -307,7 +307,7 @@ func TestWriteCheckpointUsesAuxStream(t *testing.T) {
 // pre-set checkpoint must reach the model in the system prompt of a live Run,
 // while never being stored in a.messages or the message list sent to the model.
 func TestCheckpointReachesModelButNotHistory(t *testing.T) {
-	t.Setenv("MOONY_CHECKPOINT_EVERY", "0") // disable auto-refresh so we count one turn cleanly
+	t.Setenv("MN_CHECKPOINT_EVERY", "0") // disable auto-refresh so we count one turn cleanly
 	fake := &scriptedStreamer{turns: []llm.Response{
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("ok")}},
 	}}

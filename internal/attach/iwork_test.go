@@ -115,7 +115,7 @@ func TestFromBytesIWorkConverterError(t *testing.T) {
 }
 
 func TestFromBytesIWorkDisabled(t *testing.T) {
-	t.Setenv("MOONY_CONVERTER_URL", "") // explicitly empty → conversion disabled
+	t.Setenv("MN_CONVERTER_URL", "") // explicitly empty → conversion disabled
 	_, err := FromBytes("notes.numbers", "", []byte("fake numbers bundle"))
 	if err == nil {
 		t.Fatal("expected an error when conversion is disabled")

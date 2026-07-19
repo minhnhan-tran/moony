@@ -3,7 +3,7 @@
 // checksum, and atomically replaces the running executable. The /update command
 // calls this, then re-execs the new binary.
 //
-// There is no built-in host: self-update is disabled unless MOONY_UPDATE_URL is
+// There is no built-in host: self-update is disabled unless MN_UPDATE_URL is
 // set to an https:// release host that serves GET /api/relay (the available
 // version), GET /download/moony_<os>_<arch> (the binary), and
 // GET /download/SHA256SUMS (its checksum). The download is verified against
@@ -45,24 +45,24 @@ func SetHTTPClientForTest(c *http.Client) func() {
 	return func() { httpClient = old }
 }
 
-// BaseURL is the configured release host from MOONY_UPDATE_URL (trailing slash
+// BaseURL is the configured release host from MN_UPDATE_URL (trailing slash
 // trimmed), or "" when self-update isn't configured. There is no built-in
 // default host.
 func BaseURL() string {
-	return strings.TrimRight(strings.TrimSpace(os.Getenv("MOONY_UPDATE_URL")), "/")
+	return strings.TrimRight(strings.TrimSpace(os.Getenv("MN_UPDATE_URL")), "/")
 }
 
 // baseURL validates and returns the configured release host. Self-update is
-// disabled unless MOONY_UPDATE_URL is set, and the URL must be https:// — an http
+// disabled unless MN_UPDATE_URL is set, and the URL must be https:// — an http
 // source would let an on-path attacker swap the binary, and the same-origin
 // checksum can't catch that.
 func baseURL() (string, error) {
 	u := BaseURL()
 	if u == "" {
-		return "", fmt.Errorf("self-update is not configured; set MOONY_UPDATE_URL to your https:// release host")
+		return "", fmt.Errorf("self-update is not configured; set MN_UPDATE_URL to your https:// release host")
 	}
 	if !strings.HasPrefix(strings.ToLower(u), "https://") {
-		return "", fmt.Errorf("MOONY_UPDATE_URL must be an https:// URL (got %q); refusing to fetch updates over an insecure transport", u)
+		return "", fmt.Errorf("MN_UPDATE_URL must be an https:// URL (got %q); refusing to fetch updates over an insecure transport", u)
 	}
 	return u, nil
 }

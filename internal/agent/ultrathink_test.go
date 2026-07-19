@@ -119,7 +119,7 @@ func TestRampedAutoEffort(t *testing.T) {
 // step (read-only ⇒ concurrent), exercising the atomic increment.
 func TestTurnFrictionCountsFailures(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("MOONY_AUTO_TITLE", "0")
+	t.Setenv("MN_AUTO_TITLE", "0")
 
 	newAgent := func(dir string, turns []llm.Response) *Agent {
 		cfg := &config.Config{Model: "test-model", MaxTokens: 256, MaxToolOutputBytes: 1 << 20, MaxAgentSteps: 10, ApprovalPolicy: config.ApprovalAuto, WorkingDir: dir}

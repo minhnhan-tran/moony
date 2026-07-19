@@ -104,7 +104,7 @@ func main() {
 		showVersion   = flag.Bool("version", false, "print version and exit")
 	)
 	var rootFlags multiFlag
-	flag.Var(&rootFlags, "root", "additional workspace root the agent may read/write, beyond -C (repeatable; multi-root workspace). Also via MOONY_ROOTS.")
+	flag.Var(&rootFlags, "root", "additional workspace root the agent may read/write, beyond -C (repeatable; multi-root workspace). Also via MN_ROOTS.")
 	flag.Parse()
 
 	if *showVersion {
@@ -158,10 +158,10 @@ func main() {
 	client := llm.NewClient(cfg)
 	registry := tools.Default(cfg.WorkingDir, cfg.MaxToolOutputBytes)
 	registry.SetSandbox(cfg.SandboxMode != config.SandboxOff, cfg.SandboxNetwork)
-	// Multi-root: whitelist extra workspace roots from --root and MOONY_ROOTS so
+	// Multi-root: whitelist extra workspace roots from --root and MN_ROOTS so
 	// file tools and the bash sandbox can operate across several repos at once.
 	registry.AddRoots(rootFlags...)
-	if env := strings.TrimSpace(os.Getenv("MOONY_ROOTS")); env != "" {
+	if env := strings.TrimSpace(os.Getenv("MN_ROOTS")); env != "" {
 		registry.AddRoots(filepath.SplitList(env)...)
 	}
 	todos := tools.NewTodoStore()
@@ -242,10 +242,10 @@ func main() {
 		}
 	}
 
-	// Auto-connect to a DAP adapter when MOONY_DAP_ADDR is set. Non-fatal:
+	// Auto-connect to a DAP adapter when MN_DAP_ADDR is set. Non-fatal:
 	// a bad address just means the dap_* tools will error "not connected" until
 	// the user calls dap_connect manually.
-	if dapAddr := strings.TrimSpace(os.Getenv("MOONY_DAP_ADDR")); dapAddr != "" {
+	if dapAddr := strings.TrimSpace(os.Getenv("MN_DAP_ADDR")); dapAddr != "" {
 		if err := ag.AttachDAP(dapAddr); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: DAP auto-connect to %s failed: %v\n", dapAddr, err)
 		}
@@ -302,7 +302,7 @@ func main() {
 	}
 
 	// This terminal's session can be driven from a browser over a relay (see
-	// MOONY_RELAY / the /relay command): the terminal dials out to the relay and
+	// MN_RELAY / the /relay command): the terminal dials out to the relay and
 	// serves the full multi-project app, with its live session wired through the
 	// hub. The hub is created now so the controller can be wired before any
 	// remote viewer connects.
@@ -334,10 +334,10 @@ func main() {
 
 	// Mouse-wheel scrolling is ON by default. It does take over click-drag text
 	// selection; hold ⌥ Option (macOS) to select natively, or use /copy to copy
-	// the last response. Set MOONY_MOUSE=0 to disable mouse capture entirely
+	// the last response. Set MN_MOUSE=0 to disable mouse capture entirely
 	// (native selection works; scroll with the keyboard: shift+↑/↓, pgup/pgdn).
 	opts := []tea.ProgramOption{tea.WithAltScreen()}
-	if v := strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_MOUSE"))); v != "0" && v != "off" && v != "false" {
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("MN_MOUSE"))); v != "0" && v != "off" && v != "false" {
 		opts = append(opts, tea.WithMouseCellMotion())
 	}
 	prog := tea.NewProgram(model, opts...)
@@ -349,7 +349,7 @@ func main() {
 	// loop (applyMCP), so the registry mutation never races a turn. (prog.Send
 	// queues until Run() starts the event loop just below.)
 	//
-	// Over the relay (saved /relay or MOONY_RELAY), the terminal serves the FULL
+	// Over the relay (saved /relay or MN_RELAY), the terminal serves the FULL
 	// multi-project app (every project/session on this machine), with this
 	// terminal's LIVE session wired through the hub — so a remote browser browses
 	// the whole session tree AND drives the in-terminal session bidirectionally.
@@ -433,7 +433,7 @@ func main() {
 					// over. (We intentionally don't release on normal process exit:
 					// the next claimant reclaims our stale lock by dead pid — see
 					// TryHoldConnector.)
-					serveRelay(relayAddr, config.MachineName(), appleUser, strings.TrimSpace(os.Getenv("MOONY_RELAY_TOKEN")), srv.Handler(), holderReport, onRelayVersion)
+					serveRelay(relayAddr, config.MachineName(), appleUser, strings.TrimSpace(os.Getenv("MN_RELAY_TOKEN")), srv.Handler(), holderReport, onRelayVersion)
 					release()
 					return
 				}
@@ -530,7 +530,7 @@ func daemonSimple(fn func() error, done string) int {
 // signal stops it.
 func daemonRun(args []string) int {
 	fs := flag.NewFlagSet("daemon run", flag.ContinueOnError)
-	relayFlag := fs.String("relay", "", "relay host:port to dial (overrides MOONY_RELAY / saved /relay)")
+	relayFlag := fs.String("relay", "", "relay host:port to dial (overrides MN_RELAY / saved /relay)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -592,7 +592,7 @@ func runScheduleCmd(args []string) int {
 
 // runSessionKeyCmd implements `session-key <status|rewrap>` for the at-rest
 // session-history encryption. Key selection follows the same env vars the store
-// uses (MOONY_SESSION_KEY / _KEY_CMD / _KEY_FILE / _PASSPHRASE, MOONY_SESSION_ENCRYPT).
+// uses (MN_SESSION_KEY / _KEY_CMD / _KEY_FILE / _PASSPHRASE, MN_SESSION_ENCRYPT).
 func runSessionKeyCmd(args []string) int {
 	sub := "status"
 	if len(args) > 0 {
@@ -623,8 +623,8 @@ func runSessionKeyCmd(args []string) int {
 		return 0
 	default:
 		fmt.Fprintln(os.Stderr, "usage: moony session-key <status|rewrap>")
-		fmt.Fprintln(os.Stderr, "  BYOK env: MOONY_SESSION_KEY (base64/hex 32B) | MOONY_SESSION_KEY_CMD | MOONY_SESSION_KEY_FILE | MOONY_SESSION_PASSPHRASE")
-		fmt.Fprintln(os.Stderr, "  mode:     MOONY_SESSION_ENCRYPT=auto (default) | required | off")
+		fmt.Fprintln(os.Stderr, "  BYOK env: MN_SESSION_KEY (base64/hex 32B) | MN_SESSION_KEY_CMD | MN_SESSION_KEY_FILE | MN_SESSION_PASSPHRASE")
+		fmt.Fprintln(os.Stderr, "  mode:     MN_SESSION_ENCRYPT=auto (default) | required | off")
 		return 2
 	}
 }
@@ -726,7 +726,7 @@ func scheduleRunOne(st *schedule.Store, args []string) int {
 }
 
 // daemonInstall installs + starts the background service, resolving the relay
-// from --relay, else the saved /relay address / MOONY_RELAY.
+// from --relay, else the saved /relay address / MN_RELAY.
 func daemonInstall(args []string) int {
 	fs := flag.NewFlagSet("daemon install", flag.ContinueOnError)
 	relayFlag := fs.String("relay", "", "relay host:port the connector dials out to")
@@ -736,7 +736,7 @@ func daemonInstall(args []string) int {
 	config.LoadDotEnv()
 	relay := strings.TrimSpace(*relayFlag)
 	if relay == "" {
-		relay = config.Load().RelayAddr // saved /relay or MOONY_RELAY
+		relay = config.Load().RelayAddr // saved /relay or MN_RELAY
 	}
 	if relay == "" {
 		relay = daemon.DefaultRelay // fall back to the production relay
@@ -771,7 +771,7 @@ func (m *multiFlag) Set(v string) error { *m = append(*m, strings.TrimSpace(v));
 // terminal, so the relay shows it only to that user. It retries on failure and
 // stays silent — the TUI owns the terminal, so this must never print — and is
 // torn down with the process when the TUI exits. Enabled by the saved relay
-// address (or MOONY_RELAY). report is called on each state change so the TUI can
+// address (or MN_RELAY). report is called on each state change so the TUI can
 // show a status pill.
 func serveRelay(addr, host, owner, token string, h http.Handler, report func(tui.RelayState), onRelayVersion func(string)) {
 	if report == nil {

@@ -367,7 +367,7 @@ func (s *Server) skillsCommand(sess *session, arg string) string {
 	}
 	found := skills.Load(cfg.WorkingDir)
 	if len(found) == 0 {
-		return "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MOONY_SKILLS=0 disables discovery)."
+		return "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MN_SKILLS=0 disables discovery)."
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Skills (%d):\n", len(found))
@@ -692,7 +692,7 @@ func (s *Server) mcpsCommand(sess *session, arg string) string {
 	}
 	cfgs, err := mcp.LoadConfigs(cfg.WorkingDir)
 	if err != nil || len(cfgs) == 0 {
-		return "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MOONY_MCP_CLAUDE=0 disables)."
+		return "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MN_MCP_CLAUDE=0 disables)."
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Configured MCP servers (%d):\n", len(cfgs))
@@ -721,7 +721,7 @@ func (s *Server) connectMCP(workingDir string, live *session) string {
 		return "no agent for this session"
 	}
 	if !mcp.Enabled() {
-		return "MCP is disabled (MOONY_MCP=0)."
+		return "MCP is disabled (MN_MCP=0)."
 	}
 	live.mcpMu.Lock() // serialize connect/reload so two callers don't race the manager
 	defer live.mcpMu.Unlock()
@@ -865,15 +865,15 @@ func providerSetupHintWeb(cfg *config.Config, id string) string {
 	switch id {
 	case provider.OpenAI:
 		if strings.TrimSpace(cfg.OpenAIAPIKey) == "" {
-			return "⚠ Set MOONY_OPENAI_API_KEY (or OPENAI_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_OPENAI_API_KEY (or OPENAI_API_KEY) — calls will fail until it's set."
 		}
 	case provider.Anthropic:
 		if strings.TrimSpace(cfg.AnthropicAPIKey) == "" {
-			return "⚠ Set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) — calls will fail until it's set."
 		}
 	case provider.OpenRouter:
 		if strings.TrimSpace(cfg.OpenRouterAPIKey) == "" {
-			return "⚠ Set MOONY_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) — calls will fail until it's set."
 		}
 	}
 	return ""
@@ -888,7 +888,7 @@ func providerSetupHintWeb(cfg *config.Config, id string) string {
 func (s *Server) ensureOllamaModel(sess *session, cfg *config.Config, info func(string)) {
 	models, err := sess.agent.ListModels(context.Background())
 	if err != nil || len(models) == 0 {
-		info("Pick an Ollama model with /models once your server is reachable (MOONY_OLLAMA_HOST).")
+		info("Pick an Ollama model with /models once your server is reachable (MN_OLLAMA_HOST).")
 		return
 	}
 	for _, m := range models {

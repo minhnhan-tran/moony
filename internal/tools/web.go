@@ -497,9 +497,9 @@ func firstNonEmpty(vals ...string) string {
 }
 
 // netrcEnabled reports whether ~/.netrc Bearer auth is active. On by default;
-// set MOONY_NETRC=0/off/false/no to disable.
+// set MN_NETRC=0/off/false/no to disable.
 func netrcEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_NETRC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_NETRC"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

@@ -15,214 +15,214 @@ import (
 type Config struct {
 	// OllamaBaseURL is the base URL of the Ollama server, up to and including the
 	// "/v1" OpenAI-compatible segment (the client appends "/chat/completions").
-	// Set via MOONY_OLLAMA_HOST / OLLAMA_HOST. Defaults to http://localhost:11434/v1.
+	// Set via MN_OLLAMA_HOST / OLLAMA_HOST. Defaults to http://localhost:11434/v1.
 	OllamaBaseURL string
 	// OllamaToken is an optional bearer token for a remote/protected Ollama
-	// server. Set via MOONY_OLLAMA_TOKEN.
+	// server. Set via MN_OLLAMA_TOKEN.
 	OllamaToken string
-	// OpenAIAPIKey authenticates api.openai.com. Set via MOONY_OPENAI_API_KEY
+	// OpenAIAPIKey authenticates api.openai.com. Set via MN_OPENAI_API_KEY
 	// (falls back to the conventional OPENAI_API_KEY).
 	OpenAIAPIKey string
 	// OpenAIBaseURL overrides the OpenAI-compatible base URL (default
-	// https://api.openai.com/v1). Set via MOONY_OPENAI_BASE_URL.
+	// https://api.openai.com/v1). Set via MN_OPENAI_BASE_URL.
 	OpenAIBaseURL string
 	// AnthropicAPIKey authenticates api.anthropic.com. Set via
-	// MOONY_ANTHROPIC_API_KEY (falls back to ANTHROPIC_API_KEY).
+	// MN_ANTHROPIC_API_KEY (falls back to ANTHROPIC_API_KEY).
 	AnthropicAPIKey string
 	// AnthropicBaseURL overrides the native Anthropic Messages API base URL
-	// (default https://api.anthropic.com). Set via MOONY_ANTHROPIC_BASE_URL.
+	// (default https://api.anthropic.com). Set via MN_ANTHROPIC_BASE_URL.
 	AnthropicBaseURL string
 	// SQEAnthropicAPIKey authenticates the SQE Anthropic backend (Claude via the
-	// SQE LAN gateway). Set via MOONY_SQE_ANTHROPIC_API_KEY; falls back to
+	// SQE LAN gateway). Set via MN_SQE_ANTHROPIC_API_KEY; falls back to
 	// AnthropicAPIKey when unset.
 	SQEAnthropicAPIKey string
 	// SQEAnthropicBaseURL is the SQE gateway base URL (default
-	// defaultSQEAnthropicBaseURL). Set via MOONY_SQE_ANTHROPIC_BASE_URL.
+	// defaultSQEAnthropicBaseURL). Set via MN_SQE_ANTHROPIC_BASE_URL.
 	SQEAnthropicBaseURL string
 	// OpenRouterAPIKey authenticates openrouter.ai. Set via
-	// MOONY_OPENROUTER_API_KEY (falls back to OPENROUTER_API_KEY).
+	// MN_OPENROUTER_API_KEY (falls back to OPENROUTER_API_KEY).
 	OpenRouterAPIKey string
 	// OpenRouterBaseURL overrides the OpenRouter base URL (default
-	// https://openrouter.ai/api/v1). Set via MOONY_OPENROUTER_BASE_URL.
+	// https://openrouter.ai/api/v1). Set via MN_OPENROUTER_BASE_URL.
 	OpenRouterBaseURL string
 	// GeminiAPIKey authenticates Google's OpenAI-compatible endpoint. Set via
-	// MOONY_GEMINI_API_KEY (falls back to GEMINI_API_KEY).
+	// MN_GEMINI_API_KEY (falls back to GEMINI_API_KEY).
 	GeminiAPIKey string
 	// GeminiBaseURL overrides the Gemini base URL (default
 	// https://generativelanguage.googleapis.com/v1beta/openai). Set via
-	// MOONY_GEMINI_BASE_URL.
+	// MN_GEMINI_BASE_URL.
 	GeminiBaseURL string
 	// DeepSeekAPIKey authenticates api.deepseek.com. Set via
-	// MOONY_DEEPSEEK_API_KEY (falls back to DEEPSEEK_API_KEY).
+	// MN_DEEPSEEK_API_KEY (falls back to DEEPSEEK_API_KEY).
 	DeepSeekAPIKey string
 	// DeepSeekBaseURL overrides the DeepSeek base URL (default
-	// https://api.deepseek.com). Set via MOONY_DEEPSEEK_BASE_URL.
+	// https://api.deepseek.com). Set via MN_DEEPSEEK_BASE_URL.
 	DeepSeekBaseURL string
-	// GroqAPIKey authenticates api.groq.com. Set via MOONY_GROQ_API_KEY (falls
+	// GroqAPIKey authenticates api.groq.com. Set via MN_GROQ_API_KEY (falls
 	// back to GROQ_API_KEY).
 	GroqAPIKey string
 	// GroqBaseURL overrides the Groq base URL (default
-	// https://api.groq.com/openai/v1). Set via MOONY_GROQ_BASE_URL.
+	// https://api.groq.com/openai/v1). Set via MN_GROQ_BASE_URL.
 	GroqBaseURL string
-	// XAIAPIKey authenticates api.x.ai (Grok). Set via MOONY_XAI_API_KEY (falls
+	// XAIAPIKey authenticates api.x.ai (Grok). Set via MN_XAI_API_KEY (falls
 	// back to XAI_API_KEY).
 	XAIAPIKey string
 	// XAIBaseURL overrides the xAI base URL (default https://api.x.ai/v1). Set
-	// via MOONY_XAI_BASE_URL.
+	// via MN_XAI_BASE_URL.
 	XAIBaseURL string
-	// MistralAPIKey authenticates api.mistral.ai. Set via MOONY_MISTRAL_API_KEY
+	// MistralAPIKey authenticates api.mistral.ai. Set via MN_MISTRAL_API_KEY
 	// (falls back to MISTRAL_API_KEY).
 	MistralAPIKey string
 	// MistralBaseURL overrides the Mistral base URL (default
-	// https://api.mistral.ai/v1). Set via MOONY_MISTRAL_BASE_URL.
+	// https://api.mistral.ai/v1). Set via MN_MISTRAL_BASE_URL.
 	MistralBaseURL string
 	// TogetherAPIKey authenticates api.together.xyz. Set via
-	// MOONY_TOGETHER_API_KEY (falls back to TOGETHER_API_KEY).
+	// MN_TOGETHER_API_KEY (falls back to TOGETHER_API_KEY).
 	TogetherAPIKey string
 	// TogetherBaseURL overrides the Together.ai base URL (default
-	// https://api.together.xyz/v1). Set via MOONY_TOGETHER_BASE_URL.
+	// https://api.together.xyz/v1). Set via MN_TOGETHER_BASE_URL.
 	TogetherBaseURL string
 	// FireworksAPIKey authenticates api.fireworks.ai. Set via
-	// MOONY_FIREWORKS_API_KEY (falls back to FIREWORKS_API_KEY).
+	// MN_FIREWORKS_API_KEY (falls back to FIREWORKS_API_KEY).
 	FireworksAPIKey string
 	// FireworksBaseURL overrides the Fireworks.ai base URL (default
-	// https://api.fireworks.ai/inference/v1). Set via MOONY_FIREWORKS_BASE_URL.
+	// https://api.fireworks.ai/inference/v1). Set via MN_FIREWORKS_BASE_URL.
 	FireworksBaseURL string
 	// MoonshotAPIKey authenticates api.moonshot.ai (Kimi). Set via
-	// MOONY_MOONSHOT_API_KEY (falls back to MOONSHOT_API_KEY).
+	// MN_MOONSHOT_API_KEY (falls back to MOONSHOT_API_KEY).
 	MoonshotAPIKey string
 	// MoonshotBaseURL overrides the Moonshot base URL (default
-	// https://api.moonshot.ai/v1). Set via MOONY_MOONSHOT_BASE_URL.
+	// https://api.moonshot.ai/v1). Set via MN_MOONSHOT_BASE_URL.
 	MoonshotBaseURL string
 	// ZAIAPIKey authenticates api.z.ai (Zhipu GLM). Set via
-	// MOONY_ZAI_API_KEY (falls back to ZAI_API_KEY).
+	// MN_ZAI_API_KEY (falls back to ZAI_API_KEY).
 	ZAIAPIKey string
 	// ZAIBaseURL overrides the Z.AI base URL (default
-	// https://api.z.ai/api/paas/v4). Set via MOONY_ZAI_BASE_URL.
+	// https://api.z.ai/api/paas/v4). Set via MN_ZAI_BASE_URL.
 	ZAIBaseURL string
 	// DashScopeAPIKey authenticates Alibaba DashScope (Qwen), OpenAI-compatible
-	// mode. Set via MOONY_DASHSCOPE_API_KEY (falls back to DASHSCOPE_API_KEY).
+	// mode. Set via MN_DASHSCOPE_API_KEY (falls back to DASHSCOPE_API_KEY).
 	DashScopeAPIKey string
 	// DashScopeBaseURL overrides the DashScope base URL (default
 	// https://dashscope-intl.aliyuncs.com/compatible-mode/v1). Set via
-	// MOONY_DASHSCOPE_BASE_URL.
+	// MN_DASHSCOPE_BASE_URL.
 	DashScopeBaseURL string
 	// NvidiaAPIKey authenticates integrate.api.nvidia.com (NVIDIA NIM). Set via
-	// MOONY_NVIDIA_API_KEY (falls back to NVIDIA_API_KEY).
+	// MN_NVIDIA_API_KEY (falls back to NVIDIA_API_KEY).
 	NvidiaAPIKey string
 	// NvidiaBaseURL overrides the NVIDIA NIM base URL (default
-	// https://integrate.api.nvidia.com/v1). Set via MOONY_NVIDIA_BASE_URL.
+	// https://integrate.api.nvidia.com/v1). Set via MN_NVIDIA_BASE_URL.
 	NvidiaBaseURL string
 	// HuggingFaceAPIKey authenticates router.huggingface.co. Set via
-	// MOONY_HUGGINGFACE_API_KEY (falls back to HF_TOKEN).
+	// MN_HUGGINGFACE_API_KEY (falls back to HF_TOKEN).
 	HuggingFaceAPIKey string
 	// HuggingFaceBaseURL overrides the Hugging Face router base URL (default
-	// https://router.huggingface.co/v1). Set via MOONY_HUGGINGFACE_BASE_URL.
+	// https://router.huggingface.co/v1). Set via MN_HUGGINGFACE_BASE_URL.
 	HuggingFaceBaseURL string
-	// VeniceAPIKey authenticates api.venice.ai. Set via MOONY_VENICE_API_KEY
+	// VeniceAPIKey authenticates api.venice.ai. Set via MN_VENICE_API_KEY
 	// (falls back to VENICE_API_KEY).
 	VeniceAPIKey string
 	// VeniceBaseURL overrides the Venice base URL (default
-	// https://api.venice.ai/api/v1). Set via MOONY_VENICE_BASE_URL.
+	// https://api.venice.ai/api/v1). Set via MN_VENICE_BASE_URL.
 	VeniceBaseURL string
 	// OmniRouteAPIKey authenticates a local OmniRoute gateway. Set via
-	// MOONY_OMNIROUTE_API_KEY (falls back to OMNIROUTE_API_KEY).
+	// MN_OMNIROUTE_API_KEY (falls back to OMNIROUTE_API_KEY).
 	OmniRouteAPIKey string
 	// OmniRouteBaseURL overrides the OmniRoute base URL (default
-	// http://localhost:20128/v1). Set via MOONY_OMNIROUTE_BASE_URL.
+	// http://localhost:20128/v1). Set via MN_OMNIROUTE_BASE_URL.
 	OmniRouteBaseURL string
 	// CerebrasAPIKey authenticates api.cerebras.ai. Set via
-	// MOONY_CEREBRAS_API_KEY (falls back to CEREBRAS_API_KEY).
+	// MN_CEREBRAS_API_KEY (falls back to CEREBRAS_API_KEY).
 	CerebrasAPIKey string
 	// CerebrasBaseURL overrides the Cerebras base URL (default
-	// https://api.cerebras.ai/v1). Set via MOONY_CEREBRAS_BASE_URL.
+	// https://api.cerebras.ai/v1). Set via MN_CEREBRAS_BASE_URL.
 	CerebrasBaseURL string
 	// PerplexityAPIKey authenticates api.perplexity.ai. Set via
-	// MOONY_PERPLEXITY_API_KEY (falls back to PERPLEXITY_API_KEY).
+	// MN_PERPLEXITY_API_KEY (falls back to PERPLEXITY_API_KEY).
 	PerplexityAPIKey string
 	// PerplexityBaseURL overrides the Perplexity base URL (default
-	// https://api.perplexity.ai). Set via MOONY_PERPLEXITY_BASE_URL.
+	// https://api.perplexity.ai). Set via MN_PERPLEXITY_BASE_URL.
 	PerplexityBaseURL string
-	// CohereAPIKey authenticates api.cohere.ai. Set via MOONY_COHERE_API_KEY
+	// CohereAPIKey authenticates api.cohere.ai. Set via MN_COHERE_API_KEY
 	// (falls back to CO_API_KEY / COHERE_API_KEY).
 	CohereAPIKey string
 	// CohereBaseURL overrides the Cohere OpenAI-compatible base URL (default
-	// https://api.cohere.ai/compatibility/v1). Set via MOONY_COHERE_BASE_URL.
+	// https://api.cohere.ai/compatibility/v1). Set via MN_COHERE_BASE_URL.
 	CohereBaseURL string
 	// DeepInfraAPIKey authenticates api.deepinfra.com. Set via
-	// MOONY_DEEPINFRA_API_KEY (falls back to DEEPINFRA_API_KEY / DEEPINFRA_TOKEN).
+	// MN_DEEPINFRA_API_KEY (falls back to DEEPINFRA_API_KEY / DEEPINFRA_TOKEN).
 	DeepInfraAPIKey string
 	// DeepInfraBaseURL overrides the DeepInfra OpenAI-compatible base URL
 	// (default https://api.deepinfra.com/v1/openai). Set via
-	// MOONY_DEEPINFRA_BASE_URL.
+	// MN_DEEPINFRA_BASE_URL.
 	DeepInfraBaseURL string
 	// LMStudioBaseURL overrides the local LM Studio server base URL (default
-	// http://localhost:1234/v1). Set via MOONY_LMSTUDIO_BASE_URL (falls back to
+	// http://localhost:1234/v1). Set via MN_LMSTUDIO_BASE_URL (falls back to
 	// LM_STUDIO_BASE_URL). LM Studio is keyless; an optional token can be set
-	// via MOONY_LMSTUDIO_API_KEY if you've enabled auth on the server.
+	// via MN_LMSTUDIO_API_KEY if you've enabled auth on the server.
 	LMStudioBaseURL string
 	// LMStudioAPIKey is an optional bearer token for LM Studio (usually unset).
 	LMStudioAPIKey string
 	// LlamaCppBaseURL overrides the local llama.cpp server (llama-server) base
-	// URL (default http://localhost:8080/v1). Set via MOONY_LLAMACPP_BASE_URL
+	// URL (default http://localhost:8080/v1). Set via MN_LLAMACPP_BASE_URL
 	// (falls back to LLAMA_CPP_BASE_URL). llama.cpp's server is keyless.
 	LlamaCppBaseURL string
 	// AzureAPIKey authenticates an Azure OpenAI resource. Set via
-	// MOONY_AZURE_API_KEY (falls back to AZURE_OPENAI_API_KEY / AZURE_API_KEY).
+	// MN_AZURE_API_KEY (falls back to AZURE_OPENAI_API_KEY / AZURE_API_KEY).
 	AzureAPIKey string
 	// AzureBaseURL is the Azure OpenAI resource endpoint, e.g.
 	// https://my-resource.openai.azure.com. Required (no default). Set via
-	// MOONY_AZURE_BASE_URL (falls back to AZURE_OPENAI_ENDPOINT).
+	// MN_AZURE_BASE_URL (falls back to AZURE_OPENAI_ENDPOINT).
 	AzureBaseURL string
 	// AzureAPIVersion is the Azure OpenAI api-version query param (default
-	// defaultAzureAPIVersion). Set via MOONY_AZURE_API_VERSION.
+	// defaultAzureAPIVersion). Set via MN_AZURE_API_VERSION.
 	AzureAPIVersion string
 	// VertexAPIKey is a Google Cloud OAuth access token authorizing Vertex AI
-	// (e.g. `gcloud auth print-access-token`). Set via MOONY_VERTEX_API_KEY
+	// (e.g. `gcloud auth print-access-token`). Set via MN_VERTEX_API_KEY
 	// (falls back to GOOGLE_VERTEX_API_KEY / the standard GOOGLE_* creds are not
 	// read here — supply a token).
 	VertexAPIKey string
 	// VertexProject is the GCP project id for Vertex AI. Set via
-	// MOONY_VERTEX_PROJECT (falls back to GOOGLE_CLOUD_PROJECT).
+	// MN_VERTEX_PROJECT (falls back to GOOGLE_CLOUD_PROJECT).
 	VertexProject string
 	// VertexLocation is the Vertex AI region (default defaultVertexLocation,
-	// e.g. us-central1; "global" is also valid). Set via MOONY_VERTEX_LOCATION
+	// e.g. us-central1; "global" is also valid). Set via MN_VERTEX_LOCATION
 	// (falls back to GOOGLE_CLOUD_LOCATION / CLOUD_ML_REGION).
 	VertexLocation string
 	// VertexBaseURL fully overrides the computed Vertex base URL. Normally left
-	// empty and derived from project+location. Set via MOONY_VERTEX_BASE_URL.
+	// empty and derived from project+location. Set via MN_VERTEX_BASE_URL.
 	VertexBaseURL string
 	// AWSAccessKeyID / AWSSecretAccessKey / AWSSessionToken are the credentials
 	// used to SigV4-sign AWS Bedrock requests. Each falls back to the standard
 	// AWS_* env var (and, when all are empty, the AWS SDK's default credential
 	// chain — shared config/SSO/instance role — is used). Set via
-	// MOONY_AWS_ACCESS_KEY_ID / MOONY_AWS_SECRET_ACCESS_KEY /
-	// MOONY_AWS_SESSION_TOKEN.
+	// MN_AWS_ACCESS_KEY_ID / MN_AWS_SECRET_ACCESS_KEY /
+	// MN_AWS_SESSION_TOKEN.
 	AWSAccessKeyID     string
 	AWSSecretAccessKey string
 	AWSSessionToken    string
 	// AWSRegion is the AWS region for Bedrock (default defaultAWSRegion). Set
-	// via MOONY_AWS_REGION (falls back to AWS_REGION / AWS_DEFAULT_REGION).
+	// via MN_AWS_REGION (falls back to AWS_REGION / AWS_DEFAULT_REGION).
 	AWSRegion string
 	// AWSProfile selects a named profile from the shared AWS config when the
-	// explicit keys above are empty. Set via MOONY_AWS_PROFILE (falls back to
+	// explicit keys above are empty. Set via MN_AWS_PROFILE (falls back to
 	// AWS_PROFILE).
 	AWSProfile string
 	// CopilotToken is the GitHub token used by the GitHub Copilot provider
 	// (which drives the local `copilot` CLI through the copilot-sdk). Set via
-	// MOONY_COPILOT_TOKEN, falling back to the CLI's own COPILOT_GITHUB_TOKEN /
+	// MN_COPILOT_TOKEN, falling back to the CLI's own COPILOT_GITHUB_TOKEN /
 	// GH_TOKEN / GITHUB_TOKEN. When empty, the SDK/CLI uses its own stored
 	// GitHub credentials.
 	CopilotToken string
 	// CopilotCLIPath overrides the path to the `copilot` CLI executable. Set
-	// via MOONY_COPILOT_CLI_PATH (falls back to COPILOT_CLI_PATH). When empty,
+	// via MN_COPILOT_CLI_PATH (falls back to COPILOT_CLI_PATH). When empty,
 	// the SDK looks for `copilot` on PATH.
 	CopilotCLIPath string
 	// LLMProvider selects the backend model provider: "ollama" (default),
 	// "openai", "anthropic", "openrouter", "gemini", "deepseek", "groq", "xai",
 	// "mistral", "together", "fireworks", "moonshot", "zai", "dashscope",
 	// "nvidia", "huggingface", or "venice". Saved across launches; override
-	// per-run with MOONY_PROVIDER. See internal/provider.
+	// per-run with MN_PROVIDER. See internal/provider.
 	LLMProvider string
 	// Provider is the wire protocol for model API calls (anthropic-native vs
 	// openai-compatible), derived from LLMProvider. Kept as a field for
@@ -241,35 +241,35 @@ type Config struct {
 	// A delegated deliverable is re-sent to the parent every step until it ages
 	// out, so a concise cap trims a real token sink on delegate-heavy turns. 0
 	// (default) = no task-specific cap (only the general MaxToolOutputBytes
-	// applies). Set via MOONY_TASK_RESULT_MAX; MOONY_CHEAP sets it to 6000.
+	// applies). Set via MN_TASK_RESULT_MAX; MN_CHEAP sets it to 6000.
 	TaskResultMaxBytes int
 	// MaxAgentSteps bounds tool-call iterations within a single user turn.
-	// Override with MOONY_MAX_STEPS; a guard against runaway loops, not a budget.
+	// Override with MN_MAX_STEPS; a guard against runaway loops, not a budget.
 	MaxAgentSteps int
 	// AutoContinue is how many times a turn may automatically extend past
 	// MaxAgentSteps when the model is still working (so long todo-driven tasks
 	// finish without a manual "continue"). 0 disables it. Override with
-	// MOONY_AUTO_CONTINUE. The hard ceiling is MaxAgentSteps*(1+AutoContinue).
+	// MN_AUTO_CONTINUE. The hard ceiling is MaxAgentSteps*(1+AutoContinue).
 	AutoContinue int
 	// BatchContext, when true, adds a stronger system-prompt directive telling
 	// the model to front-load context-gathering: issue every independent
 	// read/grep/glob/find_symbol call together in its first 1–2 tool rounds (they
 	// run in parallel) and/or delegate broad investigation to the explore
 	// sub-agent, instead of reading one file per round — so turns converge in
-	// fewer steps. On by default; set MOONY_BATCH_CONTEXT=off to disable.
+	// fewer steps. On by default; set MN_BATCH_CONTEXT=off to disable.
 	BatchContext bool
 	// RepoMap, when true (default), prepends a compact, ignore-aware structural
 	// overview of the repository (detected stack, key files, a depth-2 directory
 	// tree with file counts) to the system prompt, so the model can orient without
 	// globbing the tree first. Static — recomputed when the prompt is rebuilt, no
-	// model call. Disable with MOONY_REPO_MAP=0.
+	// model call. Disable with MN_REPO_MAP=0.
 	RepoMap bool
 	// LazyMCPTools, when true (default), keeps the (often bulky) tool schemas of
 	// connected MCP servers OUT of the per-request tool list until the model
 	// activates a server with the `enable_toolset` tool. This shrinks the tool
 	// payload (and stops MCP schema churn from busting the prompt cache) while
 	// keeping the capability discoverable via enable_toolset's description.
-	// Built-in tools are never gated. Disable with MOONY_LAZY_MCP=0.
+	// Built-in tools are never gated. Disable with MN_LAZY_MCP=0.
 	LazyMCPTools bool
 	// LazyBuiltinTools, when true (default), gates a few non-core built-in tool
 	// GROUPS (git, browser) the same way LazyMCPTools gates MCP
@@ -277,7 +277,7 @@ type Config struct {
 	// model activates the group with `enable_toolset`. Core tools (read/write/
 	// edit/search/bash/…) are always present. Trims cold-context tokens and
 	// tool-selection surface for capabilities many sessions never touch. Disable
-	// with MOONY_LAZY_BUILTIN_TOOLS=0.
+	// with MN_LAZY_BUILTIN_TOOLS=0.
 	LazyBuiltinTools bool
 	// ProjectProfile, when true, maintains a model-distilled, cross-session
 	// "profile" of the codebase (purpose, layout, entry points, conventions,
@@ -286,7 +286,7 @@ type Config struct {
 	// repo. It's refreshed (at most ~weekly per repo) from real session work and
 	// merged. OPT-IN (default off): it injects auto-generated content into every
 	// turn's prompt, which can mislead if it goes stale. Enable with
-	// MOONY_PROJECT_PROFILE=1. Distinct from RepoMap (mechanical file tree) and
+	// MN_PROJECT_PROFILE=1. Distinct from RepoMap (mechanical file tree) and
 	// AGENTS.md (user-authored instructions).
 	ProjectProfile bool
 	// Terse, when true (default), adds a verbosity-steering "OUTPUT BUDGET"
@@ -294,12 +294,12 @@ type Config struct {
 	// ceremony — preambles, sign-offs, restated context, re-printed unchanged
 	// code — which are billed several times higher than input. It trims only
 	// ceremony, never actual work (tool calls, edits, verification). On by
-	// default; set MOONY_TERSE=off to disable.
+	// default; set MN_TERSE=off to disable.
 	Terse bool
 	// CodeOutline, when true (default), compresses oversized read_file output on
 	// source files into a signatures-only outline (with line numbers + elision
 	// markers) instead of a blunt byte clip, so the model still sees the whole
-	// file's shape. Toggle with MOONY_CODE_OUTLINE.
+	// file's shape. Toggle with MN_CODE_OUTLINE.
 	CodeOutline bool
 
 	// DynamicEffort, when true (default), enables dynamic effort routing in "auto"
@@ -308,14 +308,14 @@ type Config struct {
 	// reasoning floor, since the model is just continuing rather than solving. The
 	// existing prompt prediction (new request) and friction ramp (tool errors)
 	// still elevate effort, so this only trims thinking on passive steps. Auto mode
-	// only; set MOONY_DYNAMIC_EFFORT=off to disable.
+	// only; set MN_DYNAMIC_EFFORT=off to disable.
 	DynamicEffort bool
 	// AdaptiveModel, when true, runs the main turn on the cheaper FastModel until
 	// the turn shows sustained friction (tool errors / rejected stops), then
 	// escalates to the session model for the rest of the turn — right-sizing the
 	// model to the task so easy turns cost less. ON by default; it swaps the
 	// model you'd otherwise pay full price for on easy turns, escalating back
-	// automatically on friction. Disable with MOONY_ADAPTIVE_MODEL=0. A no-op
+	// automatically on friction. Disable with MN_ADAPTIVE_MODEL=0. A no-op
 	// when FastModel equals the session model (already cheap, or a non-cloud
 	// backend) and on ultrathink turns. Independent of DynamicEffort (which only
 	// adjusts reasoning depth on the SAME model).
@@ -325,7 +325,7 @@ type Config struct {
 	// FastModel — those rounds are pure exploration where the strong model adds
 	// little. As soon as the model starts writing, edits files, runs bash, or
 	// hits friction the full session model is restored. ON by default; disable
-	// with MOONY_CHEAP_READS=0. A no-op when FastModel equals the session model.
+	// with MN_CHEAP_READS=0. A no-op when FastModel equals the session model.
 	// Composes with AdaptiveModel; friction/hard/ultrathink override both.
 	CheapReads bool
 	// CheapReadsPersona, FastModelPersona, AuxModelPersona, AutoPlanPersona, and
@@ -352,18 +352,18 @@ type Config struct {
 	// VerifyCommand, when non-empty, is a shell command (e.g. a test/build) run
 	// automatically at the end of a turn that edited files; if it exits non-zero
 	// the failure is fed back so the agent self-corrects before finishing. Set it
-	// via the /verify command or MOONY_VERIFY_CMD. Empty disables the loop.
+	// via the /verify command or MN_VERIFY_CMD. Empty disables the loop.
 	VerifyCommand string
 	// VerifyMaxRetries caps how many times one turn re-runs to fix a failing
-	// verification before stopping for review (default 2; MOONY_VERIFY_MAX).
+	// verification before stopping for review (default 2; MN_VERIFY_MAX).
 	VerifyMaxRetries int
 	// VerifyTimeoutSec bounds a single verification run in seconds (default 120;
-	// MOONY_VERIFY_TIMEOUT), so a hung test command can't wedge the turn.
+	// MN_VERIFY_TIMEOUT), so a hung test command can't wedge the turn.
 	VerifyTimeoutSec int
 	// SelfReview, when true, runs a cheap fast-model review of the turn's own diff
 	// before finishing a turn that edited files: if it flags a likely introduced
 	// bug, the finding is fed back once so the agent fixes it before stopping. Off
-	// by default; enable with MOONY_SELF_REVIEW=1. Independent of VerifyCommand
+	// by default; enable with MN_SELF_REVIEW=1. Independent of VerifyCommand
 	// (which runs the build/test); this catches logic bugs a build wouldn't.
 	SelfReview bool
 	// WorkingDir is the directory the agent operates in.
@@ -402,26 +402,26 @@ type Config struct {
 	// to the read-only `explore` sub-agent via the task tool, so the file reads
 	// stay in the sub-agent's context instead of bloating (and re-billing) this
 	// turn on every round. Requires the task tool; skipped in plan mode. OFF by
-	// default (it changes how a turn is answered); enable with MOONY_AUTO_DELEGATE=1.
+	// default (it changes how a turn is answered); enable with MN_AUTO_DELEGATE=1.
 	AutoDelegate bool
 	// AutoOffloadReadBytes is the cumulative size (in bytes) of read-style tool
 	// output within a single turn past which the agent — even when the turn did
 	// not initially look like an investigation — starts steering further
 	// exploration into the read-only `explore` sub-agent, so the bulky reads live
 	// in the sub-agent's (discarded) context instead of re-billing this turn on
-	// every round. Gated by AutoDelegate; 0 disables. MOONY_AUTO_OFFLOAD_READ_BYTES
+	// every round. Gated by AutoDelegate; 0 disables. MN_AUTO_OFFLOAD_READ_BYTES
 	// overrides.
 	AutoOffloadReadBytes int
 	// ConciseToolSchemas, when true, trims each tool's description to its first
 	// sentence in the specs sent to the model (both Anthropic- and OpenAI-style
 	// routes). Off by default since prompt caching already amortizes the full
-	// descriptions; MOONY_CONCISE_TOOL_SCHEMAS=1 enables it for uncached/token-tight
+	// descriptions; MN_CONCISE_TOOL_SCHEMAS=1 enables it for uncached/token-tight
 	// setups.
 	ConciseToolSchemas bool
 	// EmbeddingsModel, when non-empty, enables hybrid semantic reranking of
 	// search_code and recall results: the top BM25 candidates are re-scored by
 	// embedding cosine similarity to the query and blended with their lexical
-	// score. Empty disables it (pure BM25). Env: MOONY_EMBEDDINGS_MODEL.
+	// score. Empty disables it (pure BM25). Env: MN_EMBEDDINGS_MODEL.
 	EmbeddingsModel string
 	// EmbeddingsProvider selects which backend Embed calls, independent of the
 	// session's main LLMProvider — so a session on e.g. Anthropic can still
@@ -429,7 +429,7 @@ type Config struct {
 	// without switching its main model. Empty (or "ollama") uses Ollama's
 	// native {host}/v1/embeddings endpoint, matching the historical behavior;
 	// Anthropic has no embeddings API and is rejected with a clear error.
-	// Env: MOONY_EMBEDDINGS_PROVIDER.
+	// Env: MN_EMBEDDINGS_PROVIDER.
 	EmbeddingsProvider string
 	// CompactThresholdTokens is the estimated history size that triggers
 	// context compaction before a turn.
@@ -441,22 +441,22 @@ type Config struct {
 	// messages keep their full output in history. Older tool results are elided
 	// to a short stub in place, so large Read/Grep/Bash outputs from earlier in
 	// a turn stop being re-sent verbatim on every subsequent model call (the
-	// dominant cost of long tool loops). 0 disables the pruning. MOONY_TOOL_RESULT_KEEP overrides.
+	// dominant cost of long tool loops). 0 disables the pruning. MN_TOOL_RESULT_KEEP overrides.
 	ToolResultKeepRounds int
 	// MaxReadLines is the default line cap for read_file when no explicit limit
 	// is given. Smaller windows keep each read cheaper (less re-sent context) at
-	// the cost of more paged reads on large files. MOONY_READ_LINES overrides.
+	// the cost of more paged reads on large files. MN_READ_LINES overrides.
 	MaxReadLines int
 	// RelayAddr is the host:port of a relay to auto-connect to in the
 	// background at startup (so a remote browser can view/drive this terminal
 	// session). Defaults to defaultRelayAddr (on); disable with `/relay off` or
-	// MOONY_RELAY=off. Empty at runtime means disabled. MOONY_RELAY overrides the
+	// MN_RELAY=off. Empty at runtime means disabled. MN_RELAY overrides the
 	// saved preference.
 	RelayAddr string
 	// ContextWindow, when > 0, overrides the per-model context-window size used
 	// for the "ctx N%" indicator (e.g. set 1_000_000 for a 1M-token model whose
 	// stable default is lower). 0 means auto (config.ContextWindow(model)).
-	// Saved as a preference; MOONY_CONTEXT_WINDOW overrides.
+	// Saved as a preference; MN_CONTEXT_WINDOW overrides.
 	ContextWindow int
 }
 
@@ -506,8 +506,8 @@ func parseSemver(v string) ([3]int, bool) {
 const DefaultModel = "llama3.1:8b"
 
 // defaultRelayAddr is the relay this terminal auto-connects to when the user has
-// never configured one (no saved relay_addr and no MOONY_RELAY). Disable with
-// `/relay off` (persisted) or MOONY_RELAY=off.
+// never configured one (no saved relay_addr and no MN_RELAY). Disable with
+// `/relay off` (persisted) or MN_RELAY=off.
 const defaultRelayAddr = "127.0.0.1:8771"
 
 // Defaults for the enterprise cloud providers whose base URL/region aren't a
@@ -523,7 +523,7 @@ const (
 
 // DefaultSQEAnthropicBaseURL is the SQE LAN gateway the "sqe-anthropic" provider
 // targets by default (Bedrock-style proxy in front of Claude). Override with
-// MOONY_SQE_ANTHROPIC_BASE_URL.
+// MN_SQE_ANTHROPIC_BASE_URL.
 const DefaultSQEAnthropicBaseURL = "http://192.168.33.158:8787"
 
 // Wire protocols. Anthropic's Messages API and everything else's
@@ -605,10 +605,10 @@ func (c *Config) SetModel(model string) {
 // (Haiku, $1/$5 vs the session model's Opus $5/$25 or Sonnet $3/$15). It is
 // deliberately cheaper than FastModel's Sonnet default: read-only sub-agents and
 // the adaptive main turn do real investigation/coding work, whereas these calls
-// are mechanical. MOONY_AUX_MODEL (falling back to MOONY_FAST_MODEL) overrides.
+// are mechanical. MN_AUX_MODEL (falling back to MN_FAST_MODEL) overrides.
 const AuxDefaultModel = "llama3.1:8b"
 
-// FastDefaultModel is the model FastModel uses when MOONY_FAST_MODEL isn't
+// FastDefaultModel is the model FastModel uses when MN_FAST_MODEL isn't
 // pinned — a capable, cheaper Sonnet tier than the session's default Opus/
 // Sonnet-4.6. Kept distinct from DefaultModel (the overall session default)
 // so bumping one doesn't silently change the other.
@@ -617,7 +617,7 @@ const FastDefaultModel = "llama3.1:8b"
 // FastModel returns the cheaper "fast" model to run grunt work on — read-only
 // sub-agents (explore/code-reviewer) and the adaptive-mode main turn — so they
 // don't burn the (often pricier) session model. Defaults to FastDefaultModel (a
-// capable, cheaper Sonnet); MOONY_FAST_MODEL overrides. The more mechanical
+// capable, cheaper Sonnet); MN_FAST_MODEL overrides. The more mechanical
 // auxiliary calls use the even-cheaper AuxModel instead. It never UPGRADES a
 // parent that's already as cheap (by input price), so a session already on
 // Haiku/Sonnet keeps its own model.
@@ -625,18 +625,18 @@ const FastDefaultModel = "llama3.1:8b"
 // llmProvider is the active backend (see internal/provider). With no explicit
 // fast-model pin, the built-in default id may be the wrong server's model —
 // substituting it would send e.g. a Claude id to an Ollama server (404) — so the
-// session model is kept unless the user explicitly pins one with MOONY_FAST_MODEL.
+// session model is kept unless the user explicitly pins one with MN_FAST_MODEL.
 func FastModel(parent, llmProvider string) string {
-	return cheapModel(parent, llmProvider, FastDefaultModel, "MOONY_FAST_MODEL")
+	return cheapModel(parent, llmProvider, FastDefaultModel, "MN_FAST_MODEL")
 }
 
 // AuxModel returns the cheap model for tool-less auxiliary calls (see
 // AuxDefaultModel). It applies the same safety rules as FastModel — never
 // upgrading an already-cheaper parent, and keeping the session model unless a
-// fast/aux model is explicitly pinned — and honors MOONY_AUX_MODEL first, then
-// MOONY_FAST_MODEL, so a single fast-model pin covers both.
+// fast/aux model is explicitly pinned — and honors MN_AUX_MODEL first, then
+// MN_FAST_MODEL, so a single fast-model pin covers both.
 func AuxModel(parent, llmProvider string) string {
-	return cheapModel(parent, llmProvider, AuxDefaultModel, "MOONY_AUX_MODEL", "MOONY_FAST_MODEL")
+	return cheapModel(parent, llmProvider, AuxDefaultModel, "MN_AUX_MODEL", "MN_FAST_MODEL")
 }
 
 // cheapModel resolves a cheaper model to offload work from `parent` onto: it
@@ -702,13 +702,13 @@ func normalizedProviderEnv(names ...string) string {
 
 // FastProvider is the provider the Fast tier (adaptive/cheap-reads downshift,
 // read-only sub-agents, workflow judge) runs on. "" = inherit the session
-// provider (MOONY_FAST_PROVIDER).
-func FastProvider() string { return normalizedProviderEnv("MOONY_FAST_PROVIDER") }
+// provider (MN_FAST_PROVIDER).
+func FastProvider() string { return normalizedProviderEnv("MN_FAST_PROVIDER") }
 
 // AuxProvider is the provider the Self-review (aux) tier runs on. It falls back
-// to MOONY_FAST_PROVIDER, so a single "route my cheap work to X" pin covers both.
+// to MN_FAST_PROVIDER, so a single "route my cheap work to X" pin covers both.
 // "" = inherit the session provider.
-func AuxProvider() string { return normalizedProviderEnv("MOONY_AUX_PROVIDER", "MOONY_FAST_PROVIDER") }
+func AuxProvider() string { return normalizedProviderEnv("MN_AUX_PROVIDER", "MN_FAST_PROVIDER") }
 
 // reasoningEnv returns the normalized reasoning level from the named env var, or
 // "" (inherit) when it is unset. A set-but-unrecognized value normalizes to
@@ -722,14 +722,14 @@ func reasoningEnv(name string) string {
 }
 
 // FastReasoning is the reasoning level for Fast-tier rounds. "" = inherit the
-// turn's computed effort (MOONY_FAST_REASONING).
-func FastReasoning() string { return reasoningEnv("MOONY_FAST_REASONING") }
+// turn's computed effort (MN_FAST_REASONING).
+func FastReasoning() string { return reasoningEnv("MN_FAST_REASONING") }
 
 // AuxReasoning is the reasoning level for Self-review (aux) calls. "" keeps aux's
 // default of reasoning OFF (a quick, cheap answer); it deliberately does NOT fall
-// back to MOONY_FAST_REASONING, so a fast-tier level can't silently raise aux
-// cost (MOONY_AUX_REASONING).
-func AuxReasoning() string { return reasoningEnv("MOONY_AUX_REASONING") }
+// back to MN_FAST_REASONING, so a fast-tier level can't silently raise aux
+// cost (MN_AUX_REASONING).
+func AuxReasoning() string { return reasoningEnv("MN_AUX_REASONING") }
 
 // FastModelRoute resolves where a Fast-tier downshift runs: the model id, a
 // provider override ("" = inherit the session provider), and whether this route
@@ -745,7 +745,7 @@ func AuxReasoning() string { return reasoningEnv("MOONY_AUX_REASONING") }
 // default when unpinned. Otherwise this is exactly FastModel with guards intact.
 func FastModelRoute(parentModel, sessionProvider string) (model, providerOverride string, differs bool) {
 	if fp := FastProvider(); fp != "" && !ProvidersEqual(fp, sessionProvider) {
-		m := firstTrimmedEnv("MOONY_FAST_MODEL")
+		m := firstTrimmedEnv("MN_FAST_MODEL")
 		if m == "" {
 			m = provider.DefaultModelFor(fp)
 		}
@@ -756,12 +756,12 @@ func FastModelRoute(parentModel, sessionProvider string) (model, providerOverrid
 }
 
 // AuxModelRoute mirrors FastModelRoute for the Self-review (aux) tier: the aux
-// model/provider fallbacks apply (aux model falls back to MOONY_FAST_MODEL, aux
-// provider to MOONY_FAST_PROVIDER). differs is returned for symmetry; aux callers
+// model/provider fallbacks apply (aux model falls back to MN_FAST_MODEL, aux
+// provider to MN_FAST_PROVIDER). differs is returned for symmetry; aux callers
 // generally ignore it since streamAux always runs.
 func AuxModelRoute(parentModel, sessionProvider string) (model, providerOverride string, differs bool) {
 	if ap := AuxProvider(); ap != "" && !ProvidersEqual(ap, sessionProvider) {
-		m := firstTrimmedEnv("MOONY_AUX_MODEL", "MOONY_FAST_MODEL")
+		m := firstTrimmedEnv("MN_AUX_MODEL", "MN_FAST_MODEL")
 		if m == "" {
 			m = provider.DefaultModelFor(ap)
 		}
@@ -1340,13 +1340,13 @@ func ModelSupportsThinking(id string) bool {
 //
 // Recognized env vars:
 //
-//	MOONY_OPENAI_BASE_URL      override the OpenAI route base URL (incl. /v1)
-//	MOONY_MODEL                override the model identifier (the route is derived from it)
-//	MOONY_REASONING            override the reasoning level (off/low/medium/high)
+//	MN_OPENAI_BASE_URL      override the OpenAI route base URL (incl. /v1)
+//	MN_MODEL                override the model identifier (the route is derived from it)
+//	MN_REASONING            override the reasoning level (off/low/medium/high)
 //
-// cheapModeEnabled reports whether MOONY_CHEAP requests the maximum-savings preset.
+// cheapModeEnabled reports whether MN_CHEAP requests the maximum-savings preset.
 func cheapModeEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_CHEAP"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_CHEAP"))) {
 	case "1", "on", "true", "yes":
 		return true
 	}
@@ -1354,8 +1354,8 @@ func cheapModeEnabled() bool {
 }
 
 // applyCheapPreset flips cost-relevant defaults toward the lowest token spend —
-// the baseline for MOONY_CHEAP. It enables adaptive (cheaper) model routing and
-// concise tool schemas, and ages/compacts context sooner. Individual MOONY_* env
+// the baseline for MN_CHEAP. It enables adaptive (cheaper) model routing and
+// concise tool schemas, and ages/compacts context sooner. Individual MN_* env
 // vars parsed afterward still take precedence. Trades a little answer quality for
 // cost, and (via config inheritance) applies to sub-agents and workflows too.
 func applyCheapPreset(c *Config) {
@@ -1435,10 +1435,10 @@ func Load() *Config {
 		ToolResultKeepRounds:   8,
 	}
 
-	// MOONY_CHEAP: one opt-in switch for maximum token savings. It flips the
+	// MN_CHEAP: one opt-in switch for maximum token savings. It flips the
 	// built-in defaults toward lower cost; because sub-agents and workflow nodes
 	// inherit this config (scoped.go: cfg := *base), the savings reach every flow.
-	// Individual MOONY_* knobs parsed below still override it — opt in, then tune a
+	// Individual MN_* knobs parsed below still override it — opt in, then tune a
 	// single dimension back if needed.
 	if cheapModeEnabled() {
 		applyCheapPreset(c)
@@ -1474,7 +1474,7 @@ func Load() *Config {
 	}
 	// NOTE: AutoPlan and SelfReview are no longer set here from prefs — they're
 	// plain bools that used to be applied at this EARLY point, before the env
-	// vars below, so a deployment's MOONY_AUTO_PLAN/MOONY_SELF_REVIEW could clobber
+	// vars below, so a deployment's MN_AUTO_PLAN/MN_SELF_REVIEW could clobber
 	// a saved persona choice on every restart. They're now applied in the
 	// "Persona-explicit overrides" block at the end of Load(), same as
 	// CheapReads/FastModel/AuxModel, so an explicit save always wins.
@@ -1484,149 +1484,149 @@ func Load() *Config {
 	if prefs.Model != "" {
 		c.Model = prefs.Model
 	}
-	// Backend provider: saved preference, then MOONY_PROVIDER, normalized against
+	// Backend provider: saved preference, then MN_PROVIDER, normalized against
 	// the registry (unknown/empty -> ollama).
 	llmProvider := prefs.LLMProvider
-	if v := strings.TrimSpace(os.Getenv("MOONY_PROVIDER")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_PROVIDER")); v != "" {
 		llmProvider = v
 	}
 	c.LLMProvider = provider.Normalize(llmProvider)
-	// Ollama host (MOONY_OLLAMA_HOST preferred; OLLAMA_HOST is the upstream's own
+	// Ollama host (MN_OLLAMA_HOST preferred; OLLAMA_HOST is the upstream's own
 	// convention). A bare host (no "/v1") gets the OpenAI-compatible suffix added.
-	if v := strings.TrimSpace(firstEnv("MOONY_OLLAMA_HOST", "OLLAMA_HOST")); v != "" {
+	if v := strings.TrimSpace(firstEnv("MN_OLLAMA_HOST", "OLLAMA_HOST")); v != "" {
 		c.OllamaBaseURL = NormalizeOllamaBaseURL(v)
 	}
-	c.OllamaToken = strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN"))
-	c.OpenAIAPIKey = strings.TrimSpace(firstEnv("MOONY_OPENAI_API_KEY", "OPENAI_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_OPENAI_BASE_URL")); v != "" {
+	c.OllamaToken = strings.TrimSpace(os.Getenv("MN_OLLAMA_TOKEN"))
+	c.OpenAIAPIKey = strings.TrimSpace(firstEnv("MN_OPENAI_API_KEY", "OPENAI_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_OPENAI_BASE_URL")); v != "" {
 		c.OpenAIBaseURL = v
 	}
-	c.AnthropicAPIKey = strings.TrimSpace(firstEnv("MOONY_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_ANTHROPIC_BASE_URL")); v != "" {
+	c.AnthropicAPIKey = strings.TrimSpace(firstEnv("MN_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_ANTHROPIC_BASE_URL")); v != "" {
 		c.AnthropicBaseURL = v
 	}
 	// SQE Anthropic (Claude via the SQE LAN gateway): its own key/base URL, but the
 	// key falls back to the Anthropic key so "same as Anthropic, different gateway"
 	// works with a single credential. Read after AnthropicAPIKey for the fallback.
-	c.SQEAnthropicAPIKey = strings.TrimSpace(firstEnv("MOONY_SQE_ANTHROPIC_API_KEY"))
+	c.SQEAnthropicAPIKey = strings.TrimSpace(firstEnv("MN_SQE_ANTHROPIC_API_KEY"))
 	if c.SQEAnthropicAPIKey == "" {
 		c.SQEAnthropicAPIKey = c.AnthropicAPIKey
 	}
-	if v := strings.TrimSpace(firstEnv("MOONY_SQE_ANTHROPIC_BASE_URL")); v != "" {
+	if v := strings.TrimSpace(firstEnv("MN_SQE_ANTHROPIC_BASE_URL")); v != "" {
 		c.SQEAnthropicBaseURL = v
 	}
-	c.OpenRouterAPIKey = strings.TrimSpace(firstEnv("MOONY_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_OPENROUTER_BASE_URL")); v != "" {
+	c.OpenRouterAPIKey = strings.TrimSpace(firstEnv("MN_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_OPENROUTER_BASE_URL")); v != "" {
 		c.OpenRouterBaseURL = v
 	}
-	c.GeminiAPIKey = strings.TrimSpace(firstEnv("MOONY_GEMINI_API_KEY", "GEMINI_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_GEMINI_BASE_URL")); v != "" {
+	c.GeminiAPIKey = strings.TrimSpace(firstEnv("MN_GEMINI_API_KEY", "GEMINI_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_GEMINI_BASE_URL")); v != "" {
 		c.GeminiBaseURL = v
 	}
-	c.DeepSeekAPIKey = strings.TrimSpace(firstEnv("MOONY_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_DEEPSEEK_BASE_URL")); v != "" {
+	c.DeepSeekAPIKey = strings.TrimSpace(firstEnv("MN_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_DEEPSEEK_BASE_URL")); v != "" {
 		c.DeepSeekBaseURL = v
 	}
-	c.GroqAPIKey = strings.TrimSpace(firstEnv("MOONY_GROQ_API_KEY", "GROQ_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_GROQ_BASE_URL")); v != "" {
+	c.GroqAPIKey = strings.TrimSpace(firstEnv("MN_GROQ_API_KEY", "GROQ_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_GROQ_BASE_URL")); v != "" {
 		c.GroqBaseURL = v
 	}
-	c.XAIAPIKey = strings.TrimSpace(firstEnv("MOONY_XAI_API_KEY", "XAI_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_XAI_BASE_URL")); v != "" {
+	c.XAIAPIKey = strings.TrimSpace(firstEnv("MN_XAI_API_KEY", "XAI_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_XAI_BASE_URL")); v != "" {
 		c.XAIBaseURL = v
 	}
-	c.MistralAPIKey = strings.TrimSpace(firstEnv("MOONY_MISTRAL_API_KEY", "MISTRAL_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_MISTRAL_BASE_URL")); v != "" {
+	c.MistralAPIKey = strings.TrimSpace(firstEnv("MN_MISTRAL_API_KEY", "MISTRAL_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_MISTRAL_BASE_URL")); v != "" {
 		c.MistralBaseURL = v
 	}
-	c.TogetherAPIKey = strings.TrimSpace(firstEnv("MOONY_TOGETHER_API_KEY", "TOGETHER_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_TOGETHER_BASE_URL")); v != "" {
+	c.TogetherAPIKey = strings.TrimSpace(firstEnv("MN_TOGETHER_API_KEY", "TOGETHER_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_TOGETHER_BASE_URL")); v != "" {
 		c.TogetherBaseURL = v
 	}
-	c.FireworksAPIKey = strings.TrimSpace(firstEnv("MOONY_FIREWORKS_API_KEY", "FIREWORKS_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_FIREWORKS_BASE_URL")); v != "" {
+	c.FireworksAPIKey = strings.TrimSpace(firstEnv("MN_FIREWORKS_API_KEY", "FIREWORKS_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_FIREWORKS_BASE_URL")); v != "" {
 		c.FireworksBaseURL = v
 	}
-	c.MoonshotAPIKey = strings.TrimSpace(firstEnv("MOONY_MOONSHOT_API_KEY", "MOONSHOT_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_MOONSHOT_BASE_URL")); v != "" {
+	c.MoonshotAPIKey = strings.TrimSpace(firstEnv("MN_MOONSHOT_API_KEY", "MOONSHOT_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_MOONSHOT_BASE_URL")); v != "" {
 		c.MoonshotBaseURL = v
 	}
-	c.ZAIAPIKey = strings.TrimSpace(firstEnv("MOONY_ZAI_API_KEY", "ZAI_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_ZAI_BASE_URL")); v != "" {
+	c.ZAIAPIKey = strings.TrimSpace(firstEnv("MN_ZAI_API_KEY", "ZAI_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_ZAI_BASE_URL")); v != "" {
 		c.ZAIBaseURL = v
 	}
-	c.DashScopeAPIKey = strings.TrimSpace(firstEnv("MOONY_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_DASHSCOPE_BASE_URL")); v != "" {
+	c.DashScopeAPIKey = strings.TrimSpace(firstEnv("MN_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_DASHSCOPE_BASE_URL")); v != "" {
 		c.DashScopeBaseURL = v
 	}
-	c.NvidiaAPIKey = strings.TrimSpace(firstEnv("MOONY_NVIDIA_API_KEY", "NVIDIA_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_NVIDIA_BASE_URL")); v != "" {
+	c.NvidiaAPIKey = strings.TrimSpace(firstEnv("MN_NVIDIA_API_KEY", "NVIDIA_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_NVIDIA_BASE_URL")); v != "" {
 		c.NvidiaBaseURL = v
 	}
-	c.HuggingFaceAPIKey = strings.TrimSpace(firstEnv("MOONY_HUGGINGFACE_API_KEY", "HF_TOKEN"))
-	if v := strings.TrimSpace(firstEnv("MOONY_HUGGINGFACE_BASE_URL")); v != "" {
+	c.HuggingFaceAPIKey = strings.TrimSpace(firstEnv("MN_HUGGINGFACE_API_KEY", "HF_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MN_HUGGINGFACE_BASE_URL")); v != "" {
 		c.HuggingFaceBaseURL = v
 	}
-	c.VeniceAPIKey = strings.TrimSpace(firstEnv("MOONY_VENICE_API_KEY", "VENICE_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_VENICE_BASE_URL")); v != "" {
+	c.VeniceAPIKey = strings.TrimSpace(firstEnv("MN_VENICE_API_KEY", "VENICE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_VENICE_BASE_URL")); v != "" {
 		c.VeniceBaseURL = v
 	}
-	c.OmniRouteAPIKey = strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_API_KEY", "OMNIROUTE_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_OMNIROUTE_BASE_URL")); v != "" {
+	c.OmniRouteAPIKey = strings.TrimSpace(firstEnv("MN_OMNIROUTE_API_KEY", "OMNIROUTE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_OMNIROUTE_BASE_URL")); v != "" {
 		c.OmniRouteBaseURL = v
 	}
-	c.CerebrasAPIKey = strings.TrimSpace(firstEnv("MOONY_CEREBRAS_API_KEY", "CEREBRAS_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_CEREBRAS_BASE_URL")); v != "" {
+	c.CerebrasAPIKey = strings.TrimSpace(firstEnv("MN_CEREBRAS_API_KEY", "CEREBRAS_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_CEREBRAS_BASE_URL")); v != "" {
 		c.CerebrasBaseURL = v
 	}
-	c.PerplexityAPIKey = strings.TrimSpace(firstEnv("MOONY_PERPLEXITY_API_KEY", "PERPLEXITY_API_KEY", "PPLX_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_PERPLEXITY_BASE_URL")); v != "" {
+	c.PerplexityAPIKey = strings.TrimSpace(firstEnv("MN_PERPLEXITY_API_KEY", "PERPLEXITY_API_KEY", "PPLX_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_PERPLEXITY_BASE_URL")); v != "" {
 		c.PerplexityBaseURL = v
 	}
-	c.CohereAPIKey = strings.TrimSpace(firstEnv("MOONY_COHERE_API_KEY", "CO_API_KEY", "COHERE_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_COHERE_BASE_URL")); v != "" {
+	c.CohereAPIKey = strings.TrimSpace(firstEnv("MN_COHERE_API_KEY", "CO_API_KEY", "COHERE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_COHERE_BASE_URL")); v != "" {
 		c.CohereBaseURL = v
 	}
-	c.DeepInfraAPIKey = strings.TrimSpace(firstEnv("MOONY_DEEPINFRA_API_KEY", "DEEPINFRA_API_KEY", "DEEPINFRA_TOKEN"))
-	if v := strings.TrimSpace(firstEnv("MOONY_DEEPINFRA_BASE_URL")); v != "" {
+	c.DeepInfraAPIKey = strings.TrimSpace(firstEnv("MN_DEEPINFRA_API_KEY", "DEEPINFRA_API_KEY", "DEEPINFRA_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MN_DEEPINFRA_BASE_URL")); v != "" {
 		c.DeepInfraBaseURL = v
 	}
-	c.LMStudioAPIKey = strings.TrimSpace(firstEnv("MOONY_LMSTUDIO_API_KEY", "LM_STUDIO_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_LMSTUDIO_BASE_URL", "LM_STUDIO_BASE_URL")); v != "" {
+	c.LMStudioAPIKey = strings.TrimSpace(firstEnv("MN_LMSTUDIO_API_KEY", "LM_STUDIO_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_LMSTUDIO_BASE_URL", "LM_STUDIO_BASE_URL")); v != "" {
 		c.LMStudioBaseURL = v
 	}
-	if v := strings.TrimSpace(firstEnv("MOONY_LLAMACPP_BASE_URL", "LLAMA_CPP_BASE_URL")); v != "" {
+	if v := strings.TrimSpace(firstEnv("MN_LLAMACPP_BASE_URL", "LLAMA_CPP_BASE_URL")); v != "" {
 		c.LlamaCppBaseURL = v
 	}
-	c.AzureAPIKey = strings.TrimSpace(firstEnv("MOONY_AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_API_KEY"))
-	if v := strings.TrimSpace(firstEnv("MOONY_AZURE_BASE_URL", "AZURE_OPENAI_ENDPOINT")); v != "" {
+	c.AzureAPIKey = strings.TrimSpace(firstEnv("MN_AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_AZURE_BASE_URL", "AZURE_OPENAI_ENDPOINT")); v != "" {
 		c.AzureBaseURL = v
 	}
-	if v := strings.TrimSpace(firstEnv("MOONY_AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION")); v != "" {
+	if v := strings.TrimSpace(firstEnv("MN_AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION")); v != "" {
 		c.AzureAPIVersion = v
 	}
-	c.VertexAPIKey = strings.TrimSpace(firstEnv("MOONY_VERTEX_API_KEY", "GOOGLE_VERTEX_API_KEY"))
-	c.VertexProject = strings.TrimSpace(firstEnv("MOONY_VERTEX_PROJECT", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"))
-	if v := strings.TrimSpace(firstEnv("MOONY_VERTEX_LOCATION", "GOOGLE_CLOUD_LOCATION", "CLOUD_ML_REGION")); v != "" {
+	c.VertexAPIKey = strings.TrimSpace(firstEnv("MN_VERTEX_API_KEY", "GOOGLE_VERTEX_API_KEY"))
+	c.VertexProject = strings.TrimSpace(firstEnv("MN_VERTEX_PROJECT", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"))
+	if v := strings.TrimSpace(firstEnv("MN_VERTEX_LOCATION", "GOOGLE_CLOUD_LOCATION", "CLOUD_ML_REGION")); v != "" {
 		c.VertexLocation = v
 	}
-	if v := strings.TrimSpace(firstEnv("MOONY_VERTEX_BASE_URL")); v != "" {
+	if v := strings.TrimSpace(firstEnv("MN_VERTEX_BASE_URL")); v != "" {
 		c.VertexBaseURL = v
 	}
-	c.AWSAccessKeyID = strings.TrimSpace(firstEnv("MOONY_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"))
-	c.AWSSecretAccessKey = strings.TrimSpace(firstEnv("MOONY_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"))
-	c.AWSSessionToken = strings.TrimSpace(firstEnv("MOONY_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN"))
-	if v := strings.TrimSpace(firstEnv("MOONY_AWS_REGION", "AWS_REGION", "AWS_DEFAULT_REGION")); v != "" {
+	c.AWSAccessKeyID = strings.TrimSpace(firstEnv("MN_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"))
+	c.AWSSecretAccessKey = strings.TrimSpace(firstEnv("MN_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"))
+	c.AWSSessionToken = strings.TrimSpace(firstEnv("MN_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MN_AWS_REGION", "AWS_REGION", "AWS_DEFAULT_REGION")); v != "" {
 		c.AWSRegion = v
 	}
-	c.AWSProfile = strings.TrimSpace(firstEnv("MOONY_AWS_PROFILE", "AWS_PROFILE"))
-	c.CopilotToken = strings.TrimSpace(firstEnv("MOONY_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))
-	c.CopilotCLIPath = strings.TrimSpace(firstEnv("MOONY_COPILOT_CLI_PATH", "COPILOT_CLI_PATH"))
-	if v := os.Getenv("MOONY_MODEL"); v != "" {
+	c.AWSProfile = strings.TrimSpace(firstEnv("MN_AWS_PROFILE", "AWS_PROFILE"))
+	c.CopilotToken = strings.TrimSpace(firstEnv("MN_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))
+	c.CopilotCLIPath = strings.TrimSpace(firstEnv("MN_COPILOT_CLI_PATH", "COPILOT_CLI_PATH"))
+	if v := os.Getenv("MN_MODEL"); v != "" {
 		c.Model = v
 	} else if prefs.Model == "" && c.LLMProvider != provider.Default {
 		// No saved/explicit model, but a non-default provider was selected
-		// (saved or via MOONY_PROVIDER): start on that provider's default model
+		// (saved or via MN_PROVIDER): start on that provider's default model
 		// instead of Ollama's.
 		c.Model = provider.DefaultModelFor(c.LLMProvider)
 	}
@@ -1636,27 +1636,27 @@ func Load() *Config {
 	c.Provider = wireRouteFor(c.LLMProvider)
 	// Resolve the active reasoning level from the per-model memory now that
 	// c.Model is finalized. A per-model entry wins over the legacy single
-	// value; the MOONY_REASONING env below still overrides everything.
+	// value; the MN_REASONING env below still overrides everything.
 	if lvl, ok := c.ReasoningByModel[c.Model]; ok {
 		c.ReasoningLevel = NormalizeReasoning(lvl)
 	}
-	if v := os.Getenv("MOONY_REASONING"); v != "" {
+	if v := os.Getenv("MN_REASONING"); v != "" {
 		c.ReasoningLevel = NormalizeReasoning(v)
 	}
-	if v := os.Getenv("MOONY_APPROVAL"); v != "" {
+	if v := os.Getenv("MN_APPROVAL"); v != "" {
 		c.ApprovalPolicy = NormalizeApprovalPolicy(v)
 	}
-	if v := os.Getenv("MOONY_SANDBOX"); v != "" {
+	if v := os.Getenv("MN_SANDBOX"); v != "" {
 		c.SandboxMode = NormalizeSandboxMode(v)
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_AUTO_PLAN")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_AUTO_PLAN")); v != "" {
 		c.AutoPlan = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_AUTO_DELEGATE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_AUTO_DELEGATE")); v != "" {
 		// Defaults off; the env var can turn it ON (1/true/on/yes) or explicitly OFF.
 		c.AutoDelegate = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_RELAY")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_RELAY")); v != "" {
 		// env overrides the saved relay address; an off sentinel disables it even
 		// when the default/saved value is on.
 		switch strings.ToLower(v) {
@@ -1666,145 +1666,145 @@ func Load() *Config {
 			c.RelayAddr = v
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_CONTEXT_WINDOW")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_CONTEXT_WINDOW")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n > 0 {
 			c.ContextWindow = n
 		}
 	}
-	if v := os.Getenv("MOONY_SANDBOX_NET"); v != "" {
+	if v := os.Getenv("MN_SANDBOX_NET"); v != "" {
 		switch strings.ToLower(strings.TrimSpace(v)) {
 		case "0", "off", "false", "no":
 			c.SandboxNetwork = false
 		}
 	}
-	if v := os.Getenv("MOONY_MAX_STEPS"); v != "" {
+	if v := os.Getenv("MN_MAX_STEPS"); v != "" {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
 			c.MaxAgentSteps = n
 		}
 	}
-	if v := os.Getenv("MOONY_AUTO_CONTINUE"); v != "" {
+	if v := os.Getenv("MN_AUTO_CONTINUE"); v != "" {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 0 {
 			c.AutoContinue = n
 		}
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_BATCH_CONTEXT"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_BATCH_CONTEXT"))) {
 	case "1", "on", "true", "yes":
 		c.BatchContext = true
 	case "0", "off", "false", "no":
 		c.BatchContext = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_LAZY_MCP"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_LAZY_MCP"))) {
 	case "1", "on", "true", "yes":
 		c.LazyMCPTools = true
 	case "0", "off", "false", "no":
 		c.LazyMCPTools = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_LAZY_BUILTIN_TOOLS"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_LAZY_BUILTIN_TOOLS"))) {
 	case "1", "on", "true", "yes":
 		c.LazyBuiltinTools = true
 	case "0", "off", "false", "no":
 		c.LazyBuiltinTools = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_PROJECT_PROFILE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_PROJECT_PROFILE"))) {
 	case "1", "on", "true", "yes":
 		c.ProjectProfile = true
 	case "0", "off", "false", "no":
 		c.ProjectProfile = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_REPO_MAP"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_REPO_MAP"))) {
 	case "1", "on", "true", "yes":
 		c.RepoMap = true
 	case "0", "off", "false", "no":
 		c.RepoMap = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_TERSE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_TERSE"))) {
 	case "1", "on", "true", "yes":
 		c.Terse = true
 	case "0", "off", "false", "no":
 		c.Terse = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_CODE_OUTLINE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_CODE_OUTLINE"))) {
 	case "1", "on", "true", "yes":
 		c.CodeOutline = true
 	case "0", "off", "false", "no":
 		c.CodeOutline = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_DYNAMIC_EFFORT"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_DYNAMIC_EFFORT"))) {
 	case "1", "on", "true", "yes":
 		c.DynamicEffort = true
 	case "0", "off", "false", "no":
 		c.DynamicEffort = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_ADAPTIVE_MODEL"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_ADAPTIVE_MODEL"))) {
 	case "1", "on", "true", "yes":
 		c.AdaptiveModel = true
 	case "0", "off", "false", "no":
 		c.AdaptiveModel = false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_CHEAP_READS"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_CHEAP_READS"))) {
 	case "1", "on", "true", "yes":
 		c.CheapReads = true
 	case "0", "off", "false", "no":
 		c.CheapReads = false
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_VERIFY_CMD")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_VERIFY_CMD")); v != "" {
 		c.VerifyCommand = v
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_VERIFY_MAX")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_VERIFY_MAX")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			c.VerifyMaxRetries = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_VERIFY_TIMEOUT")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_VERIFY_TIMEOUT")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			c.VerifyTimeoutSec = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_SELF_REVIEW")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_SELF_REVIEW")); v != "" {
 		c.SelfReview = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_COMPACT_THRESHOLD")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_COMPACT_THRESHOLD")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n >= 0 {
 			c.CompactThresholdTokens = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_COMPACT_KEEP")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_COMPACT_KEEP")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n >= 0 {
 			c.CompactKeepTokens = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_MAX_TOOL_OUTPUT")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_MAX_TOOL_OUTPUT")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n > 0 {
 			c.MaxToolOutputBytes = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_TASK_RESULT_MAX")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_TASK_RESULT_MAX")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n >= 0 {
 			c.TaskResultMaxBytes = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_TOOL_RESULT_KEEP")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_TOOL_RESULT_KEEP")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			c.ToolResultKeepRounds = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_AUTO_OFFLOAD_READ_BYTES")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_AUTO_OFFLOAD_READ_BYTES")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n >= 0 {
 			c.AutoOffloadReadBytes = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_CONCISE_TOOL_SCHEMAS")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_CONCISE_TOOL_SCHEMAS")); v != "" {
 		c.ConciseToolSchemas = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_READ_LINES")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_READ_LINES")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n > 0 {
 			c.MaxReadLines = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("MOONY_EMBEDDINGS_MODEL")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_EMBEDDINGS_MODEL")); v != "" {
 		c.EmbeddingsModel = v
 	}
-	if v := normalizedProviderEnv("MOONY_EMBEDDINGS_PROVIDER"); v != "" {
+	if v := normalizedProviderEnv("MN_EMBEDDINGS_PROVIDER"); v != "" {
 		c.EmbeddingsProvider = v
 	}
 
@@ -1831,18 +1831,18 @@ func Load() *Config {
 		fm := strings.TrimSpace(*prefs.FastModel)
 		c.FastModelPersona = &fm
 		if fm != "" {
-			os.Setenv("MOONY_FAST_MODEL", fm)
+			os.Setenv("MN_FAST_MODEL", fm)
 		} else {
-			os.Unsetenv("MOONY_FAST_MODEL")
+			os.Unsetenv("MN_FAST_MODEL")
 		}
 	}
 	if prefs.AuxModel != nil {
 		am := strings.TrimSpace(*prefs.AuxModel)
 		c.AuxModelPersona = &am
 		if am != "" {
-			os.Setenv("MOONY_AUX_MODEL", am)
+			os.Setenv("MN_AUX_MODEL", am)
 		} else {
-			os.Unsetenv("MOONY_AUX_MODEL")
+			os.Unsetenv("MN_AUX_MODEL")
 		}
 	}
 	// Per-tier provider + reasoning for the Fast and Self-review (aux) models. Each
@@ -1853,36 +1853,36 @@ func Load() *Config {
 		fp := strings.TrimSpace(*prefs.FastProvider)
 		c.FastProviderPersona = &fp
 		if fp != "" {
-			os.Setenv("MOONY_FAST_PROVIDER", fp)
+			os.Setenv("MN_FAST_PROVIDER", fp)
 		} else {
-			os.Unsetenv("MOONY_FAST_PROVIDER")
+			os.Unsetenv("MN_FAST_PROVIDER")
 		}
 	}
 	if prefs.FastReasoning != nil {
 		fr := strings.TrimSpace(*prefs.FastReasoning)
 		c.FastReasoningPersona = &fr
 		if fr != "" {
-			os.Setenv("MOONY_FAST_REASONING", fr)
+			os.Setenv("MN_FAST_REASONING", fr)
 		} else {
-			os.Unsetenv("MOONY_FAST_REASONING")
+			os.Unsetenv("MN_FAST_REASONING")
 		}
 	}
 	if prefs.AuxProvider != nil {
 		ap := strings.TrimSpace(*prefs.AuxProvider)
 		c.AuxProviderPersona = &ap
 		if ap != "" {
-			os.Setenv("MOONY_AUX_PROVIDER", ap)
+			os.Setenv("MN_AUX_PROVIDER", ap)
 		} else {
-			os.Unsetenv("MOONY_AUX_PROVIDER")
+			os.Unsetenv("MN_AUX_PROVIDER")
 		}
 	}
 	if prefs.AuxReasoning != nil {
 		ar := strings.TrimSpace(*prefs.AuxReasoning)
 		c.AuxReasoningPersona = &ar
 		if ar != "" {
-			os.Setenv("MOONY_AUX_REASONING", ar)
+			os.Setenv("MN_AUX_REASONING", ar)
 		} else {
-			os.Unsetenv("MOONY_AUX_REASONING")
+			os.Unsetenv("MN_AUX_REASONING")
 		}
 	}
 

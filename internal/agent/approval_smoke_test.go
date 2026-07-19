@@ -17,10 +17,10 @@ import (
 // model is asked to create a file, the agent must request approval (with a
 // non-empty diff), and after approval the file is written.
 //
-//	MOONY_SMOKE=1 go test ./internal/agent -run TestApprovalSmoke -v
+//	MN_SMOKE=1 go test ./internal/agent -run TestApprovalSmoke -v
 func TestApprovalSmoke(t *testing.T) {
-	if os.Getenv("MOONY_SMOKE") != "1" {
-		t.Skip("set MOONY_SMOKE=1 to run the live approval smoke test")
+	if os.Getenv("MN_SMOKE") != "1" {
+		t.Skip("set MN_SMOKE=1 to run the live approval smoke test")
 	}
 
 	dir := t.TempDir()

@@ -257,7 +257,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	subUsageFrom(ctx).addTokens(subIn, subOut, subCacheRead, subCost)
 	// emitMeta surfaces a per-delegation turn-meta footer (duration · cost ·
 	// model · calls) under this task's card, mirroring the parent's per-turn
-	// footer. Gated on stream so MOONY_TASK_STREAM=0 silences it alongside the
+	// footer. Gated on stream so MN_TASK_STREAM=0 silences it alongside the
 	// sub-agent's tool cards.
 	emitMeta := func() {
 		if !stream {
@@ -301,7 +301,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 			if out == "" {
 				out = "(no text produced before the step limit)"
 			}
-			return t.capResult(fmt.Sprintf("[%s]%s NOTE: hit the tool-step limit before fully finishing — partial result below. Re-delegate a narrower subtask, or raise MOONY_MAX_STEPS / MOONY_AUTO_CONTINUE to give sub-agents more steps.\n\n%s", persona.Name, isolateNote, appendChanges(out))), nil
+			return t.capResult(fmt.Sprintf("[%s]%s NOTE: hit the tool-step limit before fully finishing — partial result below. Re-delegate a narrower subtask, or raise MN_MAX_STEPS / MN_AUTO_CONTINUE to give sub-agents more steps.\n\n%s", persona.Name, isolateNote, appendChanges(out))), nil
 		}
 		return "", fmt.Errorf("sub-agent %q failed: %v", persona.Name, runErr)
 	}
@@ -321,7 +321,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	return t.capResult(result), nil
 }
 
-// capResult applies the task-specific result cap (MOONY_TASK_RESULT_MAX / MOONY_CHEAP),
+// capResult applies the task-specific result cap (MN_TASK_RESULT_MAX / MN_CHEAP),
 // tighter than MaxToolOutputBytes, so a delegated deliverable re-sent to the
 // parent on every step doesn't bloat context. 0 = no task-specific cap. Head+tail
 // (via capOutput) keeps the persona header and the conclusion.
@@ -408,7 +408,7 @@ func (t *taskTool) contextItems() []ContextSegment {
 // users lower for cost) — but a delegated explore/review legitimately needs many
 // cheap reads in its own isolated context, which is exactly why we delegate (the
 // reads stay out of, and don't re-bill, the parent turn). So an aggressively
-// lowered MOONY_MAX_STEPS must not starve the surveyor into bailing mid-survey.
+// lowered MN_MAX_STEPS must not starve the surveyor into bailing mid-survey.
 // This restores the historical default; the hard ceiling is this × (1+AutoContinue).
 const subAgentMinSteps = 80
 
@@ -631,10 +631,10 @@ func taskMetasFrom(ctx context.Context) *taskMetaAcct {
 }
 
 // taskStreamEnabled reports whether a delegated sub-agent's tool activity is
-// surfaced in the parent UI (default true; set MOONY_TASK_STREAM=0/off/false/no
+// surfaced in the parent UI (default true; set MN_TASK_STREAM=0/off/false/no
 // to silence it and show only the final answer).
 func taskStreamEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_TASK_STREAM"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_TASK_STREAM"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

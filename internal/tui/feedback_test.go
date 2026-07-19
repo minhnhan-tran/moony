@@ -38,20 +38,20 @@ func TestStatusBarShowsCopyShortcut(t *testing.T) {
 }
 
 func TestSoundEnabled(t *testing.T) {
-	t.Setenv("MOONY_SOUND", "")
+	t.Setenv("MN_SOUND", "")
 	if !soundEnabled() {
 		t.Error("the completion chime should be on by default")
 	}
 	for _, v := range []string{"0", "off", "false", "no", "OFF"} {
-		t.Setenv("MOONY_SOUND", v)
+		t.Setenv("MN_SOUND", v)
 		if soundEnabled() {
-			t.Errorf("MOONY_SOUND=%q should disable the chime", v)
+			t.Errorf("MN_SOUND=%q should disable the chime", v)
 		}
 	}
 }
 
 func TestPlayDoneSoundCmdDisabled(t *testing.T) {
-	t.Setenv("MOONY_SOUND", "0")
+	t.Setenv("MN_SOUND", "0")
 	if playDoneSoundCmd() != nil {
 		t.Error("a disabled chime should yield a nil command")
 	}

@@ -59,7 +59,7 @@ Never write or run anything; you have read-only tools.
 
 The optional `tools:` allowlist restricts which built-in tools the persona can use (omit for full access).
 
-When the model dispatches several `task` calls in one turn, they run concurrently (you approve each up front, then they execute in parallel). Set `MOONY_PARALLEL_TOOLS=0` to run them one at a time.
+When the model dispatches several `task` calls in one turn, they run concurrently (you approve each up front, then they execute in parallel). Set `MN_PARALLEL_TOOLS=0` to run them one at a time.
 
 **Invoke a subagent directly with `@<name>`.** Typing `@explore find the auth flow` in a message — where `explore` is an enabled persona — appends a directive telling the model to carry out the request via the `task` tool with that agent. The same works for [worker agents](#worker-agents-delegate-to-claude-code--optimus) (`@claude review this`), which route to the `delegate` tool instead. You still approve the dispatch like any other tool call, and the model summarizes what the agent returned. A `@token` that resolves to a real file stays a file mention, and `@tokens` that don't match any agent (or look like paths) are left untouched.
 
@@ -76,7 +76,7 @@ Run user scripts at lifecycle points by adding either `~/.config/moony/hooks.jso
 }
 ```
 
-Hooks run via `sh -c` with these env vars: `MOONY_HOOK`, `MOONY_WORKING_DIR`, plus `MOONY_TOOL_NAME` / `MOONY_TOOL_INPUT` (pre_tool) / `MOONY_TOOL_OUTPUT` / `MOONY_TOOL_ERROR` (post_tool). 10-second timeout; failures are logged to stderr but never block the agent.
+Hooks run via `sh -c` with these env vars: `MN_HOOK`, `MN_WORKING_DIR`, plus `MN_TOOL_NAME` / `MN_TOOL_INPUT` (pre_tool) / `MN_TOOL_OUTPUT` / `MN_TOOL_ERROR` (post_tool). 10-second timeout; failures are logged to stderr but never block the agent.
 
 ## Agent Skills
 
@@ -97,7 +97,7 @@ description: fill PDF form fields from a JSON map; use when asked to fill a PDF
 Read `references/fields.md` for the field map, then run `scripts/fill.py …`.
 ```
 
-Discovery uses **progressive disclosure**: only the catalog of names + descriptions is added to the system prompt, and the model pulls in a skill's full body on demand via the built-in `skill` tool — so a large library of skills costs almost no context until one is used. A skill with no `description` is skipped (it can't be advertised usefully). Set `MOONY_SKILLS=0` to turn discovery off entirely.
+Discovery uses **progressive disclosure**: only the catalog of names + descriptions is added to the system prompt, and the model pulls in a skill's full body on demand via the built-in `skill` tool — so a large library of skills costs almost no context until one is used. A skill with no `description` is skipped (it can't be advertised usefully). Set `MN_SKILLS=0` to turn discovery off entirely.
 
 ## MCP servers
 
@@ -125,7 +125,7 @@ Add `~/.config/moony/mcp.json` or `./.sqe/mcp.json` to connect to any [Model Con
 
 Both the **stdio** transport (`command`+`args`) and **HTTP+SSE** transport (`url`+`headers`) are supported; servers that don't implement resources or prompts are detected automatically and skipped without errors.
 
-Claude's own MCP config is **auto-discovered** too (the `mcpServers` key of `claude_desktop_config.json` and `~/.claude.json`, including its per-project scope), so servers you already configured for Claude work here without copying them. Set `MOONY_MCP_CLAUDE=0` to skip that, or `MOONY_MCP=0` to skip connecting to MCP servers altogether (discovery and the listings below still work).
+Claude's own MCP config is **auto-discovered** too (the `mcpServers` key of `claude_desktop_config.json` and `~/.claude.json`, including its per-project scope), so servers you already configured for Claude work here without copying them. Set `MN_MCP_CLAUDE=0` to skip that, or `MN_MCP=0` to skip connecting to MCP servers altogether (discovery and the listings below still work).
 
 ## Managing skills, MCP servers & subagents
 
@@ -175,12 +175,12 @@ Point moony at a running [DAP](https://microsoft.github.io/debug-adapter-protoco
 dlv dap --listen=:54321
 
 # In another terminal — run moony with the adapter address
-MOONY_DAP_ADDR=localhost:54321 moony
+MN_DAP_ADDR=localhost:54321 moony
 ```
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `MOONY_DAP_ADDR` | _(unset)_ | Auto-connect to a DAP adapter at startup (`host:port`). If unset, call `dap_connect` from within a session instead. |
+| `MN_DAP_ADDR` | _(unset)_ | Auto-connect to a DAP adapter at startup (`host:port`). If unset, call `dap_connect` from within a session instead. |
 
 **Tools (always registered; error gracefully if not connected):**
 

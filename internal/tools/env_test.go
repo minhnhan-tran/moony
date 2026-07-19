@@ -7,8 +7,8 @@ import (
 )
 
 func TestScrubbedEnvRemovesSecrets(t *testing.T) {
-	t.Setenv("MOONY_OLLAMA_TOKEN", "topsecret")
-	t.Setenv("MOONY_ENV_FILE", "/tmp/secrets.env")
+	t.Setenv("MN_OLLAMA_TOKEN", "topsecret")
+	t.Setenv("MN_ENV_FILE", "/tmp/secrets.env")
 	t.Setenv("PATH_LIKE_KEEPER", "keepme") // a non-secret var must survive
 
 	env := scrubbedEnv()
@@ -40,7 +40,7 @@ func TestScrubbedEnvRemovesSecrets(t *testing.T) {
 // strips secrets.
 func TestScrubbedEnvForPinsPWD(t *testing.T) {
 	t.Setenv("PWD", "/some/stale/launch/dir")
-	t.Setenv("MOONY_OLLAMA_TOKEN", "topsecret")
+	t.Setenv("MN_OLLAMA_TOKEN", "topsecret")
 
 	env := scrubbedEnvFor("/work/IOSApp")
 

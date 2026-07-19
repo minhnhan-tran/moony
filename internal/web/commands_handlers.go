@@ -177,7 +177,7 @@ type mcpConn struct {
 
 // mcpConnStatus reports the live connection state of the named server from this
 // session's MCP manager. Nil-safe: returns the zero value (neither connected nor
-// failed) when MCP isn't connected for this session (e.g. MOONY_MCP=0, or before
+// failed) when MCP isn't connected for this session (e.g. MN_MCP=0, or before
 // the first connect/reload).
 func (s *session) mcpConnStatus(name string) mcpConn {
 	mgr := s.mcpManager()

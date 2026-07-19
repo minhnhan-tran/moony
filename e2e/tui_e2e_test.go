@@ -32,7 +32,7 @@ func newApp(t *testing.T) tui.Model {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	// Pin the route/model/policy so assertions don't depend on the dev's env.
-	for _, k := range []string{"MOONY_API", "MOONY_MODEL", "MOONY_REASONING", "MOONY_APPROVAL", "GLAMOUR_STYLE"} {
+	for _, k := range []string{"MN_API", "MN_MODEL", "MN_REASONING", "MN_APPROVAL", "GLAMOUR_STYLE"} {
 		t.Setenv(k, "")
 	}
 

@@ -7,7 +7,7 @@ package agent
 // once so the agent fixes it before stopping. Complementary to the verify loop
 // (which runs the build/test) — this catches logic bugs a green build wouldn't.
 //
-// Off by default (MOONY_SELF_REVIEW=1 / cfg.SelfReview). Gated on the turn actually
+// Off by default (MN_SELF_REVIEW=1 / cfg.SelfReview). Gated on the turn actually
 // changing code, bounded to a single feedback cycle, and skipped for sub-agents
 // (subConfig clears cfg.SelfReview). Mirrors the verify gate's wiring in RunWith.
 
@@ -208,7 +208,7 @@ func (a *Agent) maybeSelfReview(ctx context.Context, emit func(Event), attempts 
 	reviewModel, reviewProv, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
 	// Name the provider + reasoning the review actually runs at, like the
 	// downshift notice. Provider defaults to the session provider; aux forces
-	// reasoning OFF unless MOONY_AUX_REASONING pins a level (see streamAux).
+	// reasoning OFF unless MN_AUX_REASONING pins a level (see streamAux).
 	if reviewProv == "" {
 		reviewProv = a.cfg.LLMProvider
 	}

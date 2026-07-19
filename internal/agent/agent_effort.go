@@ -371,7 +371,7 @@ func responseHasAnswer(resp *llm.Response) bool {
 	return false
 }
 
-// debugReasoning logs the per-step auto-reasoning decision when MOONY_REASONING_DEBUG
+// debugReasoning logs the per-step auto-reasoning decision when MN_REASONING_DEBUG
 // is set — the inputs (predicted base, friction, model-think tally, passive) and
 // the resolved effort plus the model's observed signal (thinking present, output
 // tokens) — so the thresholds (autoFriction*, autoThinkTokens, the prediction cues)
@@ -385,7 +385,7 @@ func (a *Agent) debugReasoning(round int, model, base, effort string, passive, t
 }
 
 func reasoningDebugEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_REASONING_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_REASONING_DEBUG"))) {
 	case "1", "true", "on", "yes":
 		return true
 	}

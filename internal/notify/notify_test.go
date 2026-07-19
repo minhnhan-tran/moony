@@ -18,7 +18,7 @@ func synchronize(t *testing.T) {
 }
 
 func TestSendDisabledWithoutURL(t *testing.T) {
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", "")
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", "")
 	called := false
 	old := runAsync
 	runAsync = func(f func()) { called = true; f() }
@@ -43,7 +43,7 @@ func TestSendPostsBothTextAndContentKeys(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", srv.URL)
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", srv.URL)
 	Send(Approval, "moony: approval needed for bash", 0)
 
 	mu.Lock()
@@ -67,8 +67,8 @@ func TestSendFiltersByEnabledEvents(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", srv.URL)
-	t.Setenv("MOONY_NOTIFY_EVENTS", "approval")
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", srv.URL)
+	t.Setenv("MN_NOTIFY_EVENTS", "approval")
 
 	Send(TurnDone, "should be filtered out", time.Hour)
 	Send(Approval, "should go through", 0)
@@ -91,8 +91,8 @@ func TestSendGatesTurnDoneByMinSeconds(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", srv.URL)
-	t.Setenv("MOONY_NOTIFY_MIN_SECONDS", "30")
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", srv.URL)
+	t.Setenv("MN_NOTIFY_MIN_SECONDS", "30")
 
 	Send(TurnDone, "too quick", 5*time.Second)
 	Send(TurnDone, "long enough", 45*time.Second)
@@ -109,7 +109,7 @@ func TestSendGatesTurnDoneByMinSeconds(t *testing.T) {
 func TestSendNeverBlocksOrPanicsOnUnreachableURL(t *testing.T) {
 	// Deliberately NOT synchronized: this exercises the real async path with
 	// an address nothing is listening on, and must return immediately.
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", "http://127.0.0.1:1/webhook")
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", "http://127.0.0.1:1/webhook")
 	done := make(chan struct{})
 	go func() {
 		Send(TurnDone, "x", time.Hour)
@@ -123,7 +123,7 @@ func TestSendNeverBlocksOrPanicsOnUnreachableURL(t *testing.T) {
 }
 
 func TestEnabledEventsDefaultsToBoth(t *testing.T) {
-	t.Setenv("MOONY_NOTIFY_EVENTS", "")
+	t.Setenv("MN_NOTIFY_EVENTS", "")
 	got := enabledEvents()
 	if !got[TurnDone] || !got[Approval] {
 		t.Errorf("default enabledEvents = %v, want both on", got)
@@ -131,22 +131,22 @@ func TestEnabledEventsDefaultsToBoth(t *testing.T) {
 }
 
 func TestMinSecondsDefaultAndParsing(t *testing.T) {
-	t.Setenv("MOONY_NOTIFY_MIN_SECONDS", "")
+	t.Setenv("MN_NOTIFY_MIN_SECONDS", "")
 	if got := MinSeconds(); got != 20 {
 		t.Errorf("default MinSeconds = %v, want 20", got)
 	}
-	t.Setenv("MOONY_NOTIFY_MIN_SECONDS", "garbage")
+	t.Setenv("MN_NOTIFY_MIN_SECONDS", "garbage")
 	if got := MinSeconds(); got != 20 {
 		t.Errorf("garbage MinSeconds = %v, want fallback 20", got)
 	}
-	t.Setenv("MOONY_NOTIFY_MIN_SECONDS", "5")
+	t.Setenv("MN_NOTIFY_MIN_SECONDS", "5")
 	if got := MinSeconds(); got != 5 {
 		t.Errorf("MinSeconds = %v, want 5", got)
 	}
 }
 
 func TestWebhookURLTrimsWhitespace(t *testing.T) {
-	t.Setenv("MOONY_NOTIFY_WEBHOOK_URL", "  https://example.com/hook  ")
+	t.Setenv("MN_NOTIFY_WEBHOOK_URL", "  https://example.com/hook  ")
 	if got := WebhookURL(); got != "https://example.com/hook" {
 		t.Errorf("WebhookURL = %q", got)
 	}

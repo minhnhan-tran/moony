@@ -252,18 +252,18 @@ func (m Model) providerCmd(fields []string) string {
 func providerSetupHint(cfg *config.Config, id string) string {
 	switch id {
 	case provider.Ollama:
-		return "Ollama uses the server at MOONY_OLLAMA_HOST (or http://localhost:11434). Pick a model with /models."
+		return "Ollama uses the server at MN_OLLAMA_HOST (or http://localhost:11434). Pick a model with /models."
 	case provider.OpenAI:
 		if strings.TrimSpace(cfg.OpenAIAPIKey) == "" {
-			return "⚠ Set MOONY_OPENAI_API_KEY (or OPENAI_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_OPENAI_API_KEY (or OPENAI_API_KEY) — calls will fail until it's set."
 		}
 	case provider.Anthropic:
 		if strings.TrimSpace(cfg.AnthropicAPIKey) == "" {
-			return "⚠ Set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) — calls will fail until it's set."
 		}
 	case provider.OpenRouter:
 		if strings.TrimSpace(cfg.OpenRouterAPIKey) == "" {
-			return "⚠ Set MOONY_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) — calls will fail until it's set."
+			return "⚠ Set MN_OPENROUTER_API_KEY (or OPENROUTER_API_KEY) — calls will fail until it's set."
 		}
 	}
 	return ""
@@ -397,7 +397,7 @@ func (m Model) skillsCmd(fields []string) string {
 	}
 	found := skills.Load(m.cfg.WorkingDir)
 	if len(found) == 0 {
-		return "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MOONY_SKILLS=0 disables discovery)."
+		return "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MN_SKILLS=0 disables discovery)."
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Skills (%d):\n", len(found))
@@ -616,7 +616,7 @@ func (m Model) mcpsCmd(fields []string) string {
 	}
 	cfgs, _ := mcp.LoadConfigs(m.cfg.WorkingDir)
 	if len(cfgs) == 0 {
-		return "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MOONY_MCP_CLAUDE=0 disables)."
+		return "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MN_MCP_CLAUDE=0 disables)."
 	}
 	connected := map[string]mcp.ServerInfo{}
 	for _, s := range m.mcpServers {

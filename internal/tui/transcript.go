@@ -503,7 +503,7 @@ func streamRenderInterval(n int) time.Duration {
 // (the default), it renders the partial text through Glamour, throttled to an
 // adaptive interval (see streamRenderInterval) and cached on the entry; the
 // completed turn always gets a final, full render via the non-streaming path.
-// Set MOONY_STREAM_MARKDOWN=0 to stream raw text instead (rendered as markdown
+// Set MN_STREAM_MARKDOWN=0 to stream raw text instead (rendered as markdown
 // only once the turn completes).
 func (t *transcript) streamingBody(e *entry) string {
 	if !streamMarkdownEnabled() {
@@ -530,10 +530,10 @@ func (t *transcript) streamingBody(e *entry) string {
 
 // streamMarkdownEnabled reports whether the assistant's reply is rendered as
 // markdown live while streaming (default), or shown as raw text until the turn
-// completes. Disable with MOONY_STREAM_MARKDOWN=0 (or off/false/no/raw) for
+// completes. Disable with MN_STREAM_MARKDOWN=0 (or off/false/no/raw) for
 // terminals where live re-rendering feels jumpy.
 func streamMarkdownEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_STREAM_MARKDOWN"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_STREAM_MARKDOWN"))) {
 	case "0", "off", "false", "no", "raw":
 		return false
 	}

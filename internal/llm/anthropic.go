@@ -159,7 +159,7 @@ func anthropicEffort(model, level string) string {
 // once — the model still reasons each turn; only the replay is dropped.
 func (c *Client) streamAnthropic(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	if c.anthropicKey() == "" {
-		return nil, fmt.Errorf("Anthropic API key not set — set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return nil, fmt.Errorf("Anthropic API key not set — set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
 	}
 	base := c.anthropicBaseURL()
 	strip := anthropicStripThinkingEnv() || anthropicStripsThinkingReplay(base)
@@ -269,10 +269,10 @@ func rememberAnthropicStripsThinkingReplay(baseURL string) {
 }
 
 // anthropicStripThinkingEnv lets a user force thinking-block stripping from the
-// first request (MOONY_ANTHROPIC_STRIP_THINKING=1), skipping even the one-time
+// first request (MN_ANTHROPIC_STRIP_THINKING=1), skipping even the one-time
 // probe failure — useful for a known-incompatible gateway.
 func anthropicStripThinkingEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_ANTHROPIC_STRIP_THINKING"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_ANTHROPIC_STRIP_THINKING"))) {
 	case "1", "on", "true", "yes":
 		return true
 	}
@@ -320,7 +320,7 @@ func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte
 // checkAnthropicAuth verifies the API key works by listing models.
 func (c *Client) checkAnthropicAuth(ctx context.Context) error {
 	if c.anthropicKey() == "" {
-		return fmt.Errorf("Anthropic API key not set — set MOONY_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return fmt.Errorf("Anthropic API key not set — set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
 	}
 	if _, err := c.listAnthropicModels(ctx); err != nil {
 		return fmt.Errorf("cannot reach the Anthropic API: %w", err)

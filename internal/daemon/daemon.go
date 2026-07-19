@@ -32,7 +32,7 @@ const (
 )
 
 // DefaultRelay is a placeholder relay connector-tunnel address. It is NOT a real
-// host — deployments must override it via --relay / MOONY_RELAY / a saved
+// host — deployments must override it via --relay / MN_RELAY / a saved
 // /relay so `moony daemon install` targets their own relay. The daemon falls
 // back to it only when no relay is otherwise configured; the interactive TUI
 // never auto-connects to a relay.
@@ -51,7 +51,7 @@ func relayAddrFor(cfg *config.Config) string {
 
 // Serve runs the relay connector headlessly until ctx is canceled. It builds the
 // full multi-project app server for this machine and keeps a best-effort
-// outbound connection to the relay (cfg.RelayAddr, i.e. MOONY_RELAY / saved
+// outbound connection to the relay (cfg.RelayAddr, i.e. MN_RELAY / saved
 // /relay; DefaultRelay when unset), auto-reconnecting on drops. logf receives
 // human-readable status lines (the service redirects them to a log file / journal).
 func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) error {
@@ -108,7 +108,7 @@ func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) e
 		}
 		// Owner = the local OS user running this daemon. The relay shows this
 		// laptop only to that user (per-user isolation); an empty owner hides it.
-		// When the relay has auth enabled, MOONY_RELAY_TOKEN (a per-user connector
+		// When the relay has auth enabled, MN_RELAY_TOKEN (a per-user connector
 		// token from the relay's /connect page) is the trusted credential and the
 		// relay derives the owner from it, ignoring this OS username.
 		owner := ""
@@ -117,7 +117,7 @@ func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) e
 		} else {
 			logf("warning: local user unavailable (%v) — this laptop stays hidden in the web tree", uerr)
 		}
-		token := strings.TrimSpace(os.Getenv("MOONY_RELAY_TOKEN"))
+		token := strings.TrimSpace(os.Getenv("MN_RELAY_TOKEN"))
 
 		conn, derr := dialRelay(ctx, addr)
 		if derr != nil {

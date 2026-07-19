@@ -25,10 +25,10 @@ const dayFormat = "2006-01-02"
 // at a temp file without touching the real ~/.config/moony.
 var ledgerPath = func() (string, error) { return config.GlobalConfigPath("usage_ledger.json") }
 
-// DailyBudget/MonthlyBudget read the USD caps from env (MOONY_DAILY_BUDGET /
-// MOONY_MONTHLY_BUDGET). 0 means disabled — the default.
-func DailyBudget() float64   { return envUSD("MOONY_DAILY_BUDGET") }
-func MonthlyBudget() float64 { return envUSD("MOONY_MONTHLY_BUDGET") }
+// DailyBudget/MonthlyBudget read the USD caps from env (MN_DAILY_BUDGET /
+// MN_MONTHLY_BUDGET). 0 means disabled — the default.
+func DailyBudget() float64   { return envUSD("MN_DAILY_BUDGET") }
+func MonthlyBudget() float64 { return envUSD("MN_MONTHLY_BUDGET") }
 
 func envUSD(name string) float64 {
 	v := strings.TrimSpace(os.Getenv(name))

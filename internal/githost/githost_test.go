@@ -75,7 +75,7 @@ func TestTokenPrecedence(t *testing.T) {
 	repo := &Repo{Kind: GitHub, RemoteHost: "github.com"}
 
 	t.Run("primary env wins", func(t *testing.T) {
-		t.Setenv("MOONY_GITHUB_TOKEN", "primary-tok")
+		t.Setenv("MN_GITHUB_TOKEN", "primary-tok")
 		t.Setenv("GITHUB_TOKEN", "fallback-tok")
 		tok, err := Token(context.Background(), repo)
 		if err != nil || tok != "primary-tok" {
@@ -84,7 +84,7 @@ func TestTokenPrecedence(t *testing.T) {
 	})
 
 	t.Run("fallback env used when primary unset", func(t *testing.T) {
-		t.Setenv("MOONY_GITHUB_TOKEN", "")
+		t.Setenv("MN_GITHUB_TOKEN", "")
 		t.Setenv("GITHUB_TOKEN", "fallback-tok")
 		tok, err := Token(context.Background(), repo)
 		if err != nil || tok != "fallback-tok" {
@@ -93,7 +93,7 @@ func TestTokenPrecedence(t *testing.T) {
 	})
 
 	t.Run("CLI used when no env vars", func(t *testing.T) {
-		t.Setenv("MOONY_GITHUB_TOKEN", "")
+		t.Setenv("MN_GITHUB_TOKEN", "")
 		t.Setenv("GITHUB_TOKEN", "")
 		old := runCLIToken
 		runCLIToken = func(ctx context.Context, cli string, args ...string) (string, error) {
@@ -110,7 +110,7 @@ func TestTokenPrecedence(t *testing.T) {
 	})
 
 	t.Run("netrc used when no env vars and CLI fails", func(t *testing.T) {
-		t.Setenv("MOONY_GITHUB_TOKEN", "")
+		t.Setenv("MN_GITHUB_TOKEN", "")
 		t.Setenv("GITHUB_TOKEN", "")
 		old := runCLIToken
 		runCLIToken = func(ctx context.Context, cli string, args ...string) (string, error) {
@@ -125,7 +125,7 @@ func TestTokenPrecedence(t *testing.T) {
 	})
 
 	t.Run("clear error naming env vars when nothing resolves", func(t *testing.T) {
-		t.Setenv("MOONY_GITHUB_TOKEN", "")
+		t.Setenv("MN_GITHUB_TOKEN", "")
 		t.Setenv("GITHUB_TOKEN", "")
 		t.Setenv("NETRC", t.TempDir()+"/does-not-exist")
 		old := runCLIToken
@@ -137,7 +137,7 @@ func TestTokenPrecedence(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		for _, want := range []string{"MOONY_GITHUB_TOKEN", "GITHUB_TOKEN", "gh auth login"} {
+		for _, want := range []string{"MN_GITHUB_TOKEN", "GITHUB_TOKEN", "gh auth login"} {
 			if !strings.Contains(err.Error(), want) {
 				t.Errorf("error %q should mention %q", err.Error(), want)
 			}

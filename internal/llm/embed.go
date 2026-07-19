@@ -56,7 +56,7 @@ func (c *Client) embedOllama(ctx context.Context, model string, inputs []string)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", userAgent())
-	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MN_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	return doEmbedRequest(c.http, req, len(inputs))
@@ -70,7 +70,7 @@ func (c *Client) embedOllama(ctx context.Context, model string, inputs []string)
 func (c *Client) embedRemote(ctx context.Context, providerID, model string, inputs []string) ([][]float32, error) {
 	id := provider.Normalize(providerID)
 	if id == provider.Anthropic || id == provider.SQEAnthropic {
-		return nil, fmt.Errorf("embeddings aren't available on %s (no embeddings API) — set MOONY_EMBEDDINGS_PROVIDER to a different provider, or unset it to use Ollama", provider.Label(id))
+		return nil, fmt.Errorf("embeddings aren't available on %s (no embeddings API) — set MN_EMBEDDINGS_PROVIDER to a different provider, or unset it to use Ollama", provider.Label(id))
 	}
 	rb := c.remoteBackendFor(id)
 	if rb.apiKey == "" {

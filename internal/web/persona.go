@@ -89,7 +89,7 @@ type personaEdit struct {
 	SessionKeyCmd     *string `json:"sqeSessionKeyCmd"`
 	SessionKeyFile    *string `json:"sqeSessionKeyFile"`
 	SessionPassphrase *string `json:"sqeSessionPassphrase"`
-	// Provider API keys (MOONY_*_API_KEY) + the optional Ollama bearer token.
+	// Provider API keys (MN_*_API_KEY) + the optional Ollama bearer token.
 	// Secrets: an empty string means "keep the existing key". JSON tags match the
 	// providerCreds table below (the single source of truth wiring these to their
 	// env var and config field). Applied live and re-read per request via s.cfg.
@@ -112,7 +112,7 @@ type personaEdit struct {
 	VeniceAPIKey       *string `json:"veniceApiKey"`
 	OmniRouteAPIKey    *string `json:"omnirouteApiKey"`
 	OllamaToken        *string `json:"ollamaToken"`
-	// Provider base-URL overrides (MOONY_*_BASE_URL). Plain text: empty clears the
+	// Provider base-URL overrides (MN_*_BASE_URL). Plain text: empty clears the
 	// override so the built-in default is used. Ollama's host is the top-level
 	// "ollamaHost" field, so it has no entry here.
 	OpenAIBaseURL       *string `json:"openaiBaseUrl"`
@@ -145,14 +145,14 @@ type providerCred struct {
 	key      string                       // API-key Persona field key (== personaEdit JSON tag)
 	label    string                       // API-key display label
 	provider string                       // short provider name for the Persona card header (e.g. "OpenAI")
-	env      string                       // MOONY_*_API_KEY (or MOONY_OLLAMA_TOKEN) env var
+	env      string                       // MN_*_API_KEY (or MN_OLLAMA_TOKEN) env var
 	desc     string                       // API-key help text
 	cfg      func(*config.Config) *string // pointer to the live API-key config field
 	edit     func(personaEdit) *string    // posted API-key value (nil = field absent = unchanged)
 
 	baseKey     string                       // base-URL Persona field key ("" = no base-URL field)
 	baseLabel   string                       // base-URL display label
-	baseEnv     string                       // MOONY_*_BASE_URL env var
+	baseEnv     string                       // MN_*_BASE_URL env var
 	baseDesc    string                       // base-URL help text
 	baseCfg     func(*config.Config) *string // pointer to the live base-URL config field
 	baseEdit    func(personaEdit) *string    // posted base-URL value (nil = unchanged)
@@ -160,175 +160,175 @@ type providerCred struct {
 }
 
 // providerCreds is the credential registry for the Persona panel, in display
-// order (matching the /provider list). Keys mirror config.Load's MOONY_*_API_KEY
-// / MOONY_*_BASE_URL reads; the bare-name key fallbacks (OPENAI_API_KEY, …) are
+// order (matching the /provider list). Keys mirror config.Load's MN_*_API_KEY
+// / MN_*_BASE_URL reads; the bare-name key fallbacks (OPENAI_API_KEY, …) are
 // deployment env only and not editable here.
 var providerCreds = []providerCred{
 	{
-		key: "openaiApiKey", label: "OpenAI API key", provider: "OpenAI", env: "MOONY_OPENAI_API_KEY",
-		desc: "MOONY_OPENAI_API_KEY: authenticates api.openai.com. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "openaiApiKey", label: "OpenAI API key", provider: "OpenAI", env: "MN_OPENAI_API_KEY",
+		desc: "MN_OPENAI_API_KEY: authenticates api.openai.com. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.OpenAIAPIKey }, edit: func(e personaEdit) *string { return e.OpenAIAPIKey },
-		baseKey: "openaiBaseUrl", baseLabel: "OpenAI base URL", baseEnv: "MOONY_OPENAI_BASE_URL",
-		baseDesc: "MOONY_OPENAI_BASE_URL: override the OpenAI-compatible endpoint (default https://api.openai.com/v1). Blank uses the default.",
+		baseKey: "openaiBaseUrl", baseLabel: "OpenAI base URL", baseEnv: "MN_OPENAI_BASE_URL",
+		baseDesc: "MN_OPENAI_BASE_URL: override the OpenAI-compatible endpoint (default https://api.openai.com/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.OpenAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.OpenAIBaseURL },
 		baseDefault: "https://api.openai.com/v1",
 	},
 	{
-		key: "anthropicApiKey", label: "Anthropic API key", provider: "Anthropic", env: "MOONY_ANTHROPIC_API_KEY",
-		desc: "MOONY_ANTHROPIC_API_KEY: authenticates api.anthropic.com (Claude). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "anthropicApiKey", label: "Anthropic API key", provider: "Anthropic", env: "MN_ANTHROPIC_API_KEY",
+		desc: "MN_ANTHROPIC_API_KEY: authenticates api.anthropic.com (Claude). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.AnthropicAPIKey }, edit: func(e personaEdit) *string { return e.AnthropicAPIKey },
-		baseKey: "anthropicBaseUrl", baseLabel: "Anthropic base URL", baseEnv: "MOONY_ANTHROPIC_BASE_URL",
-		baseDesc: "MOONY_ANTHROPIC_BASE_URL: override the native Anthropic Messages API base (default https://api.anthropic.com). Blank uses the default.",
+		baseKey: "anthropicBaseUrl", baseLabel: "Anthropic base URL", baseEnv: "MN_ANTHROPIC_BASE_URL",
+		baseDesc: "MN_ANTHROPIC_BASE_URL: override the native Anthropic Messages API base (default https://api.anthropic.com). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.AnthropicBaseURL }, baseEdit: func(e personaEdit) *string { return e.AnthropicBaseURL },
 		baseDefault: "https://api.anthropic.com",
 	},
 	{
-		key: "sqeAnthropicApiKey", label: "SQE Anthropic API key", provider: "SQE Anthropic", env: "MOONY_SQE_ANTHROPIC_API_KEY",
-		desc: "MOONY_SQE_ANTHROPIC_API_KEY: authenticates the SQE Anthropic gateway (falls back to the Anthropic key if unset). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "sqeAnthropicApiKey", label: "SQE Anthropic API key", provider: "SQE Anthropic", env: "MN_SQE_ANTHROPIC_API_KEY",
+		desc: "MN_SQE_ANTHROPIC_API_KEY: authenticates the SQE Anthropic gateway (falls back to the Anthropic key if unset). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.SQEAnthropicAPIKey }, edit: func(e personaEdit) *string { return e.SQEAnthropicAPIKey },
-		baseKey: "sqeAnthropicBaseUrl", baseLabel: "SQE Anthropic base URL", baseEnv: "MOONY_SQE_ANTHROPIC_BASE_URL",
-		baseDesc: "MOONY_SQE_ANTHROPIC_BASE_URL: the SQE LAN gateway base (default http://192.168.33.158:8787). Blank uses the default.",
+		baseKey: "sqeAnthropicBaseUrl", baseLabel: "SQE Anthropic base URL", baseEnv: "MN_SQE_ANTHROPIC_BASE_URL",
+		baseDesc: "MN_SQE_ANTHROPIC_BASE_URL: the SQE LAN gateway base (default http://192.168.33.158:8787). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.SQEAnthropicBaseURL }, baseEdit: func(e personaEdit) *string { return e.SQEAnthropicBaseURL },
 		baseDefault: "http://192.168.33.158:8787",
 	},
 	{
-		key: "openrouterApiKey", label: "OpenRouter API key", provider: "OpenRouter", env: "MOONY_OPENROUTER_API_KEY",
-		desc: "MOONY_OPENROUTER_API_KEY: authenticates openrouter.ai. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "openrouterApiKey", label: "OpenRouter API key", provider: "OpenRouter", env: "MN_OPENROUTER_API_KEY",
+		desc: "MN_OPENROUTER_API_KEY: authenticates openrouter.ai. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.OpenRouterAPIKey }, edit: func(e personaEdit) *string { return e.OpenRouterAPIKey },
-		baseKey: "openrouterBaseUrl", baseLabel: "OpenRouter base URL", baseEnv: "MOONY_OPENROUTER_BASE_URL",
-		baseDesc: "MOONY_OPENROUTER_BASE_URL: override the OpenRouter base (default https://openrouter.ai/api/v1). Blank uses the default.",
+		baseKey: "openrouterBaseUrl", baseLabel: "OpenRouter base URL", baseEnv: "MN_OPENROUTER_BASE_URL",
+		baseDesc: "MN_OPENROUTER_BASE_URL: override the OpenRouter base (default https://openrouter.ai/api/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.OpenRouterBaseURL }, baseEdit: func(e personaEdit) *string { return e.OpenRouterBaseURL },
 		baseDefault: "https://openrouter.ai/api/v1",
 	},
 	{
-		key: "geminiApiKey", label: "Gemini API key", provider: "Gemini", env: "MOONY_GEMINI_API_KEY",
-		desc: "MOONY_GEMINI_API_KEY: authenticates Google's OpenAI-compatible endpoint. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "geminiApiKey", label: "Gemini API key", provider: "Gemini", env: "MN_GEMINI_API_KEY",
+		desc: "MN_GEMINI_API_KEY: authenticates Google's OpenAI-compatible endpoint. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.GeminiAPIKey }, edit: func(e personaEdit) *string { return e.GeminiAPIKey },
-		baseKey: "geminiBaseUrl", baseLabel: "Gemini base URL", baseEnv: "MOONY_GEMINI_BASE_URL",
-		baseDesc: "MOONY_GEMINI_BASE_URL: override the Gemini base (default https://generativelanguage.googleapis.com/v1beta/openai). Blank uses the default.",
+		baseKey: "geminiBaseUrl", baseLabel: "Gemini base URL", baseEnv: "MN_GEMINI_BASE_URL",
+		baseDesc: "MN_GEMINI_BASE_URL: override the Gemini base (default https://generativelanguage.googleapis.com/v1beta/openai). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.GeminiBaseURL }, baseEdit: func(e personaEdit) *string { return e.GeminiBaseURL },
 		baseDefault: "https://generativelanguage.googleapis.com/v1beta/openai",
 	},
 	{
-		key: "deepseekApiKey", label: "DeepSeek API key", provider: "DeepSeek", env: "MOONY_DEEPSEEK_API_KEY",
-		desc: "MOONY_DEEPSEEK_API_KEY: authenticates api.deepseek.com. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "deepseekApiKey", label: "DeepSeek API key", provider: "DeepSeek", env: "MN_DEEPSEEK_API_KEY",
+		desc: "MN_DEEPSEEK_API_KEY: authenticates api.deepseek.com. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.DeepSeekAPIKey }, edit: func(e personaEdit) *string { return e.DeepSeekAPIKey },
-		baseKey: "deepseekBaseUrl", baseLabel: "DeepSeek base URL", baseEnv: "MOONY_DEEPSEEK_BASE_URL",
-		baseDesc: "MOONY_DEEPSEEK_BASE_URL: override the DeepSeek base (default https://api.deepseek.com). Blank uses the default.",
+		baseKey: "deepseekBaseUrl", baseLabel: "DeepSeek base URL", baseEnv: "MN_DEEPSEEK_BASE_URL",
+		baseDesc: "MN_DEEPSEEK_BASE_URL: override the DeepSeek base (default https://api.deepseek.com). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.DeepSeekBaseURL }, baseEdit: func(e personaEdit) *string { return e.DeepSeekBaseURL },
 		baseDefault: "https://api.deepseek.com",
 	},
 	{
-		key: "groqApiKey", label: "Groq API key", provider: "Groq", env: "MOONY_GROQ_API_KEY",
-		desc: "MOONY_GROQ_API_KEY: authenticates api.groq.com. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "groqApiKey", label: "Groq API key", provider: "Groq", env: "MN_GROQ_API_KEY",
+		desc: "MN_GROQ_API_KEY: authenticates api.groq.com. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.GroqAPIKey }, edit: func(e personaEdit) *string { return e.GroqAPIKey },
-		baseKey: "groqBaseUrl", baseLabel: "Groq base URL", baseEnv: "MOONY_GROQ_BASE_URL",
-		baseDesc: "MOONY_GROQ_BASE_URL: override the Groq base (default https://api.groq.com/openai/v1). Blank uses the default.",
+		baseKey: "groqBaseUrl", baseLabel: "Groq base URL", baseEnv: "MN_GROQ_BASE_URL",
+		baseDesc: "MN_GROQ_BASE_URL: override the Groq base (default https://api.groq.com/openai/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.GroqBaseURL }, baseEdit: func(e personaEdit) *string { return e.GroqBaseURL },
 		baseDefault: "https://api.groq.com/openai/v1",
 	},
 	{
-		key: "xaiApiKey", label: "xAI API key", provider: "xAI", env: "MOONY_XAI_API_KEY",
-		desc: "MOONY_XAI_API_KEY: authenticates api.x.ai (Grok). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "xaiApiKey", label: "xAI API key", provider: "xAI", env: "MN_XAI_API_KEY",
+		desc: "MN_XAI_API_KEY: authenticates api.x.ai (Grok). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.XAIAPIKey }, edit: func(e personaEdit) *string { return e.XAIAPIKey },
-		baseKey: "xaiBaseUrl", baseLabel: "xAI base URL", baseEnv: "MOONY_XAI_BASE_URL",
-		baseDesc: "MOONY_XAI_BASE_URL: override the xAI base (default https://api.x.ai/v1). Blank uses the default.",
+		baseKey: "xaiBaseUrl", baseLabel: "xAI base URL", baseEnv: "MN_XAI_BASE_URL",
+		baseDesc: "MN_XAI_BASE_URL: override the xAI base (default https://api.x.ai/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.XAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.XAIBaseURL },
 		baseDefault: "https://api.x.ai/v1",
 	},
 	{
-		key: "mistralApiKey", label: "Mistral API key", provider: "Mistral", env: "MOONY_MISTRAL_API_KEY",
-		desc: "MOONY_MISTRAL_API_KEY: authenticates api.mistral.ai. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "mistralApiKey", label: "Mistral API key", provider: "Mistral", env: "MN_MISTRAL_API_KEY",
+		desc: "MN_MISTRAL_API_KEY: authenticates api.mistral.ai. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.MistralAPIKey }, edit: func(e personaEdit) *string { return e.MistralAPIKey },
-		baseKey: "mistralBaseUrl", baseLabel: "Mistral base URL", baseEnv: "MOONY_MISTRAL_BASE_URL",
-		baseDesc: "MOONY_MISTRAL_BASE_URL: override the Mistral base (default https://api.mistral.ai/v1). Blank uses the default.",
+		baseKey: "mistralBaseUrl", baseLabel: "Mistral base URL", baseEnv: "MN_MISTRAL_BASE_URL",
+		baseDesc: "MN_MISTRAL_BASE_URL: override the Mistral base (default https://api.mistral.ai/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.MistralBaseURL }, baseEdit: func(e personaEdit) *string { return e.MistralBaseURL },
 		baseDefault: "https://api.mistral.ai/v1",
 	},
 	{
-		key: "togetherApiKey", label: "Together.ai API key", provider: "Together.ai", env: "MOONY_TOGETHER_API_KEY",
-		desc: "MOONY_TOGETHER_API_KEY: authenticates api.together.xyz. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "togetherApiKey", label: "Together.ai API key", provider: "Together.ai", env: "MN_TOGETHER_API_KEY",
+		desc: "MN_TOGETHER_API_KEY: authenticates api.together.xyz. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.TogetherAPIKey }, edit: func(e personaEdit) *string { return e.TogetherAPIKey },
-		baseKey: "togetherBaseUrl", baseLabel: "Together.ai base URL", baseEnv: "MOONY_TOGETHER_BASE_URL",
-		baseDesc: "MOONY_TOGETHER_BASE_URL: override the Together.ai base (default https://api.together.xyz/v1). Blank uses the default.",
+		baseKey: "togetherBaseUrl", baseLabel: "Together.ai base URL", baseEnv: "MN_TOGETHER_BASE_URL",
+		baseDesc: "MN_TOGETHER_BASE_URL: override the Together.ai base (default https://api.together.xyz/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.TogetherBaseURL }, baseEdit: func(e personaEdit) *string { return e.TogetherBaseURL },
 		baseDefault: "https://api.together.xyz/v1",
 	},
 	{
-		key: "fireworksApiKey", label: "Fireworks.ai API key", provider: "Fireworks.ai", env: "MOONY_FIREWORKS_API_KEY",
-		desc: "MOONY_FIREWORKS_API_KEY: authenticates api.fireworks.ai. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "fireworksApiKey", label: "Fireworks.ai API key", provider: "Fireworks.ai", env: "MN_FIREWORKS_API_KEY",
+		desc: "MN_FIREWORKS_API_KEY: authenticates api.fireworks.ai. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.FireworksAPIKey }, edit: func(e personaEdit) *string { return e.FireworksAPIKey },
-		baseKey: "fireworksBaseUrl", baseLabel: "Fireworks.ai base URL", baseEnv: "MOONY_FIREWORKS_BASE_URL",
-		baseDesc: "MOONY_FIREWORKS_BASE_URL: override the Fireworks.ai base (default https://api.fireworks.ai/inference/v1). Blank uses the default.",
+		baseKey: "fireworksBaseUrl", baseLabel: "Fireworks.ai base URL", baseEnv: "MN_FIREWORKS_BASE_URL",
+		baseDesc: "MN_FIREWORKS_BASE_URL: override the Fireworks.ai base (default https://api.fireworks.ai/inference/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.FireworksBaseURL }, baseEdit: func(e personaEdit) *string { return e.FireworksBaseURL },
 		baseDefault: "https://api.fireworks.ai/inference/v1",
 	},
 	{
-		key: "moonshotApiKey", label: "Moonshot API key", provider: "Moonshot", env: "MOONY_MOONSHOT_API_KEY",
-		desc: "MOONY_MOONSHOT_API_KEY: authenticates api.moonshot.ai (Kimi). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "moonshotApiKey", label: "Moonshot API key", provider: "Moonshot", env: "MN_MOONSHOT_API_KEY",
+		desc: "MN_MOONSHOT_API_KEY: authenticates api.moonshot.ai (Kimi). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.MoonshotAPIKey }, edit: func(e personaEdit) *string { return e.MoonshotAPIKey },
-		baseKey: "moonshotBaseUrl", baseLabel: "Moonshot base URL", baseEnv: "MOONY_MOONSHOT_BASE_URL",
-		baseDesc: "MOONY_MOONSHOT_BASE_URL: override the Moonshot base (default https://api.moonshot.ai/v1). Blank uses the default.",
+		baseKey: "moonshotBaseUrl", baseLabel: "Moonshot base URL", baseEnv: "MN_MOONSHOT_BASE_URL",
+		baseDesc: "MN_MOONSHOT_BASE_URL: override the Moonshot base (default https://api.moonshot.ai/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.MoonshotBaseURL }, baseEdit: func(e personaEdit) *string { return e.MoonshotBaseURL },
 		baseDefault: "https://api.moonshot.ai/v1",
 	},
 	{
-		key: "zaiApiKey", label: "Z.AI API key", provider: "Z.AI", env: "MOONY_ZAI_API_KEY",
-		desc: "MOONY_ZAI_API_KEY: authenticates api.z.ai (Zhipu GLM). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "zaiApiKey", label: "Z.AI API key", provider: "Z.AI", env: "MN_ZAI_API_KEY",
+		desc: "MN_ZAI_API_KEY: authenticates api.z.ai (Zhipu GLM). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.ZAIAPIKey }, edit: func(e personaEdit) *string { return e.ZAIAPIKey },
-		baseKey: "zaiBaseUrl", baseLabel: "Z.AI base URL", baseEnv: "MOONY_ZAI_BASE_URL",
-		baseDesc: "MOONY_ZAI_BASE_URL: override the Z.AI base (default https://api.z.ai/api/paas/v4). Blank uses the default.",
+		baseKey: "zaiBaseUrl", baseLabel: "Z.AI base URL", baseEnv: "MN_ZAI_BASE_URL",
+		baseDesc: "MN_ZAI_BASE_URL: override the Z.AI base (default https://api.z.ai/api/paas/v4). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.ZAIBaseURL }, baseEdit: func(e personaEdit) *string { return e.ZAIBaseURL },
 		baseDefault: "https://api.z.ai/api/paas/v4",
 	},
 	{
-		key: "dashscopeApiKey", label: "DashScope API key", provider: "DashScope", env: "MOONY_DASHSCOPE_API_KEY",
-		desc: "MOONY_DASHSCOPE_API_KEY: authenticates Alibaba DashScope (Qwen). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "dashscopeApiKey", label: "DashScope API key", provider: "DashScope", env: "MN_DASHSCOPE_API_KEY",
+		desc: "MN_DASHSCOPE_API_KEY: authenticates Alibaba DashScope (Qwen). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.DashScopeAPIKey }, edit: func(e personaEdit) *string { return e.DashScopeAPIKey },
-		baseKey: "dashscopeBaseUrl", baseLabel: "DashScope base URL", baseEnv: "MOONY_DASHSCOPE_BASE_URL",
-		baseDesc: "MOONY_DASHSCOPE_BASE_URL: override the DashScope base (default https://dashscope-intl.aliyuncs.com/compatible-mode/v1). Blank uses the default.",
+		baseKey: "dashscopeBaseUrl", baseLabel: "DashScope base URL", baseEnv: "MN_DASHSCOPE_BASE_URL",
+		baseDesc: "MN_DASHSCOPE_BASE_URL: override the DashScope base (default https://dashscope-intl.aliyuncs.com/compatible-mode/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.DashScopeBaseURL }, baseEdit: func(e personaEdit) *string { return e.DashScopeBaseURL },
 		baseDefault: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
 	},
 	{
-		key: "nvidiaApiKey", label: "NVIDIA NIM API key", provider: "NVIDIA NIM", env: "MOONY_NVIDIA_API_KEY",
-		desc: "MOONY_NVIDIA_API_KEY: authenticates integrate.api.nvidia.com. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "nvidiaApiKey", label: "NVIDIA NIM API key", provider: "NVIDIA NIM", env: "MN_NVIDIA_API_KEY",
+		desc: "MN_NVIDIA_API_KEY: authenticates integrate.api.nvidia.com. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.NvidiaAPIKey }, edit: func(e personaEdit) *string { return e.NvidiaAPIKey },
-		baseKey: "nvidiaBaseUrl", baseLabel: "NVIDIA NIM base URL", baseEnv: "MOONY_NVIDIA_BASE_URL",
-		baseDesc: "MOONY_NVIDIA_BASE_URL: override the NVIDIA NIM base (default https://integrate.api.nvidia.com/v1). Blank uses the default.",
+		baseKey: "nvidiaBaseUrl", baseLabel: "NVIDIA NIM base URL", baseEnv: "MN_NVIDIA_BASE_URL",
+		baseDesc: "MN_NVIDIA_BASE_URL: override the NVIDIA NIM base (default https://integrate.api.nvidia.com/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.NvidiaBaseURL }, baseEdit: func(e personaEdit) *string { return e.NvidiaBaseURL },
 		baseDefault: "https://integrate.api.nvidia.com/v1",
 	},
 	{
-		key: "huggingfaceApiKey", label: "Hugging Face API key", provider: "Hugging Face", env: "MOONY_HUGGINGFACE_API_KEY",
-		desc: "MOONY_HUGGINGFACE_API_KEY: authenticates router.huggingface.co. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "huggingfaceApiKey", label: "Hugging Face API key", provider: "Hugging Face", env: "MN_HUGGINGFACE_API_KEY",
+		desc: "MN_HUGGINGFACE_API_KEY: authenticates router.huggingface.co. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.HuggingFaceAPIKey }, edit: func(e personaEdit) *string { return e.HuggingFaceAPIKey },
-		baseKey: "huggingfaceBaseUrl", baseLabel: "Hugging Face base URL", baseEnv: "MOONY_HUGGINGFACE_BASE_URL",
-		baseDesc: "MOONY_HUGGINGFACE_BASE_URL: override the Hugging Face router base (default https://router.huggingface.co/v1). Blank uses the default.",
+		baseKey: "huggingfaceBaseUrl", baseLabel: "Hugging Face base URL", baseEnv: "MN_HUGGINGFACE_BASE_URL",
+		baseDesc: "MN_HUGGINGFACE_BASE_URL: override the Hugging Face router base (default https://router.huggingface.co/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.HuggingFaceBaseURL }, baseEdit: func(e personaEdit) *string { return e.HuggingFaceBaseURL },
 		baseDefault: "https://router.huggingface.co/v1",
 	},
 	{
-		key: "veniceApiKey", label: "Venice API key", provider: "Venice", env: "MOONY_VENICE_API_KEY",
-		desc: "MOONY_VENICE_API_KEY: authenticates api.venice.ai. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "veniceApiKey", label: "Venice API key", provider: "Venice", env: "MN_VENICE_API_KEY",
+		desc: "MN_VENICE_API_KEY: authenticates api.venice.ai. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.VeniceAPIKey }, edit: func(e personaEdit) *string { return e.VeniceAPIKey },
-		baseKey: "veniceBaseUrl", baseLabel: "Venice base URL", baseEnv: "MOONY_VENICE_BASE_URL",
-		baseDesc: "MOONY_VENICE_BASE_URL: override the Venice base (default https://api.venice.ai/api/v1). Blank uses the default.",
+		baseKey: "veniceBaseUrl", baseLabel: "Venice base URL", baseEnv: "MN_VENICE_BASE_URL",
+		baseDesc: "MN_VENICE_BASE_URL: override the Venice base (default https://api.venice.ai/api/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.VeniceBaseURL }, baseEdit: func(e personaEdit) *string { return e.VeniceBaseURL },
 		baseDefault: "https://api.venice.ai/api/v1",
 	},
 	{
-		key: "omnirouteApiKey", label: "OmniRoute API key", provider: "OmniRoute", env: "MOONY_OMNIROUTE_API_KEY",
-		desc: "MOONY_OMNIROUTE_API_KEY: authenticates the local OmniRoute gateway (Dashboard → Endpoints). Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "omnirouteApiKey", label: "OmniRoute API key", provider: "OmniRoute", env: "MN_OMNIROUTE_API_KEY",
+		desc: "MN_OMNIROUTE_API_KEY: authenticates the local OmniRoute gateway (Dashboard → Endpoints). Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.OmniRouteAPIKey }, edit: func(e personaEdit) *string { return e.OmniRouteAPIKey },
-		baseKey: "omnirouteBaseUrl", baseLabel: "OmniRoute base URL", baseEnv: "MOONY_OMNIROUTE_BASE_URL",
-		baseDesc: "MOONY_OMNIROUTE_BASE_URL: override the OmniRoute base (default http://localhost:20128/v1). Blank uses the default.",
+		baseKey: "omnirouteBaseUrl", baseLabel: "OmniRoute base URL", baseEnv: "MN_OMNIROUTE_BASE_URL",
+		baseDesc: "MN_OMNIROUTE_BASE_URL: override the OmniRoute base (default http://localhost:20128/v1). Blank uses the default.",
 		baseCfg:  func(c *config.Config) *string { return &c.OmniRouteBaseURL }, baseEdit: func(e personaEdit) *string { return e.OmniRouteBaseURL },
 		baseDefault: "http://localhost:20128/v1",
 	},
 	{
-		key: "ollamaToken", label: "Ollama token", provider: "Ollama", env: "MOONY_OLLAMA_TOKEN",
-		desc: "MOONY_OLLAMA_TOKEN: optional bearer token for a secured Ollama server. Applied live and saved to ~/.config/moony/.env (persists).",
+		key: "ollamaToken", label: "Ollama token", provider: "Ollama", env: "MN_OLLAMA_TOKEN",
+		desc: "MN_OLLAMA_TOKEN: optional bearer token for a secured Ollama server. Applied live and saved to ~/.config/moony/.env (persists).",
 		cfg:  func(c *config.Config) *string { return &c.OllamaToken }, edit: func(e personaEdit) *string { return e.OllamaToken },
 		// No base URL: the Ollama host is the top-level "ollamaHost" field.
 	},
@@ -556,24 +556,24 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		c.AdaptiveModelPersona = &am // remember as explicit persona choice
 	}
 	if e.MaxAgentSteps != nil {
-		setEnvPlain("MOONY_MAX_STEPS", e.MaxAgentSteps)
+		setEnvPlain("MN_MAX_STEPS", e.MaxAgentSteps)
 		if n, err := strconv.Atoi(strings.TrimSpace(*e.MaxAgentSteps)); err == nil && n > 0 {
 			c.MaxAgentSteps = n
 		}
 	}
 	if e.AutoContinue != nil {
-		setEnvPlain("MOONY_AUTO_CONTINUE", e.AutoContinue)
+		setEnvPlain("MN_AUTO_CONTINUE", e.AutoContinue)
 		if n, err := strconv.Atoi(strings.TrimSpace(*e.AutoContinue)); err == nil && n >= 0 {
 			c.AutoContinue = n
 		}
 	}
 	if e.SqeFastModel != nil {
-		setEnvPlain("MOONY_FAST_MODEL", e.SqeFastModel)
+		setEnvPlain("MN_FAST_MODEL", e.SqeFastModel)
 		fm := strings.TrimSpace(*e.SqeFastModel)
 		c.FastModelPersona = &fm // remember as explicit persona choice
 	}
 	if e.SqeAuxModel != nil {
-		setEnvPlain("MOONY_AUX_MODEL", e.SqeAuxModel)
+		setEnvPlain("MN_AUX_MODEL", e.SqeAuxModel)
 		am := strings.TrimSpace(*e.SqeAuxModel)
 		c.AuxModelPersona = &am // remember as explicit persona choice
 	}
@@ -581,33 +581,33 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 	// setEnvPlain clears the env on an empty value, so posting "" (Inherit) unsets
 	// the override → inherit. The resolvers normalize on read.
 	if e.FastProvider != nil {
-		setEnvPlain("MOONY_FAST_PROVIDER", e.FastProvider)
+		setEnvPlain("MN_FAST_PROVIDER", e.FastProvider)
 		v := strings.TrimSpace(*e.FastProvider)
 		c.FastProviderPersona = &v
 	}
 	if e.FastReasoning != nil {
-		setEnvPlain("MOONY_FAST_REASONING", e.FastReasoning)
+		setEnvPlain("MN_FAST_REASONING", e.FastReasoning)
 		v := strings.TrimSpace(*e.FastReasoning)
 		c.FastReasoningPersona = &v
 	}
 	if e.AuxProvider != nil {
-		setEnvPlain("MOONY_AUX_PROVIDER", e.AuxProvider)
+		setEnvPlain("MN_AUX_PROVIDER", e.AuxProvider)
 		v := strings.TrimSpace(*e.AuxProvider)
 		c.AuxProviderPersona = &v
 	}
 	if e.AuxReasoning != nil {
-		setEnvPlain("MOONY_AUX_REASONING", e.AuxReasoning)
+		setEnvPlain("MN_AUX_REASONING", e.AuxReasoning)
 		v := strings.TrimSpace(*e.AuxReasoning)
 		c.AuxReasoningPersona = &v
 	}
 	// Session-encryption vars live only in the process env (session.NewStore reads
 	// them). Secrets keep their existing value when submitted empty; plain fields
 	// (mode/path) apply as given and clear when blanked.
-	setEnvSecret("MOONY_SESSION_KEY", e.SessionKey)
-	setEnvSecret("MOONY_SESSION_KEY_CMD", e.SessionKeyCmd)
-	setEnvSecret("MOONY_SESSION_PASSPHRASE", e.SessionPassphrase)
-	setEnvPlain("MOONY_SESSION_KEY_FILE", e.SessionKeyFile)
-	setEnvPlain("MOONY_SESSION_ENCRYPT", e.SessionEncrypt)
+	setEnvSecret("MN_SESSION_KEY", e.SessionKey)
+	setEnvSecret("MN_SESSION_KEY_CMD", e.SessionKeyCmd)
+	setEnvSecret("MN_SESSION_PASSPHRASE", e.SessionPassphrase)
+	setEnvPlain("MN_SESSION_KEY_FILE", e.SessionKeyFile)
+	setEnvPlain("MN_SESSION_ENCRYPT", e.SessionEncrypt)
 	// Provider API keys / Ollama token. Unlike the session vars (read from env at
 	// startup), the LLM client reads these from the config struct per request, so
 	// update the live field too — the change reaches the running terminal at once.
@@ -686,43 +686,43 @@ func tierModels(ctx context.Context, cfg *config.Config, sessionModels []config.
 func personaFields(c *config.Config, models, fastModels, auxModels []config.ModelInfo) []personaField {
 	fields := []personaField{
 		{Key: "ollamaHost", Label: "Ollama host", Type: "text", Value: c.OllamaBaseURL,
-			Desc: "Ollama server (MOONY_OLLAMA_HOST), used by the ollama backend."},
+			Desc: "Ollama server (MN_OLLAMA_HOST), used by the ollama backend."},
 		{Key: "autoDelegate", Label: "Auto-delegate subtasks", Type: "bool", Value: c.AutoDelegate,
 			Desc: "Let the agent spin up sub-agents for large multi-step tasks."},
 		{Key: "autoPlan", Label: "Auto-plan large tasks", Type: "bool", Value: c.AutoPlan,
 			Desc: "Auto-enter read-only plan mode for big/multi-step tasks before touching files (persists)."},
-		{Key: "cheapReads", Label: "Cheap reads (MOONY_CHEAP_READS)", Type: "bool", Value: c.CheapReads,
+		{Key: "cheapReads", Label: "Cheap reads (MN_CHEAP_READS)", Type: "bool", Value: c.CheapReads,
 			Desc: "Route pure-read rounds (grep / read_file / find_symbol / …) to the cheaper FastModel automatically. Reverts to the full model the moment writing starts, bash runs, or friction is detected. Persists across sessions."},
-		{Key: "selfReview", Label: "Self-review diffs (MOONY_SELF_REVIEW)", Type: "bool", Value: c.SelfReview,
+		{Key: "selfReview", Label: "Self-review diffs (MN_SELF_REVIEW)", Type: "bool", Value: c.SelfReview,
 			Desc: "After each turn that edits code, run a cheap fast-model review of the diff for logic bugs. One feedback cycle per turn; skipped for sub-agents. Persists across sessions."},
-		{Key: "adaptiveModel", Label: "Adaptive model (MOONY_ADAPTIVE_MODEL)", Type: "bool", Value: c.AdaptiveModel,
+		{Key: "adaptiveModel", Label: "Adaptive model (MN_ADAPTIVE_MODEL)", Type: "bool", Value: c.AdaptiveModel,
 			Desc: "Start turns on the cheaper FastModel; escalate to the full model only when friction (errors/retries) is detected. Runtime override — resets on restart."},
-		{Key: "maxAgentSteps", Label: "Max agent steps (MOONY_MAX_STEPS)", Type: "text", Value: fmt.Sprintf("%d", c.MaxAgentSteps),
+		{Key: "maxAgentSteps", Label: "Max agent steps (MN_MAX_STEPS)", Type: "text", Value: fmt.Sprintf("%d", c.MaxAgentSteps),
 			Desc: "Max tool-call iterations per turn (default 80). A guard against runaway loops — raise for complex tasks, lower for tighter control. Runtime override — resets on restart."},
-		{Key: "autoContinue", Label: "Auto-continue extensions (MOONY_AUTO_CONTINUE)", Type: "text", Value: fmt.Sprintf("%d", c.AutoContinue),
+		{Key: "autoContinue", Label: "Auto-continue extensions (MN_AUTO_CONTINUE)", Type: "text", Value: fmt.Sprintf("%d", c.AutoContinue),
 			Desc: "How many times a turn auto-extends past the step limit when the model is still working (default 1). Hard ceiling = MaxAgentSteps × (1 + AutoContinue). Runtime override — resets on restart."},
-		{Key: "sqeFastModel", Label: "Fast model (MOONY_FAST_MODEL)", Type: "select",
-			Value:   os.Getenv("MOONY_FAST_MODEL"),
+		{Key: "sqeFastModel", Label: "Fast model (MN_FAST_MODEL)", Type: "select",
+			Value:   os.Getenv("MN_FAST_MODEL"),
 			Options: fastModelSelectOptions(fastModels),
 			Desc:    "Model used for cheap-reads rounds, AdaptiveModel exploration, and sub-agent aux calls. 'Auto' uses the built-in default. Runtime override — resets on restart."},
-		{Key: "fastProvider", Label: "Fast model provider (MOONY_FAST_PROVIDER)", Type: "select",
-			Value:   os.Getenv("MOONY_FAST_PROVIDER"),
+		{Key: "fastProvider", Label: "Fast model provider (MN_FAST_PROVIDER)", Type: "select",
+			Value:   os.Getenv("MN_FAST_PROVIDER"),
 			Options: providerSelectOptions("Inherit (session provider)"),
 			Desc:    "Provider the Fast model runs on. Inherit = the session provider. A different provider must have its API key / base URL configured below. Pick it, Save, then choose its model above. Persists."},
-		{Key: "fastReasoning", Label: "Fast model reasoning (MOONY_FAST_REASONING)", Type: "select",
-			Value:   os.Getenv("MOONY_FAST_REASONING"),
+		{Key: "fastReasoning", Label: "Fast model reasoning (MN_FAST_REASONING)", Type: "select",
+			Value:   os.Getenv("MN_FAST_REASONING"),
 			Options: reasoningSelectOptions("Inherit (turn effort)"),
 			Desc:    "Reasoning level for Fast-model rounds (adaptive/cheap-reads downshift, read-only sub-agents, goal judge). Inherit = the turn's computed effort. Persists."},
-		{Key: "sqeAuxModel", Label: "Self-review model (MOONY_AUX_MODEL)", Type: "select",
-			Value:   os.Getenv("MOONY_AUX_MODEL"),
+		{Key: "sqeAuxModel", Label: "Self-review model (MN_AUX_MODEL)", Type: "select",
+			Value:   os.Getenv("MN_AUX_MODEL"),
 			Options: auxModelSelectOptions(auxModels),
 			Desc:    "Model for self-review diffs, checkpoint distillation, goal-judge, and session titling — all tool-less 'quick answer' calls. 'Auto' falls back to Fast model, else the built-in Haiku default. Runtime override — resets on restart."},
-		{Key: "auxProvider", Label: "Self-review model provider (MOONY_AUX_PROVIDER)", Type: "select",
-			Value:   os.Getenv("MOONY_AUX_PROVIDER"),
+		{Key: "auxProvider", Label: "Self-review model provider (MN_AUX_PROVIDER)", Type: "select",
+			Value:   os.Getenv("MN_AUX_PROVIDER"),
 			Options: providerSelectOptions("Inherit (Fast provider, else session)"),
 			Desc:    "Provider for self-review / aux calls. Inherit falls back to the Fast model provider if set, else the session provider. Pick it, Save, then choose its model above. Persists."},
-		{Key: "auxReasoning", Label: "Self-review model reasoning (MOONY_AUX_REASONING)", Type: "select",
-			Value:   os.Getenv("MOONY_AUX_REASONING"),
+		{Key: "auxReasoning", Label: "Self-review model reasoning (MN_AUX_REASONING)", Type: "select",
+			Value:   os.Getenv("MN_AUX_REASONING"),
 			Options: reasoningSelectOptions("Default (off)"),
 			Desc:    "Reasoning for self-review / aux calls. Default is OFF (a quick answer); set a level to make these calls think. Does not inherit the Fast reasoning level. Persists."},
 	}
@@ -735,20 +735,20 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 	// restart. Default (no key set) auto-generates a local key.
 	fields = append(fields,
 		personaField{Key: "sqeSessionEncrypt", Label: "Session encryption mode", Type: "text",
-			Value: os.Getenv("MOONY_SESSION_ENCRYPT"),
-			Desc:  "MOONY_SESSION_ENCRYPT: auto (default, encrypt with auto/BYOK key) · required (refuse without a key) · off (plaintext). Takes effect on next restart."},
+			Value: os.Getenv("MN_SESSION_ENCRYPT"),
+			Desc:  "MN_SESSION_ENCRYPT: auto (default, encrypt with auto/BYOK key) · required (refuse without a key) · off (plaintext). Takes effect on next restart."},
 		personaField{Key: "sqeSessionKey", Label: "Session key (BYOK)", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_KEY")),
-			Desc: "MOONY_SESSION_KEY: your own 32-byte key (base64 or hex). Highest priority. Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MN_SESSION_KEY")) != "", Hint: lastFour(os.Getenv("MN_SESSION_KEY")),
+			Desc: "MN_SESSION_KEY: your own 32-byte key (base64 or hex). Highest priority. Restart to apply."},
 		personaField{Key: "sqeSessionKeyCmd", Label: "Session key command", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY_CMD")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_KEY_CMD")),
-			Desc: "MOONY_SESSION_KEY_CMD: shell command whose stdout is the key (KMS/Keychain/1Password/Vault). Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MN_SESSION_KEY_CMD")) != "", Hint: lastFour(os.Getenv("MN_SESSION_KEY_CMD")),
+			Desc: "MN_SESSION_KEY_CMD: shell command whose stdout is the key (KMS/Keychain/1Password/Vault). Restart to apply."},
 		personaField{Key: "sqeSessionKeyFile", Label: "Session key file", Type: "text",
-			Value: os.Getenv("MOONY_SESSION_KEY_FILE"),
-			Desc:  "MOONY_SESSION_KEY_FILE: path to a file containing the key. Restart to apply."},
+			Value: os.Getenv("MN_SESSION_KEY_FILE"),
+			Desc:  "MN_SESSION_KEY_FILE: path to a file containing the key. Restart to apply."},
 		personaField{Key: "sqeSessionPassphrase", Label: "Session passphrase", Type: "secret",
-			Set: strings.TrimSpace(os.Getenv("MOONY_SESSION_PASSPHRASE")) != "", Hint: lastFour(os.Getenv("MOONY_SESSION_PASSPHRASE")),
-			Desc: "MOONY_SESSION_PASSPHRASE: a passphrase stretched to a key via PBKDF2. Restart to apply."},
+			Set: strings.TrimSpace(os.Getenv("MN_SESSION_PASSPHRASE")) != "", Hint: lastFour(os.Getenv("MN_SESSION_PASSPHRASE")),
+			Desc: "MN_SESSION_PASSPHRASE: a passphrase stretched to a key via PBKDF2. Restart to apply."},
 	)
 	// Auto-discover credential env vars any MCP/tool declares or references, so
 	// personal tokens (GitHub, …) appear without hardcoding.
@@ -758,10 +758,10 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 
 // providerCredFields builds the Persona fields for each provider credential in
 // providerCreds: a masked secret field for the API key (current value read from
-// the live config field, which config.Load populated from MOONY_*_API_KEY or the
+// the live config field, which config.Load populated from MN_*_API_KEY or the
 // bare-name fallback — so a key already in the env shows as set with a last-4
 // hint), immediately followed by the plain base-URL override field where the
-// provider has one. The base-URL value is the current override (MOONY_*_BASE_URL,
+// provider has one. The base-URL value is the current override (MN_*_BASE_URL,
 // blank when unset — meaning the built-in default is used).
 func providerCredFields(c *config.Config) []personaField {
 	out := make([]personaField, 0, len(providerCreds)*2)
@@ -927,16 +927,16 @@ func fastModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 			opts = append(opts, personaSelectOption{Value: m.ID, Label: m.Name})
 		}
 	}
-	return ensurePinnedOption(opts, os.Getenv("MOONY_FAST_MODEL"))
+	return ensurePinnedOption(opts, os.Getenv("MN_FAST_MODEL"))
 }
 
 // auxModelSelectOptions builds the Self-review-model dropdown. The empty-value
 // entry means "auto", which resolves via config.AuxModel's own fallback chain:
-// MOONY_FAST_MODEL if set (matches the persisted Fast-model field's current
+// MN_FAST_MODEL if set (matches the persisted Fast-model field's current
 // value, read live so the label stays correct if that field is edited first),
 // else config.AuxDefaultModel (Haiku).
 func auxModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
-	fallbackID := strings.TrimSpace(os.Getenv("MOONY_FAST_MODEL"))
+	fallbackID := strings.TrimSpace(os.Getenv("MN_FAST_MODEL"))
 	if fallbackID == "" {
 		fallbackID = config.AuxDefaultModel
 	}
@@ -953,5 +953,5 @@ func auxModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 			opts = append(opts, personaSelectOption{Value: m.ID, Label: m.Name})
 		}
 	}
-	return ensurePinnedOption(opts, os.Getenv("MOONY_AUX_MODEL"))
+	return ensurePinnedOption(opts, os.Getenv("MN_AUX_MODEL"))
 }

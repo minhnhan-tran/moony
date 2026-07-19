@@ -15,11 +15,11 @@ type sandboxSetting struct {
 	network bool
 }
 
-// sandboxEnabledEnv reads MOONY_SANDBOX. It's the fallback used when the registry
+// sandboxEnabledEnv reads MN_SANDBOX. It's the fallback used when the registry
 // isn't explicitly configured (e.g. the standalone web server or tests).
 // Values on/1/true/yes/workdir enable it; anything else disables it.
 func sandboxEnabledEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_SANDBOX"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_SANDBOX"))) {
 	case "1", "on", "true", "yes", "workdir":
 		return true
 	}
@@ -27,9 +27,9 @@ func sandboxEnabledEnv() bool {
 }
 
 // sandboxNetworkEnv reports whether sandboxed commands may use the network.
-// Network is allowed by default; set MOONY_SANDBOX_NET=0 to deny it.
+// Network is allowed by default; set MN_SANDBOX_NET=0 to deny it.
 func sandboxNetworkEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_SANDBOX_NET"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_SANDBOX_NET"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

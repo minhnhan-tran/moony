@@ -32,7 +32,7 @@ func buildSystemPrompt(cfg *config.Config, registry *tools.Registry) string {
 
 	// A static, ignore-aware structural map of the repo so the model orients
 	// (where packages/entrypoints live) without globbing first. Recomputed on each
-	// prompt rebuild; no model call. Disable with MOONY_REPO_MAP=0.
+	// prompt rebuild; no model call. Disable with MN_REPO_MAP=0.
 	if cfg.RepoMap {
 		if m := registry.RepoMap(); m != "" {
 			b.WriteString(m)
@@ -41,7 +41,7 @@ func buildSystemPrompt(cfg *config.Config, registry *tools.Registry) string {
 	}
 
 	// A model-distilled, cross-session profile of the codebase (learned from prior
-	// sessions), framed as fallible orientation. Opt-in via MOONY_PROJECT_PROFILE;
+	// sessions), framed as fallible orientation. Opt-in via MN_PROJECT_PROFILE;
 	// see profile.go. Complements the mechanical RepoMap above and user-authored
 	// AGENTS.md below.
 	if cfg.ProjectProfile {
@@ -86,7 +86,7 @@ func buildSystemPrompt(cfg *config.Config, registry *tools.Registry) string {
 		b.WriteString("- For BROAD, read-heavy investigation — understanding how/where/why something works across SEVERAL files — prefer delegating to the read-only `explore` sub-agent via the task tool (run several in parallel for independent facets) and work from its summary, rather than reading many files into THIS conversation. The sub-agent reads in its own context and returns a focused answer with file:line refs, keeping this turn's context (and cost) small. Reserve direct read_file/grep for targeted look-ups and the files you're about to edit.\n")
 	}
 	if cfg.BatchContext {
-		// Opt-in (MOONY_BATCH_CONTEXT): the user wants context gathered in very few
+		// Opt-in (MN_BATCH_CONTEXT): the user wants context gathered in very few
 		// steps. Push hard on front-loading + parallelism so the turn doesn't
 		// dribble out one read per round.
 		b.WriteString("- CONTEXT BUDGET: gather everything you need within your FIRST 1–2 tool rounds. In your first response, fire off ALL the independent look-ups at once (multiple read_file/grep/glob/find_symbol calls in a single message — they run in parallel)")

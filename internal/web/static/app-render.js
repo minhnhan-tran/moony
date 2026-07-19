@@ -918,7 +918,7 @@ function providerLabel(id) {
 // renderProviderList turns the "/provider" command's raw "Model providers:"
 // text (fixed-width columns meant for a monospace terminal, which HTML
 // collapses into a run-on paragraph) into a scannable row list: an id pill,
-// the friendly label, and the description with any MOONY_* env var set as
+// the friendly label, and the description with any MN_* env var set as
 // inline code. `rest` is everything after the "Model providers:\n" header
 // line, including the trailing "(* = active. ...)" footer note.
 function renderProviderList(rest) {
@@ -939,7 +939,7 @@ function renderProviderList(rest) {
     if (label) row.appendChild(el("span", "msg-provider-label", label));
     if (active) row.appendChild(sym("checkmark.circle.fill", "msg-provider-check"));
     const descEl = el("span", "msg-provider-desc");
-    appendWithCode(descEl, desc, /MOONY_[A-Z0-9_]+/g);
+    appendWithCode(descEl, desc, /MN_[A-Z0-9_]+/g);
     row.appendChild(descEl);
     wrap.appendChild(row);
   }

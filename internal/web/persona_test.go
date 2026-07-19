@@ -100,23 +100,23 @@ func TestApplyPersonaEdit(t *testing.T) {
 }
 
 // TestApplyPersonaEditAuxModel verifies the Self-review model persona field
-// sets MOONY_AUX_MODEL and remembers the choice as an explicit persona override
+// sets MN_AUX_MODEL and remembers the choice as an explicit persona override
 // (AuxModelPersona), mirroring the existing Fast-model field's behavior.
 func TestApplyPersonaEditAuxModel(t *testing.T) {
-	defer os.Unsetenv("MOONY_AUX_MODEL")
+	defer os.Unsetenv("MN_AUX_MODEL")
 	c := &config.Config{}
 
 	applyPersonaEdit(c, personaEdit{SqeAuxModel: strptr("anthropic.claude-sonnet-5")})
-	if got := os.Getenv("MOONY_AUX_MODEL"); got != "anthropic.claude-sonnet-5" {
-		t.Errorf("MOONY_AUX_MODEL = %q, want the pinned model", got)
+	if got := os.Getenv("MN_AUX_MODEL"); got != "anthropic.claude-sonnet-5" {
+		t.Errorf("MN_AUX_MODEL = %q, want the pinned model", got)
 	}
 	if c.AuxModelPersona == nil || *c.AuxModelPersona != "anthropic.claude-sonnet-5" {
 		t.Errorf("AuxModelPersona = %v, want pinned model remembered", c.AuxModelPersona)
 	}
 
 	applyPersonaEdit(c, personaEdit{SqeAuxModel: strptr("")}) // back to Auto
-	if got := os.Getenv("MOONY_AUX_MODEL"); got != "" {
-		t.Errorf("MOONY_AUX_MODEL after clearing = %q, want unset", got)
+	if got := os.Getenv("MN_AUX_MODEL"); got != "" {
+		t.Errorf("MN_AUX_MODEL after clearing = %q, want unset", got)
 	}
 	if c.AuxModelPersona == nil || *c.AuxModelPersona != "" {
 		t.Errorf("AuxModelPersona after clearing = %v, want empty string (explicit auto)", c.AuxModelPersona)
@@ -153,7 +153,7 @@ func TestPersonaFieldsIncludesAuxModel(t *testing.T) {
 // provider/reasoning selects set their env var + persona pointer, and that
 // posting "" (Inherit) unsets them.
 func TestApplyPersonaEditFastAuxProviderReasoning(t *testing.T) {
-	for _, k := range []string{"MOONY_FAST_PROVIDER", "MOONY_FAST_REASONING", "MOONY_AUX_PROVIDER", "MOONY_AUX_REASONING"} {
+	for _, k := range []string{"MN_FAST_PROVIDER", "MN_FAST_REASONING", "MN_AUX_PROVIDER", "MN_AUX_REASONING"} {
 		defer os.Unsetenv(k)
 	}
 	c := &config.Config{}
@@ -167,10 +167,10 @@ func TestApplyPersonaEditFastAuxProviderReasoning(t *testing.T) {
 		env, want string
 		persona   *string
 	}{
-		{"MOONY_FAST_PROVIDER", "anthropic", c.FastProviderPersona},
-		{"MOONY_FAST_REASONING", "high", c.FastReasoningPersona},
-		{"MOONY_AUX_PROVIDER", "openai", c.AuxProviderPersona},
-		{"MOONY_AUX_REASONING", "low", c.AuxReasoningPersona},
+		{"MN_FAST_PROVIDER", "anthropic", c.FastProviderPersona},
+		{"MN_FAST_REASONING", "high", c.FastReasoningPersona},
+		{"MN_AUX_PROVIDER", "openai", c.AuxProviderPersona},
+		{"MN_AUX_REASONING", "low", c.AuxReasoningPersona},
 	}
 	for _, ch := range checks {
 		if got := os.Getenv(ch.env); got != ch.want {
@@ -198,7 +198,7 @@ func TestApplyPersonaEditFastAuxProviderReasoning(t *testing.T) {
 // are present, each a "select" whose first option is the empty inherit sentinel,
 // and that the provider selects list every registered provider.
 func TestPersonaFieldsIncludesProviderReasoning(t *testing.T) {
-	for _, k := range []string{"MOONY_FAST_PROVIDER", "MOONY_FAST_REASONING", "MOONY_AUX_PROVIDER", "MOONY_AUX_REASONING"} {
+	for _, k := range []string{"MN_FAST_PROVIDER", "MN_FAST_REASONING", "MN_AUX_PROVIDER", "MN_AUX_REASONING"} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
 	}
@@ -230,7 +230,7 @@ func TestPersonaFieldsIncludesProviderReasoning(t *testing.T) {
 // catalog (e.g. a cross-provider model) is injected as a selectable option so it
 // round-trips instead of being reset to option 0.
 func TestFastModelSelectOptionsInjectsPinned(t *testing.T) {
-	t.Setenv("MOONY_FAST_MODEL", "acme/cross-provider-model")
+	t.Setenv("MN_FAST_MODEL", "acme/cross-provider-model")
 	opts := fastModelSelectOptions([]config.ModelInfo{{ID: "a", Name: "A"}, {ID: "b", Name: "B"}})
 	var found bool
 	for _, o := range opts {
@@ -244,11 +244,11 @@ func TestFastModelSelectOptionsInjectsPinned(t *testing.T) {
 }
 
 func TestPersonaSessionEncryptionFields(t *testing.T) {
-	for _, k := range []string{"MOONY_SESSION_ENCRYPT", "MOONY_SESSION_KEY", "MOONY_SESSION_KEY_CMD", "MOONY_SESSION_KEY_FILE", "MOONY_SESSION_PASSPHRASE"} {
+	for _, k := range []string{"MN_SESSION_ENCRYPT", "MN_SESSION_KEY", "MN_SESSION_KEY_CMD", "MN_SESSION_KEY_FILE", "MN_SESSION_PASSPHRASE"} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
 	}
-	// The five MOONY_SESSION_* fields are surfaced, with the right secret/text types.
+	// The five MN_SESSION_* fields are surfaced, with the right secret/text types.
 	sm := config.AllKnownModels()
 	fields := personaFields(&config.Config{}, sm, sm, sm)
 	byKey := map[string]personaField{}
@@ -270,19 +270,19 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 	}
 
 	// Edits push into the env: plain applies as-is, secret keeps existing when blank.
-	os.Setenv("MOONY_SESSION_KEY", "existing-secret")
+	os.Setenv("MN_SESSION_KEY", "existing-secret")
 	applyPersonaEdit(&config.Config{}, personaEdit{
 		SessionEncrypt: strptr("required"),
 		SessionKeyFile: strptr("/tmp/k.key"),
 		SessionKey:     strptr(""), // blank → keep existing
 	})
-	if got := os.Getenv("MOONY_SESSION_ENCRYPT"); got != "required" {
-		t.Errorf("MOONY_SESSION_ENCRYPT = %q, want required", got)
+	if got := os.Getenv("MN_SESSION_ENCRYPT"); got != "required" {
+		t.Errorf("MN_SESSION_ENCRYPT = %q, want required", got)
 	}
-	if got := os.Getenv("MOONY_SESSION_KEY_FILE"); got != "/tmp/k.key" {
-		t.Errorf("MOONY_SESSION_KEY_FILE = %q", got)
+	if got := os.Getenv("MN_SESSION_KEY_FILE"); got != "/tmp/k.key" {
+		t.Errorf("MN_SESSION_KEY_FILE = %q", got)
 	}
-	if got := os.Getenv("MOONY_SESSION_KEY"); got != "existing-secret" {
+	if got := os.Getenv("MN_SESSION_KEY"); got != "existing-secret" {
 		t.Errorf("blank secret should keep existing, got %q", got)
 	}
 
@@ -291,10 +291,10 @@ func TestPersonaSessionEncryptionFields(t *testing.T) {
 		SessionKey:     strptr("new-secret"),
 		SessionKeyFile: strptr(""),
 	})
-	if got := os.Getenv("MOONY_SESSION_KEY"); got != "new-secret" {
+	if got := os.Getenv("MN_SESSION_KEY"); got != "new-secret" {
 		t.Errorf("non-empty secret should replace, got %q", got)
 	}
-	if got := os.Getenv("MOONY_SESSION_KEY_FILE"); got != "" {
+	if got := os.Getenv("MN_SESSION_KEY_FILE"); got != "" {
 		t.Errorf("blanked plain field should clear, got %q", got)
 	}
 }
@@ -371,16 +371,16 @@ func TestApplyPersonaEditProviderKeys(t *testing.T) {
 		OllamaToken:   strptr("ollama-bearer"),
 		OpenAIBaseURL: strptr("https://proxy.local/v1"),
 	})
-	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
-		t.Errorf("MOONY_OPENAI_API_KEY = %q, want sk-openai-xyz", got)
+	if got := os.Getenv("MN_OPENAI_API_KEY"); got != "sk-openai-xyz" {
+		t.Errorf("MN_OPENAI_API_KEY = %q, want sk-openai-xyz", got)
 	}
 	if c.OpenAIAPIKey != "sk-openai-xyz" {
 		t.Errorf("c.OpenAIAPIKey = %q, want live update sk-openai-xyz", c.OpenAIAPIKey)
 	}
-	if got := os.Getenv("MOONY_OLLAMA_TOKEN"); got != "ollama-bearer" || c.OllamaToken != "ollama-bearer" {
+	if got := os.Getenv("MN_OLLAMA_TOKEN"); got != "ollama-bearer" || c.OllamaToken != "ollama-bearer" {
 		t.Errorf("ollama token env=%q field=%q, want ollama-bearer", got, c.OllamaToken)
 	}
-	if got := os.Getenv("MOONY_OPENAI_BASE_URL"); got != "https://proxy.local/v1" || c.OpenAIBaseURL != "https://proxy.local/v1" {
+	if got := os.Getenv("MN_OPENAI_BASE_URL"); got != "https://proxy.local/v1" || c.OpenAIBaseURL != "https://proxy.local/v1" {
 		t.Errorf("openai base env=%q field=%q, want https://proxy.local/v1", got, c.OpenAIBaseURL)
 	}
 
@@ -389,13 +389,13 @@ func TestApplyPersonaEditProviderKeys(t *testing.T) {
 		OpenAIAPIKey:  strptr(""),
 		OpenAIBaseURL: strptr(""),
 	})
-	if got := os.Getenv("MOONY_OPENAI_API_KEY"); got != "sk-openai-xyz" {
+	if got := os.Getenv("MN_OPENAI_API_KEY"); got != "sk-openai-xyz" {
 		t.Errorf("blank secret cleared env, got %q", got)
 	}
 	if c.OpenAIAPIKey != "sk-openai-xyz" {
 		t.Errorf("blank secret cleared config field, got %q", c.OpenAIAPIKey)
 	}
-	if got := os.Getenv("MOONY_OPENAI_BASE_URL"); got != "" {
+	if got := os.Getenv("MN_OPENAI_BASE_URL"); got != "" {
 		t.Errorf("blank base-URL should unset env, got %q", got)
 	}
 	if c.OpenAIBaseURL != "" {
@@ -426,20 +426,20 @@ func TestProviderEnvPersist(t *testing.T) {
 		OpenAIBaseURL:   strptr("https://proxy/v1"),
 		GroqBaseURL:     strptr(""), // submitted-but-empty → delete override
 	})
-	if up["MOONY_OPENAI_API_KEY"] != "sk-openai" {
-		t.Errorf("openai key = %q, want sk-openai", up["MOONY_OPENAI_API_KEY"])
+	if up["MN_OPENAI_API_KEY"] != "sk-openai" {
+		t.Errorf("openai key = %q, want sk-openai", up["MN_OPENAI_API_KEY"])
 	}
-	if _, ok := up["MOONY_ANTHROPIC_API_KEY"]; ok {
+	if _, ok := up["MN_ANTHROPIC_API_KEY"]; ok {
 		t.Error("blank key must not be persisted (keeps existing)")
 	}
-	if up["MOONY_OPENAI_BASE_URL"] != "https://proxy/v1" {
-		t.Errorf("openai base = %q, want https://proxy/v1", up["MOONY_OPENAI_BASE_URL"])
+	if up["MN_OPENAI_BASE_URL"] != "https://proxy/v1" {
+		t.Errorf("openai base = %q, want https://proxy/v1", up["MN_OPENAI_BASE_URL"])
 	}
-	if v, ok := up["MOONY_GROQ_BASE_URL"]; !ok || v != "" {
+	if v, ok := up["MN_GROQ_BASE_URL"]; !ok || v != "" {
 		t.Errorf("blanked base URL must map to \"\" (delete), got %q ok=%v", v, ok)
 	}
 	// Untouched providers contribute nothing.
-	if _, ok := up["MOONY_XAI_API_KEY"]; ok {
+	if _, ok := up["MN_XAI_API_KEY"]; ok {
 		t.Error("untouched provider must not appear")
 	}
 }

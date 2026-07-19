@@ -17,14 +17,14 @@ func withTestLedger(t *testing.T) string {
 }
 
 func TestDailyMonthlyBudgetEnv(t *testing.T) {
-	t.Setenv("MOONY_DAILY_BUDGET", "")
-	t.Setenv("MOONY_MONTHLY_BUDGET", "")
+	t.Setenv("MN_DAILY_BUDGET", "")
+	t.Setenv("MN_MONTHLY_BUDGET", "")
 	if DailyBudget() != 0 || MonthlyBudget() != 0 {
 		t.Error("unset env vars should disable both budgets (0)")
 	}
 
-	t.Setenv("MOONY_DAILY_BUDGET", "5.50")
-	t.Setenv("MOONY_MONTHLY_BUDGET", "not-a-number")
+	t.Setenv("MN_DAILY_BUDGET", "5.50")
+	t.Setenv("MN_MONTHLY_BUDGET", "not-a-number")
 	if got := DailyBudget(); got != 5.50 {
 		t.Errorf("DailyBudget = %v, want 5.50", got)
 	}
@@ -32,7 +32,7 @@ func TestDailyMonthlyBudgetEnv(t *testing.T) {
 		t.Errorf("MonthlyBudget with garbage value = %v, want 0 (disabled)", got)
 	}
 
-	t.Setenv("MOONY_DAILY_BUDGET", "-1")
+	t.Setenv("MN_DAILY_BUDGET", "-1")
 	if got := DailyBudget(); got != 0 {
 		t.Errorf("negative budget = %v, want 0 (disabled)", got)
 	}

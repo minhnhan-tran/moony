@@ -11,7 +11,7 @@ import (
 
 func findSymbolReg(t *testing.T, files map[string]string) *findSymbolTool {
 	t.Helper()
-	t.Setenv("MOONY_RG", "0") // force the pure-Go scanner for determinism
+	t.Setenv("MN_RG", "0") // force the pure-Go scanner for determinism
 	dir := t.TempDir()
 	for name, content := range files {
 		p := filepath.Join(dir, name)

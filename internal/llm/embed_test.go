@@ -97,7 +97,7 @@ func TestEmbedRemoteProviderMissingAPIKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a missing API key")
 	}
-	if !strings.Contains(err.Error(), "MOONY_GROQ_API_KEY") {
+	if !strings.Contains(err.Error(), "MN_GROQ_API_KEY") {
 		t.Errorf("error should name the missing key env var, got: %v", err)
 	}
 }

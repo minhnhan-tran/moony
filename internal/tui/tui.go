@@ -3037,7 +3037,7 @@ func (m *Model) resize(w, h int) {
 		m.viewport = viewport.New(mainW, vpH)
 		// Default of 3 lines/notch feels jumpy on a trackpad (which sends many
 		// wheel events per scroll). 1 is too sluggish for a notched mouse, so
-		// 2 is the smoothness sweet spot. Override with MOONY_WHEEL_DELTA.
+		// 2 is the smoothness sweet spot. Override with MN_WHEEL_DELTA.
 		m.viewport.MouseWheelDelta = mouseWheelDelta()
 		m.ready = true
 	} else {
@@ -3192,7 +3192,7 @@ func helpText() string {
 	b.WriteString("  ctrl+u / ctrl+d   scroll half a page\n")
 	b.WriteString("  ctrl+c            quit\n")
 	b.WriteString("\nCopy: use /copy or ctrl+y to copy the last response, or hold ⌥ Option and drag to select.")
-	b.WriteString(" Set MOONY_MOUSE=0 to disable mouse capture (native selection; keyboard scroll only).")
+	b.WriteString(" Set MN_MOUSE=0 to disable mouse capture (native selection; keyboard scroll only).")
 	b.WriteString("\nApprovals: before bash/write/edit run, press y approve · n deny · a always allow that tool (saved to project /permissions)")
 	b.WriteString("\nMemory: /memory shows notes; /memory <note> or a line starting with # saves one to AGENTS.md (the model can also save via its remember tool)")
 	b.WriteString("\nGoal: /goal <description> sets a stop condition; the agent keeps working until an independent judge model confirms it's met. /goal clear removes it.")
@@ -3283,7 +3283,7 @@ func (m Model) openSkillsMenu() (tea.Model, tea.Cmd) {
 		items = append(items, menuItem{label: e.Name, desc: "install · " + e.Description, value: e.Name, install: true})
 	}
 	if len(items) == 0 {
-		m.trans.add(entry{kind: entryInfo, text: "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MOONY_SKILLS=0 disables discovery)."})
+		m.trans.add(entry{kind: entryInfo, text: "No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MN_SKILLS=0 disables discovery)."})
 		m.refresh()
 		return m, nil
 	}
@@ -3341,7 +3341,7 @@ func (m Model) openMcpsMenu() (tea.Model, tea.Cmd) {
 		items = append(items, menuItem{label: e.Name, desc: desc, value: e.Name, install: true})
 	}
 	if len(items) == 0 {
-		m.trans.add(entry{kind: entryInfo, text: "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MOONY_MCP_CLAUDE=0 disables)."})
+		m.trans.add(entry{kind: entryInfo, text: "No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MN_MCP_CLAUDE=0 disables)."})
 		m.refresh()
 		return m, nil
 	}
@@ -3763,7 +3763,7 @@ func (m Model) publishSkillsMenu() {
 	mgmt := manage.Load(m.cfg.WorkingDir)
 	found := skills.Load(m.cfg.WorkingDir)
 	if len(found) == 0 {
-		m.publishInfo("No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MOONY_SKILLS=0 disables discovery).")
+		m.publishInfo("No skills found. Add one with /skills new <name>, or place a SKILL.md under ~/.claude/skills or .claude/skills (MN_SKILLS=0 disables discovery).")
 		return
 	}
 	out := make([]bridge.MenuItem, 0, len(found))
@@ -3779,7 +3779,7 @@ func (m Model) publishMcpsMenu() {
 	mgmt := manage.Load(m.cfg.WorkingDir)
 	cfgs, _ := mcp.LoadConfigs(m.cfg.WorkingDir)
 	if len(cfgs) == 0 {
-		m.publishInfo("No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MOONY_MCP_CLAUDE=0 disables).")
+		m.publishInfo("No MCP servers configured. Add one with /mcps add <name> -- <cmd> [args] (or <name> <url>), or via your Claude config (auto-discovered; MN_MCP_CLAUDE=0 disables).")
 		return
 	}
 	connected := map[string]mcp.ServerInfo{}

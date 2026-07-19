@@ -22,12 +22,12 @@ import (
 // 0o600 key file next to the sessions dir, so encryption "just works" locally.
 // Users can Bring Their Own Key via, in priority order:
 //
-//	MOONY_SESSION_KEY         base64 or hex 32-byte key (key never touches disk)
-//	MOONY_SESSION_KEY_CMD     shell command whose stdout is the key (KMS/keychain/1Password/Vault…)
-//	MOONY_SESSION_KEY_FILE    path to a file containing the key
-//	MOONY_SESSION_PASSPHRASE  a passphrase, stretched to a key via PBKDF2-SHA256 + a stored salt
+//	MN_SESSION_KEY         base64 or hex 32-byte key (key never touches disk)
+//	MN_SESSION_KEY_CMD     shell command whose stdout is the key (KMS/keychain/1Password/Vault…)
+//	MN_SESSION_KEY_FILE    path to a file containing the key
+//	MN_SESSION_PASSPHRASE  a passphrase, stretched to a key via PBKDF2-SHA256 + a stored salt
 //
-// MOONY_SESSION_ENCRYPT controls the mode:
+// MN_SESSION_ENCRYPT controls the mode:
 //
 //	""/"auto" (default)  encrypt with the resolved/auto key; read legacy plaintext transparently
 //	"required"           refuse to start if no key can be resolved (never silently plaintext)
@@ -55,7 +55,7 @@ var errNoKey = errors.New("no session encryption key configured")
 
 // cryptoConfig is the resolved encryption state for a Store.
 type cryptoConfig struct {
-	enabled bool   // false => write plaintext (MOONY_SESSION_ENCRYPT=off)
+	enabled bool   // false => write plaintext (MN_SESSION_ENCRYPT=off)
 	key     []byte // 32 bytes when enabled
 	keyID   [encKeyIDLen]byte
 }
@@ -74,7 +74,7 @@ func keyFingerprint(key []byte) [encKeyIDLen]byte {
 // It never returns a partially-initialized config: on any hard error it returns
 // (nil, err) and the caller should refuse to open the store.
 func resolveCrypto(dir string) (*cryptoConfig, error) {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_SESSION_ENCRYPT")))
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MN_SESSION_ENCRYPT")))
 	if mode == "off" {
 		return &cryptoConfig{enabled: false}, nil
 	}
@@ -85,7 +85,7 @@ func resolveCrypto(dir string) (*cryptoConfig, error) {
 		// got a BYOK key
 	case errors.Is(err, errNoKey):
 		if mode == "required" {
-			return nil, fmt.Errorf("MOONY_SESSION_ENCRYPT=required but %w (set MOONY_SESSION_KEY / _KEY_CMD / _KEY_FILE / _PASSPHRASE)", errNoKey)
+			return nil, fmt.Errorf("MN_SESSION_ENCRYPT=required but %w (set MN_SESSION_KEY / _KEY_CMD / _KEY_FILE / _PASSPHRASE)", errNoKey)
 		}
 		// auto (default): generate/load a local key file so encryption is on by default.
 		key, err = loadOrCreateKeyFile(filepath.Join(dir, keyFileName))
@@ -105,43 +105,43 @@ func resolveCrypto(dir string) (*cryptoConfig, error) {
 // resolveBYOKKey tries each user-supplied key source in priority order. It
 // returns errNoKey (wrapped) when none is set, so the caller can fall back.
 func resolveBYOKKey(dir string) ([]byte, error) {
-	if v := strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_SESSION_KEY")); v != "" {
 		key, err := decodeKey(v)
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_KEY: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_KEY: %w", err)
 		}
 		return key, nil
 	}
-	if cmd := strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY_CMD")); cmd != "" {
+	if cmd := strings.TrimSpace(os.Getenv("MN_SESSION_KEY_CMD")); cmd != "" {
 		out, err := exec.Command("sh", "-c", cmd).Output()
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_KEY_CMD failed: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_KEY_CMD failed: %w", err)
 		}
 		key, err := decodeKey(strings.TrimSpace(string(out)))
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_KEY_CMD output: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_KEY_CMD output: %w", err)
 		}
 		return key, nil
 	}
-	if p := strings.TrimSpace(os.Getenv("MOONY_SESSION_KEY_FILE")); p != "" {
+	if p := strings.TrimSpace(os.Getenv("MN_SESSION_KEY_FILE")); p != "" {
 		data, err := os.ReadFile(p)
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_KEY_FILE: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_KEY_FILE: %w", err)
 		}
 		key, err := decodeKey(strings.TrimSpace(string(data)))
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_KEY_FILE %q: %w", p, err)
+			return nil, fmt.Errorf("MN_SESSION_KEY_FILE %q: %w", p, err)
 		}
 		return key, nil
 	}
-	if pass := os.Getenv("MOONY_SESSION_PASSPHRASE"); strings.TrimSpace(pass) != "" {
+	if pass := os.Getenv("MN_SESSION_PASSPHRASE"); strings.TrimSpace(pass) != "" {
 		salt, err := loadOrCreateSalt(filepath.Join(dir, saltFileName))
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_PASSPHRASE: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_PASSPHRASE: %w", err)
 		}
 		key, err := pbkdf2.Key(sha256.New, pass, salt, pbkdf2Iters, encKeyLen)
 		if err != nil {
-			return nil, fmt.Errorf("MOONY_SESSION_PASSPHRASE kdf: %w", err)
+			return nil, fmt.Errorf("MN_SESSION_PASSPHRASE kdf: %w", err)
 		}
 		return key, nil
 	}

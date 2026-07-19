@@ -126,13 +126,13 @@ func TestRecordTurnMetaUsesServingModelOnDownshift(t *testing.T) {
 
 // TestRecordTurnMetaUsesFastReasoningOnDownshift is the reasoning-level analogue
 // of TestRecordTurnMetaUsesServingModelOnDownshift: when AdaptiveModel
-// downshifts a round to the Fast tier and MOONY_FAST_REASONING pins a distinct
+// downshifts a round to the Fast tier and MN_FAST_REASONING pins a distinct
 // level, the per-turn footer must report the Fast tier's reasoning (what
 // actually ran), not the session model's configured level.
 func TestRecordTurnMetaUsesFastReasoningOnDownshift(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("MOONY_FAST_MODEL", "test-fast-model")
-	t.Setenv("MOONY_FAST_REASONING", "low")
+	t.Setenv("MN_FAST_MODEL", "test-fast-model")
+	t.Setenv("MN_FAST_REASONING", "low")
 	dir := t.TempDir()
 	store, err := session.NewStoreAt(t.TempDir())
 	if err != nil {

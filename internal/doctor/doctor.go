@@ -166,7 +166,7 @@ func checkOllama(ctx context.Context, r *Report, cfg *config.Config, tokenFn fun
 		d := net.Dialer{}
 		conn, err := d.DialContext(ctx, "tcp", host)
 		if err != nil {
-			r.add("ollama", StatusFail, "cannot reach "+host+": "+oneLine(err.Error())+" (set MOONY_OLLAMA_HOST)")
+			r.add("ollama", StatusFail, "cannot reach "+host+": "+oneLine(err.Error())+" (set MN_OLLAMA_HOST)")
 		} else {
 			_ = conn.Close()
 			r.add("ollama", StatusOK, "reachable ("+host+")")
@@ -426,9 +426,9 @@ func checkSandbox(r *Report, cfg *config.Config) {
 // checkNetrc reports whether ~/.netrc Bearer auth for web_fetch/batch_web_fetch
 // is active and how many hosts it covers.
 func checkNetrc(r *Report) {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_NETRC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_NETRC"))) {
 	case "0", "off", "false", "no":
-		r.add("netrc", StatusOK, "disabled via MOONY_NETRC — web_fetch sends no Bearer auth")
+		r.add("netrc", StatusOK, "disabled via MN_NETRC — web_fetch sends no Bearer auth")
 		return
 	}
 	path := netrc.Path()

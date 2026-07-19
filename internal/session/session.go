@@ -207,7 +207,7 @@ func newID(now time.Time) string {
 type Store struct {
 	dir string
 	// crypto is the resolved encryption state (never nil after NewStoreAt). When
-	// disabled (MOONY_SESSION_ENCRYPT=off) Save writes plaintext; Load always reads
+	// disabled (MN_SESSION_ENCRYPT=off) Save writes plaintext; Load always reads
 	// legacy plaintext transparently regardless of mode.
 	crypto *cryptoConfig
 }
@@ -276,7 +276,7 @@ func (s *Store) Load(id string) (*Session, error) {
 	// JSON and is read as-is (transparent migration: it re-saves encrypted).
 	if isEncrypted(data) {
 		if s.crypto == nil || !s.crypto.enabled {
-			return nil, fmt.Errorf("session %s is encrypted but encryption is disabled (unset MOONY_SESSION_ENCRYPT=off / provide the key)", id)
+			return nil, fmt.Errorf("session %s is encrypted but encryption is disabled (unset MN_SESSION_ENCRYPT=off / provide the key)", id)
 		}
 		data, err = s.crypto.decrypt(data)
 		if err != nil {

@@ -202,21 +202,21 @@ func TestStreamOllamaSendsKeepAlive(t *testing.T) {
 	}
 }
 
-// TestOllamaNumCtx covers the MOONY_OLLAMA_NUM_CTX override and its default.
+// TestOllamaNumCtx covers the MN_OLLAMA_NUM_CTX override and its default.
 func TestOllamaNumCtx(t *testing.T) {
-	t.Setenv("MOONY_OLLAMA_NUM_CTX", "")
+	t.Setenv("MN_OLLAMA_NUM_CTX", "")
 	if got := ollamaNumCtx(); got != 32768 {
 		t.Errorf("default num_ctx = %d, want 32768", got)
 	}
-	t.Setenv("MOONY_OLLAMA_NUM_CTX", "8192")
+	t.Setenv("MN_OLLAMA_NUM_CTX", "8192")
 	if got := ollamaNumCtx(); got != 8192 {
 		t.Errorf("override num_ctx = %d, want 8192", got)
 	}
-	t.Setenv("MOONY_OLLAMA_NUM_CTX", "0") // 0 → omit the option, inherit the server's context
+	t.Setenv("MN_OLLAMA_NUM_CTX", "0") // 0 → omit the option, inherit the server's context
 	if got := ollamaNumCtx(); got != 0 {
 		t.Errorf("num_ctx=0 = %d, want 0 (omit)", got)
 	}
-	t.Setenv("MOONY_OLLAMA_NUM_CTX", "garbage") // invalid → fall back to default
+	t.Setenv("MN_OLLAMA_NUM_CTX", "garbage") // invalid → fall back to default
 	if got := ollamaNumCtx(); got != 32768 {
 		t.Errorf("invalid num_ctx = %d, want the default 32768", got)
 	}

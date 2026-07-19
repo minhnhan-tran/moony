@@ -9,7 +9,7 @@
 //   - ~/.agents/skills/<name>/SKILL.md       (shared agents dir)
 //   - ./.claude/skills/<name>/SKILL.md       (project)
 //
-// Set MOONY_SKILLS=0 to disable discovery.
+// Set MN_SKILLS=0 to disable discovery.
 package skills
 
 import (
@@ -114,10 +114,10 @@ func Load(workingDir string) []Skill {
 	return out
 }
 
-// enabled reports whether skill discovery is on (default). MOONY_SKILLS=0/off/
+// enabled reports whether skill discovery is on (default). MN_SKILLS=0/off/
 // false/no disables it.
 func enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_SKILLS"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_SKILLS"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

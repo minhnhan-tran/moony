@@ -6,8 +6,8 @@ package llm
 // moony must raise so its large system prompt + tool schemas don't overflow the
 // model's default context. The request/response wire shapes and NDJSON stream
 // parser live in ollama_native.go. Config: the base URL (config.OllamaBaseURL,
-// from MOONY_OLLAMA_HOST / OLLAMA_HOST; its "/v1" suffix is stripped for the
-// native path) and an optional bearer token via MOONY_OLLAMA_TOKEN.
+// from MN_OLLAMA_HOST / OLLAMA_HOST; its "/v1" suffix is stripped for the
+// native path) and an optional bearer token via MN_OLLAMA_TOKEN.
 //
 // Tool-name translation to a wire-safe form is handled by the caller
 // (StreamMessages), so this file deals only in already-translated names.
@@ -83,10 +83,10 @@ type ollamaOptions struct {
 const defaultOllamaNumCtx = 32768
 
 // ollamaNumCtx is the context window sent as options.num_ctx. Override with
-// MOONY_OLLAMA_NUM_CTX; set it to 0 to omit the option and inherit whatever
+// MN_OLLAMA_NUM_CTX; set it to 0 to omit the option and inherit whatever
 // context the server already loaded the model with.
 func ollamaNumCtx() int {
-	if v := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_NUM_CTX")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_OLLAMA_NUM_CTX")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			return n
 		}
@@ -95,9 +95,9 @@ func ollamaNumCtx() int {
 }
 
 // ollamaKeepAlive is how long the server should keep the model loaded after a
-// request. Overridable via MOONY_OLLAMA_KEEP_ALIVE (e.g. "60m", "-1" for forever).
+// request. Overridable via MN_OLLAMA_KEEP_ALIVE (e.g. "60m", "-1" for forever).
 func ollamaKeepAlive() string {
-	if v := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_KEEP_ALIVE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_OLLAMA_KEEP_ALIVE")); v != "" {
 		return v
 	}
 	return "30m"
@@ -145,7 +145,7 @@ func (c *Client) streamOllama(ctx context.Context, system string, messages []Mes
 
 // newOllamaRequest builds a streaming POST to the Ollama server. Unlike the
 // hosted-provider routes it uses no provider auth; an optional bearer
-// token (MOONY_OLLAMA_TOKEN) is sent when set, for servers behind a proxy.
+// token (MN_OLLAMA_TOKEN) is sent when set, for servers behind a proxy.
 func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(raw)))
 	if err != nil {
@@ -154,7 +154,7 @@ func (c *Client) newOllamaRequest(ctx context.Context, url string, raw []byte) (
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/x-ndjson") // native /api/chat streams NDJSON, not SSE
 	req.Header.Set("User-Agent", userAgent())
-	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MN_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	return req, nil
@@ -177,7 +177,7 @@ func (c *Client) listOllamaModels(ctx context.Context) ([]config.ModelInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MN_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.http.Do(req)
@@ -218,7 +218,7 @@ func (c *Client) listOllamaModels(ctx context.Context) ([]config.ModelInfo, erro
 // finish a turn within any reasonable timeout.
 func (c *Client) checkOllamaAuth(ctx context.Context) error {
 	if _, err := c.listOllamaModels(ctx); err != nil {
-		return fmt.Errorf("cannot reach the Ollama server at %s — set MOONY_OLLAMA_HOST to your server (e.g. http://host:11434): %w",
+		return fmt.Errorf("cannot reach the Ollama server at %s — set MN_OLLAMA_HOST to your server (e.g. http://host:11434): %w",
 			strings.TrimSuffix(c.ollamaBaseURL(), "/v1"), err)
 	}
 	if msg := c.ollamaLoadWarning(ctx); msg != "" {
@@ -254,7 +254,7 @@ func (c *Client) ollamaPS(ctx context.Context) ([]ollamaPSModel, bool) {
 	if err != nil {
 		return nil, false
 	}
-	if tok := strings.TrimSpace(os.Getenv("MOONY_OLLAMA_TOKEN")); tok != "" {
+	if tok := strings.TrimSpace(os.Getenv("MN_OLLAMA_TOKEN")); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.http.Do(req)

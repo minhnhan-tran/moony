@@ -21,7 +21,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // serve installs an httpClient that answers from routes (path -> body), 404s the
-// rest, and restores the client + sets MOONY_UPDATE_URL for the test.
+// rest, and restores the client + sets MN_UPDATE_URL for the test.
 func serve(t *testing.T, routes map[string]string) {
 	t.Helper()
 	old := httpClient
@@ -38,7 +38,7 @@ func serve(t *testing.T, routes map[string]string) {
 		}, nil
 	})}
 	t.Cleanup(func() { httpClient = old })
-	t.Setenv("MOONY_UPDATE_URL", "https://relay.test")
+	t.Setenv("MN_UPDATE_URL", "https://relay.test")
 }
 
 func TestAssetName(t *testing.T) {
@@ -143,15 +143,15 @@ func TestApplyFailsWithoutChecksumEntry(t *testing.T) {
 }
 
 func TestBaseURLValidation(t *testing.T) {
-	t.Setenv("MOONY_UPDATE_URL", "")
+	t.Setenv("MN_UPDATE_URL", "")
 	if _, err := baseURL(); err == nil {
 		t.Error("unset update URL must disable self-update (error)")
 	}
-	t.Setenv("MOONY_UPDATE_URL", "http://insecure.test")
+	t.Setenv("MN_UPDATE_URL", "http://insecure.test")
 	if _, err := baseURL(); err == nil {
 		t.Error("http:// update URL must be rejected")
 	}
-	t.Setenv("MOONY_UPDATE_URL", "https://ok.test/")
+	t.Setenv("MN_UPDATE_URL", "https://ok.test/")
 	if got, err := baseURL(); err != nil || got != "https://ok.test" {
 		t.Errorf("baseURL() = %q, %v; want trimmed https URL", got, err)
 	}

@@ -85,9 +85,9 @@ func markdownStyle() string {
 }
 
 // soundEnabled reports whether the turn-complete chime should play. On by
-// default; disable with MOONY_SOUND=0 (or off/false/no).
+// default; disable with MN_SOUND=0 (or off/false/no).
 func soundEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_SOUND"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_SOUND"))) {
 	case "0", "off", "false", "no":
 		return false
 	}
@@ -184,10 +184,10 @@ func digitKey(s string) int {
 // formatUSD formats a dollar amount with adaptive precision: cents for
 // sub-dollar values, two decimals up to $99.99, then whole dollars beyond.
 // mouseWheelDelta returns the lines-per-wheel-tick value, honoring the
-// MOONY_WHEEL_DELTA env var (1–10). The default of 2 balances trackpad and
+// MN_WHEEL_DELTA env var (1–10). The default of 2 balances trackpad and
 // notched-mouse feel.
 func mouseWheelDelta() int {
-	if v := strings.TrimSpace(os.Getenv("MOONY_WHEEL_DELTA")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("MN_WHEEL_DELTA")); v != "" {
 		n := 0
 		for _, c := range v {
 			if c < '0' || c > '9' {

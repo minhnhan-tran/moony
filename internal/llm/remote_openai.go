@@ -85,37 +85,37 @@ func (c *Client) remoteBackend() remoteBackend {
 func (c *Client) remoteBackendFor(id string) remoteBackend {
 	switch id {
 	case provider.Moonshot:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.MoonshotBaseURL, "https://api.moonshot.ai/v1"), apiKey: strings.TrimSpace(c.cfg.MoonshotAPIKey), keyEnv: "MOONY_MOONSHOT_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.MoonshotBaseURL, "https://api.moonshot.ai/v1"), apiKey: strings.TrimSpace(c.cfg.MoonshotAPIKey), keyEnv: "MN_MOONSHOT_API_KEY"}
 	case provider.ZAI:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.ZAIBaseURL, "https://api.z.ai/api/paas/v4"), apiKey: strings.TrimSpace(c.cfg.ZAIAPIKey), keyEnv: "MOONY_ZAI_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.ZAIBaseURL, "https://api.z.ai/api/paas/v4"), apiKey: strings.TrimSpace(c.cfg.ZAIAPIKey), keyEnv: "MN_ZAI_API_KEY"}
 	case provider.DashScope:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DashScopeBaseURL, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"), apiKey: strings.TrimSpace(c.cfg.DashScopeAPIKey), keyEnv: "MOONY_DASHSCOPE_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DashScopeBaseURL, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"), apiKey: strings.TrimSpace(c.cfg.DashScopeAPIKey), keyEnv: "MN_DASHSCOPE_API_KEY"}
 	case provider.NVIDIA:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.NvidiaBaseURL, "https://integrate.api.nvidia.com/v1"), apiKey: strings.TrimSpace(c.cfg.NvidiaAPIKey), keyEnv: "MOONY_NVIDIA_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.NvidiaBaseURL, "https://integrate.api.nvidia.com/v1"), apiKey: strings.TrimSpace(c.cfg.NvidiaAPIKey), keyEnv: "MN_NVIDIA_API_KEY"}
 	case provider.HuggingFace:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.HuggingFaceBaseURL, "https://router.huggingface.co/v1"), apiKey: strings.TrimSpace(c.cfg.HuggingFaceAPIKey), keyEnv: "MOONY_HUGGINGFACE_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.HuggingFaceBaseURL, "https://router.huggingface.co/v1"), apiKey: strings.TrimSpace(c.cfg.HuggingFaceAPIKey), keyEnv: "MN_HUGGINGFACE_API_KEY"}
 	case provider.Venice:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.VeniceBaseURL, "https://api.venice.ai/api/v1"), apiKey: strings.TrimSpace(c.cfg.VeniceAPIKey), keyEnv: "MOONY_VENICE_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.VeniceBaseURL, "https://api.venice.ai/api/v1"), apiKey: strings.TrimSpace(c.cfg.VeniceAPIKey), keyEnv: "MN_VENICE_API_KEY"}
 	case provider.OmniRoute:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.OmniRouteBaseURL, "http://localhost:20128/v1"), apiKey: strings.TrimSpace(c.cfg.OmniRouteAPIKey), keyEnv: "MOONY_OMNIROUTE_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.OmniRouteBaseURL, "http://localhost:20128/v1"), apiKey: strings.TrimSpace(c.cfg.OmniRouteAPIKey), keyEnv: "MN_OMNIROUTE_API_KEY"}
 	case provider.Cerebras:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CerebrasBaseURL, "https://api.cerebras.ai/v1"), apiKey: strings.TrimSpace(c.cfg.CerebrasAPIKey), keyEnv: "MOONY_CEREBRAS_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CerebrasBaseURL, "https://api.cerebras.ai/v1"), apiKey: strings.TrimSpace(c.cfg.CerebrasAPIKey), keyEnv: "MN_CEREBRAS_API_KEY"}
 	case provider.Perplexity:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.PerplexityBaseURL, "https://api.perplexity.ai"), apiKey: strings.TrimSpace(c.cfg.PerplexityAPIKey), keyEnv: "MOONY_PERPLEXITY_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.PerplexityBaseURL, "https://api.perplexity.ai"), apiKey: strings.TrimSpace(c.cfg.PerplexityAPIKey), keyEnv: "MN_PERPLEXITY_API_KEY"}
 	case provider.Cohere:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CohereBaseURL, "https://api.cohere.ai/compatibility/v1"), apiKey: strings.TrimSpace(c.cfg.CohereAPIKey), keyEnv: "MOONY_COHERE_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CohereBaseURL, "https://api.cohere.ai/compatibility/v1"), apiKey: strings.TrimSpace(c.cfg.CohereAPIKey), keyEnv: "MN_COHERE_API_KEY"}
 	case provider.DeepInfra:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DeepInfraBaseURL, "https://api.deepinfra.com/v1/openai"), apiKey: strings.TrimSpace(c.cfg.DeepInfraAPIKey), keyEnv: "MOONY_DEEPINFRA_API_KEY"}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DeepInfraBaseURL, "https://api.deepinfra.com/v1/openai"), apiKey: strings.TrimSpace(c.cfg.DeepInfraAPIKey), keyEnv: "MN_DEEPINFRA_API_KEY"}
 	case provider.LMStudio:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LMStudioBaseURL, "http://localhost:1234/v1"), apiKey: strings.TrimSpace(c.cfg.LMStudioAPIKey), keyEnv: "MOONY_LMSTUDIO_API_KEY", noKeyOK: true}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LMStudioBaseURL, "http://localhost:1234/v1"), apiKey: strings.TrimSpace(c.cfg.LMStudioAPIKey), keyEnv: "MN_LMSTUDIO_API_KEY", noKeyOK: true}
 	case provider.LlamaCpp:
-		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LlamaCppBaseURL, "http://localhost:8080/v1"), keyEnv: "MOONY_LLAMACPP_BASE_URL", noKeyOK: true}
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LlamaCppBaseURL, "http://localhost:8080/v1"), keyEnv: "MN_LLAMACPP_BASE_URL", noKeyOK: true}
 	case provider.Azure:
 		return remoteBackend{
 			id:         id,
 			baseURL:    firstNonEmpty(c.cfg.AzureBaseURL),
 			apiKey:     strings.TrimSpace(c.cfg.AzureAPIKey),
-			keyEnv:     "MOONY_AZURE_API_KEY",
+			keyEnv:     "MN_AZURE_API_KEY",
 			keyHeader:  "api-key",
 			deployPath: true,
 			query:      map[string]string{"api-version": firstNonEmpty(c.cfg.AzureAPIVersion, "2024-10-21")},
@@ -125,7 +125,7 @@ func (c *Client) remoteBackendFor(id string) remoteBackend {
 			id:             id,
 			baseURL:        vertexBaseURL(c.cfg),
 			apiKey:         strings.TrimSpace(c.cfg.VertexAPIKey),
-			keyEnv:         "MOONY_VERTEX_API_KEY",
+			keyEnv:         "MN_VERTEX_API_KEY",
 			skipModelsList: true,
 		}
 	case provider.OpenRouter:
@@ -133,7 +133,7 @@ func (c *Client) remoteBackendFor(id string) remoteBackend {
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.OpenRouterBaseURL, "https://openrouter.ai/api/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.OpenRouterAPIKey),
-			keyEnv:  "MOONY_OPENROUTER_API_KEY",
+			keyEnv:  "MN_OPENROUTER_API_KEY",
 			extra: map[string]string{
 				"HTTP-Referer": "https://github.com/pysty1995/moony",
 				"X-Title":      "moony",
@@ -144,56 +144,56 @@ func (c *Client) remoteBackendFor(id string) remoteBackend {
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.GeminiBaseURL, "https://generativelanguage.googleapis.com/v1beta/openai"),
 			apiKey:  strings.TrimSpace(c.cfg.GeminiAPIKey),
-			keyEnv:  "MOONY_GEMINI_API_KEY",
+			keyEnv:  "MN_GEMINI_API_KEY",
 		}
 	case provider.DeepSeek:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.DeepSeekBaseURL, "https://api.deepseek.com"),
 			apiKey:  strings.TrimSpace(c.cfg.DeepSeekAPIKey),
-			keyEnv:  "MOONY_DEEPSEEK_API_KEY",
+			keyEnv:  "MN_DEEPSEEK_API_KEY",
 		}
 	case provider.Groq:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.GroqBaseURL, "https://api.groq.com/openai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.GroqAPIKey),
-			keyEnv:  "MOONY_GROQ_API_KEY",
+			keyEnv:  "MN_GROQ_API_KEY",
 		}
 	case provider.XAI:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.XAIBaseURL, "https://api.x.ai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.XAIAPIKey),
-			keyEnv:  "MOONY_XAI_API_KEY",
+			keyEnv:  "MN_XAI_API_KEY",
 		}
 	case provider.Mistral:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.MistralBaseURL, "https://api.mistral.ai/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.MistralAPIKey),
-			keyEnv:  "MOONY_MISTRAL_API_KEY",
+			keyEnv:  "MN_MISTRAL_API_KEY",
 		}
 	case provider.Together:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.TogetherBaseURL, "https://api.together.xyz/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.TogetherAPIKey),
-			keyEnv:  "MOONY_TOGETHER_API_KEY",
+			keyEnv:  "MN_TOGETHER_API_KEY",
 		}
 	case provider.Fireworks:
 		return remoteBackend{
 			id:      id,
 			baseURL: firstNonEmpty(c.cfg.FireworksBaseURL, "https://api.fireworks.ai/inference/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.FireworksAPIKey),
-			keyEnv:  "MOONY_FIREWORKS_API_KEY",
+			keyEnv:  "MN_FIREWORKS_API_KEY",
 		}
 	default: // provider.OpenAI
 		return remoteBackend{
 			id:      provider.OpenAI,
 			baseURL: firstNonEmpty(c.cfg.OpenAIBaseURL, "https://api.openai.com/v1"),
 			apiKey:  strings.TrimSpace(c.cfg.OpenAIAPIKey),
-			keyEnv:  "MOONY_OPENAI_API_KEY",
+			keyEnv:  "MN_OPENAI_API_KEY",
 		}
 	}
 }
@@ -363,7 +363,7 @@ func (c *Client) checkRemoteAuth(ctx context.Context, rb remoteBackend) error {
 		return fmt.Errorf("%s API key not set — set %s", provider.Label(rb.id), rb.keyEnv)
 	}
 	if rb.baseURL == "" {
-		return fmt.Errorf("%s base URL not set — set your endpoint (e.g. MOONY_AZURE_BASE_URL)", provider.Label(rb.id))
+		return fmt.Errorf("%s base URL not set — set your endpoint (e.g. MN_AZURE_BASE_URL)", provider.Label(rb.id))
 	}
 	if _, err := c.listRemoteModels(ctx, rb); err != nil {
 		return fmt.Errorf("cannot reach %s: %w", provider.Label(rb.id), err)

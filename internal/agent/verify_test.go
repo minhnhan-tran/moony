@@ -71,15 +71,15 @@ func TestRunVerifyTimeout(t *testing.T) {
 // agent's auth secrets (parity with the bash tool's scrubbed env), while
 // ordinary environment variables still pass through.
 func TestRunVerifyScrubsSecrets(t *testing.T) {
-	t.Setenv("MOONY_OLLAMA_TOKEN", "SENTINEL-must-not-leak")
+	t.Setenv("MN_OLLAMA_TOKEN", "SENTINEL-must-not-leak")
 	t.Setenv("VERIFY_PROBE_VAR", "probe-visible")
-	a := newVerifyTestAgent(t, `printf 'secret=[%s] probe=[%s]\n' "$MOONY_AUTH_SECRET" "$VERIFY_PROBE_VAR"`, true)
+	a := newVerifyTestAgent(t, `printf 'secret=[%s] probe=[%s]\n' "$MN_AUTH_SECRET" "$VERIFY_PROBE_VAR"`, true)
 	r := a.runVerify(context.Background())
 	if !r.ok {
 		t.Fatalf("probe command should succeed, got ok=%v output=%q", r.ok, r.output)
 	}
 	if strings.Contains(r.output, "SENTINEL-must-not-leak") {
-		t.Errorf("verify subprocess leaked a sensitive env var (MOONY_OLLAMA_TOKEN): %q", r.output)
+		t.Errorf("verify subprocess leaked a sensitive env var (MN_OLLAMA_TOKEN): %q", r.output)
 	}
 	if !strings.Contains(r.output, "probe-visible") {
 		t.Errorf("verify subprocess should still inherit ordinary env vars, got %q", r.output)

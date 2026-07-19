@@ -106,7 +106,7 @@ func (c *Client) Usage(ctx context.Context) (*UsageResponse, error) {
 	}
 	key := strings.TrimSpace(c.anthropicKey())
 	if key == "" {
-		return nil, fmt.Errorf("SQE Anthropic API key not set (MOONY_SQE_ANTHROPIC_API_KEY)")
+		return nil, fmt.Errorf("SQE Anthropic API key not set (MN_SQE_ANTHROPIC_API_KEY)")
 	}
 	url := strings.TrimRight(c.anthropicBaseURL(), "/") + "/api/usage/v1/personal"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

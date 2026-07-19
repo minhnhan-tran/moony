@@ -8,7 +8,7 @@
 // Usage:
 //
 //	go run ./cmd/eval            # run the built-in fixtures against the default model
-//	MOONY_MODEL=... go run ./cmd/eval
+//	MN_MODEL=... go run ./cmd/eval
 //
 // Exit status is non-zero if any task fails, so CI can gate on it.
 package main

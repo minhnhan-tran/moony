@@ -81,7 +81,7 @@ type Registry struct {
 	order     []string
 	ignore    *IgnoreSet
 	// sandbox, when non-nil, is the explicit bash-sandbox setting; nil falls
-	// back to the MOONY_SANDBOX/MOONY_SANDBOX_NET environment variables.
+	// back to the MN_SANDBOX/MN_SANDBOX_NET environment variables.
 	sandbox *sandboxSetting
 	// jobs tracks background bash commands (the bash `background` flag plus the
 	// bash_output/bash_kill tools). KillAll reaps survivors on shutdown.
@@ -367,7 +367,7 @@ func (r *Registry) addCloser(f func()) {
 func (r *Registry) AddCloser(f func()) { r.addCloser(f) }
 
 // DAPHolder returns the shared DAP session reference so the agent package can
-// pre-populate it from MOONY_DAP_ADDR before any tool call is made.
+// pre-populate it from MN_DAP_ADDR before any tool call is made.
 func (r *Registry) DAPHolder() *dap.SessionHolder { return r.dapHolder }
 
 // Close reaps everything this registry started: registered closers (e.g. a

@@ -193,7 +193,7 @@ func (a *Auth) handleConnect(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/auth/login?return=/connect", http.StatusFound)
 		return
 	}
-	tunnel := strings.TrimSpace(os.Getenv("MOONY_RELAY_TUNNEL"))
+	tunnel := strings.TrimSpace(os.Getenv("MN_RELAY_TUNNEL"))
 	if tunnel == "" {
 		tunnel = "<relay-host:port>"
 	}
@@ -218,7 +218,7 @@ func (a *Auth) sessionAccount(r *http.Request) (string, bool) {
 // isolation (wired via Relay.SetOwnerResolver). ok=false ⇒ anonymous.
 func (a *Auth) OwnerFromRequest(r *http.Request) (string, bool) { return a.sessionAccount(r) }
 
-// IsAdmin reports whether the request's account is in MOONY_AUTH_ADMINS.
+// IsAdmin reports whether the request's account is in MN_AUTH_ADMINS.
 func (a *Auth) IsAdmin(r *http.Request) bool {
 	account, ok := a.sessionAccount(r)
 	return ok && a.admins[strings.ToLower(account)]
@@ -276,8 +276,8 @@ code,pre{background:#161b22;border:1px solid #30363d;border-radius:6px}pre{paddi
 h1{font-size:1.1rem}a{color:#58a6ff}</style>
 <h1>Connect a machine to the relay</h1>
 <p>Signed in as <b>{{.Account}}</b>. Run this on the machine you want to reach — it links under your account (only you will see it):</p>
-<pre>export MOONY_RELAY_TOKEN={{.Token}}
+<pre>export MN_RELAY_TOKEN={{.Token}}
 moony --relay {{.Tunnel}}</pre>
-<p>Or for the always-on background daemon, set the same <code>MOONY_RELAY_TOKEN</code> in its service environment. The token is bound to your account and expires; revisit this page for a fresh one.</p>
+<p>Or for the always-on background daemon, set the same <code>MN_RELAY_TOKEN</code> in its service environment. The token is bound to your account and expires; revisit this page for a fresh one.</p>
 <p><a href="/">← back to moony</a></p>
 `))

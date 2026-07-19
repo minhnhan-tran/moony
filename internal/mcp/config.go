@@ -6,7 +6,7 @@ package mcp
 // Servers are discovered and merged from several files, later sources overriding
 // earlier ones with the same name (so your moony config always wins):
 //
-//	Claude (auto-discovered; "mcpServers" key) — set MOONY_MCP_CLAUDE=0 to skip:
+//	Claude (auto-discovered; "mcpServers" key) — set MN_MCP_CLAUDE=0 to skip:
 //	  - ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
 //	  - ~/.config/Claude/claude_desktop_config.json                     (Linux)
 //	  - ~/.claude.json                       (top-level + projects["<workingDir>"])
@@ -263,9 +263,9 @@ func claudeServers(workingDir string) []map[string]rawServer {
 }
 
 // claudeDiscoveryEnabled reports whether Claude MCP auto-discovery is on (the
-// default). Set MOONY_MCP_CLAUDE=0/off/false/no to disable it.
+// default). Set MN_MCP_CLAUDE=0/off/false/no to disable it.
 func claudeDiscoveryEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_MCP_CLAUDE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_MCP_CLAUDE"))) {
 	case "0", "off", "false", "no":
 		return false
 	}
@@ -287,10 +287,10 @@ func readClaude(path string) *claudeConfig {
 }
 
 // Enabled reports whether MCP servers should be connected at all. Default on;
-// set MOONY_MCP=0/off/false/no to skip connecting to every MCP server (config
+// set MN_MCP=0/off/false/no to skip connecting to every MCP server (config
 // discovery and listings still work).
 func Enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_MCP"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_MCP"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

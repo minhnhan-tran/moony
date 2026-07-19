@@ -78,7 +78,7 @@ func TestSubConfigIgnoresCrossProviderPin(t *testing.T) {
 func TestSubConfigStepFloor(t *testing.T) {
 	roTools := []string{"read_file", "grep"}
 
-	// Parent cap lowered for cost (e.g. MOONY_MAX_STEPS=30): the read-only surveyor
+	// Parent cap lowered for cost (e.g. MN_MAX_STEPS=30): the read-only surveyor
 	// is floored so it can actually finish a survey.
 	tight := newTaskTool(&Agent{cfg: &config.Config{Model: "m", MaxAgentSteps: 30, AutoContinue: 1}}, nil)
 	if got := tight.subConfig(subagents.Persona{Name: "explore", Tools: roTools}); got.MaxAgentSteps != subAgentMinSteps {
@@ -184,14 +184,14 @@ func TestTaskReturnsPartialOnStepCeiling(t *testing.T) {
 }
 
 func TestTaskStreamEnabled(t *testing.T) {
-	t.Setenv("MOONY_TASK_STREAM", "")
+	t.Setenv("MN_TASK_STREAM", "")
 	if !taskStreamEnabled() {
 		t.Error("streaming should be on by default")
 	}
 	for _, off := range []string{"0", "off", "false", "no", "OFF"} {
-		t.Setenv("MOONY_TASK_STREAM", off)
+		t.Setenv("MN_TASK_STREAM", off)
 		if taskStreamEnabled() {
-			t.Errorf("MOONY_TASK_STREAM=%q should disable streaming", off)
+			t.Errorf("MN_TASK_STREAM=%q should disable streaming", off)
 		}
 	}
 }
@@ -253,10 +253,10 @@ func TestTaskForwardsSubAgentProgress(t *testing.T) {
 	}
 }
 
-// With MOONY_TASK_STREAM=0 the sub-agent's steps are silenced; only the final
+// With MN_TASK_STREAM=0 the sub-agent's steps are silenced; only the final
 // answer comes back as the task output.
 func TestTaskStreamDisabledSilencesProgress(t *testing.T) {
-	t.Setenv("MOONY_TASK_STREAM", "0")
+	t.Setenv("MN_TASK_STREAM", "0")
 	dir := t.TempDir()
 	reg := tools.NewRegistry(dir)
 	fake := &scriptedStreamer{turns: []llm.Response{
@@ -277,13 +277,13 @@ func TestTaskStreamDisabledSilencesProgress(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	if sawSubAgentTool {
-		t.Error("MOONY_TASK_STREAM=0 should suppress forwarded sub-agent tool events")
+		t.Error("MN_TASK_STREAM=0 should suppress forwarded sub-agent tool events")
 	}
 }
 
 // TestTaskEmitsTaskMeta confirms a finished delegation emits a TaskMeta footer
 // stamped with the parent task call id + persona, counting the sub-agent's tool
-// calls — and that MOONY_TASK_STREAM=0 suppresses it like the tool events.
+// calls — and that MN_TASK_STREAM=0 suppresses it like the tool events.
 func TestTaskEmitsTaskMeta(t *testing.T) {
 	newAgent := func(t *testing.T) *Agent {
 		dir := t.TempDir()
@@ -322,7 +322,7 @@ func TestTaskEmitsTaskMeta(t *testing.T) {
 	}
 
 	// With streaming off, no TaskMeta should be emitted.
-	t.Setenv("MOONY_TASK_STREAM", "0")
+	t.Setenv("MN_TASK_STREAM", "0")
 	var sawMeta bool
 	if err := newAgent(t).Run(context.Background(), "delegate it", func(ev Event) {
 		if _, ok := ev.(TaskMeta); ok {
@@ -332,7 +332,7 @@ func TestTaskEmitsTaskMeta(t *testing.T) {
 		t.Fatalf("Run (stream off): %v", err)
 	}
 	if sawMeta {
-		t.Error("MOONY_TASK_STREAM=0 should suppress the TaskMeta footer too")
+		t.Error("MN_TASK_STREAM=0 should suppress the TaskMeta footer too")
 	}
 }
 

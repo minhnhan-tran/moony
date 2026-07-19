@@ -1024,10 +1024,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		switch config.ClassifyInvestigation(userInput) {
 		case config.InvestigationBroad:
 			directive = autoDelegateBroadDirective
-			emit(Info{Text: "Broad investigation — fanning out parallel explore sub-agents to cover it. (MOONY_AUTO_DELEGATE=0 to disable.)"})
+			emit(Info{Text: "Broad investigation — fanning out parallel explore sub-agents to cover it. (MN_AUTO_DELEGATE=0 to disable.)"})
 		case config.InvestigationNormal:
 			directive = autoDelegateDirective
-			emit(Info{Text: "Investigation detected — delegating to the read-only explore sub-agent to keep this turn small. (MOONY_AUTO_DELEGATE=0 to disable.)"})
+			emit(Info{Text: "Investigation detected — delegating to the read-only explore sub-agent to keep this turn small. (MN_AUTO_DELEGATE=0 to disable.)"})
 		case config.InvestigationNarrow:
 			// A single named target — the main agent reads it inline (no sub-agent round-trip).
 		}
@@ -1050,7 +1050,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// cheaper FastModel via AdaptiveModel/CheapReads, so the "using <model> for
 	// this round" notice below fires once per streak (not every round in it) but
 	// fires again if a later round dips back down — lets you actually verify
-	// MOONY_CHEAP_READS/MOONY_ADAPTIVE_MODEL are engaging, without spamming a line
+	// MN_CHEAP_READS/MN_ADAPTIVE_MODEL are engaging, without spamming a line
 	// per round.
 	cheapStreakActive := false
 	// lastStepPassive records whether the previous step only digested a routine,
@@ -1163,7 +1163,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				}
 			}
 		}
-		// CheapReads routing (opt-in, MOONY_CHEAP_READS=1): if the previous step was
+		// CheapReads routing (opt-in, MN_CHEAP_READS=1): if the previous step was
 		// entirely idempotent read tools and the turn isn't hard / under friction,
 		// run this round on the cheaper FastModel — pure exploration rarely needs
 		// the strong model. The strong model is restored the moment the model starts
@@ -1182,8 +1182,8 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				}
 			}
 		}
-		// Surface a one-shot notice per downshift streak so MOONY_ADAPTIVE_MODEL /
-		// MOONY_CHEAP_READS engaging (or not) is directly observable, instead of a
+		// Surface a one-shot notice per downshift streak so MN_ADAPTIVE_MODEL /
+		// MN_CHEAP_READS engaging (or not) is directly observable, instead of a
 		// silent model switch you can only infer from the footer's cost/model.
 		if downshiftReason != "" {
 			if !cheapStreakActive {
@@ -1305,7 +1305,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// call-count or cost budget. rounds is the number of model calls so far.
 		if warnCalls > 0 && !warnedCalls && rounds >= warnCalls {
 			warnedCalls = true
-			emit(Info{Text: fmt.Sprintf("Heads up: this turn has made %d model calls (it will keep going up to %d). Interrupt to stop, or lower the cap with MOONY_MAX_STEPS / MOONY_AUTO_CONTINUE.", rounds, ceiling)})
+			emit(Info{Text: fmt.Sprintf("Heads up: this turn has made %d model calls (it will keep going up to %d). Interrupt to stop, or lower the cap with MN_MAX_STEPS / MN_AUTO_CONTINUE.", rounds, ceiling)})
 		}
 		if warnCost > 0 && !warnedCost {
 			if cost := turnCostUSD + a.auxCostUSD(); cost >= warnCost {
@@ -1387,7 +1387,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				continue
 			}
 			// Self-review the turn's own diff for introduced bugs (opt-in,
-			// MOONY_SELF_REVIEW); feed any finding back once so the model fixes it
+			// MN_SELF_REVIEW); feed any finding back once so the model fixes it
 			// before finishing. No-op when disabled or nothing was edited this turn.
 			if a.maybeSelfReview(ctx, emit, &reviewAttempts) {
 				lastStepPassive = false  // feeding a review finding back is an active step
@@ -1437,7 +1437,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			}
 			if readBytesThisTurn >= a.cfg.AutoOffloadReadBytes {
 				directive = autoDelegateDirective
-				emit(Info{Text: fmt.Sprintf("Read ~%d KB directly this turn — steering further investigation to the read-only explore sub-agent to keep this context small. (MOONY_AUTO_DELEGATE=0 to disable.)", readBytesThisTurn/1024)})
+				emit(Info{Text: fmt.Sprintf("Read ~%d KB directly this turn — steering further investigation to the read-only explore sub-agent to keep this context small. (MN_AUTO_DELEGATE=0 to disable.)", readBytesThisTurn/1024)})
 			}
 		}
 		// Classify the step just run for dynamic effort routing on the NEXT model
@@ -1461,7 +1461,7 @@ var errStepCeiling = errors.New("step ceiling reached")
 type stepCeilingError struct{ ceiling int }
 
 func (e stepCeilingError) Error() string {
-	return fmt.Sprintf("stopped after %d tool steps without finishing — send another message (e.g. \"continue\") to resume, or raise the cap with MOONY_MAX_STEPS / MOONY_AUTO_CONTINUE", e.ceiling)
+	return fmt.Sprintf("stopped after %d tool steps without finishing — send another message (e.g. \"continue\") to resume, or raise the cap with MN_MAX_STEPS / MN_AUTO_CONTINUE", e.ceiling)
 }
 
 func (stepCeilingError) Is(target error) bool { return target == errStepCeiling }
@@ -1482,5 +1482,5 @@ const (
 // model-driven auto floor (see turnThinkHard / modelThinkFloor). Output tokens are
 // only a proxy (the API folds thinking into OutputTokens rather than reporting it
 // separately), so the threshold is deliberately generous and gated on a thinking
-// block; tune it against MOONY_REASONING_DEBUG logs.
+// block; tune it against MN_REASONING_DEBUG logs.
 const autoThinkTokens = 1500

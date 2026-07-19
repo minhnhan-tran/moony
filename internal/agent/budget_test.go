@@ -41,8 +41,8 @@ func runAndCollectInfo(t *testing.T, ag *Agent) []string {
 
 func TestWarnBudgetSilentWhenUnset(t *testing.T) {
 	ag, _ := budgetTestAgent(t)
-	t.Setenv("MOONY_DAILY_BUDGET", "")
-	t.Setenv("MOONY_MONTHLY_BUDGET", "")
+	t.Setenv("MN_DAILY_BUDGET", "")
+	t.Setenv("MN_MONTHLY_BUDGET", "")
 
 	for _, info := range runAndCollectInfo(t, ag) {
 		if strings.Contains(info, "budget") {
@@ -55,8 +55,8 @@ func TestWarnBudgetFiresOnceCapCrossed(t *testing.T) {
 	ag, _ := budgetTestAgent(t)
 	// A cap of $0 worth of "already spent" guarantees this turn's (nonzero)
 	// cost crosses it immediately, regardless of the exact priced amount.
-	t.Setenv("MOONY_DAILY_BUDGET", "0.0000001")
-	t.Setenv("MOONY_MONTHLY_BUDGET", "")
+	t.Setenv("MN_DAILY_BUDGET", "0.0000001")
+	t.Setenv("MN_MONTHLY_BUDGET", "")
 
 	var found bool
 	for _, info := range runAndCollectInfo(t, ag) {
@@ -71,8 +71,8 @@ func TestWarnBudgetFiresOnceCapCrossed(t *testing.T) {
 
 func TestWarnBudgetMonthlyOnly(t *testing.T) {
 	ag, _ := budgetTestAgent(t)
-	t.Setenv("MOONY_DAILY_BUDGET", "")
-	t.Setenv("MOONY_MONTHLY_BUDGET", "0.0000001")
+	t.Setenv("MN_DAILY_BUDGET", "")
+	t.Setenv("MN_MONTHLY_BUDGET", "0.0000001")
 
 	var found bool
 	for _, info := range runAndCollectInfo(t, ag) {

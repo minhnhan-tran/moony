@@ -41,7 +41,7 @@ export class Sqe {
   async openSession(): Promise<void> {
     await this.page.goto('/');
     if (await this.page.locator('text=/log ?in|sign ?in/i').first().isVisible().catch(() => false)) {
-      throw new Error('Login screen detected — capture a valid storageState (see README "Auth") or point MOONY_BASE_URL at a loopback, unauthenticated instance.');
+      throw new Error('Login screen detected — capture a valid storageState (see README "Auth") or point MN_BASE_URL at a loopback, unauthenticated instance.');
     }
     await this.page.locator('#input').waitFor({ state: 'attached', timeout: 60_000 });
     // Wait for boot() to fetch /api/laptops (relay mode sets `laptops` to an array).

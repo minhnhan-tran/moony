@@ -40,8 +40,8 @@ func TestSandboxProfileContent(t *testing.T) {
 
 func TestSandboxConfigEnvFallback(t *testing.T) {
 	r := NewRegistry(t.TempDir())
-	t.Setenv("MOONY_SANDBOX", "on")
-	t.Setenv("MOONY_SANDBOX_NET", "0")
+	t.Setenv("MN_SANDBOX", "on")
+	t.Setenv("MN_SANDBOX_NET", "0")
 	if got := r.sandboxConfig(); !got.enabled || got.network {
 		t.Errorf("env fallback = %+v, want enabled w/o network", got)
 	}

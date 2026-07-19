@@ -28,14 +28,14 @@ var httpClient = &http.Client{Timeout: 5 * time.Second}
 // slow/unreachable webhook. A var so tests can run it inline.
 var runAsync = func(f func()) { go f() }
 
-// WebhookURL returns MOONY_NOTIFY_WEBHOOK_URL, or "" (disabled) when unset.
-func WebhookURL() string { return strings.TrimSpace(os.Getenv("MOONY_NOTIFY_WEBHOOK_URL")) }
+// WebhookURL returns MN_NOTIFY_WEBHOOK_URL, or "" (disabled) when unset.
+func WebhookURL() string { return strings.TrimSpace(os.Getenv("MN_NOTIFY_WEBHOOK_URL")) }
 
 // MinSeconds is the minimum turn duration worth a turn_done notification
-// (MOONY_NOTIFY_MIN_SECONDS, default 20s) — Approval ignores this; it's
+// (MN_NOTIFY_MIN_SECONDS, default 20s) — Approval ignores this; it's
 // blocking, not a "how long did it take" signal.
 func MinSeconds() float64 {
-	v := strings.TrimSpace(os.Getenv("MOONY_NOTIFY_MIN_SECONDS"))
+	v := strings.TrimSpace(os.Getenv("MN_NOTIFY_MIN_SECONDS"))
 	if v == "" {
 		return 20
 	}
@@ -46,10 +46,10 @@ func MinSeconds() float64 {
 	return f
 }
 
-// enabledEvents returns the MOONY_NOTIFY_EVENTS allow-list (comma-separated
+// enabledEvents returns the MN_NOTIFY_EVENTS allow-list (comma-separated
 // subset of "turn_done,approval"); unset/empty means both are enabled.
 func enabledEvents() map[Kind]bool {
-	v := strings.TrimSpace(os.Getenv("MOONY_NOTIFY_EVENTS"))
+	v := strings.TrimSpace(os.Getenv("MN_NOTIFY_EVENTS"))
 	if v == "" {
 		return map[Kind]bool{TurnDone: true, Approval: true}
 	}
@@ -63,8 +63,8 @@ func enabledEvents() map[Kind]bool {
 }
 
 // Send fires a fire-and-forget webhook notification for kind, unless
-// notifications are disabled (no MOONY_NOTIFY_WEBHOOK_URL), kind is filtered
-// out by MOONY_NOTIFY_EVENTS, or (for TurnDone only) elapsed is under
+// notifications are disabled (no MN_NOTIFY_WEBHOOK_URL), kind is filtered
+// out by MN_NOTIFY_EVENTS, or (for TurnDone only) elapsed is under
 // MinSeconds. The actual HTTP call runs asynchronously with its own timeout —
 // a slow or unreachable webhook never delays or fails the turn.
 func Send(kind Kind, text string, elapsed time.Duration) {

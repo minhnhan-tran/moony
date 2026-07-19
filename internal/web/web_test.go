@@ -81,8 +81,8 @@ func newTestServer(t *testing.T, fake *fakeStreamer, policy string, withTool boo
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	t.Setenv("MOONY_MCP", "0")        // don't spawn real MCP subprocesses in unit tests
-	t.Setenv("MOONY_AUTO_TITLE", "0") // deterministic: no extra title model-call per turn (opt in per-test)
+	t.Setenv("MN_MCP", "0")        // don't spawn real MCP subprocesses in unit tests
+	t.Setenv("MN_AUTO_TITLE", "0") // deterministic: no extra title model-call per turn (opt in per-test)
 	dir := t.TempDir()
 	store, err := sessionpkg.NewStoreAt(t.TempDir())
 	if err != nil {
@@ -1347,7 +1347,7 @@ func TestAutoTitleEmitsTitleEvent(t *testing.T) {
 		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("Add Dark Mode Toggle")}}, // the title call
 	}}
 	srv, key := newTestServer(t, fake, config.ApprovalAuto, false)
-	t.Setenv("MOONY_AUTO_TITLE", "1") // override the harness default for this test
+	t.Setenv("MN_AUTO_TITLE", "1") // override the harness default for this test
 	sess := openLive(t, srv, key)
 
 	sess.start("please add a dark mode toggle", nil, nil)
@@ -1448,7 +1448,7 @@ func TestSlashUpdateHeadless(t *testing.T) {
 	// Self-update refuses non-https hosts, so use a TLS stub and trust its
 	// self-signed cert via the stub's own client.
 	defer selfupdate.SetHTTPClientForTest(stub.Client())()
-	t.Setenv("MOONY_UPDATE_URL", stub.URL)
+	t.Setenv("MN_UPDATE_URL", stub.URL)
 
 	srv.runSelfUpdate(sess)
 	if !hasInfo(sess, "Already on the latest") {
@@ -1480,7 +1480,7 @@ func TestSlashUpdateBehindFailsCleanly(t *testing.T) {
 	}))
 	defer stub.Close()
 	defer selfupdate.SetHTTPClientForTest(stub.Client())()
-	t.Setenv("MOONY_UPDATE_URL", stub.URL)
+	t.Setenv("MN_UPDATE_URL", stub.URL)
 
 	srv.runSelfUpdate(sess)
 	if !hasInfo(sess, "update failed") {
@@ -1771,7 +1771,7 @@ func TestMcpsCatalogListsCatalogAndCustom(t *testing.T) {
 }
 
 func TestMcpInstallToggleRemove(t *testing.T) {
-	// newTestServer sets MOONY_MCP=0, so connect is a no-op — install just writes
+	// newTestServer sets MN_MCP=0, so connect is a no-op — install just writes
 	// the config, which is what we assert here (no npx spawn in tests).
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	sess := openLive(t, srv, key)
@@ -1821,7 +1821,7 @@ func findAgent(items []agentCatalogItem, name string) (agentCatalogItem, bool) {
 }
 
 func TestAgentsCatalogListsCatalogAndCustom(t *testing.T) {
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0") // keep discovery to sqe dirs only
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0") // keep discovery to sqe dirs only
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	dir, _ := decodeProjectKey(key)
 	mustWrite(t, filepath.Join(dir, ".sqe", "agents", "myagent.md"),
@@ -1843,7 +1843,7 @@ func TestAgentsCatalogListsCatalogAndCustom(t *testing.T) {
 }
 
 func TestAgentInstallToggleRemove(t *testing.T) {
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0")
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	sess := openLive(t, srv, key)
 
@@ -1871,7 +1871,7 @@ func TestAgentInstallToggleRemove(t *testing.T) {
 }
 
 func TestAgentSetModel(t *testing.T) {
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "0")
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0")
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	sess := openLive(t, srv, key)
 
@@ -1921,7 +1921,7 @@ func TestAgentModelsEndpoint(t *testing.T) {
 // into the sqe config when the Agents catalog loads, so it becomes editable —
 // removable and model-settable — rather than a read-only import.
 func TestAgentsCatalogMaterializesExternals(t *testing.T) {
-	t.Setenv("MOONY_IMPORT_EXTERNAL_AGENTS", "1")
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "1")
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	// newTestServer points HOME at a tempdir; drop the Claude agent there.
 	mustWrite(t, filepath.Join(os.Getenv("HOME"), ".claude", "agents", "fromclaude.md"),
@@ -2262,7 +2262,7 @@ func TestManageAddRemove(t *testing.T) {
 // it connects zero — but exercises the reconnect plumbing end to end).
 func TestMcpsReload(t *testing.T) {
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
-	t.Setenv("MOONY_MCP", "1") // re-enable connect for this test (no configs to spawn)
+	t.Setenv("MN_MCP", "1") // re-enable connect for this test (no configs to spawn)
 	sess := openLive(t, srv, key)
 	srv.runCommand(sess, "/mcps reload")
 	waitFor(t, sess, "reload info", func(e wireEvent) bool {
@@ -2400,7 +2400,7 @@ func TestEventStreamKeepalive(t *testing.T) {
 }
 
 func TestHandleEncryption(t *testing.T) {
-	for _, k := range []string{"MOONY_SESSION_ENCRYPT", "MOONY_SESSION_KEY", "MOONY_SESSION_KEY_CMD", "MOONY_SESSION_KEY_FILE", "MOONY_SESSION_PASSPHRASE"} {
+	for _, k := range []string{"MN_SESSION_ENCRYPT", "MN_SESSION_KEY", "MN_SESSION_KEY_CMD", "MN_SESSION_KEY_FILE", "MN_SESSION_PASSPHRASE"} {
 		os.Unsetenv(k)
 	}
 	// Default (auto) → encrypted true.
@@ -2426,7 +2426,7 @@ func TestHandleEncryption(t *testing.T) {
 	}
 
 	// off → encrypted false.
-	t.Setenv("MOONY_SESSION_ENCRYPT", "off")
+	t.Setenv("MN_SESSION_ENCRYPT", "off")
 	store2, _ := sessionpkg.NewStoreAt(t.TempDir())
 	srv2 := NewServer(store2, t.TempDir(), &config.Config{Model: "m"}, func(string, *sessionpkg.Session) *agent.Agent { return nil })
 	rec2 := httptest.NewRecorder()

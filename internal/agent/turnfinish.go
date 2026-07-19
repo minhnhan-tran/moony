@@ -15,7 +15,7 @@ import (
 // turnWarnThresholds/turnHardLimits (agent_approval.go) can't see:
 //
 //   - the cross-session budget ledger (internal/budget), warning via Info if
-//     a configured MOONY_DAILY_BUDGET/MOONY_MONTHLY_BUDGET is at/over.
+//     a configured MN_DAILY_BUDGET/MN_MONTHLY_BUDGET is at/over.
 //   - an outbound "turn_done" notification (internal/notify: webhook and/or
 //     the TUI's bell), when the turn ran long enough to be worth flagging.
 //
@@ -43,7 +43,7 @@ func (a *Agent) finishTurn(
 
 // warnBudget records this turn's cost in the cross-session ledger and emits
 // an advisory Info once the running daily and/or monthly total is at/over a
-// configured MOONY_DAILY_BUDGET/MOONY_MONTHLY_BUDGET. Warn-only: it never
+// configured MN_DAILY_BUDGET/MN_MONTHLY_BUDGET. Warn-only: it never
 // blocks or ends the turn, and a ledger I/O error just skips the check.
 func (a *Agent) warnBudget(emit func(Event), turnCost float64) {
 	dailyCap, monthlyCap := budget.DailyBudget(), budget.MonthlyBudget()
@@ -60,8 +60,8 @@ func (a *Agent) warnBudget(emit func(Event), turnCost float64) {
 	case overDaily && overMonthly:
 		emit(Info{Text: fmt.Sprintf("Heads up: today's spend is ~$%.2f (daily budget $%.2f) and this month's is ~$%.2f (monthly budget $%.2f).", daily, dailyCap, monthly, monthlyCap)})
 	case overDaily:
-		emit(Info{Text: fmt.Sprintf("Heads up: today's spend is ~$%.2f, at/over the $%.2f daily budget (MOONY_DAILY_BUDGET).", daily, dailyCap)})
+		emit(Info{Text: fmt.Sprintf("Heads up: today's spend is ~$%.2f, at/over the $%.2f daily budget (MN_DAILY_BUDGET).", daily, dailyCap)})
 	case overMonthly:
-		emit(Info{Text: fmt.Sprintf("Heads up: this month's spend is ~$%.2f, at/over the $%.2f monthly budget (MOONY_MONTHLY_BUDGET).", monthly, monthlyCap)})
+		emit(Info{Text: fmt.Sprintf("Heads up: this month's spend is ~$%.2f, at/over the $%.2f monthly budget (MN_MONTHLY_BUDGET).", monthly, monthlyCap)})
 	}
 }

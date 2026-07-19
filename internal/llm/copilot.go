@@ -64,7 +64,7 @@ func (c *Client) newCopilotClient(ctx context.Context) (*copilot.Client, error) 
 	}
 	cl := copilot.NewClient(opts)
 	if err := cl.Start(ctx); err != nil {
-		return nil, fmt.Errorf("start copilot CLI: %w (is the `copilot` CLI installed and on PATH, or MOONY_COPILOT_CLI_PATH set?)", err)
+		return nil, fmt.Errorf("start copilot CLI: %w (is the `copilot` CLI installed and on PATH, or MN_COPILOT_CLI_PATH set?)", err)
 	}
 	return cl, nil
 }

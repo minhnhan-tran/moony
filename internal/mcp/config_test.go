@@ -95,7 +95,7 @@ func TestSqeConfigOverridesClaude(t *testing.T) {
 func TestClaudeDiscoveryOptOut(t *testing.T) {
 	home := isolateHome(t)
 	wd := t.TempDir()
-	t.Setenv("MOONY_MCP_CLAUDE", "0")
+	t.Setenv("MN_MCP_CLAUDE", "0")
 	writeFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"user":{"command":"usercmd"}}}`)
 
 	cfgs, err := LoadConfigs(wd)
@@ -103,7 +103,7 @@ func TestClaudeDiscoveryOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(cfgs) != 0 {
-		t.Errorf("MOONY_MCP_CLAUDE=0 should discover nothing; got %d servers", len(cfgs))
+		t.Errorf("MN_MCP_CLAUDE=0 should discover nothing; got %d servers", len(cfgs))
 	}
 }
 

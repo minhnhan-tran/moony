@@ -21,7 +21,7 @@ const (
 	maxSearchResults     = 20
 	// BraveSearchKeyEnv holds a Brave Search API subscription token; when set,
 	// web_search uses Brave instead of the keyless DuckDuckGo HTML endpoint.
-	BraveSearchKeyEnv = "MOONY_SEARCH_API_KEY"
+	BraveSearchKeyEnv = "MN_SEARCH_API_KEY"
 )
 
 // searchResult is one ranked hit: a title, an absolute URL the agent can pass
@@ -34,7 +34,7 @@ type searchResult struct {
 
 // webSearchTool queries a web search engine and returns ranked results. Unlike
 // web_fetch (which needs a URL already in hand), this lets the agent DISCOVER
-// URLs. Backend: Brave Search API when MOONY_SEARCH_API_KEY is set, otherwise
+// URLs. Backend: Brave Search API when MN_SEARCH_API_KEY is set, otherwise
 // the keyless DuckDuckGo HTML endpoint.
 type webSearchTool struct {
 	client *http.Client

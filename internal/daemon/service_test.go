@@ -19,7 +19,7 @@ func TestRenderLaunchd(t *testing.T) {
 		"<string>/opt/bin/moony</string>",
 		"<string>daemon</string>",
 		"<string>run</string>",
-		"<key>MOONY_RELAY</key>",
+		"<key>MN_RELAY</key>",
 		"<string>relay.example:8771</string>",
 		"<key>RunAtLoad</key>",
 		"<key>KeepAlive</key>",
@@ -35,7 +35,7 @@ func TestRenderSystemd(t *testing.T) {
 	out := renderSystemd(systemdParams{Exe: "/opt/bin/moony", Relay: "relay.example:8771", Path: "/opt/bin:/usr/bin"})
 	for _, want := range []string{
 		"ExecStart=/opt/bin/moony daemon run",
-		"Environment=MOONY_RELAY=relay.example:8771",
+		"Environment=MN_RELAY=relay.example:8771",
 		"Environment=PATH=/opt/bin:/usr/bin",
 		"Restart=always",
 		"WantedBy=default.target",

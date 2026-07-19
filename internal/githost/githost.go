@@ -132,7 +132,7 @@ var (
 
 // Detect parses a `git remote get-url origin` value into a Repo. It
 // recognizes github.com and gitlab.com by hostname, and any other host whose
-// hostname matches the MOONY_GITHUB_BASE_URL or MOONY_GITLAB_BASE_URL
+// hostname matches the MN_GITHUB_BASE_URL or MN_GITLAB_BASE_URL
 // override (for GitHub Enterprise / self-hosted GitLab).
 func Detect(remoteURL string) (*Repo, error) {
 	remoteURL = strings.TrimSpace(remoteURL)
@@ -181,7 +181,7 @@ func Detect(remoteURL string) (*Repo, error) {
 
 // classifyHost decides which host kind a remote hostname is, and its REST API
 // base URL. github.com/gitlab.com are recognized outright; anything else must
-// match a MOONY_GITHUB_BASE_URL/MOONY_GITLAB_BASE_URL override's hostname
+// match a MN_GITHUB_BASE_URL/MN_GITLAB_BASE_URL override's hostname
 // (Enterprise/self-hosted convention: API lives at {host}/api/v3 or
 // {host}/api/v4 unless the override gives a full different path).
 func classifyHost(host string) (HostKind, string, error) {
@@ -205,7 +205,7 @@ func classifyHost(host string) (HostKind, string, error) {
 	}
 
 	return "", "", fmt.Errorf(
-		"%q isn't github.com or gitlab.com, and doesn't match MOONY_GITHUB_BASE_URL or MOONY_GITLAB_BASE_URL — "+
+		"%q isn't github.com or gitlab.com, and doesn't match MN_GITHUB_BASE_URL or MN_GITLAB_BASE_URL — "+
 			"set one of those to the self-hosted API base URL (e.g. https://%s/api/v3 for GitHub Enterprise, "+
 			"https://%s/api/v4 for self-hosted GitLab)", host, host, host)
 }

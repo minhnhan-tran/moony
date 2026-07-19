@@ -27,21 +27,21 @@ func TestRemoteBackendForNewProviders(t *testing.T) {
 			cfg:      config.Config{CerebrasAPIKey: "csk", CerebrasBaseURL: "https://api.cerebras.ai/v1"},
 			wantBase: "https://api.cerebras.ai/v1",
 			wantKey:  "csk",
-			wantEnv:  "MOONY_CEREBRAS_API_KEY",
+			wantEnv:  "MN_CEREBRAS_API_KEY",
 		},
 		{
 			id:       provider.Perplexity,
 			cfg:      config.Config{PerplexityAPIKey: "pk", PerplexityBaseURL: "https://api.perplexity.ai"},
 			wantBase: "https://api.perplexity.ai",
 			wantKey:  "pk",
-			wantEnv:  "MOONY_PERPLEXITY_API_KEY",
+			wantEnv:  "MN_PERPLEXITY_API_KEY",
 		},
 		{
 			id:       provider.Cohere,
 			cfg:      config.Config{CohereAPIKey: "ck", CohereBaseURL: "https://api.cohere.ai/compatibility/v1"},
 			wantBase: "https://api.cohere.ai/compatibility/v1",
 			wantKey:  "ck",
-			wantEnv:  "MOONY_COHERE_API_KEY",
+			wantEnv:  "MN_COHERE_API_KEY",
 		},
 		{
 			id:        provider.Azure,
@@ -49,7 +49,7 @@ func TestRemoteBackendForNewProviders(t *testing.T) {
 			wantBase:  "https://res.openai.azure.com",
 			wantKey:   "ak",
 			wantKeyHd: "api-key",
-			wantEnv:   "MOONY_AZURE_API_KEY",
+			wantEnv:   "MN_AZURE_API_KEY",
 		},
 	}
 	for _, tc := range cases {
@@ -183,7 +183,7 @@ func TestDeepInfraBackend(t *testing.T) {
 	if rb.apiKey != "dk" {
 		t.Errorf("apiKey = %q", rb.apiKey)
 	}
-	if rb.keyEnv != "MOONY_DEEPINFRA_API_KEY" {
+	if rb.keyEnv != "MN_DEEPINFRA_API_KEY" {
 		t.Errorf("keyEnv = %q", rb.keyEnv)
 	}
 	if rb.noKeyOK {

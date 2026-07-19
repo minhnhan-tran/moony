@@ -182,9 +182,9 @@ func boardEmitterFrom(ctx context.Context) func(boardMessage) {
 
 // agentMessagingEnabled reports whether the shared message board (the
 // post_message / read_messages tools) is exposed. Default on; set
-// MOONY_AGENT_MESSAGING=0/off/false/no to disable it.
+// MN_AGENT_MESSAGING=0/off/false/no to disable it.
 func agentMessagingEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MOONY_AGENT_MESSAGING"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_AGENT_MESSAGING"))) {
 	case "0", "off", "false", "no":
 		return false
 	}
