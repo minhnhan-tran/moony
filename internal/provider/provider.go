@@ -41,6 +41,14 @@ const (
 	Cerebras    = "cerebras"
 	Perplexity  = "perplexity"
 	Cohere      = "cohere"
+	DeepInfra   = "deepinfra"
+
+	// LMStudio and LlamaCpp are LOCAL OpenAI-compatible servers (like Ollama):
+	// no API key, no cost. LM Studio's server defaults to :1234 and llama.cpp's
+	// (llama-server) to :8080. Models are whatever you've loaded, so neither has
+	// a fixed default model — pick one with /model (or /models to list).
+	LMStudio = "lmstudio"
+	LlamaCpp = "llamacpp"
 
 	// Azure is Azure OpenAI Service: OpenAI models on a per-resource host with
 	// deployment-based paths, an api-key header (not Bearer), and an
@@ -99,6 +107,12 @@ const (
 	CerebrasDefaultModel   = "llama-3.3-70b"
 	PerplexityDefaultModel = "sonar-pro"
 	CohereDefaultModel     = "command-a-03-2025"
+	DeepInfraDefaultModel  = "meta-llama/Llama-3.3-70B-Instruct"
+	// LMStudioDefaultModel and LlamaCppDefaultModel are empty: these local servers
+	// serve whatever model you've loaded, so there's no safe universal default —
+	// the loaded model (or /model) decides.
+	LMStudioDefaultModel = ""
+	LlamaCppDefaultModel = ""
 	// AzureDefaultModel is empty: Azure addresses models by the *deployment* name
 	// you created in your resource, which varies per account, so there's no safe
 	// universal default — pick yours with /model.
@@ -136,6 +150,9 @@ var list = []Provider{
 	{ID: Cerebras, Label: "Cerebras", Desc: "api.cerebras.ai — extremely fast inference for open models — needs MOONY_CEREBRAS_API_KEY"},
 	{ID: Perplexity, Label: "Perplexity", Desc: "api.perplexity.ai (Sonar) — web-grounded answers with citations — needs MOONY_PERPLEXITY_API_KEY"},
 	{ID: Cohere, Label: "Cohere", Desc: "api.cohere.ai (Command, OpenAI-compatible) — strong RAG/tool-use — needs MOONY_COHERE_API_KEY"},
+	{ID: DeepInfra, Label: "DeepInfra", Desc: "api.deepinfra.com — large catalog of hosted open models, cheap — needs MOONY_DEEPINFRA_API_KEY"},
+	{ID: LMStudio, Label: "LM Studio", Desc: "local LM Studio server (default http://localhost:1234/v1) — no API key; serves the model you've loaded"},
+	{ID: LlamaCpp, Label: "llama.cpp", Desc: "local llama.cpp server / llama-server (default http://localhost:8080/v1) — no API key; serves the model you've loaded"},
 	{ID: Azure, Label: "Azure OpenAI", Desc: "Azure OpenAI Service — OpenAI models on your resource — needs MOONY_AZURE_API_KEY + MOONY_AZURE_BASE_URL (your endpoint); /model = deployment name"},
 	{ID: Vertex, Label: "Vertex AI", Desc: "Google Vertex AI (OpenAI-compatible) — needs MOONY_VERTEX_API_KEY (a GCP access token) + MOONY_VERTEX_PROJECT/MOONY_VERTEX_LOCATION"},
 	{ID: Bedrock, Label: "AWS Bedrock", Desc: "AWS Bedrock (Claude et al., SigV4-signed) — needs AWS credentials (MOONY_AWS_* / standard AWS env) + MOONY_AWS_REGION"},
@@ -232,6 +249,9 @@ var defaultModels = map[string]string{
 	Cerebras:     CerebrasDefaultModel,
 	Perplexity:   PerplexityDefaultModel,
 	Cohere:       CohereDefaultModel,
+	DeepInfra:    DeepInfraDefaultModel,
+	LMStudio:     LMStudioDefaultModel,
+	LlamaCpp:     LlamaCppDefaultModel,
 	Azure:        AzureDefaultModel,
 	Vertex:       VertexDefaultModel,
 	Bedrock:      BedrockDefaultModel,

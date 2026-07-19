@@ -50,7 +50,7 @@
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, `cerebras`, `perplexity`, `cohere`, `azure`, `vertex`, `bedrock`, or `copilot`. Overrides the saved `/provider` choice for the run |
+| `MOONY_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, `cerebras`, `perplexity`, `cohere`, `deepinfra`, `lmstudio`, `llamacpp`, `azure`, `vertex`, `bedrock`, or `copilot`. Overrides the saved `/provider` choice for the run |
 | `MOONY_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
 | `MOONY_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
 | `MOONY_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
@@ -73,6 +73,9 @@
 | `MOONY_CEREBRAS_API_KEY` | _(unset)_ | Cerebras API key for the `cerebras` provider (falls back to `CEREBRAS_API_KEY`) |
 | `MOONY_PERPLEXITY_API_KEY` | _(unset)_ | Perplexity API key for the `perplexity` provider (falls back to `PERPLEXITY_API_KEY` / `PPLX_API_KEY`) |
 | `MOONY_COHERE_API_KEY` | _(unset)_ | Cohere API key for the `cohere` provider (falls back to `CO_API_KEY` / `COHERE_API_KEY`) |
+| `MOONY_DEEPINFRA_API_KEY` | _(unset)_ | DeepInfra API key for the `deepinfra` provider (falls back to `DEEPINFRA_API_KEY` / `DEEPINFRA_TOKEN`) |
+| `MOONY_LMSTUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio server URL for the `lmstudio` provider (falls back to `LM_STUDIO_BASE_URL`); keyless — optional `MOONY_LMSTUDIO_API_KEY` if you've enabled auth |
+| `MOONY_LLAMACPP_BASE_URL` | `http://localhost:8080/v1` | llama.cpp (`llama-server`) URL for the `llamacpp` provider (falls back to `LLAMA_CPP_BASE_URL`); keyless |
 | `MOONY_AZURE_API_KEY` | _(unset)_ | Azure OpenAI key for the `azure` provider (falls back to `AZURE_OPENAI_API_KEY` / `AZURE_API_KEY`) |
 | `MOONY_AZURE_BASE_URL` | _(unset, required)_ | Azure OpenAI resource endpoint, e.g. `https://my-res.openai.azure.com` (falls back to `AZURE_OPENAI_ENDPOINT`) |
 | `MOONY_AZURE_API_VERSION` | `2024-10-21` | Azure OpenAI `api-version` query param |
@@ -179,7 +182,7 @@ Behavior:
 
 
 
-The agent supports twenty-six backends, selected with `/provider` (or `MOONY_PROVIDER`):
+The agent supports twenty-nine backends, selected with `/provider` (or `MOONY_PROVIDER`):
 
 - **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MOONY_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MOONY_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
 - **OpenAI** — `api.openai.com`, `MOONY_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
@@ -202,6 +205,9 @@ The agent supports twenty-six backends, selected with `/provider` (or `MOONY_PRO
 - **Cerebras** — `api.cerebras.ai`, `MOONY_CEREBRAS_API_KEY` (or `CEREBRAS_API_KEY`); extremely fast inference for open models. `/reasoning` engages on thinking models (QwQ/R1/etc.).
 - **Perplexity (Sonar)** — `api.perplexity.ai`, `MOONY_PERPLEXITY_API_KEY` (or `PERPLEXITY_API_KEY` / `PPLX_API_KEY`); web-grounded answers with citations. `/reasoning` engages on the `sonar-reasoning` models.
 - **Cohere** — `api.cohere.ai` (OpenAI-compatible `/compatibility/v1`), `MOONY_COHERE_API_KEY` (or `CO_API_KEY` / `COHERE_API_KEY`); Command models with strong RAG/tool use.
+- **DeepInfra** — `api.deepinfra.com` (OpenAI-compatible), `MOONY_DEEPINFRA_API_KEY` (or `DEEPINFRA_API_KEY` / `DEEPINFRA_TOKEN`); a large, cheap catalog of hosted open models (Llama, DeepSeek, Qwen, Mixtral, …). Default model `meta-llama/Llama-3.3-70B-Instruct`.
+- **LM Studio** — a **local, keyless** OpenAI-compatible server (default `http://localhost:1234/v1`, override with `MOONY_LMSTUDIO_BASE_URL`). Like Ollama, it needs no API key and serves whichever model you've loaded in the LM Studio app, so there's no fixed default — use `/models` to list and `/model <id>` to pick. Set `MOONY_LMSTUDIO_API_KEY` only if you've enabled auth on the server.
+- **llama.cpp** — a **local, keyless** OpenAI-compatible server (`llama-server`, default `http://localhost:8080/v1`, override with `MOONY_LLAMACPP_BASE_URL`); serves the single model it was launched with (`/model` / `/models` reflect that).
 - **Azure OpenAI** — OpenAI models on your Azure resource. Needs `MOONY_AZURE_API_KEY` (or `AZURE_OPENAI_API_KEY`) **and** `MOONY_AZURE_BASE_URL` (your resource endpoint, e.g. `https://my-res.openai.azure.com`; or `AZURE_OPENAI_ENDPOINT`). Uses the `api-key` header, deployment-scoped paths, and an `api-version` query param (`MOONY_AZURE_API_VERSION`, default `2024-10-21`). `/model` is your **deployment name** (there's no universal default).
 - **Google Vertex AI** — Vertex's OpenAI-compatible endpoint. Auth is a short-lived GCP access token in `MOONY_VERTEX_API_KEY` (e.g. `gcloud auth print-access-token`), plus `MOONY_VERTEX_PROJECT` (or `GOOGLE_CLOUD_PROJECT`) and `MOONY_VERTEX_LOCATION` (default `us-central1`; `global` also works). The base URL is derived from project+location, or overridden with `MOONY_VERTEX_BASE_URL`.
 - **AWS Bedrock** — Claude (and other) models on AWS. Unlike the rest, requests are **SigV4-signed and streamed over the AWS event-stream protocol via the AWS SDK** (reusing the Anthropic wire format). Credentials come from `MOONY_AWS_ACCESS_KEY_ID`/`MOONY_AWS_SECRET_ACCESS_KEY`(/`MOONY_AWS_SESSION_TOKEN`), or a named profile (`MOONY_AWS_PROFILE`), or the standard AWS credential chain (shared config, SSO, env, instance role). Set `MOONY_AWS_REGION` (default `us-east-1`). `/model` is a Bedrock model or cross-region **inference-profile** id (default `us.anthropic.claude-sonnet-4-5-…`). `/reasoning` maps to Claude extended thinking. The standard `AWS_*` env vars are honored and, unlike the moony-prefixed keys, are **not** scrubbed from tool shells so your own `aws` CLI keeps working.

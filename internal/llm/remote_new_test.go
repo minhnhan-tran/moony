@@ -1,7 +1,9 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -168,5 +170,93 @@ func TestUsesBedrock(t *testing.T) {
 	}
 	if provider.UsesAnthropicWire(provider.Bedrock) {
 		t.Error("bedrock must not use the Anthropic HTTP wire route")
+	}
+}
+
+// TestDeepInfraBackend checks DeepInfra's base URL, key and env mapping.
+func TestDeepInfraBackend(t *testing.T) {
+	cfg := config.Config{DeepInfraAPIKey: "dk", DeepInfraBaseURL: "https://api.deepinfra.com/v1/openai"}
+	rb := (&Client{cfg: &cfg}).remoteBackendFor(provider.DeepInfra)
+	if rb.baseURL != "https://api.deepinfra.com/v1/openai" {
+		t.Errorf("baseURL = %q", rb.baseURL)
+	}
+	if rb.apiKey != "dk" {
+		t.Errorf("apiKey = %q", rb.apiKey)
+	}
+	if rb.keyEnv != "MOONY_DEEPINFRA_API_KEY" {
+		t.Errorf("keyEnv = %q", rb.keyEnv)
+	}
+	if rb.noKeyOK {
+		t.Error("DeepInfra requires a key; noKeyOK should be false")
+	}
+	if got := rb.chatURL("meta-llama/Llama-3.3-70B-Instruct"); got != "https://api.deepinfra.com/v1/openai/chat/completions" {
+		t.Errorf("chat URL = %q", got)
+	}
+}
+
+// TestLocalKeylessBackends: LM Studio and llama.cpp are keyless local servers.
+func TestLocalKeylessBackends(t *testing.T) {
+	cases := []struct {
+		id       string
+		wantBase string
+	}{
+		{provider.LMStudio, "http://localhost:1234/v1"},
+		{provider.LlamaCpp, "http://localhost:8080/v1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.id, func(t *testing.T) {
+			c := &Client{cfg: &config.Config{}, http: &http.Client{Transport: errRoundTripper{}}}
+			rb := c.remoteBackendFor(tc.id)
+			if rb.baseURL != tc.wantBase {
+				t.Errorf("baseURL = %q, want %q", rb.baseURL, tc.wantBase)
+			}
+			if !rb.noKeyOK {
+				t.Error("local server should set noKeyOK")
+			}
+			if rb.apiKey != "" {
+				t.Errorf("expected no apiKey, got %q", rb.apiKey)
+			}
+			if !isRemoteProvider(tc.id) {
+				t.Error("should be an OpenAI-compatible remote provider")
+			}
+			if provider.UsesAnthropicWire(tc.id) {
+				t.Error("must not use the Anthropic wire route")
+			}
+			// A keyless local server must NOT be rejected for a missing key: it
+			// should get as far as the (here stubbed) network call instead.
+			err := c.checkRemoteAuth(context.Background(), rb)
+			if err != nil && strings.Contains(err.Error(), "API key not set") {
+				t.Errorf("keyless server rejected for missing key: %v", err)
+			}
+		})
+	}
+}
+
+// errRoundTripper fails every request, so auth checks reach the transport
+// (proving the key gate passed) without needing a live server.
+type errRoundTripper struct{}
+
+func (errRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errStubTransport
+}
+
+var errStubTransport = errorString("stub transport: no network in test")
+
+type errorString string
+
+func (e errorString) Error() string { return string(e) }
+
+// TestSetAuthKeyless: no Authorization header is sent when there's no key.
+func TestSetAuthKeyless(t *testing.T) {
+	req, _ := http.NewRequest("POST", "http://localhost:1234/v1/chat/completions", nil)
+	remoteBackend{id: provider.LlamaCpp, noKeyOK: true}.setAuth(req)
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Errorf("keyless request should not set Authorization, got %q", got)
+	}
+	// LM Studio with an optional token should still send it.
+	req2, _ := http.NewRequest("POST", "http://localhost:1234/v1/chat/completions", nil)
+	remoteBackend{id: provider.LMStudio, apiKey: "tok", noKeyOK: true}.setAuth(req2)
+	if got := req2.Header.Get("Authorization"); got != "Bearer tok" {
+		t.Errorf("LM Studio token not sent, got %q", got)
 	}
 }

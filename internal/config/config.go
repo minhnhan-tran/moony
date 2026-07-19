@@ -149,6 +149,24 @@ type Config struct {
 	// CohereBaseURL overrides the Cohere OpenAI-compatible base URL (default
 	// https://api.cohere.ai/compatibility/v1). Set via MOONY_COHERE_BASE_URL.
 	CohereBaseURL string
+	// DeepInfraAPIKey authenticates api.deepinfra.com. Set via
+	// MOONY_DEEPINFRA_API_KEY (falls back to DEEPINFRA_API_KEY / DEEPINFRA_TOKEN).
+	DeepInfraAPIKey string
+	// DeepInfraBaseURL overrides the DeepInfra OpenAI-compatible base URL
+	// (default https://api.deepinfra.com/v1/openai). Set via
+	// MOONY_DEEPINFRA_BASE_URL.
+	DeepInfraBaseURL string
+	// LMStudioBaseURL overrides the local LM Studio server base URL (default
+	// http://localhost:1234/v1). Set via MOONY_LMSTUDIO_BASE_URL (falls back to
+	// LM_STUDIO_BASE_URL). LM Studio is keyless; an optional token can be set
+	// via MOONY_LMSTUDIO_API_KEY if you've enabled auth on the server.
+	LMStudioBaseURL string
+	// LMStudioAPIKey is an optional bearer token for LM Studio (usually unset).
+	LMStudioAPIKey string
+	// LlamaCppBaseURL overrides the local llama.cpp server (llama-server) base
+	// URL (default http://localhost:8080/v1). Set via MOONY_LLAMACPP_BASE_URL
+	// (falls back to LLAMA_CPP_BASE_URL). llama.cpp's server is keyless.
+	LlamaCppBaseURL string
 	// AzureAPIKey authenticates an Azure OpenAI resource. Set via
 	// MOONY_AZURE_API_KEY (falls back to AZURE_OPENAI_API_KEY / AZURE_API_KEY).
 	AzureAPIKey string
@@ -1205,7 +1223,7 @@ func ReasoningActive(llmProvider, model, level string) bool {
 		return strings.Contains(strings.ToLower(model), "reasoning")
 	case provider.OpenRouter, provider.Gemini, provider.Vertex, provider.Together, provider.Fireworks, provider.Copilot:
 		return true
-	default: // ollama, anthropic, bedrock, cohere
+	default: // ollama, anthropic, bedrock, cohere, deepinfra, lmstudio, llamacpp
 		return ModelSupportsThinking(model)
 	}
 }
@@ -1378,6 +1396,9 @@ func Load() *Config {
 		CerebrasBaseURL:     "https://api.cerebras.ai/v1",
 		PerplexityBaseURL:   "https://api.perplexity.ai",
 		CohereBaseURL:       "https://api.cohere.ai/compatibility/v1",
+		DeepInfraBaseURL:    "https://api.deepinfra.com/v1/openai",
+		LMStudioBaseURL:     "http://localhost:1234/v1",
+		LlamaCppBaseURL:     "http://localhost:8080/v1",
 		AzureAPIVersion:     defaultAzureAPIVersion,
 		VertexLocation:      defaultVertexLocation,
 		AWSRegion:           defaultAWSRegion,
@@ -1565,6 +1586,17 @@ func Load() *Config {
 	c.CohereAPIKey = strings.TrimSpace(firstEnv("MOONY_COHERE_API_KEY", "CO_API_KEY", "COHERE_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_COHERE_BASE_URL")); v != "" {
 		c.CohereBaseURL = v
+	}
+	c.DeepInfraAPIKey = strings.TrimSpace(firstEnv("MOONY_DEEPINFRA_API_KEY", "DEEPINFRA_API_KEY", "DEEPINFRA_TOKEN"))
+	if v := strings.TrimSpace(firstEnv("MOONY_DEEPINFRA_BASE_URL")); v != "" {
+		c.DeepInfraBaseURL = v
+	}
+	c.LMStudioAPIKey = strings.TrimSpace(firstEnv("MOONY_LMSTUDIO_API_KEY", "LM_STUDIO_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MOONY_LMSTUDIO_BASE_URL", "LM_STUDIO_BASE_URL")); v != "" {
+		c.LMStudioBaseURL = v
+	}
+	if v := strings.TrimSpace(firstEnv("MOONY_LLAMACPP_BASE_URL", "LLAMA_CPP_BASE_URL")); v != "" {
+		c.LlamaCppBaseURL = v
 	}
 	c.AzureAPIKey = strings.TrimSpace(firstEnv("MOONY_AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MOONY_AZURE_BASE_URL", "AZURE_OPENAI_ENDPOINT")); v != "" {

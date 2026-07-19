@@ -44,6 +44,9 @@ type remoteBackend struct {
 	// (Vertex AI): auth is validated by key presence and /model lists the
 	// configured default only.
 	skipModelsList bool
+	// noKeyOK marks keyless backends (local LM Studio / llama.cpp servers, like
+	// Ollama) so an empty apiKey is not treated as a misconfiguration.
+	noKeyOK bool
 }
 
 // isRemoteProvider reports whether id is one of the hosted OpenAI-compatible
@@ -56,7 +59,7 @@ func isRemoteProvider(id string) bool {
 		provider.Groq, provider.XAI, provider.Mistral, provider.Together, provider.Fireworks,
 		provider.Moonshot, provider.ZAI, provider.DashScope, provider.NVIDIA, provider.HuggingFace,
 		provider.Venice, provider.OmniRoute, provider.Cerebras, provider.Perplexity, provider.Cohere,
-		provider.Azure, provider.Vertex:
+		provider.Azure, provider.Vertex, provider.DeepInfra, provider.LMStudio, provider.LlamaCpp:
 		return true
 	}
 	return false
@@ -101,6 +104,12 @@ func (c *Client) remoteBackendFor(id string) remoteBackend {
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.PerplexityBaseURL, "https://api.perplexity.ai"), apiKey: strings.TrimSpace(c.cfg.PerplexityAPIKey), keyEnv: "MOONY_PERPLEXITY_API_KEY"}
 	case provider.Cohere:
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CohereBaseURL, "https://api.cohere.ai/compatibility/v1"), apiKey: strings.TrimSpace(c.cfg.CohereAPIKey), keyEnv: "MOONY_COHERE_API_KEY"}
+	case provider.DeepInfra:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DeepInfraBaseURL, "https://api.deepinfra.com/v1/openai"), apiKey: strings.TrimSpace(c.cfg.DeepInfraAPIKey), keyEnv: "MOONY_DEEPINFRA_API_KEY"}
+	case provider.LMStudio:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LMStudioBaseURL, "http://localhost:1234/v1"), apiKey: strings.TrimSpace(c.cfg.LMStudioAPIKey), keyEnv: "MOONY_LMSTUDIO_API_KEY", noKeyOK: true}
+	case provider.LlamaCpp:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LlamaCppBaseURL, "http://localhost:8080/v1"), keyEnv: "MOONY_LLAMACPP_BASE_URL", noKeyOK: true}
 	case provider.Azure:
 		return remoteBackend{
 			id:         id,
@@ -246,7 +255,7 @@ func openAIEffort(level string) string {
 
 // streamRemote runs one turn against a hosted OpenAI-compatible backend.
 func (c *Client) streamRemote(ctx context.Context, rb remoteBackend, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
-	if rb.apiKey == "" {
+	if rb.apiKey == "" && !rb.noKeyOK {
 		return nil, fmt.Errorf("%s API key not set — set %s", provider.Label(rb.id), rb.keyEnv)
 	}
 	model := c.resolveRemoteModel(ctx, rb)
@@ -323,6 +332,9 @@ func (rb remoteBackend) withQuery(u string) string {
 // setAuth applies the backend's credential header (Bearer by default, or a
 // verbatim header like Azure's "api-key").
 func (rb remoteBackend) setAuth(req *http.Request) {
+	if rb.apiKey == "" {
+		return // keyless local servers (LM Studio / llama.cpp)
+	}
 	if rb.keyHeader != "" {
 		req.Header.Set(rb.keyHeader, rb.apiKey)
 		return
@@ -347,7 +359,7 @@ func (c *Client) newRemoteRequest(ctx context.Context, rb remoteBackend, url str
 
 // checkRemoteAuth verifies the API key by listing models.
 func (c *Client) checkRemoteAuth(ctx context.Context, rb remoteBackend) error {
-	if rb.apiKey == "" {
+	if rb.apiKey == "" && !rb.noKeyOK {
 		return fmt.Errorf("%s API key not set — set %s", provider.Label(rb.id), rb.keyEnv)
 	}
 	if rb.baseURL == "" {
@@ -363,7 +375,7 @@ func (c *Client) checkRemoteAuth(ctx context.Context, rb remoteBackend) error {
 // backend (GET {base}/models). For backends without a usable models list
 // (skipModelsList, e.g. Vertex AI) it returns just the configured default.
 func (c *Client) listRemoteModels(ctx context.Context, rb remoteBackend) ([]config.ModelInfo, error) {
-	if rb.apiKey == "" {
+	if rb.apiKey == "" && !rb.noKeyOK {
 		return nil, fmt.Errorf("%s API key not set", provider.Label(rb.id))
 	}
 	if rb.skipModelsList {
