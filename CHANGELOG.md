@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.20.0] — 2026-07-19
+
+### Added
+
+- **Three new model providers (26 → 29).** Added **DeepInfra** and the local, keyless **LM Studio** and **llama.cpp** servers, selectable with `/provider` (or `MOONY_PROVIDER`).
+  - **DeepInfra** (`deepinfra`) — OpenAI-compatible bearer-key backend for `api.deepinfra.com`; a large, cheap catalog of hosted open models. Key via `MOONY_DEEPINFRA_API_KEY` (falls back to `DEEPINFRA_API_KEY` / `DEEPINFRA_TOKEN`); default model `meta-llama/Llama-3.3-70B-Instruct`.
+  - **LM Studio** (`lmstudio`) and **llama.cpp** (`llamacpp`) — local, keyless OpenAI-compatible servers (like Ollama), defaulting to `http://localhost:1234/v1` and `http://localhost:8080/v1` (override with `MOONY_LMSTUDIO_BASE_URL` / `MOONY_LLAMACPP_BASE_URL`). They serve whichever model you've loaded, so use `/models` + `/model`.
+
+### Changed
+
+- Remote OpenAI-compatible backends gained a `noKeyOK` path so keyless local servers (LM Studio / llama.cpp) are no longer rejected for a missing API key, and no empty `Authorization` header is sent.
+
 ## [1.19.0] — 2026-07-19
 
 ### Added
