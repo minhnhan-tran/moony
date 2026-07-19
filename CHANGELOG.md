@@ -5,6 +5,21 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [1.19.0] — 2026-07-19
+
+### Added
+
+- **Six new model providers (20 → 26).** Added **Cerebras**, **Perplexity (Sonar)**, **Cohere**, **Azure OpenAI**, **Google Vertex AI**, and **AWS Bedrock**, selectable with `/provider` (or `MOONY_PROVIDER`).
+  - Cerebras / Perplexity / Cohere are plain OpenAI-compatible backends (`MOONY_CEREBRAS_API_KEY` / `MOONY_PERPLEXITY_API_KEY` / `MOONY_COHERE_API_KEY`).
+  - **Azure OpenAI** uses your resource endpoint (`MOONY_AZURE_BASE_URL`), the `api-key` header, deployment-scoped paths, and an `api-version` query param (`MOONY_AZURE_API_VERSION`); `/model` is your deployment name.
+  - **Vertex AI** uses a GCP access token (`MOONY_VERTEX_API_KEY`) plus `MOONY_VERTEX_PROJECT` / `MOONY_VERTEX_LOCATION`.
+  - **AWS Bedrock** is SigV4-signed and streamed over the AWS event-stream protocol via the AWS SDK (reusing the Anthropic wire format); credentials come from `MOONY_AWS_*` / a profile / the standard AWS chain, with `MOONY_AWS_REGION`. The standard `AWS_*` env vars are left unscrubbed from tool shells so your own `aws` CLI keeps working.
+
+### Changed
+
+- `ReasoningActive` gating extended for the new providers (Azure follows the OpenAI reasoning rules; Cerebras/Perplexity detect thinking models; Vertex is always-on; Bedrock/Cohere gate on the model).
+- Refactored the Anthropic request build into a shared `buildAnthropicBody` helper now reused by the AWS Bedrock backend.
+
 ## [1.18.2] — 2026-07-18
 
 ### Changed
