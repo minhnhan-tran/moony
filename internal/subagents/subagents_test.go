@@ -8,13 +8,19 @@ import (
 )
 
 func TestParseFile(t *testing.T) {
-	src := "---\ndescription: read-only explorer\nmodel: anthropic.claude-opus-4-8\ntools: read_file, glob,grep\n---\n\nYou explore.\n"
-	desc, model, _, tools, _, body := parseFile(src)
+	src := "---\ndescription: read-only explorer\nmodel: anthropic.claude-opus-4-8\nprovider: anthropic\nreasoning: HIGH\ntools: read_file, glob,grep\n---\n\nYou explore.\n"
+	desc, model, provider, reasoning, _, tools, _, body := parseFile(src)
 	if desc != "read-only explorer" {
 		t.Errorf("desc = %q", desc)
 	}
 	if model != "anthropic.claude-opus-4-8" {
 		t.Errorf("model = %q", model)
+	}
+	if provider != "anthropic" {
+		t.Errorf("provider = %q", provider)
+	}
+	if reasoning != "high" {
+		t.Errorf("reasoning = %q, want lower-cased", reasoning)
 	}
 	want := []string{"read_file", "glob", "grep"}
 	if !reflect.DeepEqual(tools, want) {
@@ -26,9 +32,15 @@ func TestParseFile(t *testing.T) {
 }
 
 func TestParseFileNoModel(t *testing.T) {
-	_, model, _, _, _, _ := parseFile("---\ndescription: x\n---\nbody")
+	_, model, provider, reasoning, _, _, _, _ := parseFile("---\ndescription: x\n---\nbody")
 	if model != "" {
 		t.Errorf("model should be empty when omitted, got %q", model)
+	}
+	if provider != "" {
+		t.Errorf("provider should be empty when omitted, got %q", provider)
+	}
+	if reasoning != "" {
+		t.Errorf("reasoning should be empty when omitted, got %q", reasoning)
 	}
 }
 
@@ -36,7 +48,7 @@ func TestParseFileNoModel(t *testing.T) {
 // permission block, and the ToAgent conversion.
 func TestParseFilePermissionAndMode(t *testing.T) {
 	src := "---\nname: reviewer\nmode: primary\npermission:\n  edit_file: deny\n  bash: ask\n  read_file: allow\n---\nReview code.\n"
-	_, _, mode, _, perm, body := parseFile(src)
+	_, _, _, _, mode, _, perm, body := parseFile(src)
 	if mode != "primary" {
 		t.Errorf("mode = %q, want primary", mode)
 	}
@@ -306,7 +318,7 @@ func TestDefaultAgentFilesRoundTrip(t *testing.T) {
 	}
 
 	build := defs[0]
-	_, _, mode, _, perm, body := parseFile(build.Content)
+	_, _, _, _, mode, _, perm, body := parseFile(build.Content)
 	if mode != "primary" {
 		t.Errorf("build mode = %q, want primary", mode)
 	}
@@ -321,7 +333,7 @@ func TestDefaultAgentFilesRoundTrip(t *testing.T) {
 	}
 
 	plan := defs[1]
-	_, _, pmode, _, pperm, _ := parseFile(plan.Content)
+	_, _, _, _, pmode, _, pperm, _ := parseFile(plan.Content)
 	if pmode != "primary" {
 		t.Errorf("plan mode = %q, want primary", pmode)
 	}

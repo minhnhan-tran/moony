@@ -71,6 +71,79 @@ func TestSubConfigIgnoresCrossProviderPin(t *testing.T) {
 	}
 }
 
+func TestSubConfigProvider(t *testing.T) {
+	parent := &Agent{cfg: &config.Config{Model: "anthropic.claude-sonnet-4-5", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
+	tt := newTaskTool(parent, nil)
+
+	// A persona pinning a different provider (no model) switches LLMProvider
+	// and picks that provider's default model.
+	got := tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini})
+	if got.LLMProvider != provider.Gemini {
+		t.Errorf("LLMProvider = %q, want %q", got.LLMProvider, provider.Gemini)
+	}
+	if want := provider.DefaultModelFor(provider.Gemini); got.Model != want {
+		t.Errorf("Model = %q, want provider default %q", got.Model, want)
+	}
+
+	// A pinned provider + a model valid for it are honored together.
+	got = tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini, Model: "gcp:gemini-2.5-pro"})
+	if got.LLMProvider != provider.Gemini || got.Model != "gcp:gemini-2.5-pro" {
+		t.Errorf("provider+model pin = %q/%q, want %q/%q", got.LLMProvider, got.Model, provider.Gemini, "gcp:gemini-2.5-pro")
+	}
+
+	// A pinned provider AND a model id from a different provider is honored as
+	// given, same as a plain model pin: ModelServableBy can't validate a
+	// cross-provider id, so the pin is trusted and a bad one just errors
+	// naturally at call time instead of being second-guessed here.
+	got = tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini, Model: "anthropic.claude-haiku-4-5"})
+	if got.LLMProvider != provider.Gemini {
+		t.Errorf("LLMProvider = %q, want %q", got.LLMProvider, provider.Gemini)
+	}
+	if got.Model != "anthropic.claude-haiku-4-5" {
+		t.Errorf("Model = %q, want the pin honored as given %q", got.Model, "anthropic.claude-haiku-4-5")
+	}
+
+	// A provider equal to the parent's is a no-op for routing — falls through
+	// to inherit the parent's model since no model is separately pinned.
+	got = tt.subConfig(subagents.Persona{Name: "same", Provider: provider.Anthropic})
+	if got.LLMProvider != provider.Anthropic || got.Model != parent.cfg.Model {
+		t.Errorf("same-provider pin should inherit the parent's model, got %q/%q", got.LLMProvider, got.Model)
+	}
+
+	// A garbled provider (e.g. a hand-edited typo in the persona's .md) is
+	// ignored rather than silently normalized to some default provider.
+	got = tt.subConfig(subagents.Persona{Name: "typo", Provider: "not-a-real-provider"})
+	if got.LLMProvider != provider.Anthropic || got.Model != parent.cfg.Model {
+		t.Errorf("invalid provider pin should be ignored, got %q/%q", got.LLMProvider, got.Model)
+	}
+}
+
+func TestSubConfigReasoning(t *testing.T) {
+	parent := &Agent{cfg: &config.Config{Model: "anthropic.claude-sonnet-4-5", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
+	tt := newTaskTool(parent, nil)
+
+	got := tt.subConfig(subagents.Persona{Name: "deep", Reasoning: "high"})
+	if r := got.GetReasoningFor(got.Model); r != "high" {
+		t.Errorf("reasoning = %q, want %q", r, "high")
+	}
+
+	// Combines with a model pin: reasoning is applied to the resolved (pinned) model.
+	got = tt.subConfig(subagents.Persona{Name: "deep", Model: "anthropic.claude-opus-4-8", Reasoning: "medium"})
+	if got.Model != "anthropic.claude-opus-4-8" {
+		t.Errorf("Model = %q, want the pin", got.Model)
+	}
+	if r := got.GetReasoningFor(got.Model); r != "medium" {
+		t.Errorf("reasoning = %q, want %q", r, "medium")
+	}
+
+	// No reasoning pin: inherits the parent's (unset/default).
+	inh := tt.subConfig(subagents.Persona{Name: "plain"})
+	wantInh := parent.cfg.GetReasoningFor(parent.cfg.Model)
+	if r := inh.GetReasoningFor(inh.Model); r != wantInh {
+		t.Errorf("reasoning without a pin = %q, want inherited %q", r, wantInh)
+	}
+}
+
 // A delegated read-only surveyor must not inherit an aggressively-lowered
 // main-loop step cap — that starved explore into bailing after 60 steps. Its
 // budget is floored to subAgentMinSteps, while a non-read-only persona and a

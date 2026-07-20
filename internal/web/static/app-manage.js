@@ -523,13 +523,17 @@ async function renderAgentsMarketplace() {
   const body = manageBody;
   let items = [];
   let models = [];
+  let options = { providers: [], reasoningLevels: [] };
   try { const r = await fetch(api(`/api/sessions/${current}/agents/catalog`)); if (r.ok) items = await r.json(); } catch (_) {}
   try { const r = await fetch(api(`/api/sessions/${current}/agents/models`)); if (r.ok) models = await r.json(); } catch (_) {}
+  try { const r = await fetch(api(`/api/sessions/${current}/agents/options`)); if (r.ok) options = await r.json(); } catch (_) {}
   items = items || [];
   models = models || [];
+  const providers = options.providers || [];
+  const reasoningLevels = options.reasoningLevels || [];
 
   body.innerHTML = "";
-  body.append(el("p", "access-intro", "Subagents are focused personas the model delegates subtasks to (via the task tool or @mention). Install from the catalog, or enable/disable and remove the ones you have. Pick a model per agent (or leave it on “inherit” to use the main model). Installs write to your global ~/.config/moony/agents."));
+  body.append(el("p", "access-intro", "Subagents are focused personas the model delegates subtasks to (via the task tool or @mention). Install from the catalog, or enable/disable and remove the ones you have. Pick a model, provider, and reasoning level per agent (or leave them on “inherit” to use the main model's). Installs write to your global ~/.config/moony/agents."));
 
   const installed = items.filter((i) => i.installed);
   const available = items.filter((i) => !i.installed);
@@ -539,7 +543,7 @@ async function renderAgentsMarketplace() {
     body.append(el("div", "access-empty", "No subagents yet — install one from the marketplace below."));
   } else {
     const group = el("div", "agents-installed");
-    for (const it of installed) group.append(agentInstalledRow(it, models));
+    for (const it of installed) group.append(agentInstalledRow(it, models, providers, reasoningLevels));
     body.append(group);
   }
 
@@ -573,15 +577,62 @@ function agentModelSelect(it, models) {
   return sel;
 }
 
-function agentInstalledRow(it, models) {
+// agentProviderSelect / agentReasoningSelect build the per-agent provider and
+// reasoning-level pickers from /agents/options (the same inherit-first lists
+// the Persona modal's Fast/Self-review tiers use). Changing either writes the
+// provider:/reasoning: frontmatter via agentDo(...). Only shown for editable
+// (project/global) personas — imported externals inherit the parent's.
+function agentProviderSelect(it, providers) {
+  const sel = el("select", "shrink-0 rounded border border-edge bg-surface text-ink");
+  sel.style.fontSize = "11px"; sel.style.padding = "0.1rem 0.2rem"; sel.style.maxWidth = "110px";
+  sel.title = "Provider for this subagent";
+  let known = false;
+  for (const p of providers) {
+    const o = el("option", null, p.label); o.value = p.value;
+    if (p.value === (it.provider || "")) { o.selected = true; known = true; }
+    sel.appendChild(o);
+  }
+  // A pinned provider that isn't in the fetched list still shows as the selection.
+  if (it.provider && !known) {
+    const o = el("option", null, it.provider); o.value = it.provider; o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => agentDo("provider", { name: it.name, provider: sel.value });
+  return sel;
+}
+
+function agentReasoningSelect(it, levels) {
+  const sel = el("select", "shrink-0 rounded border border-edge bg-surface text-ink");
+  sel.style.fontSize = "11px"; sel.style.padding = "0.1rem 0.2rem"; sel.style.maxWidth = "110px";
+  sel.title = "Reasoning level for this subagent";
+  let known = false;
+  for (const l of levels) {
+    const o = el("option", null, l.label); o.value = l.value;
+    if (l.value === (it.reasoning || "")) { o.selected = true; known = true; }
+    sel.appendChild(o);
+  }
+  if (it.reasoning && !known) {
+    const o = el("option", null, it.reasoning); o.value = it.reasoning; o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => agentDo("reasoning", { name: it.name, reasoning: sel.value });
+  return sel;
+}
+
+function agentInstalledRow(it, models, providers, reasoningLevels) {
   let desc = it.desc || "";
   if (it.source && it.source !== "global" && it.source !== "project") desc += "  ·  from " + it.source;
   const remove = it.removable ? () => { confirmBox(`Remove agent "${it.name}"?`, { title: "Remove agent", okText: "Remove", danger: true }).then((ok) => { if (ok) agentDo("remove", { name: it.name }); }); } : null;
-  // Editable personas get a model picker (passed as the row's status slot);
-  // imported externals are read-only and always inherit the parent's model.
-  const modelSel = it.removable ? agentModelSelect(it, models || []) : null;
+  // Editable personas get model/provider/reasoning pickers grouped into one
+  // status slot; imported externals are read-only and always inherit the
+  // parent's.
+  let status = null;
+  if (it.removable) {
+    status = el("div", "flex items-center gap-1 shrink-0");
+    status.append(agentModelSelect(it, models || []), agentProviderSelect(it, providers || []), agentReasoningSelect(it, reasoningLevels || []));
+  }
   return manageRow(it.name, desc, it.enabled,
-    () => agentDo("toggle", { name: it.name, enabled: !it.enabled }), remove, modelSel);
+    () => agentDo("toggle", { name: it.name, enabled: !it.enabled }), remove, status);
 }
 
 function agentAvailableRow(it) {

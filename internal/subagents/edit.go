@@ -236,7 +236,7 @@ func MaterializeExternals(workingDir string) ([]string, error) {
 		if err := os.MkdirAll(base, 0o755); err != nil {
 			return copied, err
 		}
-		out := setFrontmatterModel(string(data), "") // drop the external model id
+		out := setFrontmatterKey(string(data), "model", "") // drop the external model id
 		if err := os.WriteFile(filepath.Join(base, name+".md"), []byte(out), 0o644); err != nil {
 			return copied, err
 		}
@@ -252,18 +252,49 @@ func MaterializeExternals(workingDir string) ([]string, error) {
 // model. Only project/global personas are editable — imported externals
 // (Optimus/Claude) are read-only here. Returns the path written.
 func SetModel(name, model, workingDir string) (string, error) {
+	return setPersonaField(name, "model", model, workingDir)
+}
+
+// SetProvider sets (or, given "", clears) the persona's frontmatter `provider:`
+// override — the LLM provider to run it under, independent of the model id.
+// Empty means inherit the parent/session provider. Same file-resolution and
+// read-only rules as SetModel.
+func SetProvider(name, provider, workingDir string) (string, error) {
+	return setPersonaField(name, "provider", provider, workingDir)
+}
+
+// SetReasoning sets (or, given "", clears) the persona's frontmatter
+// `reasoning:` override — the reasoning-effort level to run it at. Empty
+// means inherit the parent/session reasoning. Same file-resolution and
+// read-only rules as SetModel.
+func SetReasoning(name, reasoning, workingDir string) (string, error) {
+	return setPersonaField(name, "reasoning", reasoning, workingDir)
+}
+
+// setPersonaField resolves name to its on-disk persona file (must be a
+// global/project persona, not one merely discovered from an external tool)
+// and rewrites its frontmatter key to value, trimmed. value must be a single
+// line: an embedded newline could otherwise splice extra frontmatter keys (or
+// close the `---` fence early and inject content into the persona's body) —
+// an HTTP handler passing a client-supplied string through unchecked, as
+// SetModel/SetProvider/SetReasoning all do, must not allow that.
+func setPersonaField(name, key, value, workingDir string) (string, error) {
+	value = strings.TrimSpace(value)
+	if strings.ContainsAny(value, "\n\r") {
+		return "", fmt.Errorf("%s must be a single line", key)
+	}
 	for _, p := range Load(workingDir) {
 		if p.Name != name {
 			continue
 		}
 		if p.Source != "global" && p.Source != "project" {
-			return "", fmt.Errorf("agent %q is imported from %s and is read-only here — set its model in that tool instead", name, p.Source)
+			return "", fmt.Errorf("agent %q is imported from %s and is read-only here — set its %s in that tool instead", name, p.Source, key)
 		}
 		data, err := os.ReadFile(p.Path)
 		if err != nil {
 			return "", err
 		}
-		out := setFrontmatterModel(string(data), strings.TrimSpace(model))
+		out := setFrontmatterKey(string(data), key, value)
 		if err := os.WriteFile(p.Path, []byte(out), 0o644); err != nil {
 			return "", err
 		}
@@ -272,22 +303,22 @@ func SetModel(name, model, workingDir string) (string, error) {
 	return "", fmt.Errorf("unknown agent %q", name)
 }
 
-// setFrontmatterModel returns content with its frontmatter `model:` key set to
-// model, replacing any existing active (non-commented) model: line. An empty
-// model removes the active line (the persona inherits the parent's model). When
-// content has no frontmatter and a model is given, a minimal frontmatter block
-// is prepended; an empty model on such content is a no-op. A new model: line is
-// inserted just after description: (or at the top of the block) so the file
-// stays tidy. Lines other than the model: key — including a commented
-// "# model:" template hint — are preserved verbatim.
-func setFrontmatterModel(content, model string) string {
+// setFrontmatterKey returns content with its frontmatter `key:` entry set to
+// value, replacing any existing active (non-commented) key: line. An empty
+// value removes the active line (the persona inherits the parent's setting).
+// When content has no frontmatter and a value is given, a minimal frontmatter
+// block is prepended; an empty value on such content is a no-op. A new key:
+// line is inserted just after description: (or at the top of the block) so the
+// file stays tidy. Other lines — including a commented "# key:" template
+// hint — are preserved verbatim. Used for model/provider/reasoning overrides.
+func setFrontmatterKey(content, key, value string) string {
 	lines := strings.Split(content, "\n")
 	fence := func(s string) bool { return strings.TrimRight(s, "\r") == "---" }
 	if len(lines) == 0 || !fence(lines[0]) {
-		if model == "" {
+		if value == "" {
 			return content
 		}
-		return "---\nmodel: " + model + "\n---\n\n" + strings.TrimLeft(content, "\r\n")
+		return "---\n" + key + ": " + value + "\n---\n\n" + strings.TrimLeft(content, "\r\n")
 	}
 	end := -1
 	for i := 1; i < len(lines); i++ {
@@ -297,10 +328,10 @@ func setFrontmatterModel(content, model string) string {
 		}
 	}
 	if end < 0 { // malformed (no closing fence) — don't risk mangling the body
-		if model == "" {
+		if value == "" {
 			return content
 		}
-		out := append([]string{lines[0], "model: " + model}, lines[1:]...)
+		out := append([]string{lines[0], key + ": " + value}, lines[1:]...)
 		return strings.Join(out, "\n")
 	}
 
@@ -309,13 +340,13 @@ func setFrontmatterModel(content, model string) string {
 	descIdx := -1
 	for _, ln := range lines[1:end] {
 		trimmed := strings.TrimSpace(ln)
-		key, _, ok := strings.Cut(trimmed, ":")
-		k := strings.ToLower(strings.TrimSpace(key))
-		if ok && k == "model" && !strings.HasPrefix(trimmed, "#") {
-			if model == "" {
-				continue // drop the active model line
+		fmKey, _, ok := strings.Cut(trimmed, ":")
+		k := strings.ToLower(strings.TrimSpace(fmKey))
+		if ok && k == key && !strings.HasPrefix(trimmed, "#") {
+			if value == "" {
+				continue // drop the active line
 			}
-			fm = append(fm, "model: "+model)
+			fm = append(fm, key+": "+value)
 			replaced = true
 			continue
 		}
@@ -324,14 +355,14 @@ func setFrontmatterModel(content, model string) string {
 		}
 		fm = append(fm, ln)
 	}
-	if model != "" && !replaced {
+	if value != "" && !replaced {
 		insertAt := 0
 		if descIdx >= 0 {
 			insertAt = descIdx + 1
 		}
 		next := make([]string, 0, len(fm)+1)
 		next = append(next, fm[:insertAt]...)
-		next = append(next, "model: "+model)
+		next = append(next, key+": "+value)
 		next = append(next, fm[insertAt:]...)
 		fm = next
 	}

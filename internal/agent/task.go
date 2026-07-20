@@ -21,6 +21,7 @@ import (
 
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/llm"
+	"github.com/pysty1995/moony/internal/provider"
 	"github.com/pysty1995/moony/internal/subagents"
 	"github.com/pysty1995/moony/internal/tools"
 )
@@ -434,15 +435,33 @@ func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 	// sub-agent's slice.
 	c.VerifyCommand = ""
 	c.SelfReview = false
+	// A garbled provider pin (typo'd by hand in the persona's .md, since the
+	// picker only ever writes recognized ids) is treated as unset below rather
+	// than silently normalizing to some default provider.
+	_, validPersonaProvider := provider.Lookup(persona.Provider)
 	switch {
+	case validPersonaProvider && !config.ProvidersEqual(persona.Provider, c.LLMProvider):
+		// A pinned provider that differs from the session's needs its own model
+		// too — the parent's model id is almost certainly not servable there. Use
+		// the persona's own model pin if it gave one (trusted as-is, same as the
+		// model-only case below — ModelServableBy can't validate a cross-provider
+		// id, so a bad pin just errors naturally at call time), else fall back to
+		// the provider's default (same resolution the Fast tier uses).
+		pn := provider.Normalize(persona.Provider)
+		m := persona.Model
+		if m == "" {
+			m = provider.DefaultModelFor(pn)
+		}
+		c.LLMProvider = pn
+		c.SetModel(m) // sets Model + derives the wire route from LLMProvider
 	case persona.Model != "" && llm.ModelServableBy(persona.Model, c.LLMProvider):
 		c.SetModel(persona.Model) // a pinned persona model wins (and flips the route)
 	case persona.ReadOnly():
 		// Read-only surveyors (explore, code-reviewer, …) do grunt reading that
 		// feeds the parent's synthesis — run them on the cheaper fast model unless
-		// the persona pins its own model above. The fast tier may route to a
-		// different provider (and reasoning level) than the session; apply both to
-		// the sub-agent's config so its whole run uses that route.
+		// the persona pins its own model/provider above. The fast tier may route to
+		// a different provider (and reasoning level) than the session; apply both
+		// to the sub-agent's config so its whole run uses that route.
 		fm, fastProv, _ := config.FastModelRoute(c.Model, c.LLMProvider)
 		if fastProv != "" {
 			c.LLMProvider = fastProv // FastModelRoute returns a normalized id
@@ -451,6 +470,12 @@ func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 		if fr := config.FastReasoning(); fr != "" {
 			c.SetReasoningFor(fm, fr) // after SetModel so c.ReasoningLevel syncs
 		}
+	}
+	// A pinned persona reasoning level applies on top of whatever model/provider
+	// was resolved above (or, if none of the cases matched, the parent's own),
+	// overriding any fast-tier reasoning the ReadOnly() branch already set.
+	if persona.Reasoning != "" {
+		c.SetReasoningFor(c.Model, persona.Reasoning)
 	}
 	// (A pinned model that the current backend can't serve — e.g. a hosted model id
 	// pinned then run under Ollama, or an Ollama id under a hosted provider — is ignored by

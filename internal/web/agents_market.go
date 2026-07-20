@@ -22,8 +22,10 @@ type agentCatalogItem struct {
 	Title       string   `json:"title,omitempty"`
 	Description string   `json:"desc,omitempty"`
 	Tools       []string `json:"tools,omitempty"`
-	Source      string   `json:"source,omitempty"` // global | project | optimus | claude (discovered)
-	Model       string   `json:"model,omitempty"`  // pinned per-agent model id ("" = inherit parent)
+	Source      string   `json:"source,omitempty"`    // global | project | optimus | claude (discovered)
+	Model       string   `json:"model,omitempty"`     // pinned per-agent model id ("" = inherit parent)
+	Provider    string   `json:"provider,omitempty"`  // pinned per-agent LLM provider ("" = inherit parent)
+	Reasoning   string   `json:"reasoning,omitempty"` // pinned per-agent reasoning level ("" = inherit parent)
 	Installed   bool     `json:"installed"`
 	Enabled     bool     `json:"enabled"`
 	Removable   bool     `json:"removable"`        // false for imported (optimus/claude) personas
@@ -88,6 +90,8 @@ func (s *Server) handleAgentsCatalog(w http.ResponseWriter, r *http.Request) {
 		if installed {
 			item.Source = p.Source
 			item.Model = displayModel(p.Model)
+			item.Provider = p.Provider
+			item.Reasoning = p.Reasoning
 			item.Removable = p.Source == "global" || p.Source == "project"
 		}
 		out = append(out, item)
@@ -99,6 +103,8 @@ func (s *Server) handleAgentsCatalog(w http.ResponseWriter, r *http.Request) {
 		out = append(out, agentCatalogItem{
 			Name: p.Name, Description: p.Description, Tools: p.Tools, Source: p.Source,
 			Model:     displayModel(p.Model),
+			Provider:  p.Provider,
+			Reasoning: p.Reasoning,
 			Installed: true, Enabled: mgmt.AgentEnabled(p.Name),
 			Removable: p.Source == "global" || p.Source == "project", Custom: true,
 		})
@@ -249,4 +255,83 @@ func (s *Server) handleAgentSetModel(w http.ResponseWriter, r *http.Request) {
 		s.reattachSubAgents(wd, sess)
 	}
 	writeJSON(w, map[string]any{"ok": true, "model": body.Model})
+}
+
+// agentOptions is the per-agent provider + reasoning picker data: the same
+// inherit-first option lists the Persona modal's Fast/Self-review tiers use
+// (providerSelectOptions / reasoningSelectOptions, persona.go), reused here so
+// both pickers offer identical, consistently-labeled choices.
+type agentOptions struct {
+	Providers       []personaSelectOption `json:"providers"`
+	ReasoningLevels []personaSelectOption `json:"reasoningLevels"`
+}
+
+// handleAgentOptions returns the provider + reasoning dropdown options for the
+// per-agent pickers.
+func (s *Server) handleAgentOptions(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := s.catalogWD(r); !ok {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, agentOptions{
+		Providers:       providerSelectOptions("Inherit"),
+		ReasoningLevels: reasoningSelectOptions("Inherit (off)"),
+	})
+}
+
+// handleAgentSetProvider pins (or clears, when provider is empty) a persona's
+// per-agent LLM provider override by rewriting its `.md` frontmatter, then
+// re-attaches so the change takes effect for subsequent task-tool delegations.
+func (s *Server) handleAgentSetProvider(w http.ResponseWriter, r *http.Request) {
+	wd, sess, ok := s.catalogWD(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	var body struct {
+		Name     string `json:"name"`
+		Provider string `json:"provider"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	if _, err := subagents.SetProvider(body.Name, body.Provider, wd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sess != nil {
+		s.reattachSubAgents(wd, sess)
+	}
+	writeJSON(w, map[string]any{"ok": true, "provider": body.Provider})
+}
+
+// handleAgentSetReasoning pins (or clears, when reasoning is empty) a
+// persona's per-agent reasoning-effort override by rewriting its `.md`
+// frontmatter, then re-attaches so the change takes effect for subsequent
+// task-tool delegations.
+func (s *Server) handleAgentSetReasoning(w http.ResponseWriter, r *http.Request) {
+	wd, sess, ok := s.catalogWD(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	var body struct {
+		Name      string `json:"name"`
+		Reasoning string `json:"reasoning"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	if _, err := subagents.SetReasoning(body.Name, body.Reasoning, wd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if sess != nil {
+		s.reattachSubAgents(wd, sess)
+	}
+	writeJSON(w, map[string]any{"ok": true, "reasoning": body.Reasoning})
 }

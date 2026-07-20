@@ -112,6 +112,102 @@ func TestSetModel(t *testing.T) {
 	}
 }
 
+func TestSetProviderAndReasoning(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0")
+	wd := t.TempDir()
+
+	if _, err := Scaffold("reviewer", false, wd); err != nil {
+		t.Fatalf("Scaffold: %v", err)
+	}
+
+	// Pin a provider — parsed back, coexists with description/tools, and
+	// doesn't disturb an independently-pinned model.
+	if _, err := SetProvider("reviewer", "anthropic", wd); err != nil {
+		t.Fatalf("SetProvider pin: %v", err)
+	}
+	if _, err := SetModel("reviewer", "anthropic.claude-haiku-4-5", wd); err != nil {
+		t.Fatalf("SetModel pin: %v", err)
+	}
+	if _, err := SetReasoning("reviewer", "HIGH", wd); err != nil {
+		t.Fatalf("SetReasoning pin: %v", err)
+	}
+	p := loadOne(t, wd, "reviewer")
+	if p.Provider != "anthropic" {
+		t.Errorf("Provider = %q, want the pinned id", p.Provider)
+	}
+	if p.Model != "anthropic.claude-haiku-4-5" {
+		t.Errorf("Model = %q, want it to survive the provider/reasoning pins", p.Model)
+	}
+	if p.Reasoning != "high" {
+		t.Errorf("Reasoning = %q, want lower-cased %q", p.Reasoning, "high")
+	}
+	if p.Description == "" || len(p.Tools) == 0 {
+		t.Errorf("description/tools should survive provider/reasoning pins: %+v", p)
+	}
+
+	// Re-pinning replaces (no duplicate lines).
+	if _, err := SetProvider("reviewer", "gemini", wd); err != nil {
+		t.Fatalf("SetProvider re-pin: %v", err)
+	}
+	p = loadOne(t, wd, "reviewer")
+	if p.Provider != "gemini" {
+		t.Errorf("Provider = %q, want the re-pinned id", p.Provider)
+	}
+	data, _ := os.ReadFile(p.Path)
+	if n := strings.Count(string(data), "\nprovider:"); n != 1 {
+		t.Errorf("expected exactly one active provider: line, got %d:\n%s", n, data)
+	}
+
+	// Clearing either pin removes it independently of the other.
+	if _, err := SetProvider("reviewer", "", wd); err != nil {
+		t.Fatalf("SetProvider clear: %v", err)
+	}
+	p = loadOne(t, wd, "reviewer")
+	if p.Provider != "" {
+		t.Errorf("Provider = %q after clear, want empty", p.Provider)
+	}
+	if p.Reasoning != "high" {
+		t.Errorf("Reasoning = %q, clearing provider should not touch it", p.Reasoning)
+	}
+	if _, err := SetReasoning("reviewer", "", wd); err != nil {
+		t.Fatalf("SetReasoning clear: %v", err)
+	}
+	if p = loadOne(t, wd, "reviewer"); p.Reasoning != "" {
+		t.Errorf("Reasoning = %q after clear, want empty", p.Reasoning)
+	}
+
+	// A value with an embedded newline is rejected rather than splicing extra
+	// frontmatter lines or escaping into the body.
+	if _, err := SetProvider("reviewer", "anthropic\nmodel: injected", wd); err == nil {
+		t.Error("SetProvider should reject a multi-line value")
+	}
+	if _, err := SetReasoning("reviewer", "high\r\nmodel: injected", wd); err == nil {
+		t.Error("SetReasoning should reject a multi-line value")
+	}
+	if p = loadOne(t, wd, "reviewer"); p.Model != "anthropic.claude-haiku-4-5" {
+		t.Errorf("a rejected injection attempt should leave the file untouched: %+v", p)
+	}
+
+	// Imported externals are read-only here.
+	ext := filepath.Join(home, ".claude", "agents")
+	if err := os.MkdirAll(ext, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "outside.md"), []byte("---\ndescription: x\n---\nbody"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "1")
+	if _, err := SetProvider("outside", "anthropic", wd); err == nil {
+		t.Error("setting a provider on an imported external persona should error")
+	}
+	if _, err := SetReasoning("outside", "high", wd); err == nil {
+		t.Error("setting a reasoning level on an imported external persona should error")
+	}
+}
+
 func loadOne(t *testing.T, wd, name string) Persona {
 	t.Helper()
 	for _, p := range Load(wd) {

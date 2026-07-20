@@ -44,6 +44,8 @@ type Persona struct {
 	Name         string            // e.g. "explore"
 	Description  string            // for the task tool's enum docs
 	Model        string            // optional per-agent model id; empty = inherit the parent's
+	Provider     string            // optional per-agent LLM provider override; empty = inherit the parent's
+	Reasoning    string            // optional per-agent reasoning-effort override; empty = inherit the parent's
 	Mode         string            // "primary" | "subagent" | "all" (default "all")
 	SystemPrompt string            // body of the .md, used as the persona's system prompt
 	Tools        []string          // optional allowlist; empty = all tools available
@@ -302,11 +304,13 @@ func readDir(dir, source string) []Persona {
 		if err != nil {
 			continue
 		}
-		desc, model, mode, tools, permission, body := parseFile(string(data))
+		desc, model, provider, reasoning, mode, tools, permission, body := parseFile(string(data))
 		out = append(out, Persona{
 			Name:         strings.TrimSuffix(e.Name(), ".md"),
 			Description:  desc,
 			Model:        model,
+			Provider:     provider,
+			Reasoning:    reasoning,
 			Mode:         mode,
 			Tools:        tools,
 			Permission:   permission,
@@ -320,17 +324,17 @@ func readDir(dir, source string) []Persona {
 }
 
 // parseFile splits an optional `---` frontmatter block from the body and
-// extracts `description`, `model`, `mode`, `tools` (a comma-separated allowlist),
-// and a nested `permission:` map (opencode-style: `tool: allow|ask|deny` lines
-// indented under the key).
-func parseFile(s string) (description, model, mode string, tools []string, permission map[string]string, body string) {
+// extracts `description`, `model`, `provider`, `reasoning`, `mode`, `tools` (a
+// comma-separated allowlist), and a nested `permission:` map (opencode-style:
+// `tool: allow|ask|deny` lines indented under the key).
+func parseFile(s string) (description, model, provider, reasoning, mode string, tools []string, permission map[string]string, body string) {
 	body = s
 	if !strings.HasPrefix(s, "---\n") && !strings.HasPrefix(s, "---\r\n") {
-		return "", "", "", nil, nil, strings.TrimSpace(body)
+		return "", "", "", "", "", nil, nil, strings.TrimSpace(body)
 	}
 	end := strings.Index(s[4:], "\n---")
 	if end < 0 {
-		return "", "", "", nil, nil, strings.TrimSpace(body)
+		return "", "", "", "", "", nil, nil, strings.TrimSpace(body)
 	}
 	front := s[4 : 4+end]
 	body = strings.TrimLeft(s[4+end+4:], "\r\n")
@@ -348,6 +352,10 @@ func parseFile(s string) (description, model, mode string, tools []string, permi
 			description = val
 		case "model":
 			model = val
+		case "provider":
+			provider = val
+		case "reasoning":
+			reasoning = strings.ToLower(val)
 		case "mode":
 			mode = strings.ToLower(val)
 		case "tools":
@@ -379,7 +387,7 @@ func parseFile(s string) (description, model, mode string, tools []string, permi
 			}
 		}
 	}
-	return description, model, mode, tools, permission, strings.TrimSpace(body)
+	return description, model, provider, reasoning, mode, tools, permission, strings.TrimSpace(body)
 }
 
 // frontmatterEnvVars extracts env-var names declared in a leading --- frontmatter
