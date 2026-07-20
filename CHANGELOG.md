@@ -5,6 +5,14 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.1.3] — 2026-07-20
+
+### Changed
+
+- web: make .msg-user span .pair-q and .pair-q span .pair.pair-active explicitly
+- docs: record CI commit-message gating rule in AGENTS.md
+- ci: only run CI when the commit message contains 'github build'
+
 ## [2.1.2] — 2026-07-20
 
 ### Changed
