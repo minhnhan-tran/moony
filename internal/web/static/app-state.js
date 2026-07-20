@@ -125,7 +125,7 @@ const SF_TO_MATERIAL = {
   "questionmark.circle.fill": "help", "rectangle.3.group": "dashboard",
   "rectangle.portrait.and.arrow.right": "logout", "scissors": "content_cut",
   "shield.fill": "shield", "shippingbox": "inventory_2", "shippingbox.fill": "inventory_2",
-  "sidebar.left": "menu", "slash.circle": "block", "slider.horizontal.3": "tune",
+  "sidebar.left": "menu", "slash.circle": "code", "slider.horizontal.3": "tune",
   "smallcircle.filled.circle": "radio_button_checked", "sparkle": "auto_awesome",
   "sparkles": "auto_awesome", "speaker.wave.2.fill": "volume_up", "square": "crop_square",
   "square.and.arrow.down": "download", "square.and.arrow.up": "upload",
