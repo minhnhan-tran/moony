@@ -236,7 +236,7 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
    system — no inner re-cap — so the agent side shares one left edge and reaches
    the same right edge as the user bubbles, closing the old right-side void. The
    disclosure heads are width:fit-content (see below), so they hug their label. */
-.msg-user { display: flex; flex-direction: column; align-items: flex-end; }
+.msg-user { display: flex; flex-direction: column; align-items: flex-end; width: 100%; }
 .msg-user > * { max-width: min(86%, 40rem); }
 .msg-user .msg-label { display: none; } /* reference style: flat bubble, no speaker label */
 
@@ -2428,10 +2428,12 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pair.pair-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .pair-q {
   flex: none;
+  width: 100%;                               /* always spans .pair.pair-active, matching .pair-a */
   max-height: 40%; overflow-y: auto;         /* cap a long prompt; it scrolls, the answer keeps room */
   padding: 1rem 1rem .75rem;
   border-bottom: 1px solid rgb(var(--c-edge) / .6);
   background: rgb(var(--c-surface) / .4);
+  box-sizing: border-box;
 }
 .pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
 .pair-a {
