@@ -1487,6 +1487,12 @@ function handle(ev) {
     case "commands": {
       commandList = ev.commands || [];
       mentionList = ev.mentions || [];
+      // The list can arrive AFTER the user already typed "/" or "@" (always so
+      // in mirror mode until the terminal publishes; racy on a fresh connect).
+      // Re-render so an open-but-empty palette/dropdown fills in instead of
+      // staying hidden until the next keystroke. Both self-hide when N/A.
+      renderPalette();
+      renderMentions();
       break;
     }
     case "sessions": {
