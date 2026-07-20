@@ -935,6 +935,11 @@ body.agent-awaiting .app-statusbar::after {
   color: rgb(var(--c-faint)); border-bottom: 1px solid rgb(var(--c-edge)); padding-bottom: .35rem;
 }
 @media (max-width: 560px) { .persona-tier-grid { grid-template-columns: 1fr; } }
+/* A tier column is already ~half width, so stack each field's label above a
+   full-width control instead of the side-by-side space-between used elsewhere —
+   the three selects then line up and never get squeezed by a long label. */
+.persona-tier-col div.persona-toggle { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: .3rem; }
+.persona-tier-col .persona-select { max-width: none; }
 .persona-label { font-weight: 600; color: rgb(var(--c-ink)); font-size: 13px; }
 .persona-desc { color: rgb(var(--c-faint)); font-size: 12px; line-height: 1.4; }
 .persona-row { display: flex; gap: .5rem; align-items: center; }

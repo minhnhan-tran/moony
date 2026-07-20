@@ -4161,12 +4161,27 @@ async function renderPersona() {
   const toggles = fields.filter((f) => (f.type === "bool" || f.type === "select") && !tierKeySet.has(f.key));
   const rest = fields.filter((f) => f.type !== "bool" && f.type !== "select");
   for (const f of toggles) form.append(makeField(f));
+  // The column heading already names the tier ("Fast model" / "Self-review
+  // model"), so inside a column each field only needs its role — "Provider",
+  // "Model", "Reasoning" — rather than repeating the tier name and squeezing a
+  // long label next to the control. The MN_* env var stays discoverable as a
+  // hover title, and each field's Desc below still spells it out in full.
+  const tierFieldRole = { fastProvider: "Provider", sqeFastModel: "Model", fastReasoning: "Reasoning", auxProvider: "Provider", sqeAuxModel: "Model", auxReasoning: "Reasoning" };
   const tierCol = (heading, keys) => {
     const present = keys.map((k) => byKey[k]).filter(Boolean);
     if (!present.length) return null;
     const col = el("div", "persona-tier-col");
     col.append(el("div", "persona-tier-heading", heading));
-    for (const f of present) col.append(makeField(f));
+    for (const f of present) {
+      const role = tierFieldRole[f.key];
+      const node = makeField(role ? Object.assign({}, f, { label: role }) : f);
+      if (role) {
+        const env = (String(f.label).match(/MN_[A-Z_]+/) || [])[0];
+        const lbl = node.querySelector(".persona-label");
+        if (lbl && env) lbl.title = env;
+      }
+      col.append(node);
+    }
     return col;
   };
   const fastCol = tierCol("Fast model", tierKeys.fast);
