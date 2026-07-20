@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.0.2] — 2026-07-20
+
+### Changed
+
+- web: trigger slash/mention palette when list arrives after typing / or @
+
 ## [2.0.1] — 2026-07-19
 
 ### Fixed
