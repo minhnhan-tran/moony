@@ -962,7 +962,7 @@ async function newSession() {
 // open a new stream — selectSession does that, while deleteSession leaves it empty.
 function clearView() {
   if (es) { es.close(); es = null; }
-  current = null; asstBody = null; asstRaw = ""; asstLabeled = false; turnTodos = null; phaseTimes = {}; toolGroup = null; workerGroup = null; turnActive = false; turnStartMs = 0; stickBottom = true; thinkBody = null; tools = {}; lastStatus = null; curStep = 0; maxStep = 0; compactingMsg = null;
+  current = null; asstBody = null; asstRaw = ""; asstLabeled = false; turnTodos = null; phaseTimes = {}; toolGroup = null; workerGroup = null; turnActive = false; turnStartMs = 0; stickBottom = true; thinkBody = null; thinkRaw = ""; tools = {}; lastStatus = null; curStep = 0; maxStep = 0; compactingMsg = null;
   cumTurnIn = 0; cumTurnOut = 0; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; // reset session token/cost accumulators; the new session replays its own turn-meta
   upgrading = false; upgradeStartVer = ""; syncUpgradeBtn(); // drop any stale "Updating…" state (button + mascot) when the view is torn down (e.g. the focused laptop dropped)
   usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // reset per-session usage history
@@ -1078,7 +1078,7 @@ function scheduleAsstRender() {
 function endAssistant() {
   if (asstBody) renderMDInto(asstBody, asstRaw);
   asstBody = null; asstRaw = "";
-  thinkBody = null;
+  thinkBody = null; thinkRaw = "";
 }
 
 // startMsg builds a message block with an Material Symbols icon + speaker label header.
@@ -1125,7 +1125,7 @@ function handle(ev) {
       // thinking bubbles so the re-streamed response replaces them cleanly.
       if (asstBody && asstBody.parentNode) asstBody.parentNode.remove();
       if (thinkBody && thinkBody.parentNode) thinkBody.parentNode.remove();
-      asstBody = null; asstRaw = ""; thinkBody = null; asstLabeled = false;
+      asstBody = null; asstRaw = ""; thinkBody = null; thinkRaw = ""; asstLabeled = false;
       break;
     }
     case "history_end": {
@@ -1147,7 +1147,7 @@ function handle(ev) {
         head.appendChild(sym("sparkles"));
         head.appendChild(el("span", null, "thinking"));
         m.appendChild(head);
-        const bodyEl = el("div", "think-body text-faint text-[13px] italic whitespace-pre-wrap break-words pl-3");
+        const bodyEl = el("div", "think-body md text-faint text-[13px] break-words pl-3");
         m.appendChild(bodyEl);
         // Thinking blocks always start expanded (live and replayed alike); the
         // header still toggles collapse on click. Closures capture the local bodyEl
@@ -1157,12 +1157,14 @@ function handle(ev) {
         head.onclick = () => setCollapsed(!bodyEl.hidden);
         appendMsg(m);
         thinkBody = bodyEl;
+        thinkRaw = "";
       }
-      thinkBody.textContent += ev.text;
+      thinkRaw += ev.text;
+      renderMDInto(thinkBody, thinkRaw);
       break;
     }
     case "text": {
-      thinkBody = null; // close any open thinking block
+      thinkBody = null; thinkRaw = ""; // close any open thinking block
       if (!asstBody) {
         endToolGroup(); // a new prose block ends the prior run of tool calls
         endWorkerGroup();

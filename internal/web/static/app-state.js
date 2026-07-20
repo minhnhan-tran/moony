@@ -43,7 +43,7 @@ let lastTurnReasoning = "";              // this turn's actual serving reasoning
 let lastTurnIn = 0, lastTurnOut = 0, lastTurnCacheRead = 0; // this turn's total tokens + cached-input subset (from turn_done), for the footer
 let cumTurnIn = 0, cumTurnOut = 0; // running session totals summed from per-turn meta (replayed + live), so the status bar matches the turn-meta footers even after a reopen
 let stickBottom = true;                  // auto-scroll only when the user is already at the bottom
-let thinkBody = null;                    // current streaming thinking block
+let thinkBody = null, thinkRaw = "";                    // current streaming thinking block
 let tools = {};                          // toolId -> { el, hd, pre }
 let lastStatus = null;                   // latest status-bar snapshot from the terminal
 let usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // per-session usage counts (category → name → uses), rendered in #mcp

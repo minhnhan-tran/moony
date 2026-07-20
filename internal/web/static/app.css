@@ -346,6 +346,13 @@ html.dark .msg-assistant > .md:hover { border-left-color: rgb(var(--c-brand) / .
 .think-chevron { transition: transform .15s ease; }
 .msg-thinking:not(.collapsed) .think-chevron { transform: rotate(90deg); }
 .think-body { border-left: 2px dashed rgb(var(--c-edge)); }
+/* Thinking blocks render Markdown (.md) but stay muted + slightly smaller than
+   the assistant's answer; keep the reasoning visually secondary. */
+.think-body.md { color: rgb(var(--c-faint)); font-size: 13px; line-height: 1.55; }
+.think-body.md > :first-child { margin-top: 0; }
+.think-body.md > :last-child { margin-bottom: 0; }
+.think-body.md p { margin: .4rem 0; }
+.think-body.md h1, .think-body.md h2, .think-body.md h3, .think-body.md h4 { font-size: .95rem; margin: .6rem 0 .3rem; border-bottom: 0; padding-bottom: 0; }
 
 /* Info lines: a muted blue-accented callout. */
 /* Info callout: a calm brand-tinted note with a leading info icon, a brand
