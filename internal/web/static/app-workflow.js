@@ -1349,8 +1349,28 @@
     // outputs (compact trace); failures stay expanded so the error is visible.
     row.classList.add("wf-trace-collapsible");
     if (!failed) row.classList.add("is-collapsed");
+    
+    // Accessibility: collapsible header keyboard focus + button role
+    head.setAttribute("role", "button");
+    head.setAttribute("tabindex", "0");
+    var updateExpanded = function () {
+      head.setAttribute("aria-expanded", String(!row.classList.contains("is-collapsed")));
+    };
+    updateExpanded();
+
     head.insertBefore(sym("chevron.right", "wf-trace-caret"), head.firstChild);
-    head.addEventListener("click", function () { row.classList.toggle("is-collapsed"); });
+    
+    var toggleCollapse = function () {
+      row.classList.toggle("is-collapsed");
+      updateExpanded();
+    };
+    head.addEventListener("click", toggleCollapse);
+    head.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    });
     row.appendChild(head);
     row.appendChild(body);
     return row;
@@ -1766,7 +1786,26 @@
       body.append(resume);
     }
     row.appendChild(body);
-    head.onclick = function () { body.classList.toggle("hidden"); };
+    
+    // Accessibility: workflow run history row focus + button role
+    head.setAttribute("role", "button");
+    head.setAttribute("tabindex", "0");
+    var updateHistExpanded = function () {
+      head.setAttribute("aria-expanded", String(!body.classList.contains("hidden")));
+    };
+    updateHistExpanded();
+
+    var toggleHist = function () {
+      body.classList.toggle("hidden");
+      updateHistExpanded();
+    };
+    head.onclick = toggleHist;
+    head.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleHist();
+      }
+    });
     return row;
   }
 

@@ -323,7 +323,7 @@ function highlightCodeBlocks(root) {
 
 // Copy a code block to the clipboard. The buttons live inside sanitized markdown
 // (no inline handlers survive), so the click is handled by delegation on the
-// transcript; the icon briefly flips to a checkmark as feedback.
+// transcript; the icon briefly flips to a checkmark as feedback. Supports Space/Enter keys too.
 transcript.addEventListener("click", (e) => {
   const btn = e.target.closest && e.target.closest(".code-copy");
   if (!btn) return;
@@ -334,6 +334,14 @@ transcript.addEventListener("click", (e) => {
   btn.classList.add("copied");
   const ic = btn.querySelector("app-icon"); if (ic) ic.setAttribute("name", "checkmark");
   setTimeout(() => { btn.classList.remove("copied"); const i2 = btn.querySelector("app-icon"); if (i2) i2.setAttribute("name", "doc.on.doc"); }, 1200);
+});
+
+transcript.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const btn = e.target.closest && e.target.closest(".code-copy");
+  if (!btn) return;
+  e.preventDefault();
+  btn.click(); // Reuse click handler
 });
 
 // renderMD turns markdown into sanitized HTML, with emoji + task-list checkboxes
@@ -1129,10 +1137,14 @@ function renderDiff(pre, text) {
   const looksDiff = lines.some((l) => l.startsWith("@@") || l[0] === "+" || l[0] === "-");
   if (!looksDiff) { pre.textContent = t; return; }
   pre.classList.add("diff");
+  // Performance: build lines in a DocumentFragment so the browser reflows once
+  // on the single appendChild below, not once per line (large diffs thrashed).
+  const frag = document.createDocumentFragment();
   for (const line of lines) {
     const cls = diffLineClass(line);
-    pre.appendChild(el("div", "diff-line" + (cls ? " " + cls : ""), line.length ? line : " "));
+    frag.appendChild(el("div", "diff-line" + (cls ? " " + cls : ""), line.length ? line : " "));
   }
+  pre.appendChild(frag);
 }
 
 // api prefixes a path with the focused laptop's base ("" for the standalone

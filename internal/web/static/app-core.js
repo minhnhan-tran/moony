@@ -1003,7 +1003,14 @@ function selectSession(id) {
   }
   es = new EventSource(api(`/api/sessions/${id}/events`));
   historyLoaded = false; // this connection replays history first; the "history_end" marker flips it true
-  es.onmessage = (m) => handle(JSON.parse(m.data));
+  es.onmessage = (m) => {
+    // Guard against non-JSON payloads (proxy/error HTML on a hiccup): a raw
+    // JSON.parse throw here would abort event dispatch. Log + skip instead.
+    let ev;
+    try { ev = JSON.parse(m.data); }
+    catch (err) { console.error("SSE: bad event payload, skipping", err, m.data); return; }
+    handle(ev);
+  };
   // EventSource auto-reconnects on error and hides the HTTP status, so a 401 from
   // an expired session would otherwise loop forever with a stale UI. When auth is
   // on (authUser set), probe /auth/me on error: the fetch wrapper bounces to login
@@ -1027,7 +1034,12 @@ function selectSession(id) {
 // so only the trailing, still-streaming block (and anything past the first real
 // change) is rebuilt.
 function mdNodeKey(n) {
-  if (n.nodeType === Node.ELEMENT_NODE) return "e:" + n.outerHTML;
+  if (n.nodeType === Node.ELEMENT_NODE) {
+    // Performance optimization: keying off node name, class, and text content
+    // is vastly faster than n.outerHTML because it avoids recursively serializing
+    // syntax-highlighted HTML subtrees on every streamed token.
+    return "e:" + n.nodeName + ":" + (n.className || "") + ":" + n.textContent;
+  }
   if (n.nodeType === Node.TEXT_NODE) return "t:" + n.nodeValue;
   if (n.nodeType === Node.COMMENT_NODE) return "c:" + n.nodeValue;
   return "o:" + n.nodeName;
