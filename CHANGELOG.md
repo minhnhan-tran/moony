@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.1.4] — 2026-07-20
+
+### Changed
+
+- web: improve Fast/Self-review model layout in Persona modal (stacked full-width selects, concise labels)
+
 ## [2.1.3] — 2026-07-20
 
 ### Changed
