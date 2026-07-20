@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.1.0] — 2026-07-20
+
+### Changed
+
+- web: a11y keyboard support, focus rings, streaming/diff perf, and SSE parse robustness
+
 ## [2.0.4] — 2026-07-20
 
 ### Changed
