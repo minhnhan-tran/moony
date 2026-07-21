@@ -21,3 +21,5 @@
 /docs/superpowers/
 /ios/EnglishLearningApp/
 /ios/EnglishLearner/
+# Added by code-review-graph
+.code-review-graph/

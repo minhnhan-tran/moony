@@ -1298,6 +1298,83 @@ body.sidebar-resizing .app-sidebar { transition: none; } /* no lag while draggin
     padding-bottom: env(safe-area-inset-bottom);
   }
   .app-overlay { align-items: stretch !important; }
+
+  /* Hide scrollbars for config tab strip on mobile, keeping swipe functional */
+  #manageTabs {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE 10+ */
+  }
+  #manageTabs::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+  }
+  .config-tab {
+    padding: .5rem .8rem !important; /* Larger touch target */
+    font-size: 13px !important;
+    white-space: nowrap;
+  }
+
+  /* Stack or wrap row content on smaller screens to prevent truncation/horizontal overflow */
+  @media (max-width: 600px) {
+    .manage-row {
+      flex-wrap: wrap !important;
+      align-items: flex-start !important;
+      padding: .75rem .8rem !important;
+      gap: .65rem !important;
+    }
+    .manage-row-main {
+      flex: 1 1 100% !important;
+      width: 100% !important;
+      margin-bottom: .15rem;
+    }
+    /* If there's a status flex slot (such as the three dropdowns), wrap it */
+    .manage-row > div.flex.items-center.gap-1.shrink-0 {
+      flex: 1 1 100% !important;
+      width: 100% !important;
+      flex-wrap: wrap !important;
+      gap: .4rem !important;
+    }
+    /* Make dropdown selects and buttons fill space or align elegantly */
+    .manage-row > div.flex.items-center.gap-1.shrink-0 > select {
+      flex: 1 1 calc(50% - .2rem) !important; /* 2 selects per row on tight viewports */
+      min-width: 0 !important;
+      height: 34px !important;
+    }
+    .manage-row > div.flex.items-center.gap-1.shrink-0 > button {
+      flex: 0 0 auto !important;
+    }
+    /* Toggle and remove actions stay on right, aligned nicely */
+    .manage-toggle {
+      margin-left: auto !important;
+    }
+  }
+
+  /* Agent Builder (Workflow Canvas) mobile layout:
+     Overlays the config drawer on top of the stage canvas instead of compressing it. */
+  .wf-builder {
+    grid-template-columns: 1fr !important;
+  }
+  .wf-config {
+    position: absolute !important;
+    top: 36px !important; /* Beneath the toolbar */
+    right: 0 !important;
+    bottom: 0 !important;
+    width: min(24rem, 100vw) !important;
+    z-index: 40 !important;
+    border-left: 1px solid rgb(var(--c-edge)) !important;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, .25) !important;
+  }
+  /* Shrink and wrap toolbar elements so they don't break/overflow on narrow viewports */
+  .wf-toolbar-row {
+    flex-wrap: wrap !important;
+    gap: .45rem !important;
+  }
+  .wf-name {
+    min-width: 100px !important;
+    flex: 1 1 auto !important;
+  }
+  .wf-runtime-menu {
+    max-width: calc(100vw - 24px) !important;
+  }
 }
 
 /* Drawer + scrim motion is decorative — honor reduced-motion. */
