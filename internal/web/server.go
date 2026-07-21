@@ -16,6 +16,7 @@
 package web
 
 import (
+	"compress/gzip"
 	"context"
 	"embed"
 	"encoding/base64"
@@ -348,7 +349,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 // (/l/{host}/...) to the connectors, so the page loads even with no connectors.
 func SPAHandler() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /static/", http.FileServerFS(staticFS))
+	mux.Handle("GET /static/", withGzip(cacheStatic(http.FileServerFS(staticFS))))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -363,6 +364,105 @@ func SPAHandler() http.Handler {
 		w.Write(page)
 	})
 	return mux
+}
+
+// cacheStatic marks embedded assets (css/js/fonts) as cacheable. There's no
+// build-hash in the filenames, so a deploy of new static assets needs the
+// documented hard-refresh — the moderate max-age just cuts repeat-load
+// bandwidth within a session instead of caching indefinitely. Cache-Control
+// is only added for a 200 response so a 404 (unknown asset) isn't cached.
+// Vary is set unconditionally, not just on the compressed path, so a shared
+// cache keys correctly on Accept-Encoding even for pass-through responses
+// (Range requests, or a client that doesn't send "gzip").
+func cacheStatic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Accept-Encoding")
+		next.ServeHTTP(&cacheableWriter{ResponseWriter: w}, r)
+	})
+}
+
+type cacheableWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (c *cacheableWriter) WriteHeader(status int) {
+	if !c.wroteHeader {
+		c.wroteHeader = true
+		if status == http.StatusOK {
+			c.Header().Set("Cache-Control", "public, max-age=3600")
+		}
+	}
+	c.ResponseWriter.WriteHeader(status)
+}
+
+func (c *cacheableWriter) Write(b []byte) (int, error) {
+	if !c.wroteHeader {
+		c.WriteHeader(http.StatusOK)
+	}
+	return c.ResponseWriter.Write(b)
+}
+
+// withGzip compresses static asset responses when the client accepts it.
+// Range requests are passed through uncompressed: http.FileServerFS/ServeContent
+// slices Range responses out of the original (uncompressed) content, and
+// transcoding a partial byte range through gzip on the fly would produce a
+// truncated, undecodable stream while still claiming a matching Content-Range.
+// HEAD is also passed through: there's no body to compress, and forcing the
+// gzip wrapper would only strip the Content-Length HEAD is meant to report.
+func withGzip(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead || r.Header.Get("Range") != "" || !acceptsGzip(r.Header.Get("Accept-Encoding")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, gz: gz}, r)
+	})
+}
+
+// acceptsGzip reports whether an Accept-Encoding header lists gzip without
+// explicitly disabling it via a zero quality value ("gzip;q=0").
+func acceptsGzip(header string) bool {
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		name, params, _ := strings.Cut(part, ";")
+		if strings.TrimSpace(name) != "gzip" {
+			continue
+		}
+		params = strings.ReplaceAll(params, " ", "")
+		if strings.Contains(params, "q=0") && !strings.Contains(params, "q=0.") {
+			continue // explicitly disabled, not just an unweighted/low preference
+		}
+		return true
+	}
+	return false
+}
+
+// gzipResponseWriter pipes response bytes through gzip and strips the
+// upstream Content-Length (set by ServeContent for the uncompressed size,
+// which would otherwise mismatch the compressed byte count actually sent).
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	gz          *gzip.Writer
+	wroteHeader bool
+}
+
+func (g *gzipResponseWriter) WriteHeader(status int) {
+	if !g.wroteHeader {
+		g.wroteHeader = true
+		g.Header().Del("Content-Length")
+	}
+	g.ResponseWriter.WriteHeader(status)
+}
+
+func (g *gzipResponseWriter) Write(b []byte) (int, error) {
+	if !g.wroteHeader {
+		g.WriteHeader(http.StatusOK)
+	}
+	return g.gz.Write(b)
 }
 
 // handleLaptops returns the single laptop this server runs on, with an empty

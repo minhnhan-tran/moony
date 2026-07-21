@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -85,6 +86,39 @@ func TestProxiesPostBody(t *testing.T) {
 	r.ServeHTTP(rec, httptest.NewRequest("POST", "/l/mac/echo", strReader(`{"text":"hi"}`)))
 	if rec.Body.String() != `got:{"text":"hi"}` {
 		t.Errorf("body = %q, want the echoed request body", rec.Body.String())
+	}
+}
+
+func TestOversizedBodyRejected(t *testing.T) {
+	// Shrink the cap for the test instead of allocating ~2x the real 48MiB
+	// limit; the behavior being verified (413 over, 200 at) is independent of
+	// the constant's actual value.
+	orig := maxRoundTripBodyBytes
+	maxRoundTripBodyBytes = 1024
+	t.Cleanup(func() { maxRoundTripBodyBytes = orig })
+
+	h := http.NewServeMux()
+	h.HandleFunc("POST /echo", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		w.Write(append([]byte("got:"), b...))
+	})
+	r := startPair(t, "mac", h)
+
+	// A body over the cap gets a clean 413 instead of being buffered whole and
+	// failing further down the pipeline.
+	oversized := strings.Repeat("x", int(maxRoundTripBodyBytes)+1)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest("POST", "/l/mac/echo", strings.NewReader(oversized)))
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusRequestEntityTooLarge)
+	}
+
+	// A body right at the cap still goes through normally.
+	atCap := strings.Repeat("y", int(maxRoundTripBodyBytes))
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest("POST", "/l/mac/echo", strings.NewReader(atCap)))
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 for a body exactly at the cap", rec.Code)
 	}
 }
 

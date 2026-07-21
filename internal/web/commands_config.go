@@ -742,13 +742,19 @@ func (s *Server) connectMCP(workingDir string, live *session) string {
 		trace = append(trace, line)
 		logf(line)
 	}
+	// Bound the connect/reload attempt: it runs while holding live.mcpMu, so a
+	// server that hangs on startup (stuck npx install, unresponsive docker
+	// container, etc.) would otherwise wedge every later config reload for this
+	// session indefinitely.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	mgr := live.mcpManager()
 	if mgr == nil {
-		mgr = mcp.ConnectAll(context.Background(), cfgs, logger)
+		mgr = mcp.ConnectAll(ctx, cfgs, logger)
 		mgr.RegisterTools(live.agent.Registry())
 		live.setMCP(mgr)
 	} else {
-		mgr.Reload(context.Background(), cfgs, logger)
+		mgr.Reload(ctx, cfgs, logger)
 	}
 	// Tools just changed in the registry; rebuild the system prompt so its tool
 	// list and tool-specific guidance (e.g. codebase-memory) reflect them.

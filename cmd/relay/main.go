@@ -12,11 +12,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/pysty1995/moony/internal/announce"
 	"github.com/pysty1995/moony/internal/auth"
@@ -96,6 +98,11 @@ func main() {
 	if authOn {
 		handler = authGate.Wrap(handler) // OIDC login gate over all browser routes
 		fmt.Println("  auth:   OIDC per-user login enabled (MN_AUTH=on)")
+	} else if host, _, splitErr := net.SplitHostPort(*httpAddr); splitErr != nil || (host != "127.0.0.1" && host != "localhost" && host != "::1") {
+		// Binding beyond loopback with no auth means anyone who can reach this
+		// address gets full access to every connector's filesystem/agent — flag it
+		// loudly instead of failing silently open.
+		fmt.Println("  auth:   OFF — WARNING: -addr is not loopback-only; this relay is reachable over the network with NO authentication (set MN_AUTH=on to require login)")
 	}
 
 	tln, err := net.Listen("tcp", *tunnelAddr)
@@ -124,22 +131,54 @@ func main() {
 	}
 	fmt.Println("  waiting for a connector to dial in…")
 
-	if useTLS {
-		err = http.ServeTLS(hln, handler, certFile, keyFile)
-	} else {
-		err = http.Serve(hln, handler)
+	srv := &http.Server{
+		Handler: handler,
+		// Guard against slowloris-style trickle attacks: cap how long a client
+		// gets to send headers/body. ReadTimeout is generous because a legitimate
+		// request body can carry a multi-attachment upload (each up to ~32MB raw,
+		// larger once base64-encoded — see internal/relay.maxRoundTripBodyBytes)
+		// over a slow/mobile connection, which a tight deadline would abort.
+		// WriteTimeout is deliberately left at 0 (unlimited) because the API
+		// proxies long-lived SSE/streaming agent responses through this same
+		// server — a fixed write deadline would cut those off mid-stream.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		IdleTimeout:       120 * time.Second,
 	}
-	if err != nil {
+	if useTLS {
+		err = srv.ServeTLS(hln, certFile, keyFile)
+	} else {
+		err = srv.Serve(hln)
+	}
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fatal("serve: %v", err)
 	}
 }
 
 func acceptConnectors(ln net.Listener, r *relay.Relay) {
+	// Mirrors the backoff net/http's own Serve loop uses: a transient accept
+	// error (e.g. a momentary fd/resource exhaustion) must not take down the
+	// whole relay — only a closed listener should end the loop.
+	var backoff time.Duration
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			fatal("connector accept: %v", err)
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			if backoff == 0 {
+				backoff = 5 * time.Millisecond
+			} else {
+				backoff *= 2
+			}
+			if max := time.Second; backoff > max {
+				backoff = max
+			}
+			fmt.Fprintf(os.Stderr, "relay: connector accept: %v; retrying in %v\n", err, backoff)
+			time.Sleep(backoff)
+			continue
 		}
+		backoff = 0
 		go r.AddConnector(conn)
 	}
 }

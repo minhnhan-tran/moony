@@ -2,6 +2,7 @@ package relay
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -573,9 +574,29 @@ func (l *link) failAll() {
 // roundTrip proxies one browser request to this connector (sending forwardPath
 // as the request path) and streams the response back. SSE works because each
 // connector body frame is written and flushed as it arrives.
+// maxRoundTripBodyBytes caps a browser request body before it's buffered into
+// a single fReq frame. This isn't sized to precisely fit under protocol's
+// maxFrameBytes (64MiB) — the request body already carries base64-encoded
+// attachments (internal/attach allows up to a 32MB PDF/office file, base64 ~=
+// 42.7MB, before any message text or JSON overhead), and the frame transport
+// then base64-encodes that body a second time, so no single constant here can
+// both admit every legitimate attachment combination and stay safely under
+// the wire frame cap; a turn combining several near-max attachments can still
+// be rejected by the connector's own frame-size check downstream. The goal of
+// this cap is narrower: give a clean, fast 413 for a clearly-runaway body
+// (hundreds of MB+) instead of buffering it all in memory first, while
+// comfortably covering the common case of one large attachment plus a normal
+// message.
+var maxRoundTripBodyBytes int64 = 48 << 20 // var so tests can shrink it
+
 func (l *link) roundTrip(w http.ResponseWriter, req *http.Request, forwardPath string) {
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, req.Body, maxRoundTripBodyBytes))
 	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "could not read request body", http.StatusBadRequest)
 		return
 	}
