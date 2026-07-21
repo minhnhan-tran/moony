@@ -5,6 +5,10 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.2.3] — 2026-07-21
+
+_No changes recorded._
+
 ## [2.2.2] — 2026-07-21
 
 ### Changed
