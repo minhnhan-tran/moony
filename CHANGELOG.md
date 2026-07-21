@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.2.2] — 2026-07-21
+
+### Changed
+
+- web: optimize the relay web UI for mobile viewports
+
 ## [2.2.1] — 2026-07-21
 
 ### Changed
