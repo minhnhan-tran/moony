@@ -27,13 +27,24 @@ import (
 	"github.com/pysty1995/moony/internal/worker"
 )
 
-// Decision is the user's response to an ApprovalRequest.
-type Decision int
+type DecisionType int
 
 const (
-	Deny Decision = iota
-	Approve
-	ApproveAlways
+	DenyType DecisionType = iota
+	ApproveType
+	ApproveAlwaysType
+)
+
+// Decision is the user's response to an ApprovalRequest.
+type Decision struct {
+	Type     DecisionType
+	Feedback string
+}
+
+var (
+	Deny          = Decision{Type: DenyType}
+	Approve       = Decision{Type: ApproveType}
+	ApproveAlways = Decision{Type: ApproveAlwaysType}
 )
 
 // Agent ties together the model client, tools, history, and persistence.

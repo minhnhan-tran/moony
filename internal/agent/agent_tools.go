@@ -385,7 +385,7 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 			return false, llm.ToolResultBlock(call.ID, msg, true)
 		}
-		if a.requestApproval(ctx, emit, call.Name, summary, diff) == Deny {
+		if a.requestApproval(ctx, emit, call.Name, summary, diff).Type == DenyType {
 			msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 			return false, llm.ToolResultBlock(call.ID, msg, true)
@@ -414,7 +414,7 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 		}
 		// Always prompt; do NOT honor "always allow" for these (ApproveAlways is
 		// treated as a one-time Approve), so every commit/push is re-confirmed.
-		if a.requestApproval(ctx, emit, call.Name, summary, diff) == Deny {
+		if a.requestApproval(ctx, emit, call.Name, summary, diff).Type == DenyType {
 			msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 			return false, llm.ToolResultBlock(call.ID, msg, true)
@@ -433,8 +433,9 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 		// must never blanket-allow every future bash call.
 		rule := alwaysAllowRule(call.Name, call.Input)
 		if rule == "" || !a.alwaysAllow[rule] {
-			switch a.requestApproval(ctx, emit, call.Name, summary, diff) {
-			case ApproveAlways:
+			resp := a.requestApproval(ctx, emit, call.Name, summary, diff)
+			switch resp.Type {
+			case ApproveAlwaysType:
 				if rule != "" {
 					a.alwaysAllow[rule] = true
 					// Persist as a project-scoped allow rule so it survives restarts
@@ -447,8 +448,15 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 						}
 					}
 				}
-			case Deny:
-				msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
+			case ApproveType:
+				// no-op, falls through
+			default: // DenyType
+				msg := "User denied execution of this tool."
+				if resp.Feedback != "" {
+					msg = "User denied execution of this tool: " + resp.Feedback
+				} else {
+					msg += " Do not retry; ask the user how to proceed."
+				}
 				emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 				return false, llm.ToolResultBlock(call.ID, msg, true)
 			}

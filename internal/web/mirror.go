@@ -193,6 +193,7 @@ func (s *MirrorServer) handleQueue(w http.ResponseWriter, r *http.Request) {
 func (s *MirrorServer) handleApprove(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Decision string `json:"decision"`
+		Feedback string `json:"feedback"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	var d agent.Decision
@@ -202,7 +203,7 @@ func (s *MirrorServer) handleApprove(w http.ResponseWriter, r *http.Request) {
 	case "always":
 		d = agent.ApproveAlways
 	default:
-		d = agent.Deny
+		d = agent.Decision{Type: agent.DenyType, Feedback: body.Feedback}
 	}
 	if !s.hub.Approve(d) {
 		http.Error(w, "no approval pending", http.StatusConflict)

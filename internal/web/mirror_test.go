@@ -214,7 +214,7 @@ func TestMirrorWireCanQueue(t *testing.T) {
 
 func TestMirrorApproveForwarding(t *testing.T) {
 	h := bridge.New()
-	var got agent.Decision = -1
+	var got agent.Decision = agent.Decision{Type: -1}
 	h.SetController(nil, func(d agent.Decision) { got = d }, nil, nil)
 	srv := NewMirrorServer(h).Handler()
 
