@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.2.4] — 2026-07-24
+
+### Changed
+
+- web: add backend support for human-in-the-loop denial feedback
+
 ## [2.2.3] — 2026-07-21
 
 _No changes recorded._
