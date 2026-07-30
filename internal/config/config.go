@@ -360,6 +360,25 @@ type Config struct {
 	// VerifyTimeoutSec bounds a single verification run in seconds (default 120;
 	// MN_VERIFY_TIMEOUT), so a hung test command can't wedge the turn.
 	VerifyTimeoutSec int
+	// ModelExplicit, ProviderExplicit and ReasoningExplicit record that the value
+	// came from an explicit choice at startup (MN_MODEL / MN_LLM_PROVIDER /
+	// MN_REASONING, or the -model/-provider/-reasoning flags via SetModel etc.)
+	// rather than a default. A reopened session restores its own saved selection
+	// (agent.restoreLLMSelection) ONLY for the fields not explicitly set, so
+	// `moony -model X --session <old>` still runs on X.
+	ModelExplicit     bool
+	ProviderExplicit  bool
+	ReasoningExplicit bool
+
+	// VerifyAuto, when true and VerifyCommand is empty, makes Load() auto-detect a
+	// sensible verify command from the project (Makefile test target, go.mod,
+	// package.json test script, Cargo.toml, pyproject/pytest, …). Off by default
+	// so the agent never runs a project command the user didn't opt into
+	// (MN_VERIFY_AUTO=1). An explicit VerifyCommand always wins.
+	VerifyAuto bool
+	// VerifyCommandAuto is true when VerifyCommand was filled by auto-detection
+	// (not set explicitly), so the UI can label it as detected.
+	VerifyCommandAuto bool
 	// SelfReview, when true, runs a cheap fast-model review of the turn's own diff
 	// before finishing a turn that edited files: if it flags a likely introduced
 	// bug, the finding is fed back once so the agent fixes it before stopping. Off
@@ -1587,6 +1606,7 @@ func Load() *Config {
 	llmProvider := prefs.LLMProvider
 	if v := strings.TrimSpace(os.Getenv("MN_PROVIDER")); v != "" {
 		llmProvider = v
+		c.ProviderExplicit = true
 	}
 	c.LLMProvider = provider.Normalize(llmProvider)
 	// Ollama host (MN_OLLAMA_HOST preferred; OLLAMA_HOST is the upstream's own
@@ -1721,6 +1741,7 @@ func Load() *Config {
 	c.CopilotToken = strings.TrimSpace(firstEnv("MN_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))
 	c.CopilotCLIPath = strings.TrimSpace(firstEnv("MN_COPILOT_CLI_PATH", "COPILOT_CLI_PATH"))
 	if v := os.Getenv("MN_MODEL"); v != "" {
+		c.ModelExplicit = true
 		c.Model = v
 	} else if prefs.Model == "" && c.LLMProvider != provider.Default {
 		// No saved/explicit model, but a non-default provider was selected
@@ -1740,6 +1761,7 @@ func Load() *Config {
 	}
 	if v := os.Getenv("MN_REASONING"); v != "" {
 		c.ReasoningLevel = NormalizeReasoning(v)
+		c.ReasoningExplicit = true
 	}
 	if v := os.Getenv("MN_APPROVAL"); v != "" {
 		c.ApprovalPolicy = NormalizeApprovalPolicy(v)
@@ -1863,6 +1885,9 @@ func Load() *Config {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			c.VerifyMaxRetries = n
 		}
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_VERIFY_AUTO")); v != "" {
+		c.VerifyAuto = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
 	if v := strings.TrimSpace(os.Getenv("MN_VERIFY_TIMEOUT")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -2025,6 +2050,17 @@ func Load() *Config {
 			os.Setenv("MN_AUX_REASONING", ar)
 		} else {
 			os.Unsetenv("MN_AUX_REASONING")
+		}
+	}
+
+	// Verify-command auto-detection: opt-in (MN_VERIFY_AUTO), and only ever fills
+	// an UNSET VerifyCommand — an explicit command (env/prefs/flag) always wins and
+	// is never overwritten. Off by default, so the agent won't run a project
+	// command the user didn't ask for.
+	if c.VerifyAuto && strings.TrimSpace(c.VerifyCommand) == "" {
+		if cmd := detectVerifyCommand(c.WorkingDir); cmd != "" {
+			c.VerifyCommand = cmd
+			c.VerifyCommandAuto = true
 		}
 	}
 
