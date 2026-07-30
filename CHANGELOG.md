@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.3.0] — 2026-07-30
+
+### Added
+
+- web: session rename + pin (backend `Store.Rename`/`SetPinned`/`Persist`, `POST /api/sessions/{id}/rename` and `/pin`, sidebar hover controls with inline rename)
+- web: transcript find panel (⌘F) with match highlighting, next/prev jumping and a match counter
+- web: speech-to-text dictation button on the composer via `webkitSpeechRecognition`
+- web: reload banner when the relay's build moves past the assets the page loaded (deferred behind the "terminal is behind" banner)
+
 ## [2.2.4] — 2026-07-24
 
 ### Changed
