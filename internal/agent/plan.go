@@ -10,8 +10,11 @@ package agent
 // it out.
 
 import (
+	"hash/fnv"
+	"strconv"
 	"strings"
 
+	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/session"
 	"github.com/pysty1995/moony/internal/tools"
 )
@@ -43,8 +46,22 @@ func (a *Agent) applyDraftPlan(p *tools.Plan) {
 	if a.sess == nil || p == nil {
 		return
 	}
-	a.sess.Plan = fromToolPlan(p, session.PlanDraft)
-	a.planRanATurn = false // a fresh draft gets its presentation turn before it can be retired
+	draft := fromToolPlan(p, session.PlanDraft)
+	// Suppress a BUILD-mode re-proposal of a draft the user already moved past:
+	// the model re-issues plan_write from its own stale history, which otherwise
+	// resurrects the same draft-plan head on every follow-up. Keep the plan store
+	// in sync SILENTLY so it doesn't diverge from the (unchanged) session plan —
+	// Set would fire the notify and force Status=draft. In plan mode the user is
+	// actively refining, so re-proposals are allowed.
+	if !a.PlanMode() && a.dismissedDraftFP != "" && planFingerprint(draft) == a.dismissedDraftFP {
+		if a.plan != nil {
+			a.plan.Sync(toToolPlan(a.sess.Plan))
+		}
+		return
+	}
+	a.sess.Plan = draft
+	a.dismissedDraftFP = "" // a genuine draft is active again; stop suppressing
+	a.planRanATurn = false  // a fresh draft gets its presentation turn before it can be retired
 	a.resetPlanProgress()
 	a.persist()
 }
@@ -77,7 +94,9 @@ func (a *Agent) ApprovePlan() bool {
 		return false
 	}
 	a.sess.Plan.Status = session.PlanApproved
-	a.planRanATurn = false // it hasn't executed yet; don't retire it until it has
+	a.planRanATurn = false  // it hasn't executed yet; don't retire it until it has
+	a.autoPlanned = false   // an approved plan is no longer an unconfirmed auto-plan
+	a.dismissedDraftFP = "" // approved a plan; nothing to suppress
 	a.resetPlanProgress()
 	a.persist()
 	return true
@@ -274,11 +293,36 @@ func (a *Agent) retireStaleDraft() bool {
 	if a.sess == nil || a.sess.Plan == nil || a.sess.Plan.Status != session.PlanDraft {
 		return false
 	}
-	if !a.planRanATurn || a.PlanMode() {
-		return false
+	if !a.planRanATurn {
+		return false // a fresh draft still gets its presentation turn
+	}
+	if a.PlanMode() && !a.autoPlanned {
+		return false // user chose plan mode → keep the draft for refinement
+	}
+	a.dismissedDraftFP = planFingerprint(a.sess.Plan) // suppress a build-mode re-proposal of this exact plan
+	if a.autoPlanned {
+		a.active.Store(config.BuildAgent()) // undo the heuristic plan-mode flip the user ignored
+		a.autoPlanned = false
 	}
 	a.ClearPlan()
 	return true
+}
+
+// planFingerprint is a stable content hash of a plan's title + step titles and
+// details. It identifies a specific plan so a re-proposal of a dismissed draft
+// can be detected (see applyDraftPlan / retireStaleDraft). "" for an empty plan.
+func planFingerprint(p *session.Plan) string {
+	if p == nil || len(p.Steps) == 0 {
+		return ""
+	}
+	h := fnv.New64a()
+	w := func(s string) { _, _ = h.Write([]byte(s)); _, _ = h.Write([]byte{0}) }
+	w(p.Title)
+	for _, s := range p.Steps {
+		w(s.Title)
+		w(s.Detail)
+	}
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 // planContext returns the plan wrapped as a per-turn context preface (carried in
@@ -288,6 +332,12 @@ func (a *Agent) retireStaleDraft() bool {
 func (a *Agent) planContext() string {
 	p := a.Plan()
 	if p == nil || len(p.Steps) == 0 || p.Status == session.PlanDone {
+		// No active plan. If a draft was just dismissed (the user moved past it),
+		// tell the model so it stops re-proposing the same plan from its own stale
+		// history — the advisory half of the suppression in applyDraftPlan.
+		if a.dismissedDraftFP != "" {
+			return "# No active plan\n\nA plan you proposed earlier was NOT approved — the user moved on to other work, so it has been discarded. Do not re-propose or restate that plan; draft a new plan only if the user explicitly asks for one.\n"
+		}
 		return ""
 	}
 	var b strings.Builder
