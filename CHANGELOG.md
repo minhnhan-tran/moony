@@ -5,6 +5,25 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.5.0] — 2026-07-30
+
+### Added
+
+- `semantic_search`: embedding-based code search over a local per-workspace vector index (`internal/rag`, stored at `.sqe/rag/index.gob`; `MN_RAG_INDEX_DIR` overrides). Finds code by meaning where grep needs the exact string.
+- `codebase_map`: a maintained `CODEBASE_MAP.md` (pinned notes + auto-refreshed structural section + feature→files narrative) plus a symbol/caller graph, injected into the system prompt so the model consults the map instead of re-exploring the tree each turn. `MN_CODEBASE_MAP`, `MN_CODEBASE_MAP_BYTES`.
+- `find_files`: ranked relevant-file shortlist built from the symbol map and cross-file caller graph.
+- `code_nav`: compiler-grade definition/references/hover resolved through a running language server, disambiguating overloads and shadowed names that the regex-based `find_symbol` cannot.
+- `review_changes`: read-only tool returning one combined unified diff of everything the current turn changed.
+- `pull_request` and `ci_status`: open/view/comment on PRs and report check status with failure logs, via the `gh` CLI.
+- `mobile`: drive an iOS simulator or Android emulator — boot, install, launch, tap/swipe/type, logs and screenshots.
+- `generate_image` and `generate_video`: image generation/editing on any OpenAI-compatible route (`MN_IMAGE_MODEL`) and Veo video generation on the native Gemini route (`MN_VIDEO_MODEL`). Tool-produced videos render inline in the web UI.
+- Web quick actions: user-editable preset prompts behind a split button beside the turn pager, each able to pin a model, provider or reasoning level for its own turn only. Project-scoped `.sqe/quickactions.json` (committable) with a global fallback; edit them in Manage → Quick actions.
+- Web Task Board: queue prompts that run as parallel headless sub-processes, each in its own throwaway git worktree, with per-task diff review and Apply/Discard. `MN_TASKBOARD_MAX_PARALLEL`.
+
+### Changed
+
+- An answer cut off by the output-length cap is now continued instead of abandoned; a response that burned its whole budget on reasoning without acting is retried with a terser nudge (bounded, and counted as friction so effort ramp-up still applies).
+
 ## [2.4.0] — 2026-07-30
 
 ### Added
