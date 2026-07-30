@@ -124,6 +124,11 @@ type TurnDone struct {
 // Info is an out-of-band notice (e.g. compaction happened).
 type Info struct{ Text string }
 
+// Compaction reports that a compaction removed Turns rendered user turns from
+// the transcript, so the UI can mark the boundary rather than silently losing
+// turns that are still on screen.
+type Compaction struct{ Turns int }
+
 // ContextStats carries the estimated per-segment context breakdown for the web
 // UI to render as a stacked bar (the TUI renders its own colored bar inline).
 // Window is the active context-window size the segments are measured against.
@@ -240,3 +245,4 @@ func (QuestionRequest) isEvent() {}
 func (QuestionGroupRequest) isEvent() {}
 
 func (BoardMessagePosted) isEvent() {}
+func (Compaction) isEvent()         {}

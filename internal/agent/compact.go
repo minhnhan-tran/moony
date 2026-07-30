@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/pysty1995/moony/internal/llm"
+	"github.com/pysty1995/moony/internal/session"
 )
 
 // estimateTokens roughly approximates token count as bytes/4 across all message
@@ -125,13 +126,96 @@ func (a *Agent) maybeCompact(ctx context.Context, emit func(Event)) error {
 		}},
 	}
 	dropped := cut
+	droppedTurns := countUserTurns(a.messages[:cut])
 	a.messages = append(head, a.messages[cut:]...)
-	a.onCompacted() // compaction discarded history: refresh the checkpoint, avoid a watermark stall
+	a.remapAnchorsForCompaction(cut, len(head)) // keep persisted footers/notes anchored to the new (shorter) history
+	a.onCompacted()                             // compaction discarded history: refresh the checkpoint, avoid a watermark stall
 	doneText := fmt.Sprintf("Compacted %d earlier messages into a summary to stay within the context window.", dropped)
 	emit(Info{Text: doneText})
 	a.noteInfo(doneText)
+	// Tell the UI how many rendered USER turns vanished, so the transcript can mark
+	// the boundary instead of silently losing turns the user can still see above.
+	if droppedTurns > 0 {
+		emit(Compaction{Turns: droppedTurns})
+	}
 	a.persist()
 	return nil
+}
+
+// countUserTurns returns the number of messages in msgs that render as a "user"
+// turn in the transcript — genuine user text, not the tool_result carriers that
+// also use RoleUser. Used to report how many visible turns a compaction removed.
+func countUserTurns(msgs []llm.Message) int {
+	n := 0
+	for _, m := range msgs {
+		if m.Role != llm.RoleUser {
+			continue
+		}
+		for _, c := range m.Content {
+			switch c.Type {
+			case llm.BlockText:
+				// Blank text isn't a rendered turn (and a tool_result carrier's
+				// synthetic text can be empty).
+				if strings.TrimSpace(c.Text) != "" {
+					n++
+				}
+			case llm.BlockImage, llm.BlockDocument:
+				n++ // an attachment-only turn still renders
+			default:
+				continue // tool_result and friends: keep looking
+			}
+			break // one user message -> at most one turn
+		}
+	}
+	return n
+}
+
+// remapAnchorsForCompaction shifts the message-count anchors of the persisted
+// per-turn records (turn footers, board messages, info notes) to match a
+// compaction that folded messages[0:cut] into a headLen-message summary.
+// Records whose annotated messages were folded into the summary are dropped
+// (the messages they pointed at no longer exist); records after the cut are
+// shifted down by the number of removed messages. Without this, MsgCount
+// anchors go stale on the next save: a reloaded session then anchors footers /
+// notes to the wrong (or no) messages — scrambled, out-of-order timestamps in
+// the transcript. (Checkpoint anchoring is reset separately by onCompacted.)
+func (a *Agent) remapAnchorsForCompaction(cut, headLen int) {
+	if a.sess == nil {
+		return
+	}
+	delta := cut - headLen
+	if delta <= 0 {
+		return
+	}
+	metas := make([]session.TurnMeta, 0, len(a.sess.TurnMetas))
+	for _, tm := range a.sess.TurnMetas {
+		if tm.MsgCount <= cut {
+			continue // annotated messages folded into the summary
+		}
+		tm.MsgCount -= delta
+		metas = append(metas, tm)
+	}
+	a.sess.TurnMetas = metas
+
+	board := make([]session.BoardMessage, 0, len(a.sess.BoardMessages))
+	for _, bm := range a.sess.BoardMessages {
+		if bm.MsgCount <= cut {
+			continue
+		}
+		bm.MsgCount -= delta
+		board = append(board, bm)
+	}
+	a.sess.BoardMessages = board
+
+	notes := make([]session.InfoNote, 0, len(a.sess.InfoNotes))
+	for _, n := range a.sess.InfoNotes {
+		if n.MsgCount <= cut {
+			continue
+		}
+		n.MsgCount -= delta
+		notes = append(notes, n)
+	}
+	a.sess.InfoNotes = notes
 }
 
 // elidedStubPrefix marks a tool_result body that pruneStaleToolResults has
