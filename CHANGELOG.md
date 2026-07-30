@@ -5,6 +5,33 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.6.0] — 2026-07-30
+
+### Added
+
+- Read-only file browser/viewer (`GET /api/sessions/{id}/files`, `/file`) reachable from the composer, sandboxed to the project root and ignore-aware.
+- Cross-session transcript search (`GET /api/search`) in the sidebar: fans out to every connected machine and merges the hits, so "where did we discuss X" is one query instead of reopening sessions.
+- Doctor panel (`GET /api/sessions/{id}/doctor`): the `/doctor` checks plus live probes that only a running session can do — an embeddings smoke test and the actual connected state of LSP + MCP servers. New `doctor.CheckEmbeddings` verifies `MN_EMBEDDINGS_MODEL` with a real request rather than just its presence.
+- Codebase map panel (`GET/POST/PUT /api/sessions/{id}/codebasemap`): view `CODEBASE_MAP.md`, regenerate its structural section, and edit the hand-authored pinned notes without messaging the agent.
+- `GET /healthz` (liveness JSON) and `GET /metrics` (Prometheus text) on the connector, with request/session/SSE counters and an opt-in access log (`MN_ACCESS_LOG`). Route labels collapse ids, so session ids never reach a metric label.
+- Stateless fill-in-the-middle completion endpoint (`POST /api/complete`) for editor clients, served by the fast model.
+- Verify-command auto-detection (`MN_VERIFY_AUTO=1`): infers a project's check command (Makefile target, `go.mod`, npm test script, Cargo, pytest, …). Opt-in, and an explicit `MN_VERIFY_CMD` always wins.
+- Paged transcript history (`GET /api/sessions/{id}/history`).
+
+### Changed
+
+- Opening a session now replays only its most recent turns instead of streaming the entire saved transcript; a banner offers the full history on demand. `?turns=` is bounded so one request can't ask the server to serialize an arbitrary slice.
+- A session now remembers the model, provider and reasoning level it last used and reopens on them, instead of silently reverting to the global default. An explicit `-model`/`-provider`/`-reasoning` flag or env var still wins.
+- Editing a queued message (Esc-pop) keeps the per-turn model pin it was queued with, and a quick action's pin is validated before the turn is accepted — an unknown provider or reasoning level is now a 400 rather than a silent misroute.
+
+### Fixed
+
+- Compaction now remaps the persisted per-turn anchors (turn footers, board messages, info notes) it invalidates. Previously these went stale on the next save, so a reopened session anchored footers and notes to the wrong messages — visibly out-of-order timestamps in the transcript.
+- A plan draft the user moved past is no longer re-proposed every turn from the model's own stale history, and an auto-entered plan mode whose draft was ignored reverts to build mode instead of stranding the session read-only.
+- An empty model response (no text, no tool call) is retried with a nudge instead of silently ending the turn with no explanation.
+- Leaked task-isolation worktrees from runs killed before cleanup are now swept; live worktrees are protected by a git lock so a long sub-agent run can't have its tree removed underneath it.
+- Per-session goroutines (MCP connect, turn loop) are now evicted when the server is torn down or a session is deleted, so nothing keeps running against a stale working directory.
+
 ## [2.5.0] — 2026-07-30
 
 ### Added
