@@ -37,6 +37,13 @@ func (r *Registry) RegisterDefaults(maxOutputBytes int) {
 	r.Register(&testRunTool{r: r, max: maxOutputBytes})
 	r.Register(&askUserTool{})
 	r.Register(&exitPlanTool{})
+	r.Register(&reviewChangesTool{r: r, max: maxOutputBytes})
+	r.Register(&codebaseMapTool{r: r})
+	r.Register(&findFilesTool{r: r})
+	r.Register(&codeNavTool{r: r})
+	r.Register(&mobileTool{r: r})
+	r.Register(&pullRequestTool{r: r, max: maxOutputBytes})
+	r.Register(&ciStatusTool{r: r, max: maxOutputBytes})
 	r.RegisterDAP(r.dapHolder)
 }
 
@@ -69,6 +76,13 @@ func RegisterAllowed(r *Registry, maxOutputBytes int, allowed map[string]bool) {
 		&gitWorktreeTool{r: r, max: maxOutputBytes},
 		&lintTool{r: r, max: maxOutputBytes},
 		&testRunTool{r: r, max: maxOutputBytes},
+		&reviewChangesTool{r: r, max: maxOutputBytes},
+		&codebaseMapTool{r: r},
+		&findFilesTool{r: r},
+		&codeNavTool{r: r},
+		&mobileTool{r: r},
+		&pullRequestTool{r: r, max: maxOutputBytes},
+		&ciStatusTool{r: r, max: maxOutputBytes},
 	}
 	for _, t := range all {
 		if allowed[t.Name()] {

@@ -11,6 +11,8 @@ import (
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/llm"
 	"github.com/pysty1995/moony/internal/mcp"
+	"github.com/pysty1995/moony/internal/provider"
+	"github.com/pysty1995/moony/internal/taskboard"
 )
 
 // session state values.
@@ -101,6 +103,34 @@ type session struct {
 	// lspMu serializes /lsp reloads (which restart language servers, blocking on
 	// subprocess spawn) so two callers don't race the agent's LSP manager.
 	lspMu sync.Mutex
+
+	// board is this session's lazily-created Task Board (parallel isolated task
+	// runs, each in its own git worktree). Guarded by boardMu; nil until first use.
+	board   *taskboard.Board
+	boardMu sync.Mutex
+}
+
+// taskBoard returns the session's Task Board, creating it on first use rooted at
+// the agent's working directory. exe is the binary tasks are spawned from.
+func (s *session) taskBoard(exe string) *taskboard.Board {
+	s.boardMu.Lock()
+	defer s.boardMu.Unlock()
+	if s.board == nil {
+		cfg := s.agent.Config()
+		s.board = taskboard.New(cfg.WorkingDir, exe, cfg.TaskBoardMaxParallel)
+	}
+	return s.board
+}
+
+// closeBoard tears down the Task Board (and its worktrees) if one was created.
+func (s *session) closeBoard() {
+	s.boardMu.Lock()
+	b := s.board
+	s.board = nil
+	s.boardMu.Unlock()
+	if b != nil {
+		b.Close()
+	}
 }
 
 func newSession(id, title string, ag *agent.Agent) *session {
@@ -393,9 +423,126 @@ func (s *session) unsubscribe(id int) {
 	}
 }
 
+// turnOverride is a one-turn model/provider/reasoning switch requested by a quick
+// action. Zero value means "use the session's settings".
+type turnOverride struct {
+	Model     string
+	Provider  string
+	Reasoning string
+}
+
+func (o turnOverride) empty() bool {
+	return strings.TrimSpace(o.Model) == "" &&
+		strings.TrimSpace(o.Provider) == "" &&
+		strings.TrimSpace(o.Reasoning) == ""
+}
+
+// applyTurnOverride applies a quick action's one-turn model settings and returns
+// a func that restores the previous ones. Returns nil when there is nothing to do.
+//
+// Restoring writes the captured fields back directly instead of calling
+// SetModel: SetModel derives Provider and ReasoningLevel from the model name, so
+// using it to restore would discard a provider or reasoning level the user had
+// deliberately set to something other than that model's default.
+func (s *session) applyTurnOverride(ov turnOverride) func() {
+	if ov.empty() {
+		return nil
+	}
+	cfg := s.agent.Config()
+	if cfg == nil {
+		return nil
+	}
+	prevModel, prevLLMProv, prevAPIProv := cfg.Model, cfg.LLMProvider, cfg.Provider
+	prevReasoning := cfg.ReasoningLevel
+
+	// Provider first, then model: switching backend changes which models exist, and
+	// an explicit model in the same action must survive that switch.
+	//
+	// LLMProvider is the field that actually routes the request; cfg.Provider is a
+	// DIFFERENT thing — the wire API family (anthropic/openai/…) derived from the
+	// model. Setting only the latter changes nothing about routing while corrupting
+	// the API label, which sends a provider-pinned action to the wrong backend.
+	if p := strings.TrimSpace(ov.Provider); p != "" {
+		cfg.LLMProvider = provider.Normalize(p)
+		// A backend serves its own models, so pin the provider's default model
+		// unless the action names one explicitly — otherwise the session's model is
+		// sent to a backend that cannot serve it.
+		if strings.TrimSpace(ov.Model) == "" {
+			if dm := provider.DefaultModelFor(cfg.LLMProvider); dm != "" {
+				cfg.SetModel(dm)
+			}
+		}
+	}
+	// SetModel derives cfg.Provider (the API family) and the reasoning default from
+	// the model, so it must run after the backend switch and before reasoning.
+	if m := strings.TrimSpace(ov.Model); m != "" {
+		cfg.SetModel(m)
+	}
+	if r := strings.TrimSpace(ov.Reasoning); r != "" {
+		cfg.ReasoningLevel = config.NormalizeReasoningFor(cfg.Model, r)
+	}
+	s.agent.RefreshSystemPrompt() // the prompt embeds the model/reasoning context
+
+	// Tell the user this turn is running somewhere else. Without it, a quick action
+	// pinned to another backend looks identical to a normal turn, so a routing
+	// failure reads as a broken session rather than a consequence of the action's
+	// own configuration. Transient, so it doesn't accumulate in replayed history.
+	bits := []string{}
+	if setP := cfg.LLMProvider; strings.TrimSpace(ov.Provider) != "" {
+		bits = append(bits, "provider `"+setP+"`")
+	}
+	if strings.TrimSpace(ov.Model) != "" || strings.TrimSpace(ov.Provider) != "" {
+		bits = append(bits, "model **"+cfg.Model+"**")
+	}
+	if strings.TrimSpace(ov.Reasoning) != "" {
+		bits = append(bits, "reasoning `"+cfg.ReasoningLevel+"`")
+	}
+	if len(bits) > 0 {
+		s.publishTransient(wireEvent{Type: "info",
+			Text: "quick action: this turn runs on " + strings.Join(bits, ", ") + " (session settings restored afterwards)."})
+	}
+
+	// Remember what the override actually installed, so the revert can tell "still
+	// mine" from "the user changed this".
+	setModel, setLLMProv, setAPIProv := cfg.Model, cfg.LLMProvider, cfg.Provider
+	setReasoning := cfg.ReasoningLevel
+
+	return func() {
+		// Compare-and-swap per field rather than a blanket write-back: the user can
+		// change the model or run /reasoning WHILE an overridden turn is running, and
+		// a blanket restore would silently undo that deliberate choice.
+		if cfg.Model == setModel {
+			cfg.Model = prevModel
+		}
+		if cfg.LLMProvider == setLLMProv {
+			cfg.LLMProvider = prevLLMProv
+		}
+		if cfg.Provider == setAPIProv {
+			cfg.Provider = prevAPIProv
+		}
+		if cfg.ReasoningLevel == setReasoning {
+			cfg.ReasoningLevel = prevReasoning
+		}
+		s.agent.RefreshSystemPrompt()
+		// No user-visible event here on purpose: the turn is already finishing and
+		// its turn_done/status refresh carries the session's model back to the UI.
+	}
+}
+
 // start begins a turn for the given prompt. It returns false if a turn is
 // already running (one turn at a time per session).
 func (s *session) start(prompt string, blocks []llm.ContentBlock, atts []attachWire) bool {
+	return s.startWith(prompt, blocks, atts, turnOverride{})
+}
+
+// startWith runs a turn, optionally under a temporary model/provider/reasoning
+// override that is reverted when the turn finishes.
+//
+// The revert happens inside the turn goroutine as soon as RunWith returns, not
+// after the HTTP handler responds: the handler returns 202 immediately while the
+// turn runs for minutes, so restoring there would put the session back on its
+// original model almost instantly.
+func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []attachWire, ov turnOverride) bool {
 	s.mu.Lock()
 	if s.state != stateIdle {
 		s.mu.Unlock()
@@ -415,7 +562,17 @@ func (s *session) start(prompt string, blocks []llm.ContentBlock, atts []attachW
 		// the terminal, which connects MCP before it accepts input. The channel is
 		// closed after the initial connect, so subsequent turns return instantly.
 		s.waitMCPReady(mcpReadyTimeout())
-		err := s.agent.RunWith(ctx, prompt, blocks, s.emit)
+		// The override must be reverted BEFORE the idle transition below, because
+		// onIdle() drains the next queued turn: a revert deferred to the end of this
+		// goroutine would run after that turn already installed its own pin and would
+		// then undo it. Wrapped in a closure (rather than a bare call after RunWith)
+		// so a panic or early return still restores the session's settings.
+		err := func() error {
+			if restore := s.applyTurnOverride(ov); restore != nil {
+				defer restore()
+			}
+			return s.agent.RunWith(ctx, prompt, blocks, s.emit)
+		}()
 		s.mu.Lock()
 		s.cancel = nil
 		s.reply = nil
@@ -556,6 +713,9 @@ type queuedMsg struct {
 	text   string
 	blocks []llm.ContentBlock
 	wires  []attachWire
+	// ov carries a quick action's one-turn model pin through the queue, so an
+	// action fired while busy still runs on its configured model when drained.
+	ov turnOverride
 }
 
 // publishQueueLocked fans out the current queue contents as a "queue" event.
@@ -580,12 +740,17 @@ func (s *session) queuedTextsLocked() []string {
 // immediately (this check is atomic with the running-turn state, closing the
 // race where a turn finishes between the caller's state check and the enqueue).
 func (s *session) enqueueIfBusy(text string, blocks []llm.ContentBlock, wires []attachWire) bool {
+	return s.enqueueIfBusyWith(text, blocks, wires, turnOverride{})
+}
+
+// enqueueIfBusyWith is enqueueIfBusy carrying a one-turn override (quick action).
+func (s *session) enqueueIfBusyWith(text string, blocks []llm.ContentBlock, wires []attachWire, ov turnOverride) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.state == stateIdle {
 		return false
 	}
-	s.queued = append(s.queued, queuedMsg{text: text, blocks: blocks, wires: wires})
+	s.queued = append(s.queued, queuedMsg{text: text, blocks: blocks, wires: wires, ov: ov})
 	s.publishQueueLocked()
 	return true
 }

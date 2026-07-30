@@ -122,6 +122,7 @@ const SF_TO_MATERIAL = {
   "person.text.rectangle": "badge", "phone.fill": "call", "photo": "image",
   "pin": "push_pin", "pin.fill": "push_pin", "play.fill": "play_arrow", "plus": "add",
   "plus.circle": "add_circle", "plus.circle.fill": "add_circle", "powerplug.fill": "power",
+  "plus.rectangle.on.rectangle": "add", "square.grid.2x2": "dashboard", "hammer": "build",
   "puzzlepiece.extension": "extension", "puzzlepiece.extension.fill": "extension", "questionmark": "question_mark",
   "questionmark.bubble.fill": "quiz", "questionmark.circle": "help",
   "questionmark.circle.fill": "help", "rectangle.3.group": "dashboard",
@@ -304,6 +305,7 @@ const scrollBtn = $("#scrollBtn");
 const pager = $("#pager"), pagerNav = $("#pagerNav"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");
+const quickActions = $("#quickActions"), quickActionBtn = $("#quickActionBtn"), quickActionCaret = $("#quickActionCaret"), quickActionMenu = $("#quickActionMenu");
 // queueCapable: the current session supports queuing messages while busy (set
 // from the "state" event's canQueue flag — web-native sessions only, not the
 // relay terminal-mirror). queuedMsgs mirrors the server's pending queue.

@@ -1216,3 +1216,332 @@ manageOverlay.onclick = (e) => { if (e.target === manageOverlay) closeManage(); 
 
 boot();
 loadAuthUser();
+
+// --- Quick actions panel -----------------------------------------------------
+// CRUD for the composer's preset prompts (/api/quickactions): two scopes
+// (committable per-project .sqe/quickactions.json, and a global fallback used
+// only when the project defines none), reorderable because the first action is
+// the split button's default, each optionally pinning a model/provider/reasoning
+// for its own turn.
+async function renderQuickActionsPanel() {
+  const body = manageBody;
+  body.innerHTML = "";
+
+  // Reuse the Agents panel catalogs so the per-action pin offers real ids rather
+  // than free text the user has to spell correctly.
+  let qaModels = [], qaOptions = { providers: [], reasoningLevels: [] };
+  try { const r = await fetch(api(`/api/sessions/${current}/agents/models`)); if (r.ok) qaModels = await r.json(); } catch (_) {}
+  try { const r = await fetch(api(`/api/sessions/${current}/agents/options`)); if (r.ok) qaOptions = await r.json(); } catch (_) {}
+  qaModels = qaModels || [];
+  const qaProviders = qaOptions.providers || [], qaLevels = qaOptions.reasoningLevels || [];
+
+  body.append(el("p", "access-intro",
+    "Preset prompts for the quick-actions button beside the turn pager. Picking one sends it to the agent as if you'd typed it. An action can optionally pin a model, provider or reasoning level for its own turn only — the session reverts afterwards. Project actions live in .sqe/quickactions.json (commit it to share them); global actions are a fallback used only when a project defines none. The first action is the button's default."));
+
+  let scope = "project";
+  let data = { project: [], global: [], scope: "global" };
+
+  const scopeBar = el("div", "qa-scopebar");
+  const lists = el("div", null);
+  const form = el("div", "qa-form");
+  body.append(scopeBar, lists, form);
+
+  // --- editor form: doubles as add + edit. Editing remembers the original
+  // prompt (the row's identity) so a rename still finds the row to replace.
+  let editingPrompt = null;
+  const mkInput = (ph) => { const i = el("input", "access-input"); i.type = "text"; i.placeholder = ph; return i; };
+  const fPrompt = mkInput("Prompt sent to the agent (required), e.g. run the tests");
+  const fLabel = mkInput("Button label (defaults to the prompt)");
+  const fSub = mkInput("Subtitle (optional)");
+  const fIcon = mkInput("SF Symbol (optional), e.g. hammer");
+  // Pin selects are plain <select>s built from the same catalogs the Agents panel
+  // uses; "" means "leave the session's setting alone".
+  const mkSel = (title, width, opts, blank) => {
+    const sel = el("select", "shrink-0 rounded border border-edge bg-surface text-ink");
+    sel.style.fontSize = "11px"; sel.style.padding = "0.1rem 0.2rem"; sel.style.maxWidth = width;
+    sel.title = title;
+    if (blank) { const o = el("option", null, blank); o.value = ""; sel.appendChild(o); }
+    for (const o of opts) { const x = el("option", null, o.label); x.value = o.value; sel.appendChild(x); }
+    return sel;
+  };
+  const modelOpts = qaModels.map((m) => ({ value: m.id, label: m.name || m.id }));
+  // The catalogs already lead with an inherit/default entry; only the model list
+  // needs one synthesized.
+  const provOpts = qaProviders.length ? qaProviders : [{ value: "", label: "session default" }];
+  const lvlOpts = qaLevels.length ? qaLevels : [{ value: "", label: "session default" }];
+
+  const pinField = (label, sel) => {
+    const w = el("label", "agent-pin");
+    w.append(el("span", "agent-pin-label", label), sel);
+    return w;
+  };
+  const fProvider = mkSel("Provider for this action's turn", "110px", provOpts, provOpts[0].value === "" ? null : "session default");
+  const fModel = mkSel("Model for this action's turn", "150px", modelOpts, "session default");
+  const fReasoning = mkSel("Reasoning level for this action's turn", "110px", lvlOpts, lvlOpts[0].value === "" ? null : "session default");
+  const pinRow = el("div", "agent-pins qa-pins");
+  pinRow.append(pinField("Provider", fProvider), pinField("Model", fModel), pinField("Reasoning", fReasoning));
+
+  const saveBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Add");
+  const cancelBtn = el("button", "b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Cancel");
+  cancelBtn.hidden = true;
+  const err = el("div", "qa-error"); err.hidden = true;
+  const formActions = el("div", "qa-form-actions");
+  formActions.append(saveBtn, cancelBtn);
+  form.append(fPrompt, fLabel, fSub, fIcon, pinRow, formActions, err);
+
+  const resetForm = () => {
+    editingPrompt = null;
+    fPrompt.value = fLabel.value = fSub.value = fIcon.value = "";
+    fProvider.value = fModel.value = fReasoning.value = "";
+    saveBtn.textContent = "Add";
+    cancelBtn.hidden = true;
+    err.hidden = true;
+  };
+
+  const mutate = async (method, payload, path) => {
+    err.hidden = true;
+    try {
+      const r = await fetch(api("/api/quickactions" + (path || "")), {
+        method, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope, ...payload }),
+      });
+      if (!r.ok) { err.textContent = (await r.text()).trim() || "Request failed."; err.hidden = false; return false; }
+      data = await r.json();
+      render();
+      // The composer menu reads the same endpoint — refresh it so an edit shows
+      // up immediately instead of after a reload.
+      if (typeof loadQuickActions === "function") loadQuickActions();
+      return true;
+    } catch (_) {
+      err.textContent = "Could not reach the server."; err.hidden = false; return false;
+    }
+  };
+
+  saveBtn.onclick = async () => {
+    const action = {
+      prompt: fPrompt.value.trim(), label: fLabel.value.trim(),
+      sub: fSub.value.trim(), icon: fIcon.value.trim(),
+      model: fModel.value, provider: fProvider.value, reasoning: fReasoning.value,
+    };
+    if (!action.prompt) { err.textContent = "Prompt is required."; err.hidden = false; return; }
+    const ok = editingPrompt
+      ? await mutate("PUT", { oldPrompt: editingPrompt, action })
+      : await mutate("POST", { action });
+    if (ok) resetForm();
+  };
+  cancelBtn.onclick = resetForm;
+  fPrompt.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); saveBtn.click(); } };
+
+  const startEdit = (a) => {
+    editingPrompt = a.prompt;
+    fPrompt.value = a.prompt; fLabel.value = a.label || ""; fSub.value = a.sub || ""; fIcon.value = a.icon || "";
+    fModel.value = a.model || ""; fProvider.value = a.provider || ""; fReasoning.value = a.reasoning || "";
+    saveBtn.textContent = "Save";
+    cancelBtn.hidden = false;
+    err.hidden = true;
+    fPrompt.focus();
+  };
+
+  function render() {
+    scopeBar.innerHTML = "";
+    for (const s of ["project", "global"]) {
+      const b = el("button", "qa-scope" + (scope === s ? " is-active" : ""), s === "project" ? "Project" : "Global");
+      b.onclick = () => { scope = s; resetForm(); render(); };
+      scopeBar.append(b);
+    }
+    const list = (scope === "project" ? data.project : data.global) || [];
+    if (scope === "project" && !list.length) {
+      scopeBar.append(el("span", "qa-scope-note", "No project actions — the global list is in use."));
+    } else if (scope === "global" && (data.project || []).length) {
+      scopeBar.append(el("span", "qa-scope-note", "Project actions override these."));
+    }
+
+    lists.innerHTML = "";
+    if (!list.length) lists.append(el("div", "access-empty", "— none —"));
+
+    list.forEach((a, i) => {
+      const row = el("div", "manage-row qa-card");
+      if (a.icon) row.append(sym(a.icon, "qa-row-icon"));
+      const main = el("div", "manage-row-main");
+      const title = el("div", "text-[13px] truncate text-ink", a.label || a.prompt);
+      if (i === 0) title.append(el("span", "qa-default-badge", "default"));
+      main.append(title);
+      main.append(el("div", "text-[11px] text-faint truncate font-mono", a.prompt));
+      if (a.sub) main.append(el("div", "text-[11px] text-faint truncate", a.sub));
+      // Summarize the pin so an action that runs somewhere else is visibly
+      // different without opening the editor.
+      const ovBits = [a.provider, a.model, a.reasoning && "reasoning: " + a.reasoning].filter(Boolean);
+      if (ovBits.length) main.append(el("div", "text-[11px] truncate qa-pin-summary", "↯ " + ovBits.join(" · ")));
+      row.append(main);
+
+      const btn = (icon, title, fn, disabled) => {
+        const b = el("button", "access-rm"); b.title = title; b.append(sym(icon));
+        b.disabled = !!disabled; b.onclick = fn; return b;
+      };
+      row.append(
+        btn("chevron.up", "Move up", () => mutate("POST", { prompt: a.prompt, delta: -1 }, "/move"), i === 0),
+        btn("chevron.down", "Move down", () => mutate("POST", { prompt: a.prompt, delta: 1 }, "/move"), i === list.length - 1),
+        btn("pencil", "Edit", () => startEdit(a)),
+        btn("xmark", "Remove", async () => {
+          if (editingPrompt === a.prompt) resetForm(); // don't leave the form editing a deleted row
+          await mutate("DELETE", { prompt: a.prompt });
+        }),
+      );
+      lists.append(row);
+    });
+
+    // Reset-to-defaults sits under the list, away from the destructive row buttons.
+    const foot = el("div", "qa-foot");
+    const reset = el("button", "qa-reset", "Restore built-in defaults");
+    reset.onclick = async () => {
+      if (!confirm(`Replace the ${scope} quick actions with the built-in defaults?`)) return;
+      resetForm();
+      await mutate("POST", {}, "/reset");
+    };
+    foot.append(reset);
+    lists.append(foot);
+  }
+
+  try {
+    const r = await fetch(api("/api/quickactions"));
+    if (r.ok) {
+      data = await r.json();
+      // Land on whichever scope is actually in effect, so the panel opens on the
+      // list the button is really using.
+      scope = data.scope === "global" && !(data.project || []).length ? "global" : "project";
+    }
+  } catch (_) { /* offline — render empty */ }
+  render();
+}
+
+// ── Task Board ──────────────────────────────────────────────────────────────
+// Queue prompts that run in parallel, each in its own throwaway git worktree;
+// review each finished task's diff and Apply it onto the real tree or Discard.
+let taskBoardTimer = null;
+
+async function renderTaskBoard() {
+  const body = manageBody;
+  body.innerHTML = "";
+  body.append(el("p", "access-intro",
+    "Queue prompts that run in parallel — each in its own throwaway git worktree off the current HEAD, so nothing touches your real working tree until you Apply. Runs are headless and auto-approved (deny rules still apply). “Run after” only delays a task's start until its prerequisites finish; it doesn't carry over their edits, so Apply a prerequisite first if this task needs it."));
+
+  const form = el("div", "schedule-form");
+  const titleI = manageInput("title (optional)");
+  const promptI = el("textarea", "schedule-prompt bg-base border border-edge rounded px-2 py-1 text-ink");
+  promptI.placeholder = "what should this task do? e.g. “add a --json flag to the export command, with a test”";
+  promptI.rows = 2;
+  promptI.style.fontSize = "12px";
+  const addBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Queue task");
+  addBtn.prepend(sym("plus.rectangle.on.rectangle"));
+  form.append(titleI, promptI, addBtn);
+  body.append(form);
+
+  addBtn.onclick = async () => {
+    const prompt = promptI.value.trim();
+    if (!prompt) { alertBox("Enter a prompt for the task."); return; }
+    addBtn.disabled = true;
+    const ok = await taskBoardDo("add", { title: titleI.value.trim(), prompt });
+    addBtn.disabled = false;
+    if (ok) { titleI.value = promptI.value = ""; }
+  };
+
+  const list = el("div", "taskboard-list");
+  body.append(list);
+  refreshTaskBoard(list);
+}
+
+async function refreshTaskBoard(list) {
+  let tasks = [];
+  try { const r = await fetch(api(`/api/sessions/${current}/taskboard`)); if (r.ok) tasks = (await r.json()).tasks || []; } catch (_) {}
+  if (!document.contains(list)) { // tab switched or modal closed — stop polling
+    if (taskBoardTimer) { clearTimeout(taskBoardTimer); taskBoardTimer = null; }
+    return;
+  }
+  list.innerHTML = "";
+  if (!tasks.length) list.append(el("div", "access-empty", "No tasks yet — queue one above."));
+  else for (const t of tasks) list.append(taskCard(t));
+
+  // Poll faster while something is in flight, slower when idle.
+  const active = tasks.some((t) => t.status === "queued" || t.status === "running" || t.status === "blocked");
+  if (taskBoardTimer) clearTimeout(taskBoardTimer);
+  taskBoardTimer = setTimeout(() => refreshTaskBoard(list), active ? 1500 : 5000);
+}
+
+const TB_STATUS = {
+  queued:     "Queued",
+  blocked:    "Waiting",
+  running:    "Running",
+  done:       "Ready to apply",
+  failed:     "Failed",
+  applying:   "Applying…",
+  applied:    "Applied",
+  discarding: "Discarding…",
+  discarded:  "Discarded",
+};
+
+function taskCard(t) {
+  const card = el("div", "taskboard-card is-" + t.status);
+  const head = el("div", "taskboard-head");
+  const badge = el("span", "taskboard-badge is-" + t.status, TB_STATUS[t.status] || t.status);
+  if (t.status === "running") badge.prepend(sym("arrow.clockwise", "taskboard-spin"));
+  head.append(badge, el("span", "taskboard-title", t.title || t.id));
+  card.append(head);
+
+  if (t.status === "failed" && t.error) card.append(el("div", "taskboard-error", t.error));
+  else if (t.response) card.append(el("div", "taskboard-response", t.response));
+
+  const actions = el("div", "taskboard-actions");
+  let diffBox = null;
+  if (t.status === "done") {
+    if (t.diff && t.diff.trim()) {
+      diffBox = el("div", "taskboard-diff-wrap");
+      diffBox.hidden = true;
+      diffBox.append(renderDiffEl(t.diff));
+      const view = el("button", "manage-install", "View diff");
+      view.onclick = () => { diffBox.hidden = !diffBox.hidden; view.textContent = diffBox.hidden ? "View diff" : "Hide diff"; };
+      actions.append(view);
+    } else {
+      actions.append(el("span", "taskboard-nochange", "no file changes"));
+    }
+    const apply = el("button", "b-yes inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs", "Apply");
+    apply.onclick = async () => { apply.disabled = true; if (!(await taskBoardDo("apply", { id: t.id }))) apply.disabled = false; };
+    const discard = el("button", "b-no inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs", "Discard");
+    discard.onclick = () => taskBoardDo("discard", { id: t.id });
+    actions.append(apply, discard);
+  } else if (t.status === "queued" || t.status === "blocked" || t.status === "failed") {
+    const drop = el("button", "b-no inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs", t.status === "failed" ? "Dismiss" : "Cancel");
+    drop.onclick = () => taskBoardDo("discard", { id: t.id });
+    actions.append(drop);
+  }
+  if (actions.childNodes.length) card.append(actions);
+  if (diffBox) card.append(diffBox);
+  return card;
+}
+
+// renderDiffEl builds a standalone <pre> diff element (taskboard view). Distinct
+// from the shared renderDiff(pre, text) in app-render.js, which fills an existing
+// element — same name previously shadowed that one (app-manage.js loads last),
+// breaking the git-modal and approval diffs with "Failed to load diff.".
+function renderDiffEl(diff) {
+  const pre = el("pre", "taskboard-diff");
+  for (const line of diff.split("\n")) {
+    let cls = "";
+    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ") || line.startsWith("index ")) cls = "d-meta";
+    else if (line.startsWith("@@")) cls = "d-hunk";
+    else if (line.startsWith("+")) cls = "d-add";
+    else if (line.startsWith("-")) cls = "d-del";
+    pre.append(el("span", "d-line " + cls, line + "\n"));
+  }
+  return pre;
+}
+
+async function taskBoardDo(action, payload) {
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/taskboard/${action}`), { method: "POST", body: JSON.stringify(payload) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || (j && j.ok === false)) { alertBox((j && j.error) || "Action failed."); return false; }
+  } catch (_) { return false; }
+  const list = manageBody && manageBody.querySelector(".taskboard-list");
+  if (list) refreshTaskBoard(list);
+  return true;
+}

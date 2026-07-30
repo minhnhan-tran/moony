@@ -179,6 +179,7 @@ func (s *Server) evictStoreBacked(id string) {
 	s.mu.Unlock()
 	if live != nil {
 		live.interrupt()
+		live.closeBoard() // also tear down its Task Board worktrees
 	}
 }
 
@@ -241,6 +242,20 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/projects/open", s.handleOpenDir)
 	mux.HandleFunc("GET /api/fs", s.handleListDir)
 	mux.HandleFunc("GET /api/encryption", s.handleEncryption)
+	// Quick actions: user-editable preset prompts behind the composer's split
+	// button (project-scoped .sqe/quickactions.json, global fallback).
+	mux.HandleFunc("GET /api/quickactions", s.handleGetQuickActions)
+	mux.HandleFunc("POST /api/quickactions", s.handleAddQuickAction)
+	mux.HandleFunc("PUT /api/quickactions", s.handleUpdateQuickAction)
+	mux.HandleFunc("DELETE /api/quickactions", s.handleRemoveQuickAction)
+	mux.HandleFunc("POST /api/quickactions/move", s.handleMoveQuickAction)
+	mux.HandleFunc("POST /api/quickactions/reset", s.handleResetQuickActions)
+	// Task Board: queue prompts that run as parallel headless sub-processes, each
+	// in its own throwaway git worktree, with Apply/Discard diff review.
+	mux.HandleFunc("GET /api/sessions/{id}/taskboard", s.handleListTasks)
+	mux.HandleFunc("POST /api/sessions/{id}/taskboard/add", s.handleTaskAdd)
+	mux.HandleFunc("POST /api/sessions/{id}/taskboard/apply", s.handleTaskApply)
+	mux.HandleFunc("POST /api/sessions/{id}/taskboard/discard", s.handleTaskDiscard)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleEvents)
 	mux.HandleFunc("POST /api/sessions/{id}/message", s.handleMessage)
 	mux.HandleFunc("POST /api/sessions/{id}/approve", s.handleApprove)
@@ -670,12 +685,22 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 			MediaType string `json:"mediaType"`
 			Data      string `json:"data"` // base64 (optionally a data: URI)
 		} `json:"attachments"`
+		// Optional one-turn model pin from a quick action; reverted when the turn
+		// ends (see session.applyTurnOverride).
+		Model     string `json:"model"`
+		Provider  string `json:"provider"`
+		Reasoning string `json:"reasoning"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	text := strings.TrimSpace(body.Text)
+	ov := turnOverride{
+		Model:     strings.TrimSpace(body.Model),
+		Provider:  strings.TrimSpace(body.Provider),
+		Reasoning: strings.TrimSpace(body.Reasoning),
+	}
 	if text == "" && len(body.Attachments) == 0 {
 		http.Error(w, "missing text", http.StatusBadRequest)
 		return
@@ -732,7 +757,7 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 	// busy-time queue). Atomic with the running-turn state, so a turn finishing
 	// right now makes enqueueIfBusy return false and we fall through to dispatch
 	// immediately. Attachment-only messages queue too.
-	if (text != "" || len(blocks) > 0) && sess.enqueueIfBusy(text, blocks, wires) {
+	if (text != "" || len(blocks) > 0) && sess.enqueueIfBusyWith(text, blocks, wires, ov) {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
@@ -770,7 +795,7 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 		sess.publishEvent(wireEvent{Type: "info", Text: msg})
 	}
 
-	if !sess.start(text, blocks, wires) {
+	if !sess.startWith(text, blocks, wires, ov) {
 		http.Error(w, "a turn is already running", http.StatusConflict)
 		return
 	}
@@ -828,7 +853,7 @@ func (s *Server) dispatchText(sess *session, m queuedMsg) (started bool) {
 			sess.publishEvent(wireEvent{Type: "info", Text: msg})
 		}
 	}
-	return sess.start(m.text, m.blocks, m.wires)
+	return sess.startWith(m.text, m.blocks, m.wires, m.ov)
 }
 
 // maxAttachmentsPerTurn bounds how many files one message may carry.
@@ -963,6 +988,9 @@ func (s *Server) evictForDelete(id string) error {
 		delete(s.sessions, id) // evict so no further turns can start on it
 	}
 	s.mu.Unlock()
+	if live != nil {
+		live.closeBoard() // remove its worktrees before the session file goes away
+	}
 	return s.store.Delete(id)
 }
 

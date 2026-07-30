@@ -1133,6 +1133,7 @@ function selectSession(id) {
   clearView();
   current = id;
   loadEncryptionStatus(); // connector-scoped: run now that a laptop is focused (apiBase set), not at boot
+  loadQuickActions();     // also connector-scoped: the project may ship its own presets
   showConnecting(); // jumping-Claude loader until the session's replay starts streaming in
   if (laptops) {
     renderLaptopTree(); // reflect the new active session immediately
@@ -1402,6 +1403,8 @@ function handle(ev) {
       if (!ref.isDiff && ev.output) { ref.content = ev.output; ref.renderBody(ev.output, ref.outMode || "code"); }
       // Render any images the tool returned (e.g. a browser screenshot) inline.
       if (ev.images && ev.images.length) appendToolImages(ref, ev.images);
+      // Videos a tool returned (e.g. generate_video) render inline too.
+      if (ev.videos && ev.videos.length) appendToolVideos(ref, ev.videos);
       break;
     }
     case "task_meta": {
@@ -2766,9 +2769,19 @@ async function sendText(text) {
   await fetch(api(`/api/sessions/${current}/message`), { method: "POST", body: JSON.stringify({ text }) });
 }
 
-async function send() {
+// send posts the composer's contents. `override` (optional) carries a quick
+// action's one-turn model/provider/reasoning pin, which the server applies for
+// that turn only and then reverts.
+async function send(override) {
   const text = input.value.trim();
   if ((!text && pendingAttachments.length === 0) || !current) return;
+  // Only include the pin fields when actually set, so a normal send posts exactly
+  // the payload it always did.
+  const ov = override || {};
+  const pin = {};
+  if (ov.model) pin.model = ov.model;
+  if (ov.provider) pin.provider = ov.provider;
+  if (ov.reasoning) pin.reasoning = ov.reasoning;
   // While busy on a queue-capable session, Enter enqueues the message for after
   // the current turn — WITH any staged attachments, which now ride along in the
   // server-side queue instead of being dropped.
@@ -2779,7 +2792,7 @@ async function send() {
     renderAttachStrip();
     hidePalette();
     hideMentions();
-    await fetch(api(`/api/sessions/${current}/message`), { method: "POST", body: JSON.stringify({ text, attachments }) });
+    await fetch(api(`/api/sessions/${current}/message`), { method: "POST", body: JSON.stringify({ text, attachments, ...pin }) });
     return;
   }
   const attachments = pendingAttachments.map((a) => ({ name: a.name, mediaType: a.mediaType, data: a.data }));
@@ -2791,8 +2804,134 @@ async function send() {
   hideMentions();
   await fetch(api(`/api/sessions/${current}/message`), {
     method: "POST",
-    body: JSON.stringify({ text, attachments }),
+    body: JSON.stringify({ text, attachments, ...pin }),
   });
+}
+
+// --- quick actions ----------------------------------------------------------
+// A split button that fires a preset prompt at the agent so the user doesn't
+// retype it. The presets are user-editable (Manage → Quick actions) and come
+// from /api/quickactions, which merges a committable per-project
+// .sqe/quickactions.json with a global fallback. The chosen action becomes the
+// primary half's default and is remembered across reloads. Sending routes
+// through send() rather than sendText() so the preset inherits everything a
+// typed message gets: the busy/queue path, composer clearing, attachments.
+let quickActionList = [];
+let quickAction = null;
+
+function savedQuickActionPrompt() {
+  try { return localStorage.getItem("moony.quickAction") || ""; } catch { return ""; }
+}
+
+// loadQuickActions refreshes the list from the server and re-renders the menu.
+// Called at session select and after the Manage panel edits them.
+async function loadQuickActions() {
+  try {
+    const r = await fetch(api("/api/quickactions"));
+    if (!r.ok) throw new Error("http " + r.status);
+    const d = await r.json();
+    quickActionList = Array.isArray(d.actions) ? d.actions : [];
+  } catch {
+    quickActionList = []; // offline / not yet connected — menu just stays empty
+  }
+  renderQuickActionMenu();
+}
+
+// renderQuickActionMenu rebuilds the dropdown rows and picks the active action:
+// the user's remembered choice when it still exists, else the first (so the
+// order set in the Manage panel decides the default).
+function renderQuickActionMenu() {
+  if (!quickActionMenu) return;
+  quickActionMenu.textContent = "";
+  const saved = savedQuickActionPrompt();
+  quickAction = quickActionList.find((a) => a.prompt === saved) || quickActionList[0] || null;
+
+  for (const a of quickActionList) {
+    const item = el("button", "quick-actions-item");
+    item.type = "button";
+    item.setAttribute("role", "menuitem");
+    item.dataset.prompt = a.prompt;
+    if (a.icon) item.append(sym(a.icon));
+    const text = el("span");
+    text.append(el("span", "quick-actions-item-title", a.label || a.prompt));
+    if (a.sub) text.append(el("span", "quick-actions-item-sub", a.sub));
+    item.append(text);
+    item.title = a.prompt; // the full prompt, since the label can be a summary
+    item.onclick = (e) => {
+      e.stopPropagation();
+      closeQuickActionMenu();
+      quickAction = a; // picking an action also makes it the new default
+      renderQuickActionLabel();
+      try { localStorage.setItem("moony.quickAction", a.prompt); } catch { /* ignore */ }
+      runQuickAction(a);
+    };
+    quickActionMenu.append(item);
+  }
+  if (!quickActionList.length) {
+    quickActionMenu.append(el("div", "quick-actions-empty",
+      "No quick actions yet — add them in Manage → Quick actions."));
+  }
+  renderQuickActionLabel();
+  // The primary half is meaningless with no presets; keep it disabled unless a
+  // busy composer already disabled it (setState owns the busy half of this).
+  if (quickActionBtn && !quickAction) quickActionBtn.disabled = true;
+  else if (quickActionBtn && state === "idle") quickActionBtn.disabled = false;
+  if (quickActions) quickActions.hidden = !quickActionList.length;
+  syncQuickActionsOffset(); // the label width changed, so re-measure
+}
+
+function renderQuickActionLabel() {
+  if (!quickActionBtn) return;
+  const label = quickActionBtn.querySelector(".quick-actions-label");
+  if (label) label.textContent = quickAction ? (quickAction.label || quickAction.prompt) : "Quick";
+  const desc = quickAction ? `Run "${quickAction.prompt}"` : "No quick actions configured";
+  quickActionBtn.title = desc;
+  quickActionBtn.setAttribute("aria-label", desc);
+}
+
+function closeQuickActionMenu() {
+  if (!quickActionMenu) return;
+  quickActionMenu.classList.remove("open");
+  if (quickActionCaret) {
+    quickActionCaret.classList.remove("menu-open"); // un-rotate the caret
+    quickActionCaret.setAttribute("aria-expanded", "false");
+  }
+}
+
+// syncQuickActionsOffset keeps the quick-actions pill clear of the turn pager,
+// which sits in the same floating strip and changes width as it appears/hides.
+function syncQuickActionsOffset() {
+  if (!quickActions) return;
+  const showing = pager && !pager.hidden;
+  const w = showing ? Math.round(pager.getBoundingClientRect().width) : 0;
+  quickActions.style.setProperty("--turn-pager-w", w ? (w + 6) + "px" : "0px");
+}
+
+// runQuickAction fires an action. Accepts the action object so its configured
+// model/provider/reasoning ride along; a bare prompt string still works.
+function runQuickAction(action) {
+  const a = typeof action === "string" ? { prompt: action } : (action || {});
+  if (!current) { flash("Open a session first to run a quick action."); return; }
+  if (!a.prompt) return;
+  input.value = a.prompt;
+  send({ model: a.model, provider: a.provider, reasoning: a.reasoning });
+}
+
+if (quickActions && quickActionBtn && quickActionCaret && quickActionMenu) {
+  renderQuickActionMenu();
+  quickActionBtn.onclick = (e) => {
+    e.stopPropagation();
+    closeQuickActionMenu();
+    if (quickAction) runQuickAction(quickAction);
+  };
+  quickActionCaret.onclick = (e) => {
+    e.stopPropagation();
+    closeAttachMenu(); // only one composer menu open at a time
+    const open = quickActionMenu.classList.toggle("open");
+    quickActionCaret.classList.toggle("menu-open", open);
+    quickActionCaret.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+  document.addEventListener("click", closeQuickActionMenu); // outside click dismisses
 }
 
 // --- attachments (images, PDFs, Office files) -------------------------------
@@ -2964,6 +3103,21 @@ function appendToolImages(ref, images) {
     img.loading = "lazy";
     a.appendChild(img);
     row.appendChild(a);
+  });
+  ref.body.appendChild(row);
+}
+
+// appendToolVideos renders videos a tool returned (e.g. generate_video) into the
+// tool card body, below any text output. Each src is a data URI or a plain URL.
+function appendToolVideos(ref, videos) {
+  const row = el("div", "tool-videos flex flex-wrap gap-2 mt-1.5");
+  videos.forEach((src) => {
+    const v = el("video", "tool-video");
+    v.src = src;
+    v.controls = true;
+    v.preload = "metadata";
+    v.playsInline = true;
+    row.appendChild(v);
   });
   ref.body.appendChild(row);
 }
@@ -3449,6 +3603,7 @@ function syncPagerVisibility() {
   const navVisible = pagerNav && !pagerNav.hidden;
   const scrollVisible = scrollBtn && !scrollBtn.hidden;
   pager.hidden = !navVisible && !scrollVisible;
+  if (typeof syncQuickActionsOffset === "function") syncQuickActionsOffset();
 }
 
 // openPagerMenu lists every question in the turn (newest last) in the shared
@@ -3647,6 +3802,7 @@ input.addEventListener("paste", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && attachMenu && attachMenu.classList.contains("open")) { closeAttachMenu(); return; }
+  if (e.key === "Escape" && quickActionMenu && quickActionMenu.classList.contains("open")) { closeQuickActionMenu(); return; }
   if (e.key === "Escape" && userMenuEl && userMenuEl.classList.contains("open")) { userMenuEl.classList.remove("open"); return; }
   if (e.key === "Escape" && document.body.classList.contains("nav-open")) { document.body.classList.remove("nav-open"); return; }
   if (e.key === "Escape" && manageOverlay.style.display !== "none") { closeManage(); return; }
@@ -3945,6 +4101,8 @@ const CONFIG_TABS = [
     }) },
   { key: "lsp", label: "LSP", icon: "curlybraces", render: () => renderLspMarketplace() },
   { key: "schedule", label: "Schedule", icon: "calendar.badge.clock", render: () => renderSchedules() },
+  { key: "quickactions", label: "Quick actions", icon: "bolt.fill", render: () => renderQuickActionsPanel() },
+  { key: "taskboard", label: "Task Board", icon: "square.grid.2x2", render: () => renderTaskBoard() },
 ];
 
 // openConfigModal opens the Config modal on the given tab (defaults to Skills).

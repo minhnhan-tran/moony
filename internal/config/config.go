@@ -459,6 +459,34 @@ type Config struct {
 	// Saved as a preference; MN_CONTEXT_WINDOW overrides.
 	ContextWindow int
 
+	// TaskBoardMaxParallel caps how many web Task Board tasks run at once.
+	// Set via MN_TASKBOARD_MAX_PARALLEL; 0 means the default (2).
+	TaskBoardMaxParallel int
+
+	// ImageModel, when non-empty, enables the generate_image tool: the agent can
+	// generate/edit images with this image-output model (OpenAI-compatible route).
+	// Set via MN_IMAGE_MODEL. Empty leaves the tool unregistered.
+	ImageModel string
+	// VideoModel, when non-empty, enables the generate_video tool with this
+	// video-output model (e.g. a Veo model on the native Gemini route). Set via
+	// MN_VIDEO_MODEL. Empty leaves the tool unregistered.
+	VideoModel string
+
+	// CodebaseMap, when true, keeps the generated structural section of
+	// CODEBASE_MAP.md fresh on every codebase change and injects the map
+	// (pinned + narrative + directory digest) into the system prompt. Also
+	// enabled implicitly when a CODEBASE_MAP.md already exists at the project
+	// root. MN_CODEBASE_MAP=0 forces it off.
+	CodebaseMap bool
+	// CodebaseMapPromptBytes caps how much of the codebase map is injected into
+	// the system prompt (0 = the built-in default). MN_CODEBASE_MAP_BYTES.
+	CodebaseMapPromptBytes int
+
+	// RAGIndexDir overrides where the per-workspace semantic_search vector index
+	// is stored (default <root>/.sqe/rag/index.gob). Set via MN_RAG_INDEX_DIR —
+	// e.g. to share one index across git worktrees of the same repo.
+	RAGIndexDir string
+
 	// SubagentMaxDepth caps how deep the task-tool delegation tree may go: 1 = only
 	// one level of sub-agents (no nesting). Default 2; MN_MAX_SUBAGENT_DEPTH
 	// overrides, clamped to [1, SubagentDepthCeiling].
@@ -1285,6 +1313,25 @@ type ModelInfo struct {
 	Thinking bool // whether the model supports extended thinking
 }
 
+// KnownImageModels is a curated fallback for the generate_image model picker
+// (image-output models on an OpenAI-compatible route), used when the live
+// /models fetch is unavailable or returns none.
+var KnownImageModels = []ModelInfo{
+	{"gemini-3-pro-image-preview", "Gemini 3 Pro Image (preview)", false},
+	{"gemini-2.5-flash-image", "Gemini 2.5 Flash Image", false},
+	{"gpt-image-1", "GPT Image 1", false},
+}
+
+// KnownVideoModels is a curated fallback for the generate_video model picker
+// (Veo video-output models on the native Gemini route), used when the live model
+// fetch is unavailable or returns none.
+var KnownVideoModels = []ModelInfo{
+	{"veo-3.1-generate-preview", "Veo 3.1 Generate (preview)", false},
+	{"veo-3.1-fast-generate-preview", "Veo 3.1 Fast Generate (preview)", false},
+	{"veo-3.0-generate-001", "Veo 3.0 Generate 001", false},
+	{"veo-2.0-generate-001", "Veo 2.0 Generate 001", false},
+}
+
 // KnownModels is a best-effort curated list of Anthropic (Claude) models for
 // the /models picker fallback (the live list is fetched from the provider when
 // available). Users can still select any id via `/model <id>`.
@@ -1824,6 +1871,31 @@ func Load() *Config {
 	}
 	if v := strings.TrimSpace(os.Getenv("MN_SELF_REVIEW")); v != "" {
 		c.SelfReview = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
+	}
+	if v := os.Getenv("MN_TASKBOARD_MAX_PARALLEL"); v != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			c.TaskBoardMaxParallel = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_IMAGE_MODEL")); v != "" {
+		c.ImageModel = v
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_VIDEO_MODEL")); v != "" {
+		c.VideoModel = v
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_CODEBASE_MAP"))) {
+	case "1", "on", "true", "yes":
+		c.CodebaseMap = true
+	case "0", "off", "false", "no":
+		c.CodebaseMap = false
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_CODEBASE_MAP_BYTES")); v != "" {
+		if n, err := ParseTokenCount(v); err == nil && n > 0 {
+			c.CodebaseMapPromptBytes = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_RAG_INDEX_DIR")); v != "" {
+		c.RAGIndexDir = v
 	}
 	if v := strings.TrimSpace(os.Getenv("MN_AUTO_TESTGEN")); v != "" {
 		c.AutoTestGen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")

@@ -173,6 +173,25 @@
           </button>
         </div>
       </div>
+      <!-- Quick actions: a split button whose dropdown fires a preset prompt at
+           the agent without typing. Sits beside the pager as a matching frosted
+           pill floating over the transcript. The primary half runs the default
+           action; the caret half opens the menu (opens upward, closes on
+           outside-click / Escape). Rows come from /api/quickactions — edit them
+           in Manage → Quick actions, not here. -->
+      <div id="quickActions" class="quick-actions" hidden>
+        <button id="quickActionBtn" type="button" class="quick-actions-main"
+          title="Run the default quick action" aria-label="Run the default quick action">
+          <app-icon name="bolt.fill" style="font-size:14px"></app-icon>
+          <span class="quick-actions-label">Quick</span>
+        </button>
+        <button id="quickActionCaret" type="button" class="quick-actions-caret"
+          title="Choose a quick action" aria-label="Choose a quick action"
+          aria-haspopup="menu" aria-expanded="false">
+          <app-icon name="chevron.up" style="font-size:11px"></app-icon>
+        </button>
+        <div id="quickActionMenu" class="quick-actions-menu" role="menu"></div>
+      </div>
     </div>
 
     <!-- Plan bar, mirroring the terminal's plan artifact above the task list. -->

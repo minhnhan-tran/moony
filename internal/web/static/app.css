@@ -1958,6 +1958,7 @@ body.wf-active .app-topbar { z-index: 40; }
 .attach-chip { max-width: 260px; }
 .tool-image { max-width: 320px; max-height: 320px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); object-fit: contain; display: block; cursor: zoom-in; }
 .tool-image-link { display: inline-block; line-height: 0; }
+.tool-video { max-width: 420px; max-height: 320px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); background: #000; display: block; }
 #inputArea.drop-active { outline: 2px dashed rgb(var(--c-brand)); outline-offset: 3px; border-radius: var(--r-lg); }
 
 /* ---- Queued-message strip: pending messages typed while the agent is busy,
@@ -2843,3 +2844,140 @@ html.light .diff-hunk { color: #0550ae; }
 /* Match highlights inside #transcript. */
 #transcript mark.tsearch-hit { background: rgb(var(--c-warn) / .35); color: inherit; border-radius: 2px; }
 #transcript mark.tsearch-current { background: rgb(var(--c-warn)); color: rgb(var(--c-surface)); }
+
+/* ---- Quick actions: a split button that fires a user-defined preset prompt at
+        the agent without typing it. Floats over the transcript beside the turn
+        pager, sharing its raised-pill look, and shifts left by the pager's
+        measured width (--turn-pager-w, set by syncQuickActionsOffset) so the
+        two never overlap. ---- */
+.quick-actions {
+  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;
+  display: inline-flex; align-items: stretch; overflow: visible; /* the menu escapes the pill */
+  border-radius: var(--r-md); user-select: none;
+  background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
+  box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
+  transform: translateX(calc(-1 * var(--turn-pager-w, 0px)));
+  transition: transform .16s ease;
+}
+.quick-actions[hidden] { display: none; }
+.quick-actions-main, .quick-actions-caret {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+  min-height: 1.35rem; /* match .pager-btn so both pills are the same height */
+  padding: .2rem .5rem; border: 0; background: transparent;
+  color: rgb(var(--c-ink-soft)); font-size: 12px; cursor: pointer;
+  line-height: 1; /* 12px text's default 18px line box would outgrow the pager */
+  transition: background .12s ease, color .12s ease, opacity .12s ease;
+}
+.quick-actions-main { border-radius: var(--r-md) 0 0 var(--r-md); }
+.quick-actions-caret { padding: .2rem .35rem; border-radius: 0 var(--r-md) var(--r-md) 0; }
+.quick-actions-main:hover:not(:disabled), .quick-actions-caret:hover:not(:disabled) {
+  background: rgb(var(--c-edge)); color: rgb(var(--c-ink));
+}
+/* Hairline divider between the halves, matching the pager's segment divider. */
+.quick-actions-caret { box-shadow: inset 1px 0 0 rgb(var(--c-edge)); }
+.quick-actions-main app-icon { color: rgb(var(--c-brand)); }
+.quick-actions-main:disabled, .quick-actions-caret:disabled { opacity: .45; cursor: default; }
+.quick-actions-caret.menu-open { background: rgb(var(--c-edge)); color: rgb(var(--c-ink)); }
+.quick-actions-caret app-icon { transition: transform .14s ease; }
+.quick-actions-caret.menu-open app-icon { transform: rotate(180deg); }
+/* The label is the first thing to go on narrow screens — the bolt still reads. */
+@media (max-width: 640px) { .quick-actions-label { display: none; } }
+
+.quick-actions-menu {
+  position: absolute; right: 0; bottom: calc(100% + .4rem);
+  min-width: 248px; max-width: calc(100vw - 1.5rem);
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: .3rem;
+  opacity: 0; transform: translateY(4px) scale(.98); pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 70;
+}
+.quick-actions-menu.open { opacity: 1; transform: none; pointer-events: auto; }
+.quick-actions-item {
+  width: 100%; box-sizing: border-box; text-align: left;
+  /* center: the icon centers against the whole row, which matters because a row is
+     one line (label only) or two (label + .quick-actions-item-sub). */
+  display: flex; align-items: center; gap: .55rem;
+  padding: .45rem .55rem; border-radius: var(--r-md);
+  background: none; border: 0; cursor: pointer;
+  color: rgb(var(--c-ink)); font-size: 13px;
+  transition: background-color .1s ease;
+}
+.quick-actions-item:hover { background: rgb(var(--c-raised)); }
+/* Fixed-width centered gutter so glyphs of differing widths line up down the menu
+   and the label column never shifts. */
+.quick-actions-item app-icon { flex: 0 0 1.15rem; justify-content: center; font-size: 15px; color: rgb(var(--c-faint)); }
+.quick-actions-item-title { display: block; }
+.quick-actions-item-sub { display: block; font-size: 11px; color: rgb(var(--c-faint)); margin-top: .05rem; }
+.quick-actions-empty { padding: .5rem .55rem; font-size: 12px; color: rgb(var(--c-faint)); }
+@media (prefers-reduced-motion: reduce) { .quick-actions-menu, .quick-actions-caret app-icon, .quick-actions { transition: none; } }
+
+/* ---- Quick actions manage panel (Manage → Quick actions) ---- */
+.qa-scopebar { display: flex; align-items: center; gap: .4rem; margin-bottom: .75rem; }
+.qa-scope {
+  font-size: 12px; padding: .2rem .55rem; border-radius: 999px;
+  border: 1px solid rgb(var(--c-edge)); background: transparent;
+  color: rgb(var(--c-faint)); cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.qa-scope:hover { background: rgb(var(--c-raised)); color: rgb(var(--c-ink)); }
+.qa-scope.is-active { background: rgb(var(--c-brand) / .14); border-color: rgb(var(--c-brand) / .5); color: rgb(var(--c-brand)); }
+.qa-scope-note { font-size: 11px; color: rgb(var(--c-faint)); margin-left: .25rem; }
+.qa-row-icon { color: rgb(var(--c-faint)); flex: 0 0 auto; }
+/* Rows are multi-line (prompt + subtitle + pin summary), so top-align the icon
+   and the action buttons rather than centering them against a tall block. */
+.qa-card.manage-row { align-items: flex-start; gap: .4rem; }
+.qa-pin-summary { color: rgb(var(--c-brand) / .85); }
+.qa-default-badge {
+  margin-left: .4rem; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: rgb(var(--c-brand)); border: 1px solid rgb(var(--c-brand) / .4);
+  border-radius: 999px; padding: 0 .3rem; vertical-align: middle;
+}
+/* Pin selects in the editor form: label above/left of each <select>. */
+.agent-pins { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.qa-pins { margin-top: .15rem; }
+.agent-pin { display: inline-flex; align-items: center; gap: .3rem; }
+.agent-pin-label { font-size: 11px; color: rgb(var(--c-faint)); }
+.qa-form { display: flex; flex-direction: column; gap: .4rem; margin-top: 1rem; padding-top: .85rem; border-top: 1px solid rgb(var(--c-edge)); }
+.qa-form-actions { display: flex; gap: .4rem; }
+.qa-error { font-size: 12px; color: rgb(var(--c-danger)); }
+.qa-foot { margin-top: .85rem; }
+.qa-reset { font-size: 12px; color: rgb(var(--c-faint)); background: none; border: 0; padding: .2rem 0; cursor: pointer; text-decoration: underline; }
+.qa-reset:hover { color: rgb(var(--c-danger)); }
+
+/* ---- Task Board (Manage → Task Board): parallel isolated task runs with
+        per-task diff review. ---- */
+.taskboard-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; }
+.taskboard-card {
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
+  background: rgb(var(--c-raised)); padding: .55rem .7rem;
+}
+.taskboard-card.is-applied, .taskboard-card.is-discarded { opacity: .55; }
+.taskboard-head { display: flex; align-items: center; gap: .5rem; }
+.taskboard-title { font-size: 13px; color: rgb(var(--c-ink)); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskboard-badge {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: .3rem;
+  font-size: 11px; font-weight: 600; padding: .1rem .45rem; border-radius: var(--r-sm);
+  background: rgb(var(--c-edge)); color: rgb(var(--c-ink-soft)); text-transform: uppercase; letter-spacing: .02em;
+}
+.taskboard-badge.is-running { background: rgb(var(--c-brand) / .18); color: rgb(var(--c-brand)); }
+.taskboard-badge.is-done { background: rgb(var(--c-ok) / .16); color: rgb(var(--c-ok)); }
+.taskboard-badge.is-failed { background: rgb(var(--c-danger) / .16); color: rgb(var(--c-danger)); }
+.taskboard-badge.is-blocked, .taskboard-badge.is-queued { background: rgb(var(--c-warn) / .16); color: rgb(var(--c-warn)); }
+.taskboard-spin { animation: todo-spin 1s linear infinite; }
+.taskboard-response { font-size: 12px; color: rgb(var(--c-ink-soft)); margin-top: .4rem; line-height: 1.4; white-space: pre-wrap; }
+.taskboard-error { font-size: 12px; color: rgb(var(--c-danger)); margin-top: .4rem; line-height: 1.4; }
+.taskboard-actions { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; flex-wrap: wrap; }
+.taskboard-nochange { font-size: 11px; color: rgb(var(--c-faint)); font-style: italic; }
+.taskboard-diff-wrap { margin-top: .5rem; }
+.taskboard-diff {
+  max-height: 15rem; overflow: auto; margin: 0; padding: .5rem;
+  background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  font-size: 11px; line-height: 1.45; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.taskboard-diff .d-line { display: block; white-space: pre-wrap; word-break: break-all; }
+.taskboard-diff .d-add { color: rgb(var(--c-ok)); }
+.taskboard-diff .d-del { color: rgb(var(--c-danger)); }
+.taskboard-diff .d-hunk { color: rgb(var(--c-brand)); }
+.taskboard-diff .d-meta { color: rgb(var(--c-faint)); }

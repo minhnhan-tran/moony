@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/pysty1995/moony/internal/dap"
@@ -65,6 +66,23 @@ type ImageProducer interface {
 	ExecuteImages(ctx context.Context, input json.RawMessage) (text string, images []Image, err error)
 }
 
+// Video is a video produced by a tool (e.g. generate_video). Unlike Image it is
+// NOT fed back to the model (models can't watch video and clips are large) — it
+// is surfaced only to the UI; the model gets the tool's text output (the saved
+// path). Exactly one of Data / URL is set.
+type Video struct {
+	MediaType string // e.g. "video/mp4"
+	Data      []byte // raw bytes, when inlined
+	URL       string // a remote URL, when the tool returns a link instead of bytes
+}
+
+// VideoProducer is an optional capability for a tool that returns videos
+// alongside its text output. See Video: videos go to the UI only, never to the
+// model.
+type VideoProducer interface {
+	ExecuteVideos(ctx context.Context, input json.RawMessage) (text string, videos []Video, err error)
+}
+
 // Registry holds the available tools and resolves paths against a root dir.
 type Registry struct {
 	root string
@@ -97,6 +115,23 @@ type Registry struct {
 	// as the agent edits files is acceptable.
 	repoMapOnce sync.Once
 	repoMapStr  string
+
+	// symbolMap memoizes the scored symbol/caller map (see symbolmap.go). It's
+	// rebuilt lazily when repoGeneration() changes (an mtime-based counter), so
+	// it stays current across edits without a filesystem watcher.
+	symbolMapMu sync.Mutex
+	symbolMap   *SymbolMap
+	// symbolBuilding is true while a background symbol-map build is in flight;
+	// symbolChecked throttles how often we re-walk the tree to detect changes.
+	symbolBuilding bool
+	symbolChecked  time.Time
+	// symbolDigestEnabled controls whether SymbolDigest() surfaces a "Key symbols"
+	// block in the system prompt (default on; toggled by SetSymbolDigest).
+	symbolDigestEnabled bool
+	// onSymbolMapRebuilt, when set, is called (off the hot path) after a fresh
+	// symbol map is stored following a codebase change. Used to auto-refresh the
+	// CODEBASE_MAP.md structural section without coupling tools→config.
+	onSymbolMapRebuilt func(*Registry)
 
 	// readCache dedups identical read_file calls within a session. Keyed by
 	// absolute path + offset + limit, it records the file's size+mtime at the
@@ -132,6 +167,18 @@ type Registry struct {
 	// cosine similarity to the query and blended with their lexical score. nil
 	// means pure BM25 (the default).
 	embedder Embedder
+
+	// lsp is the running language-server manager, wired by SetLSP, powering the
+	// code_nav tool's compiler-grade definition/references/hover. nil when no
+	// server is running (code_nav then degrades to a helpful message).
+	lsp lspManager
+
+	// changeReviewer, when set via SetChangeReviewer, returns a single combined
+	// unified diff of every file changed so far in the current turn, bounded to
+	// maxBytes. Owned by the Agent (its snapshot store is the source of truth);
+	// the read-only review_changes tool renders whatever it returns. nil means the
+	// tool reports that review isn't available in this context.
+	changeReviewer func(maxBytes int) string
 
 	// dapHolder is the shared live DAP debug session reference. nil = not
 	// connected. Populated by dap_connect or Agent.AttachDAP at startup;
@@ -347,8 +394,19 @@ func NewRegistry(workingDir string) *Registry {
 		jobs:      newJobStore(),
 		tempRoots: tempDirs(),
 		dapHolder: &dap.SessionHolder{},
+
+		symbolDigestEnabled: true,
 	}
 }
+
+// SetSymbolDigest toggles the "Key symbols" block SymbolDigest() adds to the
+// system prompt (default on).
+func (r *Registry) SetSymbolDigest(on bool) { r.symbolDigestEnabled = on }
+
+// SetOnSymbolMapRebuilt registers a callback invoked (in a background goroutine)
+// after a fresh symbol map is built following a codebase change. Used to refresh
+// the generated CODEBASE_MAP.md structural section on change.
+func (r *Registry) SetOnSymbolMapRebuilt(fn func(*Registry)) { r.onSymbolMapRebuilt = fn }
 
 // Jobs returns the background-job store so hosts can reap running jobs on
 // shutdown via Jobs().KillAll().
@@ -401,6 +459,9 @@ func (r *Registry) SetRoot(dir string) {
 	// root and would otherwise leak across the switch.
 	r.repoMapOnce = sync.Once{}
 	r.repoMapStr = ""
+	r.symbolMapMu.Lock()
+	r.symbolMap = nil
+	r.symbolMapMu.Unlock()
 	r.readCacheMu.Lock()
 	r.readCache = nil
 	r.readCacheMu.Unlock()
@@ -504,6 +565,11 @@ func (r *Registry) Schemas() []llm.Tool {
 // the model. Opt-in (prompt caching already amortizes full descriptions on
 // cached routes); useful on uncached routes or token-tight setups.
 func (r *Registry) SetConciseSchemas(v bool) { r.conciseSchemas = v }
+
+// SetChangeReviewer installs the provider behind the read-only review_changes
+// tool: a function returning one combined unified diff of the current turn's
+// changed files, bounded to maxBytes. The Agent wires its combinedTurnDiff here.
+func (r *Registry) SetChangeReviewer(f func(maxBytes int) string) { r.changeReviewer = f }
 
 // SetEmbedder installs the embedder used for optional semantic reranking in
 // search_code. Pass nil to disable (pure BM25).
@@ -620,6 +686,31 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 		return "", err
 	}
 	return t.Execute(ctx, input)
+}
+
+// ExecuteMedia dispatches a tool call, returning any media the tool produced —
+// images (for ImageProducer tools, e.g. browser screenshots; also fed back to
+// the model) and/or videos (for VideoProducer tools, e.g. generate_video; UI
+// only) — alongside the text output. Tools that produce neither go through the
+// normal text Execute path with nil media slices.
+func (r *Registry) ExecuteMedia(ctx context.Context, name string, input json.RawMessage) (string, []Image, []Video, error) {
+	t, ok := r.tools[name]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("unknown tool %q (available: %s)", name, strings.Join(sortedNames(r.tools), ", "))
+	}
+	if err := missingArgsError(name, t.Schema(), input); err != nil {
+		return "", nil, nil, err
+	}
+	if ip, ok := t.(ImageProducer); ok {
+		text, imgs, err := ip.ExecuteImages(ctx, input)
+		return text, imgs, nil, err
+	}
+	if vp, ok := t.(VideoProducer); ok {
+		text, vids, err := vp.ExecuteVideos(ctx, input)
+		return text, nil, vids, err
+	}
+	out, err := t.Execute(ctx, input)
+	return out, nil, nil, err
 }
 
 // ExecuteImages dispatches a tool call, returning any images the tool produced
