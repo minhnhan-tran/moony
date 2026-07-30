@@ -40,6 +40,16 @@ const (
 // current turn changed, for the self-reviewer. Returns "" when nothing changed.
 func (a *Agent) reviewableDiff() string { return a.combinedTurnDiff(maxReviewDiffBytes) }
 
+// TurnChangesDiff returns one combined unified diff of every file changed in the
+// current turn, capped to maxBytes (<=0 picks a sane default) — for the
+// review_changes tool and the /changes command. "" when nothing changed.
+func (a *Agent) TurnChangesDiff(maxBytes int) string {
+	if maxBytes <= 0 {
+		maxBytes = maxReviewDiffBytes
+	}
+	return a.combinedTurnDiff(maxBytes)
+}
+
 // combinedTurnDiff renders ONE unified before→after diff covering every file the
 // current turn changed, bounded to maxBytes. It backs both the self-reviewer
 // (reviewableDiff) and the read-only review_changes tool / the /changes command,

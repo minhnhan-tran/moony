@@ -75,6 +75,26 @@ func (s *snapshotStore) currentTurnChanges() []fileSnapshot {
 	return out
 }
 
+// touchedPaths returns the DISTINCT absolute paths of every file this session
+// snapshotted (created or edited via the file tools), across all turns. It's the
+// per-session "what this session changed" set used for cross-session commit
+// attribution — showing which sibling session touched each pending file.
+func (s *snapshotStore) touchedPaths() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := make(map[string]struct{}, len(s.entries))
+	out := make([]string, 0, len(s.entries))
+	for _, e := range s.entries {
+		if _, ok := seen[e.path]; ok {
+			continue
+		}
+		seen[e.path] = struct{}{}
+		out = append(out, e.path)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // record snapshots a file's pre-change contents under the current turn. It is
 // a no-op if the same (turn, path) was already recorded — only the earliest
 // state of each file in a turn is kept.
@@ -456,4 +476,25 @@ func diagnosticTargets(root, toolName string, input json.RawMessage) []diagnosti
 type diagnosticTarget struct {
 	path    string
 	content string
+}
+
+// TouchedFiles returns the paths (relative to the agent's WorkingDir when
+// possible) of every file this session has created or edited via the file tools.
+// Used for cross-session commit attribution: showing which sibling session's work
+// is present in the shared working tree. Absolute paths outside WorkingDir are
+// returned as-is.
+func (a *Agent) TouchedFiles() []string {
+	abs := a.snapshots.touchedPaths()
+	out := make([]string, 0, len(abs))
+	wd := a.cfg.WorkingDir
+	for _, p := range abs {
+		if wd != "" {
+			if rel, err := filepath.Rel(wd, p); err == nil && !strings.HasPrefix(rel, "..") {
+				out = append(out, rel)
+				continue
+			}
+		}
+		out = append(out, p)
+	}
+	return out
 }

@@ -64,3 +64,46 @@ func answerContinueMessage(attempt, max int) llm.Message {
 			"mid-sentence if needed — without repeating anything you already wrote and "+
 			"without any preamble. (continuation %d/%d)", attempt, max))
 }
+
+// maxEmptyRetries bounds how many times a turn retries a model that returns a
+// completely empty response (no tool calls, no visible text) on a NORMAL stop
+// reason. Small: an empty completion is usually transient, and if it isn't, looping
+// burns tokens producing nothing. The max_tokens cases are handled separately above.
+const maxEmptyRetries = 2
+
+// emptyResponseNudgeMessage prods the model after it returned nothing at all.
+// Deliberately does NOT restate the task — the task is already in the history, and
+// re-injecting it invites the model to re-plan from scratch instead of acting.
+func emptyResponseNudgeMessage(attempt, max int) llm.Message {
+	return llm.UserText(fmt.Sprintf(
+		"[automatic retry] Your previous response was empty: it contained no text "+
+			"and no tool call, so nothing happened. Continue the task from where it "+
+			"stands — take the next concrete action (call a tool) or, if the work is "+
+			"genuinely finished, say so explicitly in one short sentence. "+
+			"(retry %d/%d)", attempt, max))
+}
+
+// sawVisibleOutput reports whether a response carried anything the user would see
+// or that advances the turn: assistant text, or a non-text block such as an image.
+// Thinking-only blocks do NOT count — a turn whose entire output was internal
+// reasoning produced nothing actionable, which is exactly the silent-stop case.
+// Whitespace-only text does not count either.
+func (a *Agent) sawVisibleOutput(resp *llm.Response) bool {
+	if resp == nil {
+		return false
+	}
+	for _, b := range resp.Blocks {
+		switch b.Type {
+		case llm.BlockText:
+			if strings.TrimSpace(b.Text) != "" {
+				return true
+			}
+		case llm.BlockThinking, llm.BlockRedactedThinking:
+			// internal only — ignore
+		default:
+			// Any other block type (image, etc.) is real output.
+			return true
+		}
+	}
+	return false
+}

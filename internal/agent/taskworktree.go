@@ -72,8 +72,20 @@ func newIsolatedWorktree(ctx context.Context, repoRoot, label string) (*isolated
 		return nil, err
 	}
 	worktreeOpMu.Lock()
+	// Sweep leftovers from prior runs that were killed before their cleanup()
+	// defer could fire (crash, SIGKILL, power loss): `git worktree prune` drops
+	// admin entries whose dirs vanished, and pruneStaleTaskWorktrees removes stale
+	// on-disk task worktrees + their branches. Without this, a killed agent leaves
+	// a locked worktree that blocks future adds and inflates the repo. Best-effort.
+	pruneStaleTaskWorktrees(ctx, repoRoot)
 	out, err := gitText(ctx, repoRoot, "worktree", "add", "-b", branch, path)
 	if err == nil {
+		// Mark the tree as in-use so a concurrent sweep (pruneStaleTaskWorktrees)
+		// can't reap it just for being old — a genuinely long sub-agent run would
+		// otherwise have its worktree deleted underneath it. cleanup() unlocks before
+		// removing; a crashed run leaves the lock, and the sweep's age check plus
+		// `git worktree prune` still reclaim it once the dir is gone.
+		_, _ = gitText(ctx, repoRoot, "worktree", "lock", path)
 		// Keep isolated worktrees out of the parent repo's git status (a leaked or
 		// in-flight one would otherwise inflate the dirty count / clutter git_status).
 		// Must run within the lock to prevent concurrent write race on info/exclude.
@@ -145,8 +157,89 @@ func (w *isolatedWorktree) cleanup() {
 	worktreeOpMu.Lock()
 	defer worktreeOpMu.Unlock()
 	ctx := context.Background()
+	// Unlock first: `worktree remove` refuses a locked tree.
+	_, _ = gitText(ctx, w.repo, "worktree", "unlock", w.path)
 	_, _ = gitText(ctx, w.repo, "worktree", "remove", "--force", w.path)
 	_, _ = gitText(ctx, w.repo, "branch", "-D", w.branch)
+}
+
+// staleTaskWorktreeAge is how old an on-disk task worktree must be before the
+// sweep will force-remove it. Well beyond any realistic sub-agent turn, so a
+// live concurrent worktree is never touched; it only reaps genuine leaks from
+// killed prior runs.
+const staleTaskWorktreeAge = 6 * time.Hour
+
+// staleTaskWorktreeLockedAge is the (much longer) age after which even a LOCKED
+// worktree is reaped. A crashed run leaves its lock behind forever, so the lock
+// alone can't mean "never touch"; this bound keeps such leaks from accumulating
+// while still being far past any real sub-agent run.
+const staleTaskWorktreeLockedAge = 7 * 24 * time.Hour
+
+// pruneStaleTaskWorktrees clears leaked isolation worktrees left by agents that
+// died before cleanup(): (1) `git worktree prune` drops registry entries + locks
+// whose working dirs are already gone; (2) any .sqe/worktrees/task-* dir older
+// than staleTaskWorktreeAge is force-removed and its sqe-task/* branch deleted.
+// Called under worktreeOpMu. Entirely best-effort — a failure just leaves the
+// leftover for a later sweep and never blocks a new worktree.
+func pruneStaleTaskWorktrees(ctx context.Context, repoRoot string) {
+	// Drop admin entries/locks for worktrees whose dirs no longer exist.
+	_, _ = gitText(ctx, repoRoot, "worktree", "prune")
+
+	base := filepath.Join(repoRoot, taskWorktreeDir)
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return // no worktree dir yet — nothing to sweep
+	}
+	// Age alone is not proof a worktree is abandoned: a legitimately long sub-agent
+	// run (or one whose dir mtime simply stopped changing) would be destroyed under
+	// it. Only reap trees git still lists but that are ALSO old, and skip anything
+	// git reports as locked — `git worktree lock` is how a live run marks itself.
+	locked := lockedWorktreePaths(ctx, repoRoot)
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "task-") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || time.Since(info.ModTime()) < staleTaskWorktreeAge {
+			continue // fresh: could be a live concurrent worktree — leave it
+		}
+		stale := filepath.Join(base, e.Name())
+		if locked[stale] && time.Since(info.ModTime()) < staleTaskWorktreeLockedAge {
+			continue // locked and not ancient: assume a live run still owns it
+		}
+		// Remove via git first so its admin entry goes too; then rm the dir and
+		// branch in case git had already forgotten it. Unlock first — `remove` refuses
+		// a locked tree even with --force, which is what makes a crashed run's
+		// leftover lock otherwise un-reapable.
+		_, _ = gitText(ctx, repoRoot, "worktree", "unlock", stale)
+		_, _ = gitText(ctx, repoRoot, "worktree", "remove", "--force", stale)
+		_ = os.RemoveAll(stale)
+		_, _ = gitText(ctx, repoRoot, "branch", "-D", "sqe-task/"+e.Name())
+	}
+	_, _ = gitText(ctx, repoRoot, "worktree", "prune")
+}
+
+// lockedWorktreePaths returns the set of worktree paths git reports as LOCKED,
+// which is how a live isolated run marks its tree as in-use. Best-effort: on any
+// error the set is empty, and callers then fall back to the age check alone.
+func lockedWorktreePaths(ctx context.Context, repoRoot string) map[string]bool {
+	out := map[string]bool{}
+	txt, err := gitText(ctx, repoRoot, "worktree", "list", "--porcelain")
+	if err != nil {
+		return out
+	}
+	cur := ""
+	for _, line := range strings.Split(txt, "\n") {
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			cur = strings.TrimSpace(strings.TrimPrefix(line, "worktree "))
+		case strings.HasPrefix(line, "locked"):
+			if cur != "" {
+				out[cur] = true
+			}
+		}
+	}
+	return out
 }
 
 // sanitizeWorktreeLabel reduces a persona name to a filesystem/branch-safe token
