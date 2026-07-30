@@ -68,6 +68,12 @@ type wireEvent struct {
 	// Videos are any videos the tool produced (e.g. generate_video), each a data
 	// URI or a plain URL the browser renders inline in a <video> element.
 	Videos []string `json:"videos,omitempty"`
+	// Dropped / FirstTurn describe a capped initial replay (event type
+	// "history_start"): how many older turns were withheld, and the absolute index
+	// of the earliest turn that WAS replayed — the cursor the client pages back
+	// from via /api/sessions/{id}/history.
+	Dropped   int `json:"dropped,omitempty"`
+	FirstTurn int `json:"firstTurn,omitempty"`
 	// Meta carries a completed turn's footer (datetime · duration · model ·
 	// think:level) for a "turn_meta" event, replayed when a saved session reopens.
 	Meta *turnMetaWire `json:"meta,omitempty"`

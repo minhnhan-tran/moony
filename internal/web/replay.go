@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -200,4 +201,112 @@ func extractedFileName(text string) (string, bool) {
 		return rest[:i], true
 	}
 	return "", false
+}
+
+// defaultReplayTurns bounds how many trailing turns a freshly-opened session
+// replays on connect, so a huge persisted transcript doesn't stream+render in
+// full up front. Earlier turns load on demand when the user clicks "Load
+// earlier history", which reconnects the event stream with "?turns=all".
+const defaultReplayTurns = 30
+
+// maxReplayTurns caps a caller-supplied ?turns= page size on /events and
+// /history, so one request can't ask the server to serialize an arbitrarily large
+// slice of transcript. ("turns=all" on /events is a separate, explicit opt-in to
+// the full history behind the "Load full history" banner.)
+const maxReplayTurns = 500
+
+// splitReplay divides a replayed event stream into the leading preamble (any
+// events before the first "user" question — e.g. the seeded status/commands
+// snapshot) and the list of "real" turns, each beginning at a "user" event.
+// Slices are views into events (shared backing storage), in chronological
+// order. Trailing non-turn events (a plan artifact, queue updates) ride along
+// in the final turn, which is always kept, so nothing is lost.
+func splitReplay(events []wireEvent) (preamble []wireEvent, turns [][]wireEvent) {
+	firstUser := -1
+	for i, ev := range events {
+		if ev.Type == "user" {
+			firstUser = i
+			break
+		}
+	}
+	if firstUser == -1 {
+		return events, nil // no questions yet: it's all preamble
+	}
+	preamble = events[:firstUser]
+	start := firstUser
+	for i := firstUser + 1; i < len(events); i++ {
+		if events[i].Type == "user" {
+			turns = append(turns, events[start:i])
+			start = i
+		}
+	}
+	turns = append(turns, events[start:])
+	return preamble, turns
+}
+
+// tailReplay caps a replayed event stream to the most recent n turns: it keeps
+// the preamble (always) plus the last n turns, flattened, and reports how many
+// earlier turns were dropped (0 when everything fit) so the client can offer to
+// load them. n <= 0 keeps everything.
+func tailReplay(events []wireEvent, n int) (kept []wireEvent, dropped int) {
+	if n <= 0 {
+		return events, 0
+	}
+	preamble, turns := splitReplay(events)
+	if len(turns) <= n {
+		return events, 0
+	}
+	dropped = len(turns) - n
+	kept = append(kept, preamble...)
+	for _, t := range turns[dropped:] {
+		kept = append(kept, t...)
+	}
+	return kept, dropped
+}
+
+// rangeReplay returns the wire events for the up-to-n turns immediately BEFORE
+// absolute turn index `before` (0-based from the start of the session), for the
+// incremental "load earlier" pager. It returns only those turns' events (no
+// preamble/seeded events), the absolute index of the first returned turn
+// (fromTurn), and how many turns still remain older than fromTurn (remaining),
+// so the client knows whether to keep offering "load earlier".
+//
+// `before` is clamped to [0, len(turns)]; n<=0 yields nothing. Absolute turn
+// indexes are stable cursors because replay only ever appends new turns.
+func rangeReplay(events []wireEvent, before, n int) (out []wireEvent, fromTurn, remaining int) {
+	_, turns := splitReplay(events)
+	if before < 0 {
+		before = 0
+	}
+	if before > len(turns) {
+		before = len(turns)
+	}
+	if n <= 0 || before == 0 {
+		return nil, before, before
+	}
+	start := before - n
+	if start < 0 {
+		start = 0
+	}
+	for _, t := range turns[start:before] {
+		out = append(out, t...)
+	}
+	return out, start, start
+}
+
+func absInt(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// atoiDefault parses a non-negative int query param, returning def when absent,
+// malformed or negative.
+func atoiDefault(s string, def int) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 {
+		return def
+	}
+	return n
 }
