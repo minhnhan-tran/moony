@@ -124,9 +124,13 @@ func main() {
 		// Setting the model also derives the endpoint and restores the reasoning
 		// level remembered for that model (the --reasoning flag below still wins).
 		cfg.SetModel(*modelFlag)
+		// Mark it explicit so resuming a session doesn't restore that session's
+		// saved model over the one asked for on the command line.
+		cfg.ModelExplicit = true
 	}
 	if *reasoningFlag != "" {
 		cfg.ReasoningLevel = config.NormalizeReasoning(*reasoningFlag)
+		cfg.ReasoningExplicit = true
 	}
 	if *approvalFlag != "" {
 		cfg.ApprovalPolicy = config.NormalizeApprovalPolicy(*approvalFlag)

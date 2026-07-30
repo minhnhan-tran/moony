@@ -16,6 +16,7 @@ import (
 
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/dap"
+	"github.com/pysty1995/moony/internal/doctor"
 	"github.com/pysty1995/moony/internal/format"
 	"github.com/pysty1995/moony/internal/hooks"
 	"github.com/pysty1995/moony/internal/llm"
@@ -179,6 +180,22 @@ type Agent struct {
 	planIdleTurns    int
 	planResolvedMark int
 
+	// dismissedDraftFP is the content fingerprint of the last DRAFT plan retired
+	// because the user moved past it (retireStaleDraft). While set, a BUILD-mode
+	// re-proposal of the identical plan is suppressed (applyDraftPlan): the model
+	// otherwise re-issues plan_write from its own stale history every turn, so the
+	// same draft-plan head haunts every follow-up answer. Cleared when the user
+	// genuinely wants a plan (enters plan mode, approves, or a different draft is
+	// applied). "" = nothing dismissed.
+	dismissedDraftFP string
+
+	// autoPlanned reports that plan mode was entered by MaybeAutoPlan's heuristic,
+	// not chosen by the user. Unlike a user-selected plan mode (which preserves a
+	// draft for active refinement), an auto-entered one whose draft the user
+	// ignored is undone by retireStaleDraft — otherwise a wrong heuristic guess
+	// silently strands the session read-only.
+	autoPlanned bool
+
 	// hooks fires user-defined shell commands at lifecycle points.
 	hooks *hooks.Set
 
@@ -280,6 +297,11 @@ type Agent struct {
 func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, store *session.Store, sess *session.Session) *Agent {
 	if store != nil && sess == nil {
 		sess = session.New(cfg.Model, cfg.WorkingDir)
+	} else if sess != nil && cfg != nil {
+		// Opening an EXISTING session in a fresh process: put the config back on the
+		// model/provider/reasoning that session last used, before the system prompt
+		// is built below from cfg (it embeds the model/reasoning context).
+		applySessionLLMSelection(cfg, sess)
 	}
 	a := &Agent{
 		cfg:         cfg,
@@ -313,7 +335,7 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 		registry.SetConciseSchemas(cfg.ConciseToolSchemas)
 		// review_changes renders the turn's combined diff from the agent's snapshot
 		// store, which only the Agent can see.
-		registry.SetChangeReviewer(a.combinedTurnDiff)
+		registry.SetChangeReviewer(a.TurnChangesDiff)
 		// generate_image / generate_video: registered only when a media-output model
 		// is configured AND the client can actually produce that media (an
 		// OpenAI-compatible route for images, the native Gemini route for video).
@@ -427,6 +449,46 @@ func (a *Agent) Reset() {
 	}
 }
 
+// restoreLLMSelection re-applies a reopened session's persisted model, provider
+// and reasoning level to the live config, so a session doesn't silently come back
+// on the global default backend. Each field is only applied when the session
+// actually recorded it (sessions saved before these were persisted have none).
+//
+// Order matters: SetModel derives the wire API family and a reasoning default
+// from the model, so the provider is applied first and the explicit reasoning
+// level last.
+func (a *Agent) restoreLLMSelection(sess *session.Session) {
+	if a.cfg == nil || sess == nil {
+		return
+	}
+	applySessionLLMSelection(a.cfg, sess)
+	a.rebuildSystemPrompt()
+}
+
+// applySessionLLMSelection copies a saved session's model/provider/reasoning onto
+// cfg, skipping any field the user chose EXPLICITLY at startup (a -model /
+// -provider / -reasoning flag, or MN_MODEL / MN_PROVIDER / MN_REASONING). Without
+// that check, `moony -model X --session <old>` would silently run on the
+// session's remembered model instead of X.
+//
+// Order matters: SetModel derives the wire API family and a reasoning default
+// from the model name, so the provider is applied first and the explicit
+// reasoning level last.
+func applySessionLLMSelection(cfg *config.Config, sess *session.Session) {
+	if cfg == nil || sess == nil {
+		return
+	}
+	if p := strings.TrimSpace(sess.Provider); p != "" && !cfg.ProviderExplicit {
+		cfg.LLMProvider = provider.Normalize(p)
+	}
+	if m := strings.TrimSpace(sess.Model); m != "" && !cfg.ModelExplicit {
+		cfg.SetModel(m)
+	}
+	if r := strings.TrimSpace(sess.Reasoning); r != "" && !cfg.ReasoningExplicit {
+		cfg.ReasoningLevel = config.NormalizeReasoningFor(cfg.Model, r)
+	}
+}
+
 // Resume switches the active session to sess, loading its history so the next
 // turn continues that conversation and subsequent saves write back to it. It's
 // a no-op when persistence is disabled (no store) or sess is nil. The task list
@@ -437,6 +499,7 @@ func (a *Agent) Resume(sess *session.Session) {
 	}
 	a.sess = sess
 	a.messages = sess.Messages
+	a.restoreLLMSelection(sess)       // reopen on the model/provider/reasoning it last used
 	a.loadGoalFromSession()           // a resumed session carries its own stop-condition
 	a.titled = len(sess.Messages) > 0 // a session with history keeps its name
 	if a.todos != nil {
@@ -545,7 +608,9 @@ func (a *Agent) Permissions() *permissions.Rules { return a.perms }
 // around the gate, and planModeContext injects a read-only steering preface so
 // the model knows to investigate and propose rather than attempt changes.
 func (a *Agent) SetPlanMode(on bool) {
+	a.autoPlanned = false // an explicit user toggle, not a heuristic auto-flip
 	if on {
+		a.dismissedDraftFP = "" // the user wants to plan; stop suppressing re-proposals
 		a.active.Store(config.PlanAgent())
 	} else {
 		a.active.Store(config.BuildAgent())
@@ -637,6 +702,7 @@ func (a *Agent) MaybeAutoPlan(userText string) bool {
 		return false
 	}
 	a.active.Store(config.PlanAgent())
+	a.autoPlanned = true // heuristic flip — retireStaleDraft may undo it if ignored
 	return true
 }
 
@@ -764,6 +830,18 @@ func (a *Agent) ListModels(ctx context.Context) ([]config.ModelInfo, error) {
 // personal-account data is returned.
 func (a *Agent) Usage(ctx context.Context) (*llm.UsageResponse, error) {
 	return a.client.Usage(ctx)
+}
+
+// EmbedClient returns the agent's LLM client as an embedder when it can produce
+// embeddings, else nil. Used by the Doctor panel's embeddings smoke test; note it
+// returns the RAW client, not the cached wrapper, so the check exercises the real
+// endpoint rather than reporting a cache hit.
+func (a *Agent) EmbedClient() doctor.Embedder {
+	ec, ok := a.client.(embedderClient)
+	if !ok {
+		return nil
+	}
+	return ec
 }
 
 // CheckAuth verifies the agent can authenticate with the provider (used by the
@@ -1075,6 +1153,9 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// text, no tool call) so a long reply finishes instead of being abandoned
 	// (see maxAnswerContinues / answerContinueMessage).
 	answerContinues := 0
+	// emptyRetries bounds retries of a response that carried no output at all on a
+	// normal stop reason (see maxEmptyRetries).
+	emptyRetries := 0
 
 	// Runaway-cost guard: warn (once each) when this single turn crosses a soft
 	// model-call count or dollar budget, so a long tool loop can't quietly burn
@@ -1478,6 +1559,29 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				default:
 					emit(Info{Text: fmt.Sprintf("Response kept getting cut off by the output length limit after %d retries — stopping. Try /reasoning low or /compact to leave the model more room, then continue.", maxTruncationRetries)})
 				}
+			}
+
+			// A clean stop that produced NOTHING the user can see — no text, no tool
+			// call — is not a deliberate finish; it's the model returning an empty
+			// completion (or a turn whose entire output was internal reasoning).
+			// Left alone this ends the turn silently: the user sees only routing
+			// chatter and no work, which reads as "it stopped too early" with no
+			// explanation. The max_tokens variants are handled just above; this
+			// covers a clean stop. Bounded, and counted as friction so effort
+			// ramp-up can kick in.
+			if resp.StopReason != "max_tokens" && !a.sawVisibleOutput(resp) {
+				if emptyRetries < maxEmptyRetries {
+					emptyRetries++
+					a.turnFriction.Add(1)
+					emit(Info{Text: fmt.Sprintf("The model returned an empty response (no output, no tool call) — retrying (%d/%d)…", emptyRetries, maxEmptyRetries)})
+					a.messages = append(a.messages, emptyResponseNudgeMessage(emptyRetries, maxEmptyRetries))
+					a.persist()
+					lastStepPassive = false
+					lastStepReadOnly = false
+					continue
+				}
+				// Out of retries: say so explicitly rather than ending in silence.
+				emit(Info{Text: fmt.Sprintf("The model returned an empty response %d times in a row — stopping. Send \"continue\" to retry, or try /compact (a very full context can starve the reply) or a different /model.", maxEmptyRetries)})
 			}
 
 			// With a goal set, don't stop on the model's say-so alone: ask the

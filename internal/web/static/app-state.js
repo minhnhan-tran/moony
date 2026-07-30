@@ -123,6 +123,7 @@ const SF_TO_MATERIAL = {
   "pin": "push_pin", "pin.fill": "push_pin", "play.fill": "play_arrow", "plus": "add",
   "plus.circle": "add_circle", "plus.circle.fill": "add_circle", "powerplug.fill": "power",
   "plus.rectangle.on.rectangle": "add", "square.grid.2x2": "dashboard", "hammer": "build",
+  "doc.text.magnifyingglass": "description", "stethoscope": "checklist",
   "puzzlepiece.extension": "extension", "puzzlepiece.extension.fill": "extension", "questionmark": "question_mark",
   "questionmark.bubble.fill": "quiz", "questionmark.circle": "help",
   "questionmark.circle.fill": "help", "rectangle.3.group": "dashboard",
@@ -302,6 +303,7 @@ if (composerMetaEl) {
 }
 const mentionsEl = $("#mentions");
 const scrollBtn = $("#scrollBtn");
+const loadEarlierEl = $("#loadEarlier");
 const pager = $("#pager"), pagerNav = $("#pagerNav"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");

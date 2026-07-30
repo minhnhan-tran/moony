@@ -1545,3 +1545,160 @@ async function taskBoardDo(action, payload) {
   if (list) refreshTaskBoard(list);
   return true;
 }
+
+// --- Codebase map panel ------------------------------------------------------
+// Read + maintain CODEBASE_MAP.md without messaging the agent: view the whole
+// map, regenerate the auto structural section, and edit the pinned notes (the
+// one section a human owns outright — never overwritten by the generator or by a
+// narrative rewrite). The feature→files narrative is still written by the agent
+// via the codebase_map tool.
+async function renderCodebaseMapPanel() {
+  const body = manageBody;
+  body.innerHTML = "";
+  if (!current) { body.append(el("p", "access-intro", "Open a session first to view its codebase map.")); return; }
+
+  body.append(el("p", "access-intro",
+    "The maintained map of this project. The structure section is generated from the code and auto-refreshed on change; the narrative (features → files) is written on demand by the agent's codebase_map tool. The agent reads this before exploring, so a good map means fewer wasted look-ups."));
+
+  const actions = el("div", "cm-actions");
+  const genBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Generate map");
+  actions.append(genBtn, el("span", "text-[11px] text-faint",
+    "Tip: ask the agent to update the codebase map to (re)write the feature → files narrative."));
+
+  // Pinned notes: hand-authored, sent to the model first, never regenerated.
+  const pinWrap = el("div", "cm-pin");
+  const pinHead = el("div", "cm-pin-head");
+  pinHead.append(el("span", "cm-pin-title", "Pinned notes"),
+    el("span", "text-[11px] text-faint", "hand-authored · never overwritten · sent to the model first"));
+  const pinTa = el("textarea", "cm-pin-ta");
+  pinTa.rows = 6;
+  pinTa.placeholder = "Architecture decisions, gotchas, invariants, conventions…";
+  const pinBar = el("div", "cm-pin-bar");
+  const pinSave = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Save pinned notes");
+  const pinMsg = el("span", "text-[11px] text-faint");
+  pinBar.append(pinSave, pinMsg);
+  pinWrap.append(pinHead, pinTa, pinBar);
+
+  const status = el("div", "text-[12px] text-faint");
+  const view = el("div", "cm-view");
+  body.append(actions, pinWrap, status, view);
+
+  async function load() {
+    view.innerHTML = "";
+    status.textContent = "Loading…";
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/codebasemap`));
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      // Don't clobber what the user is typing if a refresh lands mid-edit.
+      if (document.activeElement !== pinTa) pinTa.value = j.pinned || "";
+      if (!j.exists || !(j.content || "").trim()) {
+        status.textContent = "No codebase map yet.";
+        genBtn.textContent = "Generate map";
+        view.append(el("p", "text-faint", "This project has no CODEBASE_MAP.md. Generate it to create the structural map."));
+      } else {
+        status.textContent = j.path || "CODEBASE_MAP.md";
+        genBtn.textContent = "Refresh structure";
+        view.innerHTML = renderMD(j.content);
+      }
+    } catch (err) {
+      status.textContent = "Failed to load: " + err.message;
+    }
+  }
+
+  genBtn.onclick = async () => {
+    genBtn.disabled = true;
+    const prev = genBtn.textContent;
+    genBtn.textContent = "Generating…";
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/codebasemap`), { method: "POST" });
+      if (!r.ok) throw new Error((await r.text()).trim() || `HTTP ${r.status}`);
+      await load();
+    } catch (err) {
+      status.textContent = "Failed to generate: " + err.message;
+      genBtn.textContent = prev;
+    } finally {
+      genBtn.disabled = false;
+    }
+  };
+
+  pinSave.onclick = async () => {
+    pinSave.disabled = true;
+    pinMsg.textContent = "Saving…";
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/codebasemap`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned: pinTa.value }),
+      });
+      if (!r.ok) throw new Error((await r.text()).trim() || `HTTP ${r.status}`);
+      pinMsg.textContent = "Saved.";
+      await load();
+    } catch (err) {
+      pinMsg.textContent = "Failed: " + err.message;
+    } finally {
+      pinSave.disabled = false;
+    }
+  };
+
+  await load();
+}
+
+// renderDoctorPanel — the Config modal's "Doctor" tab. Fetches the per-session
+// diagnostics endpoint and renders one status row per check (ok/warn/fail badge
+// + name + detail), with a "Re-run checks" button. Read-only: it surfaces the
+// same checks as the /doctor command plus live embeddings/LSP/MCP probes.
+async function renderDoctorPanel() {
+  const body = manageBody;
+  body.innerHTML = "";
+  body.append(el("p", "access-intro",
+    "Health checks for the connected terminal — runtime, providers/endpoints, config files, and live embeddings, LSP and MCP status. Run this when something isn't behaving to see what's actually wired up and reachable."));
+
+  const bar = el("div", "doctor-bar");
+  const rerun = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5");
+  rerun.type = "button";
+  rerun.append(sym("arrow.clockwise", ""), document.createTextNode("Re-run checks"));
+  const summary = el("span", "doctor-summary");
+  bar.append(rerun, summary);
+  body.append(bar);
+
+  const list = el("div", "doctor-list");
+  body.append(list);
+
+  const ICON = { ok: "checkmark.circle.fill", warn: "exclamationmark.triangle.fill", fail: "xmark.octagon.fill" };
+  const run = async () => {
+    rerun.disabled = true;
+    list.innerHTML = "";
+    summary.textContent = "";
+    list.append(el("div", "doctor-loading", "Running checks…"));
+    let checks = [];
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/doctor`));
+      if (!r.ok) throw new Error("http " + r.status);
+      checks = (await r.json()).checks || [];
+    } catch (_) {
+      list.innerHTML = "";
+      list.append(el("div", "doctor-loading", "Couldn't run the diagnostics."));
+      rerun.disabled = false;
+      return;
+    }
+    list.innerHTML = "";
+    let ok = 0, warn = 0, fail = 0;
+    for (const c of checks) {
+      const st = c.status === "ok" || c.status === "warn" || c.status === "fail" ? c.status : "fail";
+      if (st === "ok") ok++; else if (st === "warn") warn++; else fail++;
+      const row = el("div", "doctor-row doctor-" + st);
+      row.append(sym(ICON[st] || ICON.fail, "doctor-row-icon"));
+      const txt = el("div", "doctor-row-text");
+      txt.append(el("div", "doctor-row-name", c.name || ""));
+      if (c.detail) txt.append(el("div", "doctor-row-detail", c.detail));
+      row.append(txt);
+      list.append(row);
+    }
+    summary.textContent = `${ok} ok · ${warn} warn · ${fail} fail`;
+    summary.className = "doctor-summary" + (fail ? " has-fail" : warn ? " has-warn" : " all-ok");
+    rerun.disabled = false;
+  };
+  rerun.onclick = run;
+  run();
+}

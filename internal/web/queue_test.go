@@ -84,9 +84,9 @@ func TestSessionPopQueued(t *testing.T) {
 	sess.enqueueIfBusy("b", nil, nil)
 
 	// No stash: pops the last item.
-	txt, ok := sess.popQueued("")
-	if !ok || txt != "b" {
-		t.Fatalf("pop = %q,%v want b,true", txt, ok)
+	msg, ok := sess.popQueued("")
+	if !ok || msg.text != "b" {
+		t.Fatalf("pop = %q,%v want b,true", msg.text, ok)
 	}
 	if got := sess.queuedList(); len(got) != 1 || got[0] != "a" {
 		t.Fatalf("after pop, queue = %v want [a]", got)
@@ -94,9 +94,9 @@ func TestSessionPopQueued(t *testing.T) {
 
 	// With a stash (an in-progress draft): it goes to the front, then the last
 	// item ("a") pops out.
-	txt, ok = sess.popQueued("draft")
-	if !ok || txt != "a" {
-		t.Fatalf("pop = %q,%v want a,true", txt, ok)
+	msg, ok = sess.popQueued("draft")
+	if !ok || msg.text != "a" {
+		t.Fatalf("pop = %q,%v want a,true", msg.text, ok)
 	}
 	if got := sess.queuedList(); len(got) != 1 || got[0] != "draft" {
 		t.Fatalf("draft should be stashed on the front, queue = %v want [draft]", got)

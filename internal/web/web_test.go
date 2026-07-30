@@ -98,7 +98,13 @@ func newTestServer(t *testing.T, fake *fakeStreamer, policy string, withTool boo
 		}
 		return agent.New(&c, fake, reg, store, sess)
 	}
-	return NewServer(store, dir, base, factory), projectKey(dir)
+	srv := NewServer(store, dir, base, factory)
+	// Evict live sessions before the test's TempDirs are removed. Opening a session
+	// starts per-session goroutines (MCP connect, turn loop) that can persist after
+	// the test body returns; a late Save then recreates files under the
+	// already-cleaned store dir and t.TempDir cleanup fails.
+	t.Cleanup(srv.EvictAllLive)
+	return srv, projectKey(dir)
 }
 
 func TestToWire(t *testing.T) {

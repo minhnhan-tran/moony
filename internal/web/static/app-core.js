@@ -281,6 +281,7 @@ async function deleteAnnouncement(id) {
 // render a tree (laptop > project > sessions); otherwise we fall back to the
 // single-stream mirror behavior.
 async function boot() {
+  initSearch();
   await loadRelayVersion();
   // Live-refresh the announcement banner (and relay version / admin flag) so a
   // maintainer notice posted mid-session appears without a page reload. Dismissed
@@ -1126,7 +1127,10 @@ function clearView() {
   if (attachBtn) attachBtn.disabled = false; // re-enable attach on the now-idle composer
 }
 
-function selectSession(id) {
+// selectSession opens a session's event stream. turnsParam (optional) is passed
+// through to /events as ?turns= — "all" replays the entire transcript instead of
+// the capped tail, which is how the "Load earlier history" banner works.
+function selectSession(id, turnsParam) {
   document.body.classList.remove("nav-open"); // close the mobile drawer on navigate
   if (typeof window.closeWorkflowBuilder === "function") window.closeWorkflowBuilder(); // dismiss the Agent Builder overlay so the session renders in #transcript
   maybeRequestNotify(); // a click — a good moment to ask for notification permission
@@ -1141,7 +1145,9 @@ function selectSession(id) {
   } else {
     loadSessions();
   }
-  es = new EventSource(api(`/api/sessions/${id}/events`));
+  hideLoadEarlier();
+  const q = turnsParam ? ("?turns=" + encodeURIComponent(turnsParam)) : "";
+  es = new EventSource(api(`/api/sessions/${id}/events${q}`));
   historyLoaded = false; // this connection replays history first; the "history_end" marker flips it true
   es.onmessage = (m) => {
     // Guard against non-JSON payloads (proxy/error HTML on a hiccup): a raw
@@ -1246,6 +1252,9 @@ function startMsg(label, labelCls, iconName, cls) {
 }
 
 function handle(ev) {
+  // A capped initial replay: older turns exist but weren't streamed. Offer to
+  // reload the session with the full transcript.
+  if (ev.type === "history_start") { showLoadEarlierBanner(ev.dropped || 0); return; }
   dismissConnecting(); // first event in → drop the connecting loader
   switch (ev.type) {
     case "user": {
@@ -2159,6 +2168,18 @@ function renderComposerMeta(s) {
   mem.onclick = openMem;
   mem.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMem(e); } };
   composerMetaEl.appendChild(mem);
+
+  // Read-only file browser for this session's working directory.
+  const files = el("span", "cm-mem");
+  files.appendChild(sym("doc.text.magnifyingglass"));
+  files.setAttribute("role", "button");
+  files.tabIndex = 0;
+  files.title = "Browse this project's files (read-only)";
+  const openFV = (e) => { e.stopPropagation(); openFileViewer(); };
+  files.onclick = openFV;
+  files.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFV(e); } };
+  composerMetaEl.appendChild(files);
+
   composerMetaEl.title = "Model: " + s.model + " — click to change";
 }
 
@@ -2772,9 +2793,17 @@ async function sendText(text) {
 // send posts the composer's contents. `override` (optional) carries a quick
 // action's one-turn model/provider/reasoning pin, which the server applies for
 // that turn only and then reverts.
+// pendingOverride holds a model pin restaged by Esc-pop, consumed by the next
+// send() so the re-sent message keeps the quick action's model.
+let pendingOverride = null;
+
 async function send(override) {
   const text = input.value.trim();
   if ((!text && pendingAttachments.length === 0) || !current) return;
+  // An explicit override (a quick action fired directly) wins; otherwise adopt a
+  // pin restaged by Esc-pop. Either way the restaged pin is spent by this send.
+  if (!override && pendingOverride) override = pendingOverride;
+  pendingOverride = null;
   // Only include the pin fields when actually set, so a normal send posts exactly
   // the payload it always did.
   const ov = override || {};
@@ -3056,7 +3085,17 @@ async function popQueued() {
   try {
     const r = await fetch(api(`/api/sessions/${current}/queue`), { method: "POST", body: JSON.stringify({ action: "pop", stash }) });
     const j = await r.json();
-    if (j && j.ok) { input.value = j.text || ""; input.focus(); input.dispatchEvent(new Event("input")); }
+    if (j && j.ok) {
+      input.value = j.text || "";
+      // Restage the popped message's per-turn model pin so editing and re-sending a
+      // queued quick action still runs where it was configured to; the next send()
+      // consumes it (see pendingOverride).
+      pendingOverride = (j.model || j.provider || j.reasoning)
+        ? { model: j.model, provider: j.provider, reasoning: j.reasoning }
+        : null;
+      input.focus();
+      input.dispatchEvent(new Event("input"));
+    }
   } catch (_) { /* the queue event will keep the strip in sync regardless */ }
 }
 
@@ -4103,6 +4142,8 @@ const CONFIG_TABS = [
   { key: "schedule", label: "Schedule", icon: "calendar.badge.clock", render: () => renderSchedules() },
   { key: "quickactions", label: "Quick actions", icon: "bolt.fill", render: () => renderQuickActionsPanel() },
   { key: "taskboard", label: "Task Board", icon: "square.grid.2x2", render: () => renderTaskBoard() },
+  { key: "codebasemap", label: "Codebase map", icon: "map.fill", render: () => renderCodebaseMapPanel() },
+  { key: "doctor", label: "Doctor", icon: "stethoscope", render: () => renderDoctorPanel() },
 ];
 
 // openConfigModal opens the Config modal on the given tab (defaults to Skills).
@@ -4806,3 +4847,291 @@ function jumpToFindMatch(dir) {
 
 initTranscriptSearch();
 
+/* ── Read-only file viewer ─────────────────────────────────────────────────
+   Browses and displays files from the session's working directory via the
+   confined /api/sessions/{id}/file(s) endpoints. Read-only on purpose: users
+   already have the repo checked out in a real editor, and writing from here
+   would bypass the agent's approval + snapshot/undo machinery and could clobber
+   a concurrent agent edit. */
+
+let fileViewerPath = "";   // repo-relative dir currently browsed
+let fileViewerOpen = "";   // repo-relative file currently shown
+
+// openFileViewer shows the viewer modal, optionally focused on one file.
+function openFileViewer(path) {
+  if (!current) { alertBox("Open a session first — the viewer reads that session's working directory."); return; }
+  fileViewerOpen = path || "";
+  // Browse the file's own directory so siblings are one click away.
+  fileViewerPath = path && path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+  openTabbedModal("Files", "doc.text.magnifyingglass", [
+    { key: "files", label: "Files", icon: "folder", render: () => renderFileViewer() },
+  ], "files");
+  // After openTabbedModal: it calls setPanel(), which resets the card width.
+  setManageWidth("min(1400px,96vw)"); // tree + code side by side needs the room
+}
+
+// renderFileViewer paints the split browser/content view into the modal body.
+function renderFileViewer() {
+  const body = manageBody;
+  body.textContent = "";
+
+  const wrap = el("div", "fv-wrap");
+  const side = el("div", "fv-side");
+  const main = el("div", "fv-main");
+  wrap.append(side, main);
+  body.append(wrap);
+
+  renderFileList(side, main);
+  if (fileViewerOpen) loadFileInto(main, fileViewerOpen);
+  else main.append(el("div", "fv-empty", "Select a file to view it."));
+}
+
+// renderFileList fills the browser pane for the current directory.
+async function renderFileList(side, main) {
+  side.textContent = "";
+  side.append(el("div", "fv-loading", "Loading…"));
+  let tree;
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/files?path=${encodeURIComponent(fileViewerPath)}`));
+    if (!r.ok) throw new Error(await r.text());
+    tree = await r.json();
+  } catch (e) {
+    side.textContent = "";
+    side.append(el("div", "fv-error", "Could not list files: " + e.message));
+    return;
+  }
+
+  side.textContent = "";
+  // Breadcrumb: the repo root plus each ancestor, all clickable.
+  const crumbs = el("div", "fv-crumbs");
+  const rootLink = el("button", "fv-crumb", "/");
+  rootLink.title = tree.root || "workspace root";
+  rootLink.onclick = () => { fileViewerPath = ""; renderFileList(side, main); };
+  crumbs.append(rootLink);
+  let walked = "";
+  for (const part of (tree.path || "").split("/").filter(Boolean)) {
+    walked = walked ? walked + "/" + part : part;
+    const at = walked;
+    const b = el("button", "fv-crumb", part);
+    b.onclick = () => { fileViewerPath = at; renderFileList(side, main); };
+    crumbs.append(el("span", "fv-crumb-sep", "/"), b);
+  }
+  side.append(crumbs);
+
+  const list = el("div", "fv-list");
+  if (tree.path) {
+    const up = el("button", "fv-row fv-dir", "‥");
+    up.onclick = () => { fileViewerPath = tree.parent || ""; renderFileList(side, main); };
+    list.append(up);
+  }
+  for (const e of tree.entries || []) {
+    const row = el("button", "fv-row " + (e.dir ? "fv-dir" : "fv-file"));
+    row.append(el("span", "fv-ico", e.dir ? "📁" : "📄"), el("span", "fv-name", e.name));
+    if (!e.dir && e.size != null) row.append(el("span", "fv-size", humanBytes(e.size)));
+    if (e.path === fileViewerOpen) row.classList.add("is-active");
+    row.onclick = () => {
+      if (e.dir) { fileViewerPath = e.path; renderFileList(side, main); return; }
+      fileViewerOpen = e.path;
+      for (const r of list.querySelectorAll(".fv-row")) r.classList.remove("is-active");
+      row.classList.add("is-active");
+      loadFileInto(main, e.path);
+    };
+    list.append(row);
+  }
+  if (!(tree.entries || []).length && !tree.path) list.append(el("div", "fv-empty", "This directory is empty."));
+  side.append(list);
+}
+
+// loadFileInto fetches one file and renders it with line numbers.
+async function loadFileInto(main, path) {
+  main.textContent = "";
+  main.append(el("div", "fv-loading", "Loading " + path + "…"));
+  let f;
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/file?path=${encodeURIComponent(path)}`));
+    if (!r.ok) throw new Error((await r.text()) || r.status);
+    f = await r.json();
+  } catch (e) {
+    main.textContent = "";
+    main.append(el("div", "fv-error", "Could not open " + path + ": " + e.message));
+    return;
+  }
+
+  main.textContent = "";
+  const head = el("div", "fv-head");
+  head.append(el("span", "fv-head-path", f.path));
+  const meta = el("span", "fv-head-meta");
+  meta.textContent = humanBytes(f.size) + (f.lines ? ` · ${f.lines} lines` : "");
+  head.append(meta);
+  const copy = el("button", "fv-copy", "Copy");
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(f.content || ""); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1200); }
+    catch { copy.textContent = "Copy failed"; }
+  };
+  if (!f.binary) head.append(copy);
+  main.append(head);
+
+  if (f.binary) {
+    main.append(el("div", "fv-empty", "Binary file — not shown."));
+    return;
+  }
+  if (f.truncated) {
+    main.append(el("div", "fv-warn", `Showing the first ${humanBytes(f.content.length)} of ${humanBytes(f.size)} — the file is too large to display in full.`));
+  }
+
+  // Reuse buildCodeView (app-render.js): the same line-numbered gutter +
+  // dependency-free tokenizer the tool cards and fenced code blocks use, so the
+  // viewer picks up identical GitHub-style colors and theming for free.
+  const body = f.content.replace(/\n$/, ""); // trailing newline -> no phantom last line
+  const view = el("div", "fv-code");
+  view.append(buildCodeView(body, langForPath(f.path)));
+  main.append(view);
+}
+
+// langForPath maps a filename to the hint buildCodeView understands. The shared
+// tokenizer is language-agnostic apart from a bash-aware variant, so this only
+// needs to separate shell files from the rest.
+function langForPath(path) {
+  const name = String(path || "").toLowerCase();
+  const base = name.slice(name.lastIndexOf("/") + 1);
+  // Dotfiles like ".bashrc" have no extension — the leading dot is not a
+  // separator — so match the whole basename for the shell-ish ones first.
+  if (/^\.?(bashrc|zshrc|profile|bash_profile|zprofile)$/.test(base)) return "bash";
+  if (/^(makefile|dockerfile|containerfile)$/.test(base)) return "bash";
+  const dot = base.lastIndexOf(".");
+  const ext = dot > 0 ? base.slice(dot + 1) : ""; // dot > 0 skips ".bashrc"
+  if (/^(sh|bash|zsh|ksh|command)$/.test(ext)) return "bash";
+  return ext;
+}
+
+function humanBytes(n) {
+  if (n == null) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+// --- cross-session transcript search ---------------------------------------
+// The search box (index.html #searchbox) fans out to THIS machine and every
+// other connected machine's /api/search (via the /l/<host>/ proxy) and merges
+// the results. Clicking a result opens that session on its machine, reusing
+// the normal focusLaptop + selectSession path.
+let searchSeq = 0; // ignore out-of-order responses from a stale query
+
+function initSearch() {
+  const input = $("#search-input");
+  if (!input) return;
+  let timer = null;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => runSearch(input.value.trim()), 220);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { input.value = ""; runSearch(""); }
+  });
+}
+
+async function runSearch(q) {
+  const results = $("#search-results"), tree = $("#sessions");
+  if (!results || !tree) return;
+  if (q.length < 2) { // clear → restore the tree
+    results.classList.add("hidden"); results.innerHTML = "";
+    tree.classList.remove("hidden");
+    return;
+  }
+  const seq = ++searchSeq;
+  tree.classList.add("hidden");
+  results.classList.remove("hidden");
+  results.innerHTML = "";
+  results.appendChild(el("div", "srch-note", "Searching…"));
+
+  // Fan out to self + every online machine; tag each hit with its host.
+  const hosts = (laptops && laptops.length)
+    ? laptops.filter((l) => l.online !== false).map((l) => l.host)
+    : [null]; // standalone (no relay tree): just this machine
+  const settled = await Promise.all(hosts.map(async (host) => {
+    try {
+      const base = host == null ? "" : laptopBase(host);
+      const r = await _fetch(base + "/api/search?q=" + encodeURIComponent(q));
+      if (!r.ok) return [];
+      const rows = await r.json();
+      return (rows || []).map((m) => ({ ...m, host }));
+    } catch (_) { return []; }
+  }));
+  if (seq !== searchSeq) return; // a newer query superseded this one
+
+  const hits = settled.flat().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  renderSearchResults(results, q, hits);
+}
+
+function renderSearchResults(box, q, hits) {
+  box.innerHTML = "";
+  const multiHost = (laptops && laptops.filter((l) => l.online !== false).length > 1);
+  box.appendChild(sidebarSectionHead(hits.length ? `Results (${hits.length})` : "Results"));
+  if (!hits.length) {
+    box.appendChild(el("div", "srch-note", `No transcripts match “${q}”.`));
+    return;
+  }
+  for (const h of hits) {
+    const row = el("div", "srch-hit");
+    const head = el("div", "srch-hit-head");
+    head.appendChild(el("span", "srch-hit-title", h.title || "(untitled session)"));
+    if (h.role && h.role !== "title") head.appendChild(el("span", "srch-hit-tag", h.role));
+    row.appendChild(head);
+    const meta = (multiHost && h.host ? h.host + " · " : "") + shortDir(h.dir);
+    if (meta) row.appendChild(el("div", "srch-hit-sub", meta));
+    if (h.snippet) row.appendChild(el("div", "srch-hit-sub", h.snippet));
+    row.onclick = () => openSearchHit(h);
+    box.appendChild(row);
+  }
+}
+
+// shortDir trims a working dir to its last two path segments for compact display.
+function shortDir(dir) {
+  if (!dir) return "";
+  const parts = dir.split("/").filter(Boolean);
+  return (parts.length > 2 ? "…/" : "") + parts.slice(-2).join("/");
+}
+
+async function openSearchHit(h) {
+  // Restore the tree view, then open the session on its machine — mirrors the
+  // tree's own session-open path (focusLaptop + currentProject + selectSession).
+  const input = $("#search-input"); if (input) input.value = "";
+  runSearch("");
+  if (h.host != null) {
+    await toggleLaptop(h.host, true);
+    await toggleProject(h.host, h.projectKey, true);
+    focusLaptop(h.host);
+  }
+  currentProject = h.projectKey;
+  selectSession(h.sessionId);
+}
+
+// --- capped replay banner ----------------------------------------------------
+// Opening a session replays only its most recent turns (defaultReplayTurns on the
+// server) so a long transcript doesn't stream and render in full. When turns were
+// withheld the server sends a `history_start` event and we show a banner that
+// reloads the session with ?turns=all. A full reload (rather than splicing older
+// turns into the live DOM) keeps this correct with no second rendering path to
+// drift out of sync with the streaming one.
+function showLoadEarlierBanner(dropped) {
+  if (!loadEarlierEl || !dropped) return;
+  loadEarlierEl.hidden = false;
+  loadEarlierEl.innerHTML = "";
+  const label = el("span", "le-label",
+    dropped === 1 ? "1 earlier turn wasn't loaded" : `${dropped} earlier turns weren't loaded`);
+  const btn = el("button", "le-btn", "Load full history");
+  btn.onclick = () => {
+    if (!current) return;
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    selectSession(current, "all"); // reopens the stream; hideLoadEarlier() clears this banner
+  };
+  loadEarlierEl.append(label, btn);
+}
+
+function hideLoadEarlier() {
+  if (!loadEarlierEl) return;
+  loadEarlierEl.hidden = true;
+  loadEarlierEl.innerHTML = "";
+}

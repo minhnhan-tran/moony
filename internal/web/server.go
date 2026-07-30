@@ -27,8 +27,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pysty1995/moony/internal/agent"
@@ -36,6 +38,7 @@ import (
 	"github.com/pysty1995/moony/internal/bridge"
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/llm"
+	"github.com/pysty1995/moony/internal/provider"
 	sessionpkg "github.com/pysty1995/moony/internal/session"
 )
 
@@ -83,6 +86,10 @@ type Server struct {
 	// this away from os.Stderr (to the TUI, or a no-op) — otherwise these lines
 	// paint over the Bubble Tea frame and garble the UI until a resize repaints.
 	logf func(string)
+
+	// metrics holds the process-wide HTTP/session counters exported by /metrics
+	// and summarized by /healthz. Created lazily in Handler().
+	metrics *metrics
 }
 
 // SetLogf redirects the server's operational log lines. Pass nil to silence them.
@@ -183,6 +190,23 @@ func (s *Server) evictStoreBacked(id string) {
 	}
 }
 
+// EvictAllLive drops every in-memory session, interrupting any running turn and
+// tearing down its Task Board worktrees. Used on shutdown / working-directory
+// change so nothing keeps running against a stale root and no worktrees leak.
+func (s *Server) EvictAllLive() {
+	s.mu.Lock()
+	live := make([]*session, 0, len(s.sessions))
+	for id, sess := range s.sessions {
+		live = append(live, sess)
+		delete(s.sessions, id)
+	}
+	s.mu.Unlock()
+	for _, sess := range live {
+		sess.interrupt()
+		sess.closeBoard()
+	}
+}
+
 // serveLive routes a request for the terminal's currently-active session through
 // the hub-backed mirror (the live in-terminal conversation). Other sessions —
 // even in the terminal's project — fall through to their own store-backed agent,
@@ -244,6 +268,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/encryption", s.handleEncryption)
 	// Quick actions: user-editable preset prompts behind the composer's split
 	// button (project-scoped .sqe/quickactions.json, global fallback).
+	// Cross-session transcript search (a "where did we discuss X" jump).
+	mux.HandleFunc("GET /api/search", s.handleSearch)
+	// Stateless fill-in-the-middle inline completion for editor clients
+	// (Copilot-style ghost text). Not a chat session; runs on the fast model.
+	mux.HandleFunc("POST /api/complete", s.handleComplete)
 	mux.HandleFunc("GET /api/quickactions", s.handleGetQuickActions)
 	mux.HandleFunc("POST /api/quickactions", s.handleAddQuickAction)
 	mux.HandleFunc("PUT /api/quickactions", s.handleUpdateQuickAction)
@@ -252,6 +281,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/quickactions/reset", s.handleResetQuickActions)
 	// Task Board: queue prompts that run as parallel headless sub-processes, each
 	// in its own throwaway git worktree, with Apply/Discard diff review.
+	// CODEBASE_MAP.md: read it, regenerate its structural section, or save the
+	// hand-authored pinned section — without sending the agent a message.
+	// Read-only file browser/viewer over the session's working tree (sandboxed to
+	// the project root, ignore-aware).
+	// Per-session environment diagnostics for the Config modal's Doctor tab.
+	mux.HandleFunc("GET /api/sessions/{id}/history", s.handleHistory)
+	mux.HandleFunc("GET /api/sessions/{id}/doctor", s.handleDoctor)
+	mux.HandleFunc("GET /api/sessions/{id}/files", s.handleFileTree)
+	mux.HandleFunc("GET /api/sessions/{id}/file", s.handleViewFile)
+	mux.HandleFunc("GET /api/sessions/{id}/codebasemap", s.handleCodebaseMap)
+	mux.HandleFunc("POST /api/sessions/{id}/codebasemap", s.handleCodebaseMap)
+	mux.HandleFunc("PUT /api/sessions/{id}/codebasemap", s.handleCodebaseMap)
 	mux.HandleFunc("GET /api/sessions/{id}/taskboard", s.handleListTasks)
 	mux.HandleFunc("POST /api/sessions/{id}/taskboard/add", s.handleTaskAdd)
 	mux.HandleFunc("POST /api/sessions/{id}/taskboard/apply", s.handleTaskApply)
@@ -343,7 +384,21 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/domains", s.handleGetDomains)
 	mux.HandleFunc("POST /api/domains", s.handleAddDomain)
 	mux.HandleFunc("DELETE /api/domains", s.handleRemoveDomain)
-	return mux
+
+	// Observability: /healthz (liveness JSON) and /metrics (Prometheus text
+	// exposition). Both are read-only aggregates and carry no transcript content;
+	// route labels collapse opaque path segments (see routeLabel/looksLikeID) so
+	// session ids never reach a metric label. Auth is the relay's job: it treats
+	// /healthz as public so probes work without a login, while /metrics goes
+	// through the normal gate like any other path.
+	if s.metrics == nil {
+		s.metrics = newMetrics()
+	}
+	mux.HandleFunc("GET /healthz", s.metrics.handleHealthz)
+	mux.HandleFunc("GET /metrics", s.metrics.handleMetrics)
+	// Count/observe every request from the outside in, so 4xx/5xx and probe hits
+	// are recorded too rather than only the requests that reach a handler.
+	return s.metrics.middleware(mux, accessLogEnabled())
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -617,14 +672,44 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
+	// Track the live stream count for /metrics. Guarded because Handler() (which
+	// creates the metrics) may not have run in a unit test that calls the handler
+	// directly.
+	if s.metrics != nil {
+		s.metrics.sseOpen()
+		defer s.metrics.sseClose()
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	if s.metrics != nil {
+		atomic.AddInt64(&s.metrics.replayServed, 1)
+	}
+
 	id, ch, history := sess.subscribe()
 	defer sess.unsubscribe(id)
 
-	for _, ev := range history {
+	// Cap the initial replay to the most recent turns so a large persisted
+	// transcript doesn't stream + render in full on connect; earlier turns load on
+	// demand from /history. "?turns=N" overrides (0 or "all" = replay everything,
+	// the pre-pagination behavior).
+	replayN := defaultReplayTurns
+	if q := strings.TrimSpace(r.URL.Query().Get("turns")); q != "" {
+		if q == "all" {
+			replayN = 0 // explicit opt-in to the full transcript ("Load full history")
+		} else if n, err := strconv.Atoi(q); err == nil && n >= 0 {
+			replayN = min(n, maxReplayTurns)
+		}
+	}
+	replayHist, dropped := tailReplay(history, replayN)
+	if dropped > 0 {
+		// Tell the browser how many older turns exist so it can offer "Load earlier
+		// history". FirstTurn (== dropped) is the absolute index of the earliest turn
+		// we DID replay, i.e. the paging cursor.
+		writeSSE(w, wireEvent{Type: "history_start", Dropped: dropped, FirstTurn: dropped})
+	}
+	for _, ev := range replayHist {
 		writeSSE(w, ev)
 	}
 	flusher.Flush()
@@ -667,6 +752,29 @@ func isPickerMenuCommand(text string) bool {
 	return false
 }
 
+// handleHistory is the paged, one-shot counterpart to handleEvents: it returns a
+// window of OLDER turns as JSON so the client can prepend earlier history without
+// reconnecting and re-streaming the whole transcript.
+func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
+	if s.metrics != nil {
+		atomic.AddInt64(&s.metrics.historyServed, 1)
+	}
+	sess := s.lookup(r)
+	if sess == nil {
+		http.NotFound(w, r)
+		return
+	}
+	before := atoiDefault(r.URL.Query().Get("before"), 0)
+	// Bound the page size: this is a read of in-memory history, but an unbounded
+	// turns= would let one request serialize an entire long transcript to JSON.
+	n := min(atoiDefault(r.URL.Query().Get("turns"), defaultReplayTurns), maxReplayTurns)
+	events, fromTurn, remaining := rangeReplay(sess.historySnapshot(), before, n)
+	if events == nil {
+		events = []wireEvent{}
+	}
+	writeJSON(w, map[string]any{"events": events, "fromTurn": fromTurn, "remaining": remaining})
+}
+
 func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 	// The live terminal session is driven through the hub (it handles its own
 	// slash commands, approvals, etc.), so forward straight to the mirror.
@@ -700,6 +808,21 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 		Model:     strings.TrimSpace(body.Model),
 		Provider:  strings.TrimSpace(body.Provider),
 		Reasoning: strings.TrimSpace(body.Reasoning),
+	}
+	// Validate the pin BEFORE accepting the turn. Both fields degrade silently if
+	// applied blind — an unknown provider id routes to a backend that doesn't
+	// exist, and NormalizeReasoning maps anything unrecognized to "off", so a typo
+	// in a saved quick action would quietly disable thinking instead of erroring.
+	if ov.Provider != "" {
+		if _, ok := provider.Lookup(ov.Provider); !ok {
+			http.Error(w, "unknown provider "+ov.Provider, http.StatusBadRequest)
+			return
+		}
+	}
+	if ov.Reasoning != "" && config.NormalizeReasoning(ov.Reasoning) == config.ReasoningOff &&
+		!strings.EqualFold(ov.Reasoning, config.ReasoningOff) {
+		http.Error(w, "unknown reasoning level "+ov.Reasoning, http.StatusBadRequest)
+		return
 	}
 	if text == "" && len(body.Attachments) == 0 {
 		http.Error(w, "missing text", http.StatusBadRequest)
@@ -960,8 +1083,17 @@ func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 		n := sess.clearQueue()
 		writeJSON(w, map[string]any{"cleared": n})
 	case "pop":
-		text, ok := sess.popQueued(body.Stash)
-		writeJSON(w, map[string]any{"text": text, "ok": ok})
+		msg, ok := sess.popQueued(body.Stash)
+		// Return the popped message's per-turn pin too, so editing a queued quick
+		// action and re-sending it still runs on the model it was configured with
+		// instead of silently falling back to the session's.
+		writeJSON(w, map[string]any{
+			"text":      msg.text,
+			"model":     msg.ov.Model,
+			"provider":  msg.ov.Provider,
+			"reasoning": msg.ov.Reasoning,
+			"ok":        ok,
+		})
 	case "remove":
 		ok := sess.removeQueuedAt(body.Index)
 		writeJSON(w, map[string]any{"ok": ok})

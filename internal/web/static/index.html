@@ -46,6 +46,14 @@
   <aside class="app-sidebar shrink-0 bg-surface border-r border-edge flex flex-col">
     <!-- Sidebar list. In multi-project mode this is a project tree (click a
          project to expand its sessions); in mirror mode it's the live session. -->
+    <!-- Cross-session transcript search. Kept OUTSIDE #sessions so the input
+         keeps focus/caret across the frequent #sessions re-renders; fans out to
+         every connected machine and merges results (initSearch in app-core.js). -->
+    <div id="searchbox" class="srch-box">
+      <input id="search-input" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Search all transcripts…" class="srch-input" />
+    </div>
+    <div id="search-results" class="hidden overflow-y-auto flex-1"></div>
     <div id="sessions" class="overflow-y-auto flex-1"></div>
     <!-- Left-panel sections: modified files (#files), and #mcp — the session's
          usage history (skills / subagents / workers / MCP tools), populated by
@@ -159,6 +167,9 @@
            "< n/total >" (n/total opens a dropdown of every question in the
            turn). Each half shows/hides independently; the container itself
            only hides when neither is needed — see syncPagerVisibility(). -->
+      <!-- Shown when the initial replay was capped (server sent history_start):
+           offers a reload with the full transcript. -->
+      <div id="loadEarlier" class="load-earlier" hidden></div>
       <div id="pager" class="pair-pager" hidden>
         <button id="scrollBtn" class="pager-btn" type="button" aria-label="Scroll to bottom" hidden>
           <app-icon name="chevron.down"></app-icon>

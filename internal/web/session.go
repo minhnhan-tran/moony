@@ -423,6 +423,26 @@ func (s *session) unsubscribe(id int) {
 	}
 }
 
+// turnActive reports whether a turn is in flight — running, or paused awaiting an
+// approval / question answer. A paused turn still owns the session (its goroutine
+// is blocked mid-turn), so callers that must not disturb a live turn have to treat
+// it as active rather than only checking for stateBusy.
+func (s *session) turnActive() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state == stateBusy || s.state == stateApproval || s.state == stateQuestion
+}
+
+// historySnapshot returns a copy of the session's replayable event history, for
+// the paged /history endpoint (subscribe() hands the same slice to a new SSE
+// client). Copied under the lock so a concurrent emit can't mutate what the
+// caller is paginating.
+func (s *session) historySnapshot() []wireEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]wireEvent(nil), s.history...)
+}
+
 // turnOverride is a one-turn model/provider/reasoning switch requested by a quick
 // action. Zero value means "use the session's settings".
 type turnOverride struct {
@@ -793,11 +813,14 @@ func (s *session) clearQueue() int {
 // in the composer). When stash is non-empty it is pushed onto the FRONT of the
 // queue first, preserving an in-progress draft the user was composing — matching
 // the terminal's Esc-pop behavior. Returns ("", false) when the queue is empty.
-func (s *session) popQueued(stash string) (string, bool) {
+// Returns the whole queued entry (not just its text) so the caller can restage
+// the message's per-turn model pin as well — otherwise editing and re-sending a
+// queued quick action silently drops the model it was configured with.
+func (s *session) popQueued(stash string) (queuedMsg, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.queued) == 0 {
-		return "", false
+		return queuedMsg{}, false
 	}
 	if strings.TrimSpace(stash) != "" {
 		s.queued = append([]queuedMsg{{text: stash}}, s.queued...)
@@ -805,7 +828,7 @@ func (s *session) popQueued(stash string) (string, bool) {
 	last := s.queued[len(s.queued)-1]
 	s.queued = s.queued[:len(s.queued)-1]
 	s.publishQueueLocked()
-	return last.text, true
+	return last, true
 }
 
 // removeQueuedAt drops the queued message at index i (0-based), returning true
