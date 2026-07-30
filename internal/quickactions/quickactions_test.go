@@ -1,0 +1,406 @@
+package quickactions
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// isolate points the global scope at a temp dir so tests never touch the real
+// ~/.config (XDG_CONFIG_HOME is what GlobalConfigDir checks first), and returns
+// a working dir for the project scope.
+func isolate(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
+	return t.TempDir()
+}
+
+func prompts(list []Action) []string {
+	out := make([]string, 0, len(list))
+	for _, a := range list {
+		out = append(out, a.Prompt)
+	}
+	return out
+}
+
+func TestAddListRemove(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+
+	if got := s.ListScope(Project); len(got) != 0 {
+		t.Fatalf("fresh project scope should be empty, got %v", prompts(got))
+	}
+	if err := s.Add(Action{Prompt: "make test", Label: "Test"}, Project); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if err := s.Add(Action{Prompt: "make build"}, Project); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	got := s.ListScope(Project)
+	if want := []string{"make test", "make build"}; strings.Join(prompts(got), ",") != strings.Join(want, ",") {
+		t.Fatalf("got %v want %v", prompts(got), want)
+	}
+	// Label defaults to the prompt when omitted.
+	if got[1].Label != "make build" {
+		t.Errorf("Label should default to Prompt, got %q", got[1].Label)
+	}
+	if err := s.Remove("make test", Project); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	if got := prompts(s.ListScope(Project)); strings.Join(got, ",") != "make build" {
+		t.Fatalf("after remove got %v", got)
+	}
+	// Removing something absent is a no-op, not an error.
+	if err := s.Remove("nope", Project); err != nil {
+		t.Errorf("removing a missing action should not error: %v", err)
+	}
+}
+
+func TestAddRejectsEmptyAndDuplicate(t *testing.T) {
+	s := Load(isolate(t))
+	if err := s.Add(Action{Prompt: "   "}, Project); err == nil {
+		t.Error("blank prompt should be rejected")
+	}
+	if err := s.Add(Action{Prompt: "x"}, Project); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add(Action{Prompt: " x "}, Project); err == nil {
+		t.Error("duplicate prompt (after trimming) should be rejected")
+	}
+	if err := s.Add(Action{Prompt: strings.Repeat("a", maxPromptLen+1)}, Project); err == nil {
+		t.Error("over-long prompt should be rejected")
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	s := Load(isolate(t))
+	_ = s.Add(Action{Prompt: "one", Label: "One"}, Project)
+	_ = s.Add(Action{Prompt: "two", Label: "Two"}, Project)
+
+	if err := s.Update("one", Action{Prompt: "uno", Label: "Uno", Sub: "first"}, Project); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	got := s.ListScope(Project)
+	if got[0].Prompt != "uno" || got[0].Label != "Uno" || got[0].Sub != "first" {
+		t.Fatalf("update did not apply: %+v", got[0])
+	}
+	if len(got) != 2 || got[1].Prompt != "two" {
+		t.Fatalf("update disturbed the rest: %v", prompts(got))
+	}
+	// Position is preserved by an update.
+	if indexOf(got, "uno") != 0 {
+		t.Error("update should keep the action's position")
+	}
+	if err := s.Update("missing", Action{Prompt: "z"}, Project); err == nil {
+		t.Error("updating a missing action should error")
+	}
+	if err := s.Update("uno", Action{Prompt: "two"}, Project); err == nil {
+		t.Error("renaming onto an existing prompt should be rejected")
+	}
+}
+
+// TestMove covers the reorder index math, including the clamped ends — the
+// first action is the split button's default, so order is user-visible.
+func TestMove(t *testing.T) {
+	s := Load(isolate(t))
+	for _, p := range []string{"a", "b", "c"} {
+		if err := s.Add(Action{Prompt: p}, Project); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check := func(want string) {
+		t.Helper()
+		if got := strings.Join(prompts(s.ListScope(Project)), ","); got != want {
+			t.Fatalf("got %q want %q", got, want)
+		}
+	}
+	check("a,b,c")
+	if err := s.Move("c", -1, Project); err != nil {
+		t.Fatal(err)
+	}
+	check("a,c,b")
+	if err := s.Move("a", +2, Project); err != nil {
+		t.Fatal(err)
+	}
+	check("c,b,a")
+	// Clamped at the ends rather than erroring or wrapping.
+	if err := s.Move("c", -5, Project); err != nil {
+		t.Fatal(err)
+	}
+	check("c,b,a")
+	if err := s.Move("a", +5, Project); err != nil {
+		t.Fatal(err)
+	}
+	check("c,b,a")
+	if err := s.Move("zzz", 1, Project); err == nil {
+		t.Error("moving a missing action should error")
+	}
+}
+
+// TestProjectOverridesGlobal locks in the fallback: the project list wins when
+// it has entries, otherwise the global list shows.
+func TestProjectOverridesGlobal(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+
+	if err := s.Add(Action{Prompt: "global one"}, Global); err != nil {
+		t.Fatal(err)
+	}
+	if got := prompts(s.List()); strings.Join(got, ",") != "global one" {
+		t.Fatalf("with no project actions the global list should show, got %v", got)
+	}
+	if s.EffectiveScope() != Global {
+		t.Errorf("EffectiveScope should be global, got %q", s.EffectiveScope())
+	}
+
+	if err := s.Add(Action{Prompt: "proj one"}, Project); err != nil {
+		t.Fatal(err)
+	}
+	if got := prompts(s.List()); strings.Join(got, ",") != "proj one" {
+		t.Fatalf("project actions should win, got %v", got)
+	}
+	if s.EffectiveScope() != Project {
+		t.Errorf("EffectiveScope should be project, got %q", s.EffectiveScope())
+	}
+
+	// Emptying the project list falls back to global again.
+	if err := s.Remove("proj one", Project); err != nil {
+		t.Fatal(err)
+	}
+	if got := prompts(s.List()); strings.Join(got, ",") != "global one" {
+		t.Fatalf("after emptying project, global should show again, got %v", got)
+	}
+}
+
+func TestScopesAreSeparateFiles(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := s.Add(Action{Prompt: "p"}, Project); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add(Action{Prompt: "g"}, Global); err != nil {
+		t.Fatal(err)
+	}
+	if got := prompts(s.ListScope(Project)); strings.Join(got, ",") != "p" {
+		t.Errorf("project scope leaked: %v", got)
+	}
+	if got := prompts(s.ListScope(Global)); strings.Join(got, ",") != "g" {
+		t.Errorf("global scope leaked: %v", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".sqe", "quickactions.json")); err != nil {
+		t.Errorf("project file should live at .sqe/quickactions.json: %v", err)
+	}
+}
+
+func TestEnsureGlobalDefaultsDoesNotClobber(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+
+	EnsureGlobalDefaults()
+	if got := len(s.ListScope(Global)); got != len(Defaults()) {
+		t.Fatalf("defaults not seeded: got %d", got)
+	}
+	if err := s.Remove(Defaults()[0].Prompt, Global); err != nil {
+		t.Fatal(err)
+	}
+	before := prompts(s.ListScope(Global))
+	EnsureGlobalDefaults() // must not resurrect the removed default
+	if after := prompts(s.ListScope(Global)); strings.Join(after, ",") != strings.Join(before, ",") {
+		t.Errorf("EnsureGlobalDefaults clobbered user edits: %v -> %v", before, after)
+	}
+}
+
+// TestMalformedFileReadsEmpty mirrors the permissions package: a corrupt file
+// degrades to an empty list rather than breaking the UI.
+func TestMalformedFileReadsEmpty(t *testing.T) {
+	dir := isolate(t)
+	p := filepath.Join(dir, ".sqe", "quickactions.json")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(dir).ListScope(Project); len(got) != 0 {
+		t.Errorf("malformed file should read as empty, got %v", prompts(got))
+	}
+}
+
+// TestReadDropsUnusableEntries: a hand-edited file with a blank prompt must not
+// put an empty row in the menu.
+func TestReadDropsUnusableEntries(t *testing.T) {
+	dir := isolate(t)
+	p := filepath.Join(dir, ".sqe", "quickactions.json")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"actions":[{"prompt":"good"},{"prompt":"  "},{"label":"no prompt"}]}`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := prompts(Load(dir).ListScope(Project))
+	if strings.Join(got, ",") != "good" {
+		t.Errorf("unusable entries should be dropped, got %v", got)
+	}
+}
+
+func TestPersistedShapeIsStable(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := s.Add(Action{Prompt: "make test", Label: "Test", Sub: "run it", Icon: "hammer"}, Project); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".sqe", "quickactions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f file
+	if err := json.Unmarshal(data, &f); err != nil {
+		t.Fatalf("written file is not valid JSON: %v", err)
+	}
+	if len(f.Actions) != 1 || f.Actions[0].Icon != "hammer" || f.Actions[0].Sub != "run it" {
+		t.Errorf("round-trip lost fields: %+v", f.Actions)
+	}
+}
+
+func TestResetDefaults(t *testing.T) {
+	s := Load(isolate(t))
+	_ = s.Add(Action{Prompt: "custom"}, Project)
+	if err := s.ResetDefaults(Project); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := prompts(s.ListScope(Project)), prompts(Defaults()); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+func TestMaxActions(t *testing.T) {
+	s := Load(isolate(t))
+	for i := 0; i < maxActions; i++ {
+		if err := s.Add(Action{Prompt: string(rune('a'+i%26)) + strings.Repeat("x", i)}, Project); err != nil {
+			t.Fatalf("add %d: %v", i, err)
+		}
+	}
+	if err := s.Add(Action{Prompt: "one too many"}, Project); err == nil {
+		t.Error("should refuse to exceed maxActions")
+	}
+}
+
+// TestFieldsAreClipped keeps one pathological entry from bloating the menu.
+func TestFieldsAreClipped(t *testing.T) {
+	s := Load(isolate(t))
+	if err := s.Add(Action{
+		Prompt: "p",
+		Label:  strings.Repeat("L", maxLabelLen*2),
+		Sub:    strings.Repeat("S", maxSubLen*2),
+	}, Project); err != nil {
+		t.Fatal(err)
+	}
+	got := s.ListScope(Project)[0]
+	if len([]rune(got.Label)) != maxLabelLen {
+		t.Errorf("label not clipped: %d", len([]rune(got.Label)))
+	}
+	if len([]rune(got.Sub)) != maxSubLen {
+		t.Errorf("sub not clipped: %d", len([]rune(got.Sub)))
+	}
+}
+
+// --- per-turn model overrides -----------------------------------------------
+//
+// An action may pin a model/provider/reasoning for its own turn only. Empty
+// fields mean "use the session's settings", so existing files keep working.
+
+func TestOverridesRoundTrip(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+
+	in := Action{Prompt: "review the diff", Model: "gpt-5", Provider: "OpenAI", Reasoning: "HIGH"}
+	if err := s.Add(in, Project); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	// Reload from disk: the fields must actually persist, not just live in memory.
+	got := Load(dir).ListScope(Project)
+	if len(got) != 1 {
+		t.Fatalf("want 1 action, got %d", len(got))
+	}
+	a := got[0]
+	if a.Model != "gpt-5" {
+		t.Errorf("Model = %q, want gpt-5", a.Model)
+	}
+	if a.Provider != "openai" {
+		t.Errorf("Provider should be canonicalized to lowercase, got %q", a.Provider)
+	}
+	if a.Reasoning != "high" {
+		t.Errorf("Reasoning should be canonicalized, got %q", a.Reasoning)
+	}
+}
+
+func TestOverridesAreOptional(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := s.Add(Action{Prompt: "make test"}, Project); err != nil {
+		t.Fatalf("an action without overrides must still be valid: %v", err)
+	}
+	a := s.ListScope(Project)[0]
+	if a.Model != "" || a.Provider != "" || a.Reasoning != "" {
+		t.Errorf("unset overrides should stay empty, got %q/%q/%q", a.Model, a.Provider, a.Reasoning)
+	}
+}
+
+func TestOverridesRejectBadProvider(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	err := s.Add(Action{Prompt: "x", Provider: "floodgat"}, Project)
+	if err == nil {
+		t.Fatal("a typo'd provider must be rejected at save time, not mid-turn")
+	}
+	if !strings.Contains(err.Error(), "floodgat") {
+		t.Errorf("error should quote the offending value, got %v", err)
+	}
+}
+
+// TestOverridesRejectBadReasoning is the important validation case: config's
+// NormalizeReasoning returns "off" for anything unrecognised, so a naive
+// validator would let "hgih" through and silently DISABLE thinking.
+func TestOverridesRejectBadReasoning(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := s.Add(Action{Prompt: "x", Reasoning: "hgih"}, Project); err == nil {
+		t.Fatal("a typo'd reasoning level must be rejected, not silently coerced to off")
+	}
+}
+
+func TestOverridesAcceptKnownReasoningLevels(t *testing.T) {
+	// Includes aliases and the meta-level "auto"; "none" is a natural spelling of
+	// off and must canonicalize to it.
+	for _, lvl := range []string{"off", "none", "minimal", "low", "medium", "high", "xhigh", "auto"} {
+		dir := isolate(t)
+		s := Load(dir)
+		if err := s.Add(Action{Prompt: "x", Reasoning: lvl}, Project); err != nil {
+			t.Errorf("%q should be a valid reasoning level: %v", lvl, err)
+			continue
+		}
+		if got := s.ListScope(Project)[0].Reasoning; got == "" {
+			t.Errorf("%q should persist a canonical level, got empty", lvl)
+		}
+	}
+}
+
+func TestOverridesSurviveUpdate(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := s.Add(Action{Prompt: "a", Model: "gpt-5"}, Project); err != nil {
+		t.Fatal(err)
+	}
+	// Editing an action must be able to clear an override, not just set one.
+	if err := s.Update("a", Action{Prompt: "a", Model: ""}, Project); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if got := s.ListScope(Project)[0].Model; got != "" {
+		t.Errorf("clearing the model should stick, got %q", got)
+	}
+}
