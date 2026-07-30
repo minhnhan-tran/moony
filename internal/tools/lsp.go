@@ -19,6 +19,13 @@ import (
 // server" per call rather than being absent, since AttachLSP can be called
 // again later (e.g. after `/lsp reload`) once servers exist.
 func (r *Registry) RegisterLSP(mgr *lsp.Manager) {
+	// Also hand the manager to the registry so the higher-level code_nav tool
+	// (which resolves a bare symbol NAME to a position before asking the server)
+	// can use it. Guarded: a typed nil *lsp.Manager must not become a non-nil
+	// interface, or code_nav's `t.r.lsp == nil` check would miss it.
+	if mgr != nil {
+		r.SetLSP(mgr)
+	}
 	r.Register(&lspDefinitionTool{r: r, mgr: mgr})
 	r.Register(&lspReferencesTool{r: r, mgr: mgr})
 	r.Register(&lspHoverTool{r: r, mgr: mgr})

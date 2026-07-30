@@ -38,7 +38,14 @@ const (
 
 // reviewableDiff renders a unified before→after diff of just the files the
 // current turn changed, for the self-reviewer. Returns "" when nothing changed.
-func (a *Agent) reviewableDiff() string {
+func (a *Agent) reviewableDiff() string { return a.combinedTurnDiff(maxReviewDiffBytes) }
+
+// combinedTurnDiff renders ONE unified before→after diff covering every file the
+// current turn changed, bounded to maxBytes. It backs both the self-reviewer
+// (reviewableDiff) and the read-only review_changes tool / the /changes command,
+// so all three agree on exactly what "this turn changed" means. "" when nothing
+// net-changed.
+func (a *Agent) combinedTurnDiff(maxBytes int) string {
 	if a.snapshots == nil {
 		return ""
 	}
@@ -51,7 +58,7 @@ func (a *Agent) reviewableDiff() string {
 	var b strings.Builder
 	truncated := false
 	for _, c := range changes {
-		remaining := maxReviewDiffBytes - b.Len()
+		remaining := maxBytes - b.Len()
 		if remaining <= 0 {
 			truncated = true
 			break
