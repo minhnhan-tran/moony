@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -310,6 +311,43 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 	if registry != nil {
 		registry.Register(&enableToolsetTool{a: a})
 		registry.SetConciseSchemas(cfg.ConciseToolSchemas)
+		// review_changes renders the turn's combined diff from the agent's snapshot
+		// store, which only the Agent can see.
+		registry.SetChangeReviewer(a.combinedTurnDiff)
+		// generate_image / generate_video: registered only when a media-output model
+		// is configured AND the client can actually produce that media (an
+		// OpenAI-compatible route for images, the native Gemini route for video).
+		// Fakes in tests that don't implement the interfaces simply skip.
+		if cfg.ImageModel != "" {
+			if ig, ok := client.(tools.ImageGenerator); ok {
+				registry.Register(tools.NewImageGenTool(registry, ig, cfg.ImageModel))
+			}
+		}
+		if cfg.VideoModel != "" {
+			if vg, ok := client.(tools.VideoGenerator); ok {
+				registry.Register(tools.NewVideoGenTool(registry, vg, cfg.VideoModel))
+			}
+		}
+		// Codebase map: keep CODEBASE_MAP.md's generated structural section fresh on
+		// every codebase change so the model reads the maintained map instead of
+		// re-exploring. Enabled when cfg.CodebaseMap is set OR a CODEBASE_MAP.md
+		// already exists at the project root (unless MN_CODEBASE_MAP=0 forced off).
+		if codebaseMapEnabled(cfg) {
+			registry.SetOnSymbolMapRebuilt(func(reg *tools.Registry) {
+				wd := reg.Root()
+				if wd == "" {
+					return
+				}
+				// Only refresh a map that already exists; the codebase_map tool
+				// creates it first.
+				if _, ok := config.ReadCodebaseMap(wd); !ok {
+					return
+				}
+				if s := reg.CodebaseMapStructural(); s != "" {
+					_ = config.WriteCodebaseMapStructure(wd, s)
+				}
+			})
+		}
 		// Wire the usage tool to this agent's live session so it can report
 		// token/cost totals; returns nil (tool says "no data") when persistence
 		// is disabled.
@@ -335,6 +373,21 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 					emb = llm.NewEmbedCache(path, cfg.EmbeddingsModel, base.Embed)
 				}
 				registry.SetEmbedder(emb)
+
+				// The same embedder powers the semantic_search tool, backed by a
+				// per-workspace local vector index (package rag), stored inside the
+				// project itself at <root>/.sqe/rag/index.gob (alongside
+				// mcp.json/permissions.json) rather than the global config dir, so
+				// it's easy to find/inspect/delete per project and travels with the
+				// project if it moves. MN_RAG_INDEX_DIR overrides (e.g. to share one
+				// index across worktrees).
+				idxPath := strings.TrimSpace(cfg.RAGIndexDir)
+				if idxPath == "" && registry.Root() != "" {
+					idxPath = filepath.Join(registry.Root(), ".sqe", "rag", "index.gob")
+				}
+				if idxPath != "" {
+					registry.Register(tools.NewSemanticSearchTool(registry, idxPath, cfg.EmbeddingsModel))
+				}
 			}
 		}
 	}
@@ -1015,6 +1068,13 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// reviewAttempts bounds the self-review feedback to one cycle per turn (see
 	// maybeSelfReview / maxSelfReviewFeedback).
 	reviewAttempts := 0
+	// truncationRetries bounds retries of a response that was cut off by the
+	// output-length cap before producing a tool call (see maxTruncationRetries).
+	truncationRetries := 0
+	// answerContinues bounds auto-continuations of a cut-off ANSWER (real output
+	// text, no tool call) so a long reply finishes instead of being abandoned
+	// (see maxAnswerContinues / answerContinueMessage).
+	answerContinues := 0
 
 	// Runaway-cost guard: warn (once each) when this single turn crosses a soft
 	// model-call count or dollar budget, so a long tool loop can't quietly burn
@@ -1385,6 +1445,41 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 
 		calls := resp.ToolCalls()
 		if len(calls) == 0 {
+			// A response cut off by the output-length cap (StopReason == "max_tokens")
+			// with no tool call is not a deliberate stop. Two sub-cases, told apart by
+			// answerBlockLen: (1) a long ANSWER that ran out of room — continue it so
+			// it finishes; (2) no real output because reasoning ate the whole budget
+			// before any action — retry with a terser "get to the tool" nudge (bounded,
+			// counted as friction so effort ramp-up / model escalation can kick in).
+			if resp.StopReason == "max_tokens" {
+				switch {
+				case answerBlockLen(resp.Blocks) >= minAnswerTextForContinue:
+					// A genuinely long answer — continue it rather than nudging terse.
+					// Not friction: a long answer isn't the turn failing to converge.
+					if answerContinues < maxAnswerContinues {
+						answerContinues++
+						emit(Info{Text: fmt.Sprintf("Answer was cut off by the output length limit — continuing (%d/%d)…", answerContinues, maxAnswerContinues)})
+						a.messages = append(a.messages, answerContinueMessage(answerContinues, maxAnswerContinues))
+						a.persist()
+						lastStepPassive = false
+						lastStepReadOnly = false
+						continue
+					}
+					emit(Info{Text: fmt.Sprintf("Answer kept getting cut off after %d continuations — stopping. Raise the cap with MN_MAX_TOKENS, or lower /reasoning to leave the answer more room.", maxAnswerContinues)})
+				case truncationRetries < maxTruncationRetries:
+					truncationRetries++
+					a.turnFriction.Add(1)
+					emit(Info{Text: fmt.Sprintf("Response was cut off by the output length limit before finishing (no tool call made) — retrying (%d/%d)…", truncationRetries, maxTruncationRetries)})
+					a.messages = append(a.messages, truncationNudgeMessage(truncationRetries, maxTruncationRetries))
+					a.persist()
+					lastStepPassive = false
+					lastStepReadOnly = false
+					continue
+				default:
+					emit(Info{Text: fmt.Sprintf("Response kept getting cut off by the output length limit after %d retries — stopping. Try /reasoning low or /compact to leave the model more room, then continue.", maxTruncationRetries)})
+				}
+			}
+
 			// With a goal set, don't stop on the model's say-so alone: ask the
 			// judge whether the stop-condition is truly met. If not, inject its
 			// feedback as a synthetic turn and keep going (bounded per turn so a

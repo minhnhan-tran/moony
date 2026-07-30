@@ -637,6 +637,14 @@ func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call 
 		emit(WorkerActivity{ID: call.ID, Worker: worker, Kind: kind, Text: text})
 	})
 
+	// Same idea for plain (non-worker) tools that just want to report progress on
+	// a long-running call (e.g. semantic_search's first-time reindex), so it
+	// doesn't look indistinguishable from a hang while it embeds thousands of
+	// chunks one request at a time.
+	ctx = tools.WithProgress(ctx, func(text string) {
+		emit(WorkerActivity{ID: call.ID, Worker: call.Name, Kind: "info", Text: text})
+	})
+
 	// Let the ask_user tool round-trip a question to the user: stash an asker in
 	// the context that emits a QuestionRequest and blocks for the answer. ask_user
 	// is excluded from parallel execution (see parallelSafe), so this blocks the
@@ -665,11 +673,12 @@ func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call 
 	// under this call (see taskTool.Execute). Harmless for every other tool.
 	ctx = withTaskEmitter(ctx, emit, call.ID)
 
-	output, images, err := a.tools.ExecuteImages(ctx, call.Name, call.Input)
+	output, images, videos, err := a.tools.ExecuteMedia(ctx, call.Name, call.Input)
 	isErr := err != nil
 	if isErr {
 		output = "Error: " + err.Error()
 		images = nil
+		videos = nil
 	}
 	output = a.capToolOutput(call.Name, call.Input, output, a.cfg.MaxToolOutputBytes)
 
@@ -716,7 +725,11 @@ func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call 
 	for _, im := range images {
 		toolImages = append(toolImages, ToolImage{MediaType: im.MediaType, Data: im.Data})
 	}
-	emit(ToolEnd{ID: call.ID, Name: call.Name, Output: output, IsError: isErr, Images: toolImages})
+	toolVideos := make([]ToolVideo, 0, len(videos))
+	for _, v := range videos {
+		toolVideos = append(toolVideos, ToolVideo{MediaType: v.MediaType, Data: v.Data, URL: v.URL})
+	}
+	emit(ToolEnd{ID: call.ID, Name: call.Name, Output: output, IsError: isErr, Images: toolImages, Videos: toolVideos})
 
 	if a.hooks != nil {
 		hctx := hooks.Context{
