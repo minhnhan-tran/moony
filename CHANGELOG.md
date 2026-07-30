@@ -5,6 +5,23 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.4.0] — 2026-07-30
+
+### Added
+
+- agent: contextual destructive-command guard (`git reset --hard`, `rm -r`, `terraform destroy`, DB drops, …) — forced through human approval unless the *current* user turn plainly asked for it, with a parent-session approval bridge for sub-agents
+- agent: isolated-worktree shell escape guard — an `isolate:true` sub-agent's bash can no longer reach the real checkout (absolute paths, `cd ..`, `git -C`, substitutions)
+- agent: indirect-prompt-injection hardening — sub-agent system prompt guard plus `<untrusted-content>` framing (boundary-token escaping) of file/web/shell tool output
+- agent: background sub-agents — `task(background:true)` plus `task_output` / `task_status` / `task_cancel` tools over a new concurrency-safe task store, reaped on shutdown
+- agent: cross-turn model routing — a repeated ask (lexical overlap) or a correction/retry ("still broken", "try again") escalates the turn to the strong model instead of silently repeating a cheap pass
+- agent: smart self-review gating — skips the review model call when a turn only changed docs or the `const Version` bump, still reviewing when real source is mixed in
+- agent: stale-todo notice at end of a file-changing turn, and opt-in auto-test suggestions (`MN_AUTO_TESTGEN`, suggest-only)
+- config: `SubagentMaxDepth` (default 2, `MN_MAX_SUBAGENT_DEPTH`, clamped to `SubagentDepthCeiling`), `AutoTestGen`/`AutoTestGenMax`, and `FastModelResolved`/`AuxModelResolved` cross-provider model resolution
+
+### Changed
+
+- llm: `ModelServableBy` now rejects only clearly cross-family model pins (claude/gpt/gemini/open-weight) instead of accepting any non-empty id, so stale persona pins degrade to "inherit" rather than a guaranteed API error
+
 ## [2.3.0] — 2026-07-30
 
 ### Added
