@@ -50,6 +50,20 @@ func buildSystemPrompt(cfg *config.Config, registry *tools.Registry) string {
 		}
 	}
 
+	// The maintained per-project codebase map (CODEBASE_MAP.md): a structural
+	// section auto-refreshed on change plus an on-demand feature→files narrative.
+	// Injecting it lets the model consult the map instead of re-exploring every
+	// turn. Bounded so a huge map can't dominate the prompt.
+	if codebaseMapEnabled(cfg) {
+		digest := ""
+		if registry != nil {
+			digest = registry.CodebaseMapDigest()
+		}
+		if s := codebaseMapPromptSection(cfg.WorkingDir, digest, cfg.CodebaseMapPromptBytes); s != "" {
+			b.WriteString(s)
+		}
+	}
+
 	b.WriteString("Guidelines:\n")
 	b.WriteString("- Be concise and direct. Prefer action over lengthy explanation.\n")
 	if cfg.Terse {

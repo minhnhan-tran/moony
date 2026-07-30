@@ -43,55 +43,7 @@ func (r *Registry) RepoMap() string {
 
 // computeRepoMap performs the ignore-aware walk and renders the map. See RepoMap.
 func (r *Registry) computeRepoMap() string {
-	counts := map[string]int{}               // dir (slash path; "" = root) -> recursive file count
-	children := map[string]map[string]bool{} // dir -> set of immediate child dirs
-	rootFiles := map[string]bool{}           // root-level file names
-	total := 0
-	truncated := false
-
-	_ = filepath.WalkDir(r.root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		rel, e := filepath.Rel(r.root, path)
-		if e != nil || rel == "." {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		if d.IsDir() {
-			if r.ignore.Match(rel, true) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if r.ignore.Match(rel, false) {
-			return nil
-		}
-		total++
-		if total > repoMapMaxFiles {
-			truncated = true
-			return filepath.SkipAll
-		}
-		dir := slashDir(rel)
-		if dir == "" {
-			rootFiles[rel] = true
-		}
-		// Credit this file to its directory and every ancestor (recursive counts),
-		// registering each dir under its parent so the tree can be rendered.
-		for cur := dir; ; {
-			counts[cur]++
-			if cur == "" {
-				break
-			}
-			parent := slashDir(cur)
-			if children[parent] == nil {
-				children[parent] = map[string]bool{}
-			}
-			children[parent][cur] = true
-			cur = parent
-		}
-		return nil
-	})
+	counts, children, rootFiles, total, truncated := r.walkTreeCounts()
 
 	if total == 0 {
 		return ""
@@ -136,6 +88,59 @@ func (r *Registry) computeRepoMap() string {
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// walkTreeCounts does one ignore-aware walk of the repo and returns recursive
+// per-directory file counts, the immediate-children map for tree rendering, the
+// set of root-level file names, the total file count, and whether the walk was
+// truncated. Shared by RepoMap and the codebase-map generator.
+func (r *Registry) walkTreeCounts() (counts map[string]int, children map[string]map[string]bool, rootFiles map[string]bool, total int, truncated bool) {
+	counts = map[string]int{}
+	children = map[string]map[string]bool{}
+	rootFiles = map[string]bool{}
+
+	_ = filepath.WalkDir(r.root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, e := filepath.Rel(r.root, path)
+		if e != nil || rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if r.ignore.Match(rel, true) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if r.ignore.Match(rel, false) {
+			return nil
+		}
+		total++
+		if total > repoMapMaxFiles {
+			truncated = true
+			return filepath.SkipAll
+		}
+		dir := slashDir(rel)
+		if dir == "" {
+			rootFiles[rel] = true
+		}
+		for cur := dir; ; {
+			counts[cur]++
+			if cur == "" {
+				break
+			}
+			parent := slashDir(cur)
+			if children[parent] == nil {
+				children[parent] = map[string]bool{}
+			}
+			children[parent][cur] = true
+			cur = parent
+		}
+		return nil
+	})
+	return counts, children, rootFiles, total, truncated
 }
 
 // slashDir returns the parent directory of a slash path, or "" at the root.
