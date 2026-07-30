@@ -452,3 +452,36 @@ func checkNetrc(r *Report) {
 func oneLine(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// Embedder is the minimal embedding capability CheckEmbeddings needs, so the
+// doctor doesn't depend on the whole llm.Client.
+type Embedder interface {
+	Embed(ctx context.Context, model string, inputs []string) ([][]float32, error)
+}
+
+// CheckEmbeddings verifies MN_EMBEDDINGS_MODEL by embedding a tiny string end to
+// end — the real network call, not just the presence of the setting, which is the
+// class of "silently misconfigured" gap that makes semantic_search quietly return
+// nothing. Returns "not configured" (OK, not a failure) when unset. Standalone
+// and additive: not part of Run(), called separately by the Doctor panel because
+// it costs a live request.
+func CheckEmbeddings(ctx context.Context, cfg *config.Config, embedder Embedder) Check {
+	model := strings.TrimSpace(cfg.EmbeddingsModel)
+	if model == "" {
+		return Check{Name: "embeddings", Status: StatusOK, Detail: "not configured (MN_EMBEDDINGS_MODEL unset)"}
+	}
+	if embedder == nil {
+		return Check{Name: "embeddings", Status: StatusFail, Detail: "no embedding-capable client available to test with"}
+	}
+	start := time.Now()
+	ectx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	vecs, err := embedder.Embed(ectx, model, []string{"doctor health check"})
+	if err != nil {
+		return Check{Name: "embeddings", Status: StatusFail, Detail: fmt.Sprintf("%s: %s", model, oneLine(err.Error()))}
+	}
+	if len(vecs) == 0 || len(vecs[0]) == 0 {
+		return Check{Name: "embeddings", Status: StatusFail, Detail: fmt.Sprintf("%s: returned an empty vector", model)}
+	}
+	return Check{Name: "embeddings", Status: StatusOK, Detail: fmt.Sprintf("%s: %d dims in %s", model, len(vecs[0]), time.Since(start).Round(time.Millisecond))}
+}

@@ -9,6 +9,8 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // handleListMemory returns both AGENTS.md's sections (each with its bullets),
@@ -107,4 +109,55 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.publishEvent(s.statusEvent(nil, sess))
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// handleCodebaseMap serves the project's CODEBASE_MAP.md for the "Codebase Map"
+// tab of the Project Memory & Notes modal. GET returns the current file (or a
+// flag that it doesn't exist yet). POST regenerates the structural section (and
+// creates the file if missing) using the session's symbol map — the same
+// generation the @map mention and the auto-refresh hook use — so the user can
+// materialize/refresh the map from the UI without sending a message.
+func (s *Server) handleCodebaseMap(w http.ResponseWriter, r *http.Request) {
+	wd, sess, ok := s.catalogWD(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method == http.MethodPut {
+		// Saving the hand-authored pinned section from the UI.
+		var body struct {
+			Pinned string `json:"pinned"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+		if err := config.WriteCodebaseMapPinned(wd, body.Pinned); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if sess != nil && sess.agent != nil {
+			sess.agent.RefreshSystemPrompt()
+		}
+	}
+	if r.Method == http.MethodPost {
+		if sess == nil || sess.agent == nil || sess.agent.Registry() == nil {
+			http.Error(w, "codebase map can't be generated for this session", http.StatusConflict)
+			return
+		}
+		structure := sess.agent.Registry().CodebaseMapStructural()
+		if err := config.WriteCodebaseMapStructure(wd, structure); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	content, exists := config.ReadCodebaseMap(wd)
+	writeJSON(w, map[string]any{
+		"exists":    exists,
+		"content":   content,
+		"structure": config.CodebaseMapStructure(wd),
+		"narrative": config.CodebaseMapNarrative(wd),
+		"pinned":    config.CodebaseMapPinned(wd),
+		"path":      config.CodebaseMapFile,
+	})
 }
