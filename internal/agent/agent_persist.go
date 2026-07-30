@@ -15,6 +15,14 @@ func (a *Agent) persist() {
 		return
 	}
 	a.sess.Messages = a.messages
+	// Snapshot the session's current LLM selection so it survives reopening in a
+	// fresh process (the per-session config is otherwise re-seeded from the global
+	// default on restart). Restored by agent.New / Resume.
+	if a.cfg != nil {
+		a.sess.Model = a.cfg.Model
+		a.sess.Provider = a.cfg.LLMProvider
+		a.sess.Reasoning = a.cfg.ReasoningLevel
+	}
 	a.saveGoalToSession()
 	_ = a.store.Save(a.sess)
 }

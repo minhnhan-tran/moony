@@ -18,10 +18,17 @@ import (
 
 // Session is a persisted conversation.
 type Session struct {
-	ID         string        `json:"id"`
-	Title      string        `json:"title"`
-	Pinned     bool          `json:"pinned,omitempty"`
-	Model      string        `json:"model"`
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Pinned bool   `json:"pinned,omitempty"`
+	Model  string `json:"model"`
+	// Provider and Reasoning capture the session's last-used LLM provider and
+	// reasoning level so the choice survives reopening in a fresh process (the
+	// live per-session config is otherwise re-seeded from the global default on
+	// restart). Empty on sessions saved before these were persisted; the restore
+	// path (agent.New / Resume) then leaves cfg at its default.
+	Provider   string        `json:"provider,omitempty"`
+	Reasoning  string        `json:"reasoning,omitempty"`
 	WorkingDir string        `json:"working_dir"`
 	CreatedAt  time.Time     `json:"created_at"`
 	UpdatedAt  time.Time     `json:"updated_at"`
