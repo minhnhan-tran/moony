@@ -61,6 +61,9 @@ type ToolEnd struct {
 	// Images are any images the tool returned (e.g. a browser screenshot), so
 	// the UI can render them inline alongside the text output.
 	Images []ToolImage
+	// Videos are any videos the tool returned (e.g. generate_video). Unlike
+	// Images these are UI-only: they are never fed back to the model.
+	Videos []ToolVideo
 	// ParentID and Agent mirror ToolStart: set when this is a delegated
 	// sub-agent's tool result, so the UI updates the nested card.
 	ParentID string
@@ -71,6 +74,14 @@ type ToolEnd struct {
 type ToolImage struct {
 	MediaType string // e.g. "image/png"
 	Data      []byte // raw image bytes
+}
+
+// ToolVideo is a video produced by a tool, surfaced to the UI only (models
+// can't watch video, and clips are far too large to send back).
+type ToolVideo struct {
+	MediaType string // e.g. "video/mp4"
+	Data      []byte // raw video bytes, when inlined
+	URL       string // a remote URL, when the tool returned a link
 }
 
 // TaskMeta is a per-delegation footer for a `task` sub-agent run: the sub-agent

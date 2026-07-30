@@ -65,6 +65,9 @@ type wireEvent struct {
 	// Images decorate a "tool_end" event with any images the tool returned (e.g.
 	// a browser screenshot), each as a data URI the browser renders inline.
 	Images []string `json:"images,omitempty"`
+	// Videos are any videos the tool produced (e.g. generate_video), each a data
+	// URI or a plain URL the browser renders inline in a <video> element.
+	Videos []string `json:"videos,omitempty"`
 	// Meta carries a completed turn's footer (datetime · duration · model ·
 	// think:level) for a "turn_meta" event, replayed when a saved session reopens.
 	Meta *turnMetaWire `json:"meta,omitempty"`
@@ -314,7 +317,18 @@ func toWire(ev agent.Event) wireEvent {
 		for _, im := range e.Images {
 			imgs = append(imgs, dataURI(im.MediaType, im.Data))
 		}
-		return wireEvent{Type: "tool_end", Tool: e.Name, ToolID: e.ID, Output: e.Output, IsError: e.IsError, Images: imgs, ParentID: e.ParentID, Agent: e.Agent}
+		var vids []string
+		for _, v := range e.Videos {
+			// A plain URL passes straight through; inline bytes become a data URL, but
+			// only when small enough to be worth pushing over the wire + into the DOM
+			// (large clips stay on disk — the tool's text output reports the path).
+			if v.URL != "" {
+				vids = append(vids, v.URL)
+			} else if len(v.Data) > 0 && len(v.Data) <= maxInlineVideoBytes {
+				vids = append(vids, dataURI(v.MediaType, v.Data))
+			}
+		}
+		return wireEvent{Type: "tool_end", Tool: e.Name, ToolID: e.ID, Output: e.Output, IsError: e.IsError, Images: imgs, Videos: vids, ParentID: e.ParentID, Agent: e.Agent}
 	case agent.TurnDone:
 		return wireEvent{Type: "turn_done", CostUSD: e.CostUSD, Model: e.Model, Reasoning: e.Reasoning,
 			TurnIn: e.TurnUsage.InputTokens, TurnOut: e.TurnUsage.OutputTokens,
@@ -421,3 +435,9 @@ func attachWireFromAttachment(a attach.Attachment) attachWire {
 func dataURI(mediaType string, data []byte) string {
 	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
 }
+
+// maxInlineVideoBytes caps how big a tool-produced clip may be before we stop
+// inlining it as a data URL in the event stream. Videos are far larger than
+// screenshots, and a data URL costs ~33% more on the wire and sits in the DOM;
+// beyond this the file stays on disk and the tool's text output names the path.
+const maxInlineVideoBytes = 16 << 20
