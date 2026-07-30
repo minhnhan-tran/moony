@@ -250,6 +250,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/sessions/{id}/persona", s.handlePersona)
 	mux.HandleFunc("POST /api/sessions/{id}/persona", s.handlePersona)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDelete)
+	mux.HandleFunc("POST /api/sessions/{id}/rename", s.handleRenameSession)
+	mux.HandleFunc("POST /api/sessions/{id}/pin", s.handlePinSession)
 	mux.HandleFunc("GET /api/sessions/{id}/skills", s.handleListSkills)
 	mux.HandleFunc("GET /api/sessions/{id}/skills/catalog", s.handleSkillsCatalog)
 	mux.HandleFunc("POST /api/sessions/{id}/skills/install", s.handleSkillInstall)
@@ -983,6 +985,64 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var body struct {
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.Title == "" {
+		http.Error(w, "title is required", http.StatusBadRequest)
+		return
+	}
+
+	s.mu.Lock()
+	live := s.sessions[id]
+	s.mu.Unlock()
+
+	var err error
+	if live != nil {
+		err = live.agent.SetTitle(body.Title)
+	} else {
+		err = s.store.Rename(id, body.Title)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "title": body.Title})
+}
+
+func (s *Server) handlePinSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var body struct {
+		Pinned bool `json:"pinned"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	s.mu.Lock()
+	live := s.sessions[id]
+	s.mu.Unlock()
+
+	var err error
+	if live != nil {
+		err = live.agent.SetPinned(body.Pinned)
+	} else {
+		err = s.store.SetPinned(id, body.Pinned)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "pinned": body.Pinned})
 }
 
 // deleteActiveSession deletes the session the terminal is currently on. The

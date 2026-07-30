@@ -49,6 +49,8 @@ let lastStatus = null;                   // latest status-bar snapshot from the 
 let usage = { skill: {}, agent: {}, worker: {}, mcp: {}, builtin: {} }; // per-session usage counts (category → name → uses), rendered in #mcp
 let boardMsgs = []; // shared agent message-board posts this session (from → to: text), rendered in #agentmsgs
 let relayVersion = "";                   // this relay's build version (GET /api/relay); "" in mirror/standalone mode
+let relayVersionAtLoad = "";             // relay version the static assets in this tab were served by (first successful /api/relay poll)
+let reloadPromptVersion = "";            // relay version the "reload to update" banner wants to show; held back (not dropped) while the terminal-behind banner occupies the strip, then surfaced by refreshReloadBanner()
 let relayDownloads = false;              // relay offers CLI downloads (/download + /install.sh)
 let announcements = [];                  // maintainer announcement banners (GET /api/relay)
 let isRelayAdmin = false;                // current user may author announcements (MN_ADMIN_USERS)
@@ -112,13 +114,13 @@ const SF_TO_MATERIAL = {
   "iphone": "smartphone", "key.fill": "key", "ladybug.fill": "bug_report",
   "laptopcomputer": "laptop", "lightbulb.fill": "lightbulb", "link": "link",
   "lock.fill": "lock", "lock.open.fill": "lock_open", "magnifyingglass": "search",
-  "map.fill": "map", "mappin": "place", "megaphone.fill": "campaign", "minus": "remove",
+  "map.fill": "map", "mappin": "place", "megaphone.fill": "campaign", "mic": "sensors", "mic.fill": "sensors", "minus": "remove",
   "moon.fill": "dark_mode", "moon.stars.fill": "dark_mode", "nosign": "block",
   "note.text": "note", "paintbrush.fill": "brush", "paintbrush.pointed.fill": "brush",
   "paperclip": "attach_file", "paperplane": "send", "paperplane.fill": "send",
   "pause.fill": "pause", "pencil": "edit", "person.2.badge.gearshape.fill": "group", "person.2.fill": "group", "person.3.fill": "group", "person.fill": "person",
   "person.text.rectangle": "badge", "phone.fill": "call", "photo": "image",
-  "pin.fill": "push_pin", "play.fill": "play_arrow", "plus": "add",
+  "pin": "push_pin", "pin.fill": "push_pin", "play.fill": "play_arrow", "plus": "add",
   "plus.circle": "add_circle", "plus.circle.fill": "add_circle", "powerplug.fill": "power",
   "puzzlepiece.extension": "extension", "puzzlepiece.extension.fill": "extension", "questionmark": "question_mark",
   "questionmark.bubble.fill": "quiz", "questionmark.circle": "help",

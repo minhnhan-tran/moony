@@ -20,6 +20,7 @@ import (
 type Session struct {
 	ID         string        `json:"id"`
 	Title      string        `json:"title"`
+	Pinned     bool          `json:"pinned,omitempty"`
 	Model      string        `json:"model"`
 	WorkingDir string        `json:"working_dir"`
 	CreatedAt  time.Time     `json:"created_at"`
@@ -246,11 +247,14 @@ func (s *Store) Save(sess *Session) error {
 	if sess.Title == "" {
 		sess.Title = deriveTitle(sess.Messages)
 	}
+	return s.save(sess, 0o644)
+}
+
+func (s *Store) save(sess *Session, perm os.FileMode) error {
 	data, err := json.MarshalIndent(sess, "", "  ")
 	if err != nil {
 		return err
 	}
-	perm := os.FileMode(0o644)
 	if s.crypto != nil && s.crypto.enabled {
 		data, err = s.crypto.encrypt(data)
 		if err != nil {
@@ -304,7 +308,8 @@ func (s *Store) Delete(id string) error {
 	return nil
 }
 
-// List returns all sessions, most recently updated first.
+// List returns all sessions, most recently updated first, with pinned sessions
+// floating to the top of the list.
 func (s *Store) List() ([]*Session, error) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
@@ -321,7 +326,35 @@ func (s *Store) List() ([]*Session, error) {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt.After(out[j].UpdatedAt) })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Pinned && !out[j].Pinned })
 	return out, nil
+}
+
+// Rename updates a session's title.
+func (s *Store) Rename(id, title string) error {
+	sess, err := s.Load(id)
+	if err != nil {
+		return err
+	}
+	sess.Title = title
+	return s.Persist(sess)
+}
+
+// SetPinned pins or unpins a session. Pinned sessions float to the top.
+func (s *Store) SetPinned(id string, pinned bool) error {
+	sess, err := s.Load(id)
+	if err != nil {
+		return err
+	}
+	sess.Pinned = pinned
+	return s.Persist(sess)
+}
+
+// Persist saves an existing, already loaded session directly, without modifying
+// its UpdatedAt. This is used when updating attributes (like Pinned or Title)
+// on a background save, without marking the session "actively chatted in".
+func (s *Store) Persist(sess *Session) error {
+	return s.save(sess, 0o600)
 }
 
 // ListByDir returns sessions for a working directory, most-recently-updated

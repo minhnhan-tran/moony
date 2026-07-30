@@ -180,11 +180,18 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
    the session on phones. */
 .sess .del { opacity: .55; transition: opacity .12s ease; }
 .sess .del:active { opacity: 1; }
+.sess .session-act { opacity: .55; transition: opacity .12s ease; margin-left: 0.25rem; }
+.sess .session-act:active { opacity: 1; }
 @media (hover: hover) {
   .sess .del { opacity: 0; }
   .sess:hover .del { opacity: .55; }
   .sess .del:hover { opacity: 1; }
+
+  .sess .session-act { opacity: 0; }
+  .sess:hover .session-act { opacity: .55; }
+  .sess .session-act:hover { opacity: 1; }
 }
+.sess .session-act.session-pinned-active { opacity: 0.8 !important; color: rgb(var(--c-brand)); }
 
 /* Usage panel (#mcp): a taller minimum so the session's usage history has room;
    still grows to a cap and scrolls past it. (Overrides the max-h-40 utility.) */
@@ -2807,3 +2814,32 @@ html.light .diff-hunk { color: #0550ae; }
 /* Free-text answer field for ask_user (allow_text). */
 .app-question-text { width: 100%; padding: .5rem .65rem; border-radius: var(--r-md); resize: vertical; background: rgb(var(--c-surface) / .6); border: 1px solid rgb(var(--c-edge) / .6); color: rgb(var(--c-ink)); font: inherit; }
 .app-question-text:focus { outline: none; border-color: rgb(var(--c-brand)); }
+
+/* In-session find bar — floats over the top-right of the transcript. */
+#transcript-find {
+  position: absolute; top: 8px; right: 16px; z-index: 40;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  background: rgb(var(--c-raised));
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(var(--c-shadow) / .5);
+}
+#transcript-find.hidden { display: none; }
+.transcript-find-icon { color: rgb(var(--c-faint)); width: 14px; height: 14px; flex: none; }
+#transcript-find-input {
+  background: transparent; border: none; outline: none;
+  color: rgb(var(--c-ink)); font-size: 13px; width: 180px; padding: 2px;
+}
+#transcript-find-input::placeholder { color: rgb(var(--c-faint)); }
+.transcript-find-count { color: rgb(var(--c-faint)); font-size: 11px; min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.transcript-find-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 5px; border: none; cursor: pointer;
+  background: transparent; color: rgb(var(--c-faint));
+}
+.transcript-find-btn:hover { background: rgb(var(--c-hi) / .1); color: rgb(var(--c-ink)); }
+.transcript-find-btn app-icon { width: 12px; height: 12px; }
+/* Match highlights inside #transcript. */
+#transcript mark.tsearch-hit { background: rgb(var(--c-warn) / .35); color: inherit; border-radius: 2px; }
+#transcript mark.tsearch-current { background: rgb(var(--c-warn)); color: rgb(var(--c-surface)); }

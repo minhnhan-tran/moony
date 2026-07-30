@@ -116,12 +116,38 @@
       </button>
     </div>
 
+    <!-- Front-end asset skew: shown when the relay serving this page has updated
+         past the assets this tab loaded, so a reload is needed to run the new UI. -->
+    <div id="reloadBanner" class="app-version-warn hidden shrink-0 flex items-center gap-2 px-4 py-2 text-xs">
+      <app-icon name="arrow.clockwise"></app-icon>
+      <span id="reloadBannerText" class="app-version-warn-text flex-1 min-w-0">A new version is available. Reload to update.</span>
+      <button id="reloadBannerReload" type="button" class="app-version-warn-link shrink-0">Reload</button>
+      <button id="reloadBannerClose" type="button" class="app-version-warn-close" aria-label="Dismiss this notice">
+        <app-icon name="xmark"></app-icon>
+      </button>
+    </div>
+
     <!-- Maintainer announcement banner: new/undismissed announcements shown in
          the main column (like versionWarn) by renderAnnouncementBar(). Full list
          + admin compose live in the userMenu → Announcement panel. -->
     <div id="announceBar" class="app-announce hidden shrink-0"></div>
 
     <div class="transcript-wrap">
+      <div id="transcript-find" class="hidden" role="search">
+        <app-icon name="magnifyingglass" class="transcript-find-icon"></app-icon>
+        <input id="transcript-find-input" type="text" autocomplete="off" spellcheck="false"
+          placeholder="Find in session" aria-label="Find in session" />
+        <span id="transcript-find-count" class="transcript-find-count"></span>
+        <button id="transcript-find-prev" type="button" class="transcript-find-btn" title="Previous match (⇧Enter)" aria-label="Previous match">
+          <app-icon name="chevron.up"></app-icon>
+        </button>
+        <button id="transcript-find-next" type="button" class="transcript-find-btn" title="Next match (Enter)" aria-label="Next match">
+          <app-icon name="chevron.down"></app-icon>
+        </button>
+        <button id="transcript-find-close" type="button" class="transcript-find-btn" title="Close (Esc)" aria-label="Close find">
+          <app-icon name="xmark"></app-icon>
+        </button>
+      </div>
       <div id="transcript">
         <div id="empty">
           <app-icon name="sparkles" class="empty-icon"></app-icon>
@@ -244,6 +270,9 @@
           <button class="attach-menu-item" data-kind="image" type="button" role="menuitem"><app-icon name="photo"></app-icon> Image</button>
           <button class="attach-menu-item" data-kind="doc" type="button" role="menuitem"><app-icon name="doc.text"></app-icon> Document</button>
         </div>
+        <button id="mic" type="button" title="Dictate (speech to text)" aria-label="Dictate your prompt" class="composer-mic text-faint hover:text-ink hidden" style="margin-right: 4px;">
+          <app-icon name="mic.fill" style="font-size:16px"></app-icon>
+        </button>
         <button id="send" title="Send" aria-label="Send" class="brand-btn composer-send inline-flex items-center justify-center bg-brand text-white disabled:opacity-50">
           <app-icon name="arrow.up" style="font-size:18px"></app-icon>
         </button>

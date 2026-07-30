@@ -60,6 +60,15 @@ async function loadRelayVersion() {
       relayDownloads = !!(j && j.downloads);
       announcements = (j && Array.isArray(j.announcements)) ? j.announcements : [];
       isRelayAdmin = !!(j && j.admin);
+      // Front-end asset skew: index.html/app-*.js/app.css are served static from
+      // the relay's embedded FS, so a running page keeps executing the OLD assets
+      // after the relay is redeployed/self-updated (the SSE stream reconnects,
+      // but the JS/CSS don't re-fetch). Capture the version this page loaded
+      // against; if a later poll reports a newer relay, prompt a reload.
+      if (relayVersion) {
+        if (!relayVersionAtLoad) relayVersionAtLoad = relayVersion;
+        else if (versionLt(relayVersionAtLoad, relayVersion)) showReloadPrompt(relayVersion);
+      }
     }
   } catch (_) { /* no relay in front → no version skew to report */ }
   renderAnnouncementBar();
@@ -67,6 +76,39 @@ async function loadRelayVersion() {
   const dl = $("#umDownload");
   if (dl) dl.style.display = relayDownloads ? "" : "none";
   setHeaderVersion(); // show the version in the header immediately — no session/laptop needed
+}
+
+// showReloadPrompt reveals the "new version — reload" banner once the relay has
+// moved ahead of the assets this page is running. Idempotent (repeated polls
+// just refresh the target version) and stays until the user reloads or dismisses
+// it — we never auto-reload out from under active work.
+//
+// Suppressed while the "your terminal is behind" banner is up: a relay deploy
+// puts BOTH the page assets and the local CLI behind at once, and two stacked
+// version banners read as redundant. The terminal one wins because its action
+// (Upgrade) isn't reachable any other way; the reload is remembered in
+// reloadPromptVersion and surfaced by refreshReloadBanner() when it clears.
+function showReloadPrompt(version) {
+  const bar = $("#reloadBanner");
+  if (!bar || bar.dataset.dismissed === "1") return;
+  reloadPromptVersion = version;
+  if (terminalBannerVisible()) { bar.classList.add("hidden"); return; }
+  const txt = $("#reloadBannerText");
+  if (txt) txt.textContent = "A new version (v" + version + ") is available. Reload to update.";
+  bar.classList.remove("hidden");
+}
+
+// terminalBannerVisible reports whether the "terminal is behind" banner is on
+// screen, so the reload banner can stand down behind it.
+function terminalBannerVisible() {
+  return !!versionWarnEl && !versionWarnEl.classList.contains("hidden");
+}
+
+// refreshReloadBanner re-evaluates the held-back reload prompt. Called whenever
+// the terminal banner's visibility changes, so dismissing or resolving it
+// surfaces the reload notice instead of losing it.
+function refreshReloadBanner() {
+  if (reloadPromptVersion) showReloadPrompt(reloadPromptVersion);
 }
 
 // --- session encryption-at-rest indicator ---------------------------------
@@ -650,11 +692,23 @@ function renderProjectInto(box, lap, p) {
       if (s.state === "awaiting_approval") { const b = el("span", "sess-attn shrink-0"); b.title = "Waiting for your approval"; titleRow.appendChild(b); }
       else if (s.state === "awaiting_question") { const b = el("span", "sess-attn shrink-0"); b.title = "Waiting for your answer"; titleRow.appendChild(b); }
       else if (s.running) { const dot = el("span", "sess-running shrink-0"); dot.title = "An agent is running here"; titleRow.appendChild(dot); }
-      titleRow.appendChild(el("div", "text-[13px] truncate", s.title || "(untitled)"));
+      const titleDiv = el("div", "text-[13px] truncate", s.title || "(untitled)");
+      titleRow.appendChild(titleDiv);
       main.appendChild(titleRow);
       if (s.detail) main.appendChild(el("div", "text-[11px] text-faint truncate", s.detail));
       main.onclick = () => { focusLaptop(lap.host); currentProject = p.key; selectSession(s.id); };
       row.appendChild(main);
+
+      const pin = sym(s.pinned ? "pin.fill" : "pin", "session-act shrink-0 cursor-pointer " + (s.pinned ? "session-pinned-active" : ""));
+      pin.title = s.pinned ? "Unpin session" : "Pin session to top";
+      pin.onclick = (e) => { e.stopPropagation(); pinSession(s.id, !s.pinned, lap.host, p.key); };
+      row.appendChild(pin);
+
+      const ren = sym("pencil", "session-act shrink-0 cursor-pointer");
+      ren.title = "Rename session";
+      ren.onclick = (e) => { e.stopPropagation(); startRenameSession(titleDiv, s, lap.host, p.key); };
+      row.appendChild(ren);
+
       const del = el("div", "del shrink-0 text-ink cursor-pointer");
       del.style.padding = "0 0.25rem";
       del.title = "Delete session";
@@ -885,6 +939,70 @@ async function deleteSession(id, host, key) {
   }
 }
 
+async function renameSession(id, title, host, key) {
+  try {
+    const r = await fetch(laptopBase(host) + `/api/sessions/${id}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (r.ok) {
+      await loadProjectSessions(host, key);
+      renderLaptopTree();
+    }
+  } catch (e) {
+    console.error("rename failed:", e);
+  }
+}
+
+async function pinSession(id, pinned, host, key) {
+  try {
+    const r = await fetch(laptopBase(host) + `/api/sessions/${id}/pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned }),
+    });
+    if (r.ok) {
+      await loadProjectSessions(host, key);
+      renderLaptopTree();
+    }
+  } catch (e) {
+    console.error("pin failed:", e);
+  }
+}
+
+function startRenameSession(titleEl, s, host, key) {
+  const currentTitle = s.title || "";
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "text-[13px] bg-backdrop text-ink w-full px-1 py-0.5 rounded outline-none focus:ring-1 focus:ring-brand";
+  inp.value = currentTitle;
+  titleEl.replaceWith(inp);
+  inp.focus();
+  inp.select();
+
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const nextVal = inp.value.trim();
+    if (save && nextVal && nextVal !== currentTitle) {
+      s.title = nextVal;
+      titleEl.textContent = nextVal;
+      inp.replaceWith(titleEl);
+      await renameSession(s.id, nextVal, host, key);
+    } else {
+      inp.replaceWith(titleEl);
+    }
+  };
+
+  inp.onblur = () => finish(true);
+  inp.onkeydown = (e) => {
+    if (e.key === "Enter") { e.stopPropagation(); finish(true); }
+    if (e.key === "Escape") { e.stopPropagation(); finish(false); }
+  };
+}
+
 // clearProjectSessions deletes every session in a project after confirmation.
 // Busy sessions (mid-turn) are skipped server-side and reported.
 async function clearProjectSessions(host, key) {
@@ -917,7 +1035,8 @@ function renderSessionList() {
       return;
     }
     for (const s of projectSessions) {
-      const d = el("div", "px-4 py-2.5 border-b border-edge cursor-pointer hover:bg-raised" + (s.active ? " bg-raised border-l-[3px] border-l-brand" : ""));
+      const d = el("div", "sess px-4 py-2.5 border-b border-edge cursor-pointer hover:bg-raised flex items-center justify-between gap-1" + (s.active ? " bg-raised border-l-[3px] border-l-brand" : ""));
+      const mainPart = el("div", "min-w-0 flex-1");
       const titleRow = el("div", "flex items-center gap-1.5 min-w-0");
       // The terminal drives one session at a time, so only the active session can
       // be awaiting input or busy — reflect its live state (tracked globally from
@@ -925,10 +1044,30 @@ function renderSessionList() {
       if (s.active && state === "awaiting_approval") { const b = el("span", "sess-attn shrink-0"); b.title = "Waiting for your approval"; titleRow.appendChild(b); }
       else if (s.active && state === "awaiting_question") { const b = el("span", "sess-attn shrink-0"); b.title = "Waiting for your answer"; titleRow.appendChild(b); }
       else if (s.active && state === "busy") { const dot = el("span", "sess-running shrink-0"); dot.title = "An agent is running here"; titleRow.appendChild(dot); }
-      titleRow.appendChild(el("div", "text-[13px] truncate", s.title || "(untitled)"));
-      d.appendChild(titleRow);
-      if (s.detail) d.appendChild(el("div", "text-[11px] text-faint truncate", s.detail));
-      d.onclick = () => switchProjectSession(s.id);
+      const titleDiv = el("div", "text-[13px] truncate", s.title || "(untitled)");
+      titleRow.appendChild(titleDiv);
+      mainPart.appendChild(titleRow);
+      if (s.detail) mainPart.appendChild(el("div", "text-[11px] text-faint truncate", s.detail));
+      mainPart.onclick = () => switchProjectSession(s.id);
+      d.appendChild(mainPart);
+
+      const pin = sym(s.pinned ? "pin.fill" : "pin", "session-act shrink-0 cursor-pointer " + (s.pinned ? "session-pinned-active" : ""));
+      pin.title = s.pinned ? "Unpin session" : "Pin session to top";
+      pin.onclick = (e) => { e.stopPropagation(); pinSession(s.id, !s.pinned, currentLaptop, currentProject); };
+      d.appendChild(pin);
+
+      const ren = sym("pencil", "session-act shrink-0 cursor-pointer");
+      ren.title = "Rename session";
+      ren.onclick = (e) => { e.stopPropagation(); startRenameSession(titleDiv, s, currentLaptop, currentProject); };
+      d.appendChild(ren);
+
+      const del = el("div", "del shrink-0 text-ink cursor-pointer");
+      del.style.padding = "0 0.25rem";
+      del.title = "Delete session";
+      del.appendChild(sym("trash"));
+      del.onclick = (e) => { e.stopPropagation(); deleteSession(s.id, currentLaptop, currentProject); };
+      d.appendChild(del);
+
       box.appendChild(d);
     }
     return;
@@ -1670,6 +1809,9 @@ function updateVersionWarning(termVer) {
     if (versionWarnDownloadEl) versionWarnDownloadEl.style.display = (canGet && !selfUpdate) ? "" : "none";
   }
   versionWarnEl.classList.toggle("hidden", !behind);
+  // The terminal banner just took or released the strip — let the reload prompt
+  // (if one is pending) hide behind it or come forward accordingly.
+  refreshReloadBanner();
   syncUpgradeBtn();
 }
 
@@ -3663,6 +3805,20 @@ if (versionWarnCloseEl) {
   versionWarnCloseEl.onclick = () => {
     versionWarnDismissed = true;
     if (versionWarnEl) versionWarnEl.classList.add("hidden");
+    refreshReloadBanner(); // strip is free now — surface any deferred reload prompt
+  };
+}
+
+// Reload banner (front-end asset skew): reload picks up the relay's new assets;
+// close hides it for this page's lifetime (the dataset flag keeps later polls
+// from re-showing it, so a user who keeps working isn't nagged every minute).
+const reloadBannerEl = $("#reloadBanner");
+const reloadBannerReloadEl = $("#reloadBannerReload");
+if (reloadBannerReloadEl) reloadBannerReloadEl.onclick = () => location.reload();
+const reloadBannerCloseEl = $("#reloadBannerClose");
+if (reloadBannerCloseEl) {
+  reloadBannerCloseEl.onclick = () => {
+    if (reloadBannerEl) { reloadBannerEl.dataset.dismissed = "1"; reloadBannerEl.classList.add("hidden"); }
   };
 }
 
@@ -4345,4 +4501,150 @@ async function openGitModal() {
   setManageWidth("min(980px,96vw)"); // wider card for the two-column git layout
   await renderGitModal();
 }
+
+let tfindTimer = null;
+let tfindMarks = [];
+let tfindIndex = -1;
+
+function initTranscriptSearch() {
+  const fbox = document.getElementById("transcript-find");
+  const finp = document.getElementById("transcript-find-input");
+  const fcnt = document.getElementById("transcript-find-count");
+  const fprev = document.getElementById("transcript-find-prev");
+  const fnext = document.getElementById("transcript-find-next");
+  const fclose = document.getElementById("transcript-find-close");
+
+  if (!fbox || !finp) return;
+
+  const toggleFind = () => {
+    if (fbox.classList.contains("hidden")) {
+      fbox.classList.remove("hidden");
+      finp.focus();
+      finp.select();
+      performFind(finp.value);
+    } else {
+      fbox.classList.add("hidden");
+      clearFindHighlights();
+      input.focus();
+    }
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+      e.preventDefault();
+      toggleFind();
+    }
+    if (e.key === "Escape" && !fbox.classList.contains("hidden")) {
+      e.preventDefault();
+      toggleFind();
+    }
+  });
+
+  finp.oninput = () => {
+    if (tfindTimer) clearTimeout(tfindTimer);
+    tfindTimer = setTimeout(() => performFind(finp.value), 150);
+  };
+
+  finp.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) jumpToFindMatch(-1);
+      else jumpToFindMatch(1);
+    }
+  };
+
+  fprev.onclick = () => jumpToFindMatch(-1);
+  fnext.onclick = () => jumpToFindMatch(1);
+  fclose.onclick = () => toggleFind();
+}
+
+function clearFindHighlights() {
+  const t = document.getElementById("transcript");
+  if (!t) return;
+  // Replace mark elements with their original text content
+  const marks = t.querySelectorAll("mark.tsearch-hit");
+  for (const m of marks) {
+    m.replaceWith(document.createTextNode(m.textContent));
+  }
+  t.normalize(); // merge adjacent text nodes
+  tfindMarks = [];
+  tfindIndex = -1;
+  const fcnt = document.getElementById("transcript-find-count");
+  if (fcnt) fcnt.textContent = "";
+}
+
+function performFind(q) {
+  clearFindHighlights();
+  q = (q || "").trim();
+  if (q.length < 2) return;
+
+  const t = document.getElementById("transcript");
+  if (!t) return;
+
+  wrapTextInHighlights(t, new RegExp("(" + q.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&") + ")", "gi"));
+
+  tfindMarks = Array.from(t.querySelectorAll("mark.tsearch-hit"));
+  const fcnt = document.getElementById("transcript-find-count");
+  if (!tfindMarks.length) {
+    if (fcnt) fcnt.textContent = "0/0";
+    return;
+  }
+
+  tfindIndex = 0;
+  jumpToFindMatch(0);
+}
+
+function wrapTextInHighlights(node, rx) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (node.parentNode && node.parentNode.tagName === "MARK") return;
+    const val = node.nodeValue;
+    const parts = val.split(rx);
+    if (parts.length > 1) {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 1) {
+          const m = document.createElement("mark");
+          m.className = "tsearch-hit";
+          m.textContent = parts[i];
+          frag.appendChild(m);
+        } else if (parts[i]) {
+          frag.appendChild(document.createTextNode(parts[i]));
+        }
+      }
+      node.replaceWith(frag);
+    }
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    // Avoid script/style tags or inputs
+    if (node.tagName !== "SCRIPT" && node.tagName !== "STYLE" && node.tagName !== "INPUT" && node.tagName !== "TEXTAREA") {
+      // Must use a static array since childNodes changes live during replacements
+      const children = Array.from(node.childNodes);
+      for (const child of children) {
+        wrapTextInHighlights(child, rx);
+      }
+    }
+  }
+}
+
+function jumpToFindMatch(dir) {
+  if (!tfindMarks.length) return;
+  
+  // Remove current class from old active mark
+  if (tfindIndex >= 0 && tfindIndex < tfindMarks.length) {
+    tfindMarks[tfindIndex].classList.remove("tsearch-current");
+  }
+
+  tfindIndex = (tfindIndex + dir + tfindMarks.length) % tfindMarks.length;
+  const active = tfindMarks[tfindIndex];
+  active.classList.add("tsearch-current");
+
+  // Scroll active match into view smoothly
+  active.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const fcnt = document.getElementById("transcript-find-count");
+  if (fcnt) {
+    fcnt.textContent = `${tfindIndex + 1}/${tfindMarks.length}`;
+  }
+}
+
+initTranscriptSearch();
 

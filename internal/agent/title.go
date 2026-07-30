@@ -129,3 +129,21 @@ func clipTextTail(s string, n int) string {
 	}
 	return "…" + strings.ToValidUTF8(s[len(s)-n:], "")
 }
+
+// SetTitle updates the active session's title.
+func (a *Agent) SetTitle(title string) error {
+	if a.sess == nil {
+		return os.ErrNotExist
+	}
+	a.sess.Title = title
+	return a.store.Rename(a.sess.ID, title)
+}
+
+// SetPinned pins or unpins the active session.
+func (a *Agent) SetPinned(pinned bool) error {
+	if a.sess == nil {
+		return os.ErrNotExist
+	}
+	a.sess.Pinned = pinned
+	return a.store.SetPinned(a.sess.ID, pinned)
+}
