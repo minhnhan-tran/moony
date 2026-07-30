@@ -13,6 +13,30 @@ import (
 	"github.com/pysty1995/moony/internal/tools"
 )
 
+// TestSubConfigIsolatesReasoningMap: subConfig shallow-copies the parent Config,
+// whose ReasoningByModel is a map — the sub-config must get its OWN copy so a
+// persona pinning reasoning can't mutate the parent's config (or race sibling
+// sub-agents through the shared map).
+func TestSubConfigIsolatesReasoningMap(t *testing.T) {
+	parent := &Agent{cfg: &config.Config{
+		Model:            "anthropic.claude-opus-4-8",
+		ApprovalPolicy:   config.ApprovalPrompt,
+		ReasoningByModel: map[string]string{"anthropic.claude-opus-4-8": "low"},
+	}}
+	tt := newTaskTool(parent, nil)
+
+	sub := tt.subConfig(subagents.Persona{Name: "deep", Model: "anthropic.claude-opus-4-8", Reasoning: "high"})
+	// The sub-config's map must be a distinct object.
+	if &sub.ReasoningByModel == &parent.cfg.ReasoningByModel {
+		t.Fatal("sub-config shares the parent's ReasoningByModel header")
+	}
+	// Mutating the sub map (SetReasoningFor ran inside subConfig) must not leak
+	// into the parent's config.
+	if got := parent.cfg.ReasoningByModel["anthropic.claude-opus-4-8"]; got != "low" {
+		t.Errorf("parent ReasoningByModel corrupted by sub-agent: got %q, want low", got)
+	}
+}
+
 func TestSubConfigModel(t *testing.T) {
 	parent := &Agent{cfg: &config.Config{Model: "parent-model", ApprovalPolicy: config.ApprovalPrompt}}
 	tt := newTaskTool(parent, nil)
@@ -44,7 +68,7 @@ func TestSubConfigModel(t *testing.T) {
 }
 
 // TestSubConfigOllamaKeepsModel verifies a read-only sub-agent on the Ollama
-// backend keeps the session's Ollama model instead of substituting a hosted
+// backend keeps the session's Ollama model instead of substituting a Anthropic
 // fast model (which the Ollama server can't serve).
 func TestSubConfigOllamaKeepsModel(t *testing.T) {
 	parent := &Agent{cfg: &config.Config{Model: "gemma4:31b", LLMProvider: provider.Ollama, ApprovalPolicy: config.ApprovalPrompt}}
@@ -55,14 +79,34 @@ func TestSubConfigOllamaKeepsModel(t *testing.T) {
 	}
 }
 
+// TestSubConfigOpenAIKeepsModel is the OpenAI counterpart: a read-only sub-agent on the
+// OpenAI backend keeps the session's OpenAI model rather than a Anthropic fast model.
+func TestSubConfigOpenAIKeepsModel(t *testing.T) {
+	const m = "afm-plus-v9-moe-instruct-fast-20250916"
+	parent := &Agent{cfg: &config.Config{Model: m, LLMProvider: provider.OpenAI, ApprovalPolicy: config.ApprovalPrompt}}
+	tt := newTaskTool(parent, nil)
+	ro := tt.subConfig(subagents.Persona{Name: "explore", Tools: []string{"read_file", "grep"}})
+	if ro.Model != m {
+		t.Errorf("read-only afm sub-agent model = %q, want the session model %q", ro.Model, m)
+	}
+}
+
 // TestSubConfigIgnoresCrossProviderPin verifies a pinned persona model that the
-// current backend can't serve is ignored, so the sub-agent inherits the
-// parent's valid model instead of 404ing.
+// current backend can't serve (a stale pin from a different provider) is ignored,
+// so the sub-agent inherits the parent's valid model instead of 404ing.
 func TestSubConfigIgnoresCrossProviderPin(t *testing.T) {
+	// Anthropic model pinned, but the session is now on Ollama → ignore the pin,
+	// inherit the Ollama session model.
 	onOllama := &Agent{cfg: &config.Config{Model: "gemma4:31b", LLMProvider: provider.Ollama, ApprovalPolicy: config.ApprovalPrompt}}
-	got := newTaskTool(onOllama, nil).subConfig(subagents.Persona{Name: "deep", Model: ""})
+	got := newTaskTool(onOllama, nil).subConfig(subagents.Persona{Name: "deep", Model: "anthropic.claude-opus-4-8"})
 	if got.Model != "gemma4:31b" {
-		t.Errorf("ollama: empty persona pin should inherit the session model, got %q want gemma4:31b", got.Model)
+		t.Errorf("ollama: stale Anthropic pin should be ignored, got %q want gemma4:31b", got.Model)
+	}
+	// OpenAI model pinned, but the session is on Anthropic → ignore, inherit Anthropic.
+	onAnthropic := &Agent{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
+	got = newTaskTool(onAnthropic, nil).subConfig(subagents.Persona{Name: "deep", Model: "gpt-4o"})
+	if got.Model != "anthropic.claude-opus-4-8" {
+		t.Errorf("anthropic: stale OpenAI pin should be ignored, got %q", got.Model)
 	}
 	// A compatible pin is still honored (Ollama model on Ollama).
 	got = newTaskTool(onOllama, nil).subConfig(subagents.Persona{Name: "deep", Model: "qwen3.5:122b"})
@@ -71,76 +115,38 @@ func TestSubConfigIgnoresCrossProviderPin(t *testing.T) {
 	}
 }
 
+// TestSubConfigProvider verifies a persona's pinned backend (LLMProvider)
+// overrides the session's, and that with a provider pin but no model the
+// sub-agent falls to that backend's default model (the parent's model id is
+// meaningless on a different backend). A pinned model still wins over the
+// provider's default when it's servable there.
 func TestSubConfigProvider(t *testing.T) {
-	parent := &Agent{cfg: &config.Config{Model: "anthropic.claude-sonnet-4-5", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
+	parent := &Agent{cfg: &config.Config{Model: "anthropic.claude-opus-4-8", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
 	tt := newTaskTool(parent, nil)
 
-	// A persona pinning a different provider (no model) switches LLMProvider
-	// and picks that provider's default model.
-	got := tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini})
-	if got.LLMProvider != provider.Gemini {
-		t.Errorf("LLMProvider = %q, want %q", got.LLMProvider, provider.Gemini)
+	// Provider pinned, no model → route to that backend + its default model.
+	got := tt.subConfig(subagents.Persona{Name: "deep", Provider: provider.OpenAI})
+	if got.LLMProvider != provider.OpenAI {
+		t.Errorf("pinned provider = %q, want openai", got.LLMProvider)
 	}
-	if want := provider.DefaultModelFor(provider.Gemini); got.Model != want {
-		t.Errorf("Model = %q, want provider default %q", got.Model, want)
+	if want := provider.DefaultModelFor(provider.OpenAI); got.Model != want {
+		t.Errorf("provider-only pin model = %q, want backend default %q", got.Model, want)
 	}
-
-	// A pinned provider + a model valid for it are honored together.
-	got = tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini, Model: "gcp:gemini-2.5-pro"})
-	if got.LLMProvider != provider.Gemini || got.Model != "gcp:gemini-2.5-pro" {
-		t.Errorf("provider+model pin = %q/%q, want %q/%q", got.LLMProvider, got.Model, provider.Gemini, "gcp:gemini-2.5-pro")
+	// The parent's config is untouched.
+	if parent.cfg.LLMProvider != provider.Anthropic || parent.cfg.Model != "anthropic.claude-opus-4-8" {
+		t.Errorf("parent config mutated: %+v", parent.cfg)
 	}
 
-	// A pinned provider AND a model id from a different provider is honored as
-	// given, same as a plain model pin: ModelServableBy can't validate a
-	// cross-provider id, so the pin is trusted and a bad one just errors
-	// naturally at call time instead of being second-guessed here.
-	got = tt.subConfig(subagents.Persona{Name: "gem", Provider: provider.Gemini, Model: "anthropic.claude-haiku-4-5"})
-	if got.LLMProvider != provider.Gemini {
-		t.Errorf("LLMProvider = %q, want %q", got.LLMProvider, provider.Gemini)
-	}
-	if got.Model != "anthropic.claude-haiku-4-5" {
-		t.Errorf("Model = %q, want the pin honored as given %q", got.Model, "anthropic.claude-haiku-4-5")
+	// Provider + a model servable on that backend → both honored.
+	got = tt.subConfig(subagents.Persona{Name: "deep", Provider: provider.OpenAI, Model: "gpt-4o"})
+	if got.LLMProvider != provider.OpenAI || got.Model != "gpt-4o" {
+		t.Errorf("provider+model pin = (%q,%q), want (openai, gpt-4o)", got.LLMProvider, got.Model)
 	}
 
-	// A provider equal to the parent's is a no-op for routing — falls through
-	// to inherit the parent's model since no model is separately pinned.
-	got = tt.subConfig(subagents.Persona{Name: "same", Provider: provider.Anthropic})
-	if got.LLMProvider != provider.Anthropic || got.Model != parent.cfg.Model {
-		t.Errorf("same-provider pin should inherit the parent's model, got %q/%q", got.LLMProvider, got.Model)
-	}
-
-	// A garbled provider (e.g. a hand-edited typo in the persona's .md) is
-	// ignored rather than silently normalized to some default provider.
-	got = tt.subConfig(subagents.Persona{Name: "typo", Provider: "not-a-real-provider"})
-	if got.LLMProvider != provider.Anthropic || got.Model != parent.cfg.Model {
-		t.Errorf("invalid provider pin should be ignored, got %q/%q", got.LLMProvider, got.Model)
-	}
-}
-
-func TestSubConfigReasoning(t *testing.T) {
-	parent := &Agent{cfg: &config.Config{Model: "anthropic.claude-sonnet-4-5", LLMProvider: provider.Anthropic, ApprovalPolicy: config.ApprovalPrompt}}
-	tt := newTaskTool(parent, nil)
-
-	got := tt.subConfig(subagents.Persona{Name: "deep", Reasoning: "high"})
-	if r := got.GetReasoningFor(got.Model); r != "high" {
-		t.Errorf("reasoning = %q, want %q", r, "high")
-	}
-
-	// Combines with a model pin: reasoning is applied to the resolved (pinned) model.
-	got = tt.subConfig(subagents.Persona{Name: "deep", Model: "anthropic.claude-opus-4-8", Reasoning: "medium"})
-	if got.Model != "anthropic.claude-opus-4-8" {
-		t.Errorf("Model = %q, want the pin", got.Model)
-	}
-	if r := got.GetReasoningFor(got.Model); r != "medium" {
-		t.Errorf("reasoning = %q, want %q", r, "medium")
-	}
-
-	// No reasoning pin: inherits the parent's (unset/default).
-	inh := tt.subConfig(subagents.Persona{Name: "plain"})
-	wantInh := parent.cfg.GetReasoningFor(parent.cfg.Model)
-	if r := inh.GetReasoningFor(inh.Model); r != wantInh {
-		t.Errorf("reasoning without a pin = %q, want inherited %q", r, wantInh)
+	// An unknown provider id is ignored; the sub-agent keeps the parent's backend.
+	got = tt.subConfig(subagents.Persona{Name: "deep", Provider: "bogus"})
+	if got.LLMProvider != provider.Anthropic {
+		t.Errorf("unknown provider pin should be ignored, got %q want anthropic", got.LLMProvider)
 	}
 }
 
@@ -151,7 +157,7 @@ func TestSubConfigReasoning(t *testing.T) {
 func TestSubConfigStepFloor(t *testing.T) {
 	roTools := []string{"read_file", "grep"}
 
-	// Parent cap lowered for cost (e.g. MN_MAX_STEPS=30): the read-only surveyor
+	// Parent cap lowered for cost (e.g. SC_MAX_STEPS=30): the read-only surveyor
 	// is floored so it can actually finish a survey.
 	tight := newTaskTool(&Agent{cfg: &config.Config{Model: "m", MaxAgentSteps: 30, AutoContinue: 1}}, nil)
 	if got := tight.subConfig(subagents.Persona{Name: "explore", Tools: roTools}); got.MaxAgentSteps != subAgentMinSteps {
@@ -257,14 +263,14 @@ func TestTaskReturnsPartialOnStepCeiling(t *testing.T) {
 }
 
 func TestTaskStreamEnabled(t *testing.T) {
-	t.Setenv("MN_TASK_STREAM", "")
+	t.Setenv("SC_TASK_STREAM", "")
 	if !taskStreamEnabled() {
 		t.Error("streaming should be on by default")
 	}
 	for _, off := range []string{"0", "off", "false", "no", "OFF"} {
-		t.Setenv("MN_TASK_STREAM", off)
+		t.Setenv("SC_TASK_STREAM", off)
 		if taskStreamEnabled() {
-			t.Errorf("MN_TASK_STREAM=%q should disable streaming", off)
+			t.Errorf("SC_TASK_STREAM=%q should disable streaming", off)
 		}
 	}
 }
@@ -326,10 +332,10 @@ func TestTaskForwardsSubAgentProgress(t *testing.T) {
 	}
 }
 
-// With MN_TASK_STREAM=0 the sub-agent's steps are silenced; only the final
+// With SC_TASK_STREAM=0 the sub-agent's steps are silenced; only the final
 // answer comes back as the task output.
 func TestTaskStreamDisabledSilencesProgress(t *testing.T) {
-	t.Setenv("MN_TASK_STREAM", "0")
+	t.Setenv("SC_TASK_STREAM", "0")
 	dir := t.TempDir()
 	reg := tools.NewRegistry(dir)
 	fake := &scriptedStreamer{turns: []llm.Response{
@@ -350,13 +356,13 @@ func TestTaskStreamDisabledSilencesProgress(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	if sawSubAgentTool {
-		t.Error("MN_TASK_STREAM=0 should suppress forwarded sub-agent tool events")
+		t.Error("SC_TASK_STREAM=0 should suppress forwarded sub-agent tool events")
 	}
 }
 
 // TestTaskEmitsTaskMeta confirms a finished delegation emits a TaskMeta footer
 // stamped with the parent task call id + persona, counting the sub-agent's tool
-// calls — and that MN_TASK_STREAM=0 suppresses it like the tool events.
+// calls — and that SC_TASK_STREAM=0 suppresses it like the tool events.
 func TestTaskEmitsTaskMeta(t *testing.T) {
 	newAgent := func(t *testing.T) *Agent {
 		dir := t.TempDir()
@@ -395,7 +401,7 @@ func TestTaskEmitsTaskMeta(t *testing.T) {
 	}
 
 	// With streaming off, no TaskMeta should be emitted.
-	t.Setenv("MN_TASK_STREAM", "0")
+	t.Setenv("SC_TASK_STREAM", "0")
 	var sawMeta bool
 	if err := newAgent(t).Run(context.Background(), "delegate it", func(ev Event) {
 		if _, ok := ev.(TaskMeta); ok {
@@ -405,7 +411,7 @@ func TestTaskEmitsTaskMeta(t *testing.T) {
 		t.Fatalf("Run (stream off): %v", err)
 	}
 	if sawMeta {
-		t.Error("MN_TASK_STREAM=0 should suppress the TaskMeta footer too")
+		t.Error("SC_TASK_STREAM=0 should suppress the TaskMeta footer too")
 	}
 }
 

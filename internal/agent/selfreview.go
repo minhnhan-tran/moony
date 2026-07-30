@@ -205,6 +205,16 @@ func (a *Agent) maybeSelfReview(ctx context.Context, emit func(Event), attempts 
 	if d == "" {
 		return false
 	}
+	// A real textual diff isn't necessarily reviewable: a release turn that only
+	// bumps const Version and writes the CHANGELOG has nothing a bug-reviewer can
+	// act on, so skip the model call instead of paying for a certain "no issues
+	// found". Any real source file mixed in still gets reviewed.
+	if skip, why := a.turnIsNonReviewable(); skip {
+		note := "Skipped self-review: " + why + "."
+		emit(Info{Text: note})
+		a.noteInfo(note)
+		return false
+	}
 	reviewModel, reviewProv, _ := config.AuxModelRoute(a.cfg.Model, a.cfg.LLMProvider)
 	// Name the provider + reasoning the review actually runs at, like the
 	// downshift notice. Provider defaults to the session provider; aux forces

@@ -458,11 +458,28 @@ type Config struct {
 	// stable default is lower). 0 means auto (config.ContextWindow(model)).
 	// Saved as a preference; MN_CONTEXT_WINDOW overrides.
 	ContextWindow int
+
+	// SubagentMaxDepth caps how deep the task-tool delegation tree may go: 1 = only
+	// one level of sub-agents (no nesting). Default 2; MN_MAX_SUBAGENT_DEPTH
+	// overrides, clamped to [1, SubagentDepthCeiling].
+	SubagentMaxDepth int
+
+	// AutoTestGen, when true, drafts unit tests for the source files a turn
+	// changed and surfaces them as suggestions (nothing is written to the tree).
+	// Opt-in via MN_AUTO_TESTGEN; see internal/agent/testgen.go.
+	AutoTestGen bool
+	// AutoTestGenMax caps how many files are drafted per turn under AutoTestGen
+	// (MN_AUTO_TESTGEN_MAX; default defaultTestgenMax).
+	AutoTestGenMax int
 }
 
 // Version is the moony release version. It's the single source of
 // truth: surfaced by `--version`, and the TUI header.
 // Keep it in sync with the top entry of CHANGELOG.md.
+// SubagentDepthCeiling is the hard upper bound on task-tool delegation depth,
+// regardless of MN_MAX_SUBAGENT_DEPTH, to cap worst-case fan-out cost/recursion.
+const SubagentDepthCeiling = 4
+
 const Version = "2.3.0"
 
 // VersionLess reports whether semantic version a is strictly older than b, where
@@ -769,6 +786,39 @@ func AuxModelRoute(parentModel, sessionProvider string) (model, providerOverride
 	}
 	m := AuxModel(parentModel, sessionProvider)
 	return m, "", m != parentModel
+}
+
+// FastModelResolved and AuxModelResolved return the (model, provider) pair a
+// downshifted / auxiliary call should use. When the provider is inherited (or
+// explicitly equals the session backend) the model is resolved exactly as
+// FastModel/AuxModel — unchanged behavior. When routed to a DIFFERENT backend,
+// the session model id is meaningless there, so an explicit MN_FAST_MODEL /
+// MN_AUX_MODEL pin wins, otherwise the target provider's own default model.
+func (c *Config) FastModelResolved() (string, string) {
+	prov := FastProvider()
+	if prov == "" || prov == provider.Normalize(c.LLMProvider) {
+		return FastModel(c.Model, c.LLMProvider), provider.Normalize(c.LLMProvider)
+	}
+	if v := firstTrimmedEnv("MN_FAST_MODEL"); v != "" {
+		return v, prov
+	}
+	return provider.DefaultModelFor(prov), prov
+}
+
+func (c *Config) AuxModelResolved() (string, string) {
+	prov := AuxProvider()
+	if prov == "" || prov == provider.Normalize(c.LLMProvider) {
+		return AuxModel(c.Model, c.LLMProvider), provider.Normalize(c.LLMProvider)
+	}
+	if v := firstTrimmedEnv("MN_AUX_MODEL"); v != "" {
+		return v, prov
+	}
+	if fp := FastProvider(); fp == prov { // fast model fallback only if on same provider
+		if v := firstTrimmedEnv("MN_FAST_MODEL"); v != "" {
+			return v, prov
+		}
+	}
+	return provider.DefaultModelFor(prov), prov
 }
 
 // ProviderLabel is the user-facing name of a route, e.g. "anthropic-native".
@@ -1408,6 +1458,7 @@ func Load() *Config {
 		MaxTokens:           8192,
 		MaxToolOutputBytes:  16000,
 		MaxAgentSteps:       80,
+		SubagentMaxDepth:    2,
 		AutoContinue:        1,
 		BatchContext:        true,
 		RepoMap:             true,
@@ -1682,6 +1733,17 @@ func Load() *Config {
 			c.MaxAgentSteps = n
 		}
 	}
+	if v := os.Getenv("MN_MAX_SUBAGENT_DEPTH"); v != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 1 {
+			c.SubagentMaxDepth = n
+		}
+	}
+	if c.SubagentMaxDepth < 1 {
+		c.SubagentMaxDepth = 1
+	}
+	if c.SubagentMaxDepth > SubagentDepthCeiling {
+		c.SubagentMaxDepth = SubagentDepthCeiling
+	}
 	if v := os.Getenv("MN_AUTO_CONTINUE"); v != "" {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 0 {
 			c.AutoContinue = n
@@ -1762,6 +1824,14 @@ func Load() *Config {
 	}
 	if v := strings.TrimSpace(os.Getenv("MN_SELF_REVIEW")); v != "" {
 		c.SelfReview = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_AUTO_TESTGEN")); v != "" {
+		c.AutoTestGen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
+	}
+	if v := strings.TrimSpace(os.Getenv("MN_AUTO_TESTGEN_MAX")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.AutoTestGenMax = n
+		}
 	}
 	if v := strings.TrimSpace(os.Getenv("MN_COMPACT_THRESHOLD")); v != "" {
 		if n, err := ParseTokenCount(v); err == nil && n >= 0 {

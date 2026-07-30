@@ -246,6 +246,32 @@ type Agent struct {
 	goalTokensUsed   int
 	goalBlocked      bool
 	goalNotMetStreak int
+
+	// taskStore registers background/detached sub-agent runs (task background:true)
+	taskStore *TaskStore
+
+	// approvalBridge, when set on a NON-interactive sub-agent, routes a
+	// high-stakes/destructive approval up to the (interactive) parent session
+	// instead of auto-denying it — so a delegated agent that wants to run e.g.
+	// `git commit` or a destructive command surfaces the prompt to the human
+	// driving the parent. nil for top-level agents and for sub-agents whose parent
+	// is itself non-interactive (headless), which then fall back to a hard refusal.
+	approvalBridge func(ctx context.Context, emit func(Event), tool, summary, diff string) Decision
+
+	// isolatedRoot, when non-empty, is the absolute path of the throwaway git
+	// worktree an isolated sub-agent is confined to (task isolate:true). Bash
+	// commands are then blocked from reaching OUTSIDE it (e.g. `git -C
+	// /main/repo …`, absolute paths, or `cd ..`) so an isolated agent can't
+	// mutate the real checkout it was meant to be sandboxed away from. File tools
+	// are already confined by the registry root; this closes the shell hole.
+	isolatedRoot string
+
+	// isSubAgent marks an Agent spawned via the task tool (a delegated
+	// sub-agent). Sub-agents ingest content from files/web/shell on the parent's
+	// behalf, so tool output from untrusted-content sources is framed as data
+	// (see wrapUntrustedToolOutput) to blunt indirect prompt injection — text a
+	// sub-agent reads must not be able to redirect what it does.
+	isSubAgent bool
 }
 
 // New constructs an Agent. store and sess may be nil to disable persistence;
@@ -954,7 +980,14 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// avoiding a wasted weak round + escalation lag. A missed "hard" is still
 	// caught by the reactive friction escalation below; a false "hard" only spends
 	// the strong model on an easy turn (no quality loss). See turnLooksHard.
-	a.turnHard = turnLooksHard(userInput)
+	// See looksLikeRepeatedAsk: a turn that closely repeats a recent one is
+	// also treated as hard, so a cheap pass that didn't resolve something
+	// escalates to the strong model instead of silently repeating the same
+	// (possibly insufficient) cheap pass. Exclude the just-appended current
+	// message — comparing it against itself would trivially "match" every single turn.
+	a.turnHard = turnLooksHard(userInput) ||
+		looksLikeRepeatedAsk(userInput, a.messages[:len(a.messages)-1]) ||
+		looksLikeCorrection(userInput)
 	a.turnThinkHard.Store(0) // and a fresh model-driven "heavy thinking" tally
 
 	if err := a.maybeCompact(ctx, emit); err != nil {
@@ -1406,6 +1439,13 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				continue
 			}
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
+			// Auto-testgen (opt-in): draft tests for the source files this turn
+			// changed and surface them as suggestions — never written to the tree.
+			a.maybeSuggestTests(ctx, emit)
+			// The todo list is declarative (todo_write replaces it verbatim), so a
+			// task left in_progress here stays displayed as unfinished even though
+			// the work is done. Advisory nudge only — never auto-completed.
+			a.maybeWarnStaleTodos(emit)
 			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			// An approved plan whose mirrored todos are all resolved is finished:

@@ -30,6 +30,13 @@ type taskTool struct {
 	parent       *Agent
 	personas     []subagents.Persona
 	personasByID map[string]subagents.Persona
+	// depth is this tool's position in the delegation tree: 0 = the primary
+	// agent's task tool, 1 = a first-level sub-agent's, etc. A sub-agent only
+	// receives a task tool (via attachNested) when depth+1 < SubagentMaxDepth.
+	depth int
+	// chain is the ordered list of persona IDs from the root down to (and
+	// including) the sub-agent that owns this tool — used to block A→B→A cycles.
+	chain []string
 }
 
 // newTaskTool constructs the tool. With no personas configured the tool's
@@ -88,7 +95,8 @@ func (t *taskTool) Schema() json.RawMessage {
 		"properties": {
 			"agent":  {"type": "string", "description": "The sub-agent's name."` + enum + `},
 			"prompt": {"type": "string", "description": "The complete instructions for the sub-agent. Include all context the sub-agent needs; it does not see your history."},
-			"isolate": {"type": "boolean", "description": "Run the sub-agent in an isolated throwaway git worktree (off HEAD) instead of the main working tree, returning its changes as a diff. Use when fanning out PARALLEL editing sub-agents over INDEPENDENT files/modules so they can't clobber each other; then review and apply each returned diff (e.g. git apply) to integrate. Requires a git repo (ignored otherwise) and starts from the last commit, so commit or stash relevant work first. Optional."}
+			"isolate": {"type": "boolean", "description": "Run the sub-agent in an isolated throwaway git worktree (off HEAD) instead of the main working tree, returning its changes as a diff. Use when fanning out PARALLEL editing sub-agents over INDEPENDENT files/modules so they can't clobber each other; then review and apply each returned diff (e.g. git apply) to integrate. Requires a git repo (ignored otherwise) and starts from the last commit, so commit or stash relevant work first. Optional."},
+			"background": {"type": "boolean", "description": "Run the sub-agent DETACHED and return a handle immediately instead of blocking until it finishes. Use for long-running explore/review/research so you can keep working meanwhile; poll its progress with task_output(handle), check task_status(handle), or stop it with task_cancel(handle). The final result (and, with isolate, the diff) is delivered via task_output once it's done. Optional."}
 		},
 		"required": ["agent", "prompt"]
 	}`)
@@ -100,9 +108,10 @@ func (t *taskTool) Mutates() bool { return true }
 
 func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, error) {
 	var in struct {
-		Agent   string `json:"agent"`
-		Prompt  string `json:"prompt"`
-		Isolate bool   `json:"isolate"`
+		Agent      string `json:"agent"`
+		Prompt     string `json:"prompt"`
+		Isolate    bool   `json:"isolate"`
+		Background bool   `json:"background,omitempty"`
 	}
 	if err := json.Unmarshal(input, &in); err != nil {
 		return "", fmt.Errorf("invalid task input: %v", err)
@@ -113,6 +122,13 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	persona, ok := t.personasByID[in.Agent]
 	if !ok {
 		return "", fmt.Errorf("unknown agent %q (available: %s)", in.Agent, strings.Join(personaNames(t.personas), ", "))
+	}
+	// Cycle guard: refuse to delegate to a persona already in this branch's
+	// ancestor chain, so a nested chain can't loop (A→B→A) and spin cost.
+	for _, prev := range t.chain {
+		if prev == persona.Name {
+			return "", fmt.Errorf("refusing to delegate to %q: it is already an ancestor in this delegation chain (%s) — nested delegation must not cycle", persona.Name, strings.Join(append(append([]string{}, t.chain...), persona.Name), " → "))
+		}
 	}
 
 	// Reuse an identical read-only exploration from earlier this session: the
@@ -135,6 +151,10 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	// sub-agent's changes are returned as a diff for the parent to integrate.
 	workDir := t.parent.cfg.WorkingDir
 	var wt *isolatedWorktree
+	// bgOwnsWorktree: when a background task takes over, ITS goroutine cleans up
+	// the worktree (after the detached run finishes), so the synchronous defer
+	// below must NOT clean it up on Execute's early return.
+	bgOwnsWorktree := false
 	isolateNote := ""
 	if in.Isolate {
 		if isGitWorktreeRepo(ctx, t.parent.cfg.WorkingDir) {
@@ -143,7 +163,11 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 			} else {
 				wt = w
 				workDir = w.path
-				defer w.cleanup()
+				defer func() {
+					if !bgOwnsWorktree {
+						w.cleanup()
+					}
+				}()
 			}
 		} else {
 			isolateNote = " [isolation skipped: not a git repository — ran in the main working tree]"
@@ -177,7 +201,11 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 
 	// Sub-agents auto-run their tools: their approval prompts can't be surfaced
 	// to the UI (only the final text is returned), and the parent's `task` call
-	// was already gated by the user.
+	// was already gated by the user. NOTE: this means a persona's own
+	// `permission:` rules are NOT enforced for the sub-agent's own tool calls —
+	// approval was decided at the parent `task` boundary, not per inner call. A
+	// persona restricts what a sub-agent CAN do via its `tools:` allowlist (which
+	// bounds the registry below), not via per-call approval.
 	subCfg := t.subConfig(persona)
 	subCfg.WorkingDir = workDir // isolated worktree when in.Isolate, else the parent's dir
 
@@ -185,10 +213,144 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		cfg:         &subCfg,
 		client:      t.parent.client,
 		tools:       subRegistry,
-		system:      persona.SystemPrompt,
+		system:      persona.SystemPrompt + subAgentInjectionGuard,
 		alwaysAllow: map[string]bool{},
-		perms:       t.parent.perms, // inherit deny/allow rules so delegated work is gated too
-		interactive: false,          // headless: the git commit/push hard gate denies rather than auto-running
+		taskStore:   t.parent.taskStore, // share so handles are pollable session-wide
+	}
+	subAgent.isSubAgent = true
+	if wt != nil {
+		// Confine this isolated sub-agent's shell to the worktree: file tools are
+		// already registry-confined, but bash could otherwise reach the real repo.
+		subAgent.isolatedRoot = wt.path
+	}
+
+	// Nested delegation: give the sub-agent its OWN task tool so it can spawn a
+	// further level, but only while we're within the configured depth budget and
+	// the persona isn't already in the ancestor chain (blocks A→B→A loops). The
+	// nested tool carries the same persona catalog, the incremented depth, and the
+	// extended chain. When the budget is exhausted (or the persona restricts its
+	// tools and didn't allow "task"), the sub-agent simply has no task tool and
+	// delegation stops — the previous behavior.
+	nextDepth := t.depth + 1
+	maxDepth := t.parent.cfg.SubagentMaxDepth
+	if maxDepth < 1 {
+		maxDepth = 1
+	}
+	// A default (no-allowlist) persona may delegate; a restricted persona only if
+	// it explicitly lists "task" among its tools (least privilege). The base
+	// registry never contains "task" (it's attached here / via AttachSubAgents),
+	// so consult the persona's declared tools directly rather than subRegistry.
+	personaAllowsTask := len(persona.Tools) == 0
+	if !personaAllowsTask {
+		for _, n := range persona.Tools {
+			if n == "task" {
+				personaAllowsTask = true
+				break
+			}
+		}
+	}
+	if nextDepth < maxDepth && len(t.personas) > 0 && personaAllowsTask {
+		nested := &taskTool{
+			parent:       subAgent,
+			personas:     t.personas,
+			personasByID: t.personasByID,
+			depth:        nextDepth,
+			chain:        append(append([]string{}, t.chain...), persona.Name),
+		}
+		subRegistry.Register(nested)
+		// So a nested agent can also poll/cancel its own background tasks.
+		if t.parent.taskStore != nil {
+			subRegistry.Register(&taskOutputTool{store: t.parent.taskStore})
+			subRegistry.Register(&taskStatusTool{store: t.parent.taskStore})
+			subRegistry.Register(&taskCancelTool{store: t.parent.taskStore})
+		}
+	}
+
+	// Background / detached: start the sub-agent in a goroutine and return a
+	// handle immediately, so the orchestrator can keep working while a long
+	// explore/review runs. The run gets its OWN context (derived from
+	// context.Background, cancellable via the store) so it survives this turn's
+	// completion, and its own emit that buffers streamed text into the store —
+	// while still forwarding tool cards to the parent UI emitter captured now, so
+	// the run remains visible. Poll with task_output / task_status / task_cancel.
+	if in.Background {
+		store := t.parent.taskStore
+		if store == nil {
+			return "", fmt.Errorf("background tasks are unavailable in this context")
+		}
+		parentEmit, parentID := taskEmitterFrom(ctx)
+		stream := parentEmit != nil && taskStreamEnabled()
+		id := store.newID()
+		bgCtx, cancel := context.WithCancel(context.Background())
+		bt := &bgTask{id: id, persona: persona.Name, prompt: in.Prompt, started: time.Now(), cancel: cancel, state: taskRunning}
+		store.add(bt)
+		bgOwnsWorktree = true // the goroutine below owns wt.cleanup now
+		go func() {
+			defer cancel()
+			// Register worktree cleanup FIRST so a panic or early return in the run
+			// below can't leak a throwaway worktree on disk.
+			if wt != nil {
+				defer wt.cleanup()
+			}
+			var finalText strings.Builder
+			var (
+				subCalls      int
+				subCost       float64
+				subIn, subOut int
+			)
+			emit := func(ev Event) {
+				switch e := ev.(type) {
+				case TextDelta:
+					finalText.WriteString(e.Text)
+					bt.appendOutput(e.Text)
+				case ToolStart:
+					subCalls++
+					if stream {
+						e.ParentID, e.Agent, e.ID = parentID, persona.Name, parentID+"/"+e.ID
+						parentEmit(e)
+					}
+				case ToolEnd:
+					if stream {
+						e.ParentID, e.Agent, e.ID = parentID, persona.Name, parentID+"/"+e.ID
+						parentEmit(e)
+					}
+				case TurnDone:
+					subCost += e.CostUSD
+					subIn += e.TurnUsage.InputTokens
+					subOut += e.TurnUsage.OutputTokens
+				}
+			}
+			runCtx := withAgentIdentity(bgCtx, persona.Name)
+			runCtx = withBoardAdmin(runCtx, false)
+			runErr := subAgent.Run(runCtx, in.Prompt, emit)
+			appendChanges := func(out string) string {
+				if wt == nil {
+					return out
+				}
+				if d := wt.diff(bgCtx, t.parent.cfg.MaxToolOutputBytes); d != "" {
+					return out + "\n\n--- isolated changes (made in a throwaway worktree off HEAD; review and `git apply` from the repo root to integrate) ---\n" + d
+				}
+				return out + "\n\n[isolated run made no file changes]"
+			}
+			out := strings.TrimSpace(finalText.String())
+			switch {
+			case runErr != nil && errors.Is(runErr, context.Canceled):
+				bt.finish(taskCancelled, appendChanges(out), "cancelled", subCost, subIn, subOut)
+			case runErr != nil && errors.Is(runErr, errStepCeiling):
+				if out == "" {
+					out = "(no text produced before the step limit)"
+				}
+				bt.finish(taskDone, "hit the tool-step limit before fully finishing — partial result below.\n\n"+appendChanges(out), "", subCost, subIn, subOut)
+			case runErr != nil:
+				bt.finish(taskFailed, appendChanges(out), runErr.Error(), subCost, subIn, subOut)
+			default:
+				if out == "" {
+					out = "(sub-agent returned no text)"
+				}
+				bt.finish(taskDone, appendChanges(out), "", subCost, subIn, subOut)
+			}
+		}()
+		return fmt.Sprintf("[%s] started as %s (background). Poll with task_output(%s), check task_status(%s), or stop it with task_cancel(%s). It runs while you keep working; the final result arrives via task_output when it's done.", persona.Name, id, id, id, id), nil
 	}
 
 	// Drain events into a buffer; we return the final assistant text as the tool
@@ -227,6 +389,16 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 				e.ID = parentID + "/" + e.ID
 				parentEmit(e)
 			}
+		case ApprovalRequest:
+			// A sub-agent asked for a high-stakes approval (git commit/push, or a
+			// destructive command it wasn't asked to run). Forward it to the parent UI
+			// so the human driving the parent session decides; the Reply channel rides
+			// along on the event, so their answer unblocks the sub-agent's
+			// requestApproval. Always forwarded (never gated on stream): dropping an
+			// approval would hang the sub-agent until context timeout.
+			parentEmit(e)
+		case QuestionRequest:
+			parentEmit(e)
 		case TurnDone:
 			// The sub-agent's own per-turn accounting; accumulate so the task
 			// footer covers the whole delegation (auto-continue can emit more
@@ -238,6 +410,18 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		}
 	}
 	start := time.Now()
+	// Human-in-the-loop hand-off (Claude Code-style): this FOREGROUND sub-agent
+	// runs non-interactively (ApprovalAuto) so routine mutations don't stall, but a
+	// HIGH-STAKES action — git commit/push, or a destructive command it wasn't
+	// asked to run — is bridged up to the human driving the (interactive) parent
+	// via the emit above (which forwards ApprovalRequest to parentEmit). Background
+	// sub-agents get no bridge: nobody is live-watching to answer, so they fall
+	// back to a hard refusal on such actions.
+	if t.parent.interactive {
+		subAgent.approvalBridge = func(ctx context.Context, emit func(Event), tool, summary, diff string) Decision {
+			return subAgent.requestApproval(ctx, emit, tool, summary, diff)
+		}
+	}
 	// Stamp this sub-agent's identity so its message-board posts are attributed
 	// to the persona (not the orchestrator). The shared board itself is already
 	// on ctx from the parent's RunWith; the sub-agent's RunWith inherits it
@@ -258,7 +442,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	subUsageFrom(ctx).addTokens(subIn, subOut, subCacheRead, subCost)
 	// emitMeta surfaces a per-delegation turn-meta footer (duration · cost ·
 	// model · calls) under this task's card, mirroring the parent's per-turn
-	// footer. Gated on stream so MN_TASK_STREAM=0 silences it alongside the
+	// footer. Gated on stream so SC_TASK_STREAM=0 silences it alongside the
 	// sub-agent's tool cards.
 	emitMeta := func() {
 		if !stream {
@@ -302,7 +486,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 			if out == "" {
 				out = "(no text produced before the step limit)"
 			}
-			return t.capResult(fmt.Sprintf("[%s]%s NOTE: hit the tool-step limit before fully finishing — partial result below. Re-delegate a narrower subtask, or raise MN_MAX_STEPS / MN_AUTO_CONTINUE to give sub-agents more steps.\n\n%s", persona.Name, isolateNote, appendChanges(out))), nil
+			return t.capResult(fmt.Sprintf("[%s]%s NOTE: hit the tool-step limit before fully finishing — partial result below. Re-delegate a narrower subtask, or raise SC_MAX_STEPS / SC_AUTO_CONTINUE to give sub-agents more steps.\n\n%s", persona.Name, isolateNote, appendChanges(out))), nil
 		}
 		return "", fmt.Errorf("sub-agent %q failed: %v", persona.Name, runErr)
 	}
@@ -322,7 +506,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	return t.capResult(result), nil
 }
 
-// capResult applies the task-specific result cap (MN_TASK_RESULT_MAX / MN_CHEAP),
+// capResult applies the task-specific result cap (SC_TASK_RESULT_MAX / SC_CHEAP),
 // tighter than MaxToolOutputBytes, so a delegated deliverable re-sent to the
 // parent on every step doesn't bloat context. 0 = no task-specific cap. Head+tail
 // (via capOutput) keeps the persona header and the conclusion.
@@ -409,7 +593,7 @@ func (t *taskTool) contextItems() []ContextSegment {
 // users lower for cost) — but a delegated explore/review legitimately needs many
 // cheap reads in its own isolated context, which is exactly why we delegate (the
 // reads stay out of, and don't re-bill, the parent turn). So an aggressively
-// lowered MN_MAX_STEPS must not starve the surveyor into bailing mid-survey.
+// lowered SC_MAX_STEPS must not starve the surveyor into bailing mid-survey.
 // This restores the historical default; the hard ceiling is this × (1+AutoContinue).
 const subAgentMinSteps = 80
 
@@ -422,11 +606,22 @@ const subAgentMinAutoContinue = 2
 
 // subConfig builds the config for a persona's isolated sub-agent run: a copy of
 // the parent's config (so the parent's policy is untouched) with auto-approval —
-// the sub-agent's prompts can't reach the UI — and, when the persona pins one,
-// its own model. A persona model rides the parent's client, so it must be valid
-// for the current route (/api); otherwise the run errors naturally.
+// the sub-agent's prompts can't reach the UI — and, when the persona pins them,
+// its own backend provider, model, and/or reasoning level. A persona model
+// rides the parent's client, so it must be valid for the chosen route (/api);
+// otherwise the run errors naturally.
 func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 	c := *t.parent.cfg
+	// *t.parent.cfg is a SHALLOW copy: ReasoningByModel is a map, so the copy
+	// shares the parent's backing map. SetReasoningFor below (and any sibling
+	// sub-agent running in parallel / in the background) would then mutate the
+	// parent's config and race other sub-agents. Give this sub-config its own map.
+	if t.parent.cfg.ReasoningByModel != nil {
+		c.ReasoningByModel = make(map[string]string, len(t.parent.cfg.ReasoningByModel))
+		for k, v := range t.parent.cfg.ReasoningByModel {
+			c.ReasoningByModel[k] = v
+		}
+	}
 	c.ApprovalPolicy = config.ApprovalAuto
 	// Verification runs once at the top level after the whole turn settles, not
 	// inside each delegated sub-agent (which would trigger parallel builds and
@@ -435,50 +630,48 @@ func (t *taskTool) subConfig(persona subagents.Persona) config.Config {
 	// sub-agent's slice.
 	c.VerifyCommand = ""
 	c.SelfReview = false
-	// A garbled provider pin (typo'd by hand in the persona's .md, since the
-	// picker only ever writes recognized ids) is treated as unset below rather
-	// than silently normalizing to some default provider.
-	_, validPersonaProvider := provider.Lookup(persona.Provider)
-	switch {
-	case validPersonaProvider && !config.ProvidersEqual(persona.Provider, c.LLMProvider):
-		// A pinned provider that differs from the session's needs its own model
-		// too — the parent's model id is almost certainly not servable there. Use
-		// the persona's own model pin if it gave one (trusted as-is, same as the
-		// model-only case below — ModelServableBy can't validate a cross-provider
-		// id, so a bad pin just errors naturally at call time), else fall back to
-		// the provider's default (same resolution the Fast tier uses).
-		pn := provider.Normalize(persona.Provider)
-		m := persona.Model
-		if m == "" {
-			m = provider.DefaultModelFor(pn)
+	// A persona can pin its own backend (LLMProvider) — apply it FIRST so the
+	// model-validity check (ModelServableBy) and FastModelResolved below see the
+	// overridden backend, and the sub-agent's whole run routes there. It rides
+	// the parent's shared client; the main loop's per-round WithProvider picks up
+	// c.LLMProvider. An unknown id is ignored (subagents.SetProvider validates on
+	// write, but a hand-edited file could still carry a bad value).
+	if persona.Provider != "" {
+		if _, ok := provider.Lookup(persona.Provider); ok {
+			c.LLMProvider = persona.Provider
 		}
-		c.LLMProvider = pn
-		c.SetModel(m) // sets Model + derives the wire route from LLMProvider
+	}
+	switch {
 	case persona.Model != "" && llm.ModelServableBy(persona.Model, c.LLMProvider):
 		c.SetModel(persona.Model) // a pinned persona model wins (and flips the route)
+	case persona.Provider != "":
+		// A backend was pinned but no model: the parent's model id is meaningless
+		// on a different backend, so fall to that provider's own default model.
+		if provider.Normalize(c.LLMProvider) != provider.Normalize(t.parent.cfg.LLMProvider) {
+			c.SetModel(provider.DefaultModelFor(c.LLMProvider))
+		}
 	case persona.ReadOnly():
 		// Read-only surveyors (explore, code-reviewer, …) do grunt reading that
 		// feeds the parent's synthesis — run them on the cheaper fast model unless
-		// the persona pins its own model/provider above. The fast tier may route to
-		// a different provider (and reasoning level) than the session; apply both
-		// to the sub-agent's config so its whole run uses that route.
-		fm, fastProv, _ := config.FastModelRoute(c.Model, c.LLMProvider)
-		if fastProv != "" {
-			c.LLMProvider = fastProv // FastModelRoute returns a normalized id
-		}
-		c.SetModel(fm) // sets Model + derives the wire route from LLMProvider
-		if fr := config.FastReasoning(); fr != "" {
-			c.SetReasoningFor(fm, fr) // after SetModel so c.ReasoningLevel syncs
-		}
+		// the persona pins its own model above. When the Persona "Fast model"
+		// provider is overridden, route the whole sub-agent to that backend too:
+		// it rides the parent's shared client, so setting c.LLMProvider makes the
+		// main loop's per-round WithProvider re-route its calls (fastProv == the
+		// session provider when not overridden, so this is a no-op by default).
+		fastModel, fastProv := c.FastModelResolved()
+		c.SetModel(fastModel)
+		c.LLMProvider = fastProv
 	}
-	// A pinned persona reasoning level applies on top of whatever model/provider
-	// was resolved above (or, if none of the cases matched, the parent's own),
-	// overriding any fast-tier reasoning the ReadOnly() branch already set.
+	// A pinned reasoning level applies to whichever model the sub-agent ends up
+	// on (pinned above, or the parent's/fast model otherwise) — mirroring how a
+	// pinned model rides the parent's client. NormalizeReasoningFor inside
+	// SetReasoningFor clamps to a level the chosen model actually supports, so a
+	// stale/cross-model pin degrades gracefully instead of erroring.
 	if persona.Reasoning != "" {
 		c.SetReasoningFor(c.Model, persona.Reasoning)
 	}
-	// (A pinned model that the current backend can't serve — e.g. a hosted model id
-	// pinned then run under Ollama, or an Ollama id under a hosted provider — is ignored by
+	// (A pinned model that the current backend can't serve — e.g. a Floodgate id
+	// pinned then run under Ollama, or an AFM id under Floodgate — is ignored by
 	// modelServableBy above, so the sub-agent inherits the parent's valid model
 	// instead of 404ing on a cross-provider mismatch.)
 	// Don't let a cost-tuned main-loop cap cripple a delegated surveyor (see
@@ -513,7 +706,18 @@ func (a *Agent) AttachSubAgents(personas []subagents.Persona) {
 	if !hasDelegatable {
 		return
 	}
+	if a.taskStore == nil {
+		a.taskStore = newTaskStore()
+		// Reap any still-running detached sub-agents when the registry shuts down,
+		// alongside the bash JobStore's KillAll.
+		a.tools.AddCloser(a.taskStore.KillAll)
+	}
 	a.tools.Register(newTaskTool(a, personas))
+	// Background/async sub-agent polling tools — registered wherever task is, so a
+	// detached run can be polled/cancelled from the same scope that spawned it.
+	a.tools.Register(&taskOutputTool{store: a.taskStore})
+	a.tools.Register(&taskStatusTool{store: a.taskStore})
+	a.tools.Register(&taskCancelTool{store: a.taskStore})
 	// Expose the shared message board so the orchestrator can coordinate with the
 	// sub-agents it delegates to (the sub-agents get it via their own registry in
 	// the task tool's Execute). Paired with delegation: pointless without targets.
@@ -656,10 +860,10 @@ func taskMetasFrom(ctx context.Context) *taskMetaAcct {
 }
 
 // taskStreamEnabled reports whether a delegated sub-agent's tool activity is
-// surfaced in the parent UI (default true; set MN_TASK_STREAM=0/off/false/no
+// surfaced in the parent UI (default true; set SC_TASK_STREAM=0/off/false/no
 // to silence it and show only the final answer).
 func taskStreamEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_TASK_STREAM"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("SC_TASK_STREAM"))) {
 	case "0", "off", "false", "no":
 		return false
 	}

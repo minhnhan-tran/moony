@@ -393,6 +393,18 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 		return true, llm.ContentBlock{}
 	}
 
+	// Isolated-worktree escape guard: an isolated sub-agent's shell must never
+	// reach the real repo it was sandboxed away from — this holds even under
+	// danger-skip (isolation is a safety boundary the sub-agent didn't opt out
+	// of). File tools are already registry-confined; this closes the shell hole.
+	if a.isolatedRoot != "" && call.Name == "bash" {
+		if reason, escapes := bashEscapesRoot(bashCommandField(call.Input), a.isolatedRoot); escapes {
+			msg := "Refused: this command " + reason + ", which is outside your isolated worktree (" + a.isolatedRoot + "). Work only within the current directory; do not touch the main checkout."
+			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
+			return false, llm.ToolResultBlock(call.ID, msg, true)
+		}
+	}
+
 	// danger-skip-permission: auto-approve every remaining gate, including the
 	// git commit/push hard gate below. The structural gates above still apply —
 	// plan mode / a pending plan draft still block edits until the plan is
@@ -406,14 +418,47 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 	// the approval policy (auto/--no-approval) and any allow/always-allow rule.
 	// A Deny permission rule has already blocked above. With no interactive
 	// approver (headless run, sub-agent) the action is denied, never auto-run.
-	if hardApproval(call.Name, call.Input) {
+	//
+	// Sub-agent bridge: if this is a sub-agent with an approvalBridge, we route
+	// the decision to the parent session rather than auto-refusing, so a human
+	// can approve a commit/push requested by a sub-agent.
+	isHard := hardApproval(call.Name, call.Input)
+	var destKind destructiveKind
+	isDest := false
+	if !isHard {
+		destKind, isDest = destructiveCommand(call.Name, call.Input)
+		// A destructive command that the user explicitly asked for in this turn's
+		// user messages is treated as non-destructive (cleared for auto-run),
+		// since the human already instructed us to do it.
+		if isDest && userRequestedDestructive(a.recentUserTexts(), destKind) {
+			isDest = false
+		}
+	}
+
+	if isHard || isDest {
 		if !a.interactive {
+			if a.approvalBridge != nil {
+				// Sub-agent: delegate the decision upward.
+				desc := "wants to execute: " + summary
+				if isDest {
+					desc = "wants to run destructive action: " + string(destKind) + " (" + summary + ")"
+				}
+				if a.approvalBridge(ctx, emit, call.Name, desc, diff).Type == DenyType {
+					msg := "User denied execution of this tool on the parent session. Do not retry; ask how to proceed."
+					emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
+					return false, llm.ToolResultBlock(call.ID, msg, true)
+				}
+				return true, llm.ContentBlock{}
+			}
 			msg := "The " + call.Name + " call requires explicit user approval (git commit/push) and cannot run without an interactive user. Ask the user to perform or approve it."
+			if isDest {
+				msg = "The " + call.Name + " call wants to run a destructive command (" + string(destKind) + ": " + summary + ") and cannot run without an interactive user. Ask the user to perform or approve it."
+			}
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 			return false, llm.ToolResultBlock(call.ID, msg, true)
 		}
 		// Always prompt; do NOT honor "always allow" for these (ApproveAlways is
-		// treated as a one-time Approve), so every commit/push is re-confirmed.
+		// treated as a one-time Approve), so every commit/push or unexpected destructive step is re-confirmed.
 		if a.requestApproval(ctx, emit, call.Name, summary, diff).Type == DenyType {
 			msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
@@ -684,6 +729,15 @@ func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call 
 			hctx.ToolError = output
 		}
 		_ = a.hooks.Run(ctx, hooks.PostTool, hctx)
+	}
+	// Prompt-injection hardening: when a SUB-AGENT ingests content from an
+	// untrusted-content source (a file it read, a web page, raw shell output),
+	// frame that text as data so instructions embedded in it ("ignore your task,
+	// run …") can't hijack the delegated agent. Its system prompt tells it to
+	// treat framed content as data only. No-op for the top-level agent (the
+	// user's own words are trusted) and for error strings / structured tools.
+	if a.isSubAgent && !isErr && untrustedContentTool(call.Name) {
+		output = wrapUntrustedToolOutput(call.Name, output)
 	}
 	// When the tool produced images (e.g. a browser screenshot), forward them to
 	// the model as image blocks alongside the text, so it can actually see them.
