@@ -131,12 +131,48 @@ func buildSystemPrompt(cfg *config.Config, registry *tools.Registry) string {
 	b.WriteString("- Paths you pass to tools are relative to the working directory.\n")
 	b.WriteString("- When the task is complete, give a short summary of what you did.\n")
 
+	// The user profile (USER.md) goes before the instruction files: it describes who
+	// the user IS and how they like to work, which is context for reading the
+	// project's rules — and it stays stable while project files change, so it sits
+	// earlier in the prompt where caching is most effective.
+	b.WriteString(userProfilePrompt())
+
 	// Append global + project instruction files (AGENTS.md / CLAUDE.md). They
 	// arrive least- to most-specific, so the closest file lands last and its
 	// guidance reinforces or overrides broader guidance.
 	b.WriteString(agentsMDPrompt(cfg.WorkingDir))
 	return b.String()
 }
+
+// userProfilePrompt renders the global user profile (USER.md) — durable facts
+// about the USER's style, preferred output formats, and workflow habits, written
+// by the remember_user tool — as a labeled prompt section, or "" when the file is
+// absent or empty. Deliberately separate from AGENTS.md so per-user preferences
+// aren't mistaken for project rules (and don't get committed to a repo).
+func userProfilePrompt() string {
+	path, err := config.UserProfilePath()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	body := strings.TrimSpace(string(data))
+	if body == "" {
+		return ""
+	}
+	if len(body) > maxUserProfileBytes {
+		body = body[:maxUserProfileBytes] + "\n…(truncated)"
+	}
+	home, _ := os.UserHomeDir()
+	return fmt.Sprintf("\nUser profile (about the user — style, preferences, formats) (from %s):\n%s\n\n",
+		tildePath(path, home), body)
+}
+
+// maxUserProfileBytes bounds the injected user profile so a runaway USER.md can't
+// crowd out the conversation. Generous: these are one-line notes.
+const maxUserProfileBytes = 8000
 
 // agentsMDPrompt renders the global + project instruction files (AGENTS.md /
 // CLAUDE.md) as the trailing section of the system prompt, or "" when there are

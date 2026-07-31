@@ -30,6 +30,10 @@ var memoryCategories = []memoryCategory{
 	{"rule", "### Rules"},
 	{"preference", "### Preferences"},
 	{"convention", "### Conventions"},
+	// Style/format are the natural buckets for remember_user's user-profile notes
+	// ("how I like answers"), but they're valid in any scope.
+	{"style", "### Style"},
+	{"format", "### Formatting"},
 	{"note", "### Notes"},
 }
 
@@ -55,6 +59,10 @@ func normalizeCategory(cat, text string) string {
 		return "preference"
 	case "convention", "conventions", "conv":
 		return "convention"
+	case "style", "styles", "tone":
+		return "style"
+	case "format", "formats", "formatting", "output":
+		return "format"
 	case "note", "notes":
 		return "note"
 	}
@@ -124,11 +132,54 @@ func detectStandaloneRule(prompt string) (string, bool) {
 // memoryFile returns the AGENTS.md path memories are written to: the global
 // user file (<config>/moony/AGENTS.md) when global is true, else the
 // project's ./AGENTS.md.
-func (a *Agent) memoryFile(global bool) (string, error) {
+// MemoryScope selects which memory file a note is written to:
+//
+//   - ScopeProject — this repo's AGENTS.md (project rules, conventions, commands)
+//   - ScopeGlobal  — the global AGENTS.md (rules the user wants in every project)
+//   - ScopeUser    — the global USER.md user profile (facts about the USER: how
+//     they like to work — style, preferred formats, workflow habits, standing
+//     requests — applied to every session across all projects)
+type MemoryScope int
+
+const (
+	ScopeProject MemoryScope = iota
+	ScopeGlobal
+	ScopeUser
+)
+
+// scopeFromGlobal maps the legacy global bool to a scope (false=project, true=global).
+func scopeFromGlobal(global bool) MemoryScope {
 	if global {
-		return config.GlobalConfigPath("AGENTS.md")
+		return ScopeGlobal
 	}
-	return filepath.Join(a.cfg.WorkingDir, "AGENTS.md"), nil
+	return ScopeProject
+}
+
+func (s MemoryScope) String() string {
+	switch s {
+	case ScopeGlobal:
+		return "global"
+	case ScopeUser:
+		return "user"
+	default:
+		return "project"
+	}
+}
+
+func (a *Agent) memoryFile(global bool) (string, error) {
+	return a.memoryFileFor(scopeFromGlobal(global))
+}
+
+// memoryFileFor resolves the AGENTS.md / USER.md path for a scope.
+func (a *Agent) memoryFileFor(scope MemoryScope) (string, error) {
+	switch scope {
+	case ScopeGlobal:
+		return config.GlobalConfigPath("AGENTS.md")
+	case ScopeUser:
+		return config.UserProfilePath()
+	default:
+		return filepath.Join(a.cfg.WorkingDir, "AGENTS.md"), nil
+	}
 }
 
 // Remember stores a memory note in the target AGENTS.md (the project file by
@@ -137,6 +188,18 @@ func (a *Agent) memoryFile(global bool) (string, error) {
 // rest of this session. An empty/unknown category is classified from the text.
 // It returns a short confirmation.
 func (a *Agent) Remember(text, category string, global bool) (string, error) {
+	return a.rememberScoped(text, category, scopeFromGlobal(global))
+}
+
+// RememberUser stores a fact about the USER in the global user-profile file
+// (USER.md) — style, preferred output/formats, workflow habits, standing requests
+// — so it applies to every session across all projects. Same mechanics as
+// Remember, but targeting the user scope.
+func (a *Agent) RememberUser(text, category string) (string, error) {
+	return a.rememberScoped(text, category, ScopeUser)
+}
+
+func (a *Agent) rememberScoped(text, category string, scope MemoryScope) (string, error) {
 	text = strings.TrimSpace(strings.TrimLeft(text, "# "))
 	if text == "" {
 		return "", fmt.Errorf("nothing to remember")
@@ -145,7 +208,7 @@ func (a *Agent) Remember(text, category string, global bool) (string, error) {
 		text = text[:memoryMaxLen]
 	}
 	cat := normalizeCategory(category, text)
-	path, err := a.memoryFile(global)
+	path, err := a.memoryFileFor(scope)
 	if err != nil {
 		return "", err
 	}
@@ -153,11 +216,6 @@ func (a *Agent) Remember(text, category string, global bool) (string, error) {
 		return "", err
 	}
 	a.rebuildSystemPrompt()
-
-	scope := "project"
-	if global {
-		scope = "global"
-	}
 	return fmt.Sprintf("Remembered (%s, %s): %s", scope, cat, text), nil
 }
 
@@ -229,31 +287,59 @@ func (a *Agent) AttachMemory(sink *tools.MemorySink) {
 	sink.SetSave(func(text, category string) (string, error) {
 		return a.Remember(text, category, false)
 	})
-	// Feed the recall tool: flatten every AGENTS.md bullet (project + global)
-	// into notes tagged with their section heading.
-	sink.SetList(func() []tools.MemoryNote {
-		var notes []tools.MemoryNote
-		for _, global := range []bool{false, true} {
-			scope := "project"
-			if global {
-				scope = "global"
+	// Feed the recall tool: flatten every memory bullet into notes tagged with
+	// their section heading. All THREE scopes are included — project AGENTS.md,
+	// global AGENTS.md, and the USER.md profile — because recall is registered
+	// against this sink alone, so anything omitted here is simply unsearchable.
+	sink.SetList(a.allMemoryNotes)
+}
+
+// AttachUserMemory wires the remember_user tool's sink to this agent, so the model
+// can persist facts about the USER to the global USER.md profile. Separate sink
+// from AttachMemory: same mechanics, different target file and scope. Its list is
+// the same all-scopes view, so recall behaves identically whichever sink it was
+// registered against.
+func (a *Agent) AttachUserMemory(sink *tools.MemorySink) {
+	sink.SetSave(func(text, category string) (string, error) {
+		return a.RememberUser(text, category)
+	})
+	sink.SetList(a.allMemoryNotes)
+}
+
+// allMemoryNotes flattens every persisted memory bullet — project AGENTS.md,
+// global AGENTS.md, and the USER.md user profile — into recall-searchable notes
+// tagged "<scope> · <heading>".
+func (a *Agent) allMemoryNotes() []tools.MemoryNote {
+	var notes []tools.MemoryNote
+	appendSections := func(scope string, sections []MemorySection) {
+		for _, s := range sections {
+			section := strings.TrimSpace(s.Heading)
+			if section == "" {
+				section = scope
+			} else {
+				section = scope + " · " + section
 			}
-			for _, s := range a.AgentsSections(global) {
-				section := strings.TrimSpace(s.Heading)
-				if section == "" {
-					section = scope
-				} else {
-					section = scope + " · " + section
-				}
-				for _, bullet := range s.Bullets {
-					if b := strings.TrimSpace(bullet); b != "" {
-						notes = append(notes, tools.MemoryNote{Section: section, Text: b})
-					}
+			for _, bullet := range s.Bullets {
+				if b := strings.TrimSpace(bullet); b != "" {
+					notes = append(notes, tools.MemoryNote{Section: section, Text: b})
 				}
 			}
 		}
-		return notes
-	})
+	}
+	appendSections("project", a.AgentsSections(false))
+	appendSections("global", a.AgentsSections(true))
+	appendSections("user", a.UserProfileSections())
+	return notes
+}
+
+// UserProfileSections returns every section of the global USER.md profile with its
+// bullets, in file order — the user-scope analogue of AgentsSections.
+func (a *Agent) UserProfileSections() []MemorySection {
+	path, err := config.UserProfilePath()
+	if err != nil {
+		return nil
+	}
+	return readAgentsSections(path)
 }
 
 // MemorySection is one AGENTS.md heading and its bullet lines, for the web editor
@@ -625,12 +711,27 @@ func (a *Agent) MemoryView() string {
 // requested. Recognized flags: --global/-g, --rule/-r, --preference/--pref/-p,
 // --convention/--conv/-c, --note/-n. Flags may appear anywhere in the argument.
 func ParseMemoryFlags(arg string) (note, category string, global bool) {
+	note, category, scope := ParseMemoryScope(arg)
+	return note, category, scope == ScopeGlobal
+}
+
+// ParseMemoryScope is ParseMemoryFlags with the full three-way scope: --global/-g
+// for the global AGENTS.md, --user/-u for the global USER.md user profile, and
+// neither for this project's AGENTS.md.
+func ParseMemoryScope(arg string) (note, category string, scope MemoryScope) {
+	scope = ScopeProject
 	fields := strings.Fields(arg)
 	var kept []string
 	for _, f := range fields {
 		switch strings.ToLower(f) {
 		case "--global", "-g":
-			global = true
+			scope = ScopeGlobal
+		case "--user", "-u":
+			scope = ScopeUser
+		case "--style", "-s":
+			category = "style"
+		case "--format":
+			category = "format"
 		case "--rule", "-r":
 			category = "rule"
 		case "--preference", "--pref", "-p":
@@ -643,7 +744,7 @@ func ParseMemoryFlags(arg string) (note, category string, global bool) {
 			kept = append(kept, f)
 		}
 	}
-	return strings.Join(kept, " "), category, global
+	return strings.Join(kept, " "), category, scope
 }
 
 // upsertMemoryBullet stores "- text" under the given "### …" subheading inside

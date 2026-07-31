@@ -174,10 +174,13 @@ func main() {
 	registry.RegisterPlan(plan)
 	memory := tools.NewMemorySink()
 	registry.RegisterRemember(memory)
+	userMemory := tools.NewMemorySink()
+	registry.RegisterRememberUser(userMemory)
 	ag := agent.New(cfg, client, registry, store, sess)
 	ag.AttachTodoStore(todos)
 	ag.AttachPlanStore(plan)
 	ag.AttachMemory(memory)
+	ag.AttachUserMemory(userMemory)
 	ag.AttachPermissions(permissions.Load(cfg.WorkingDir))
 	// Reap everything the registry started on exit — background bash jobs
 	// (bash background:true) and a headless browser — so nothing outlives the

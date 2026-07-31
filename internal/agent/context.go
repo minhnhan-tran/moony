@@ -51,12 +51,18 @@ func (a *Agent) ContextBreakdown() ContextBreakdown {
 	// section so they can be sized independently. agentsMDPrompt reproduces
 	// exactly the suffix buildSystemPrompt appends, so subtracting it yields the
 	// base.
-	memoryFiles := agentsMDPrompt(a.cfg.WorkingDir)
+	// The suffix is userProfilePrompt() + agentsMDPrompt(), in that order (see
+	// buildSystemPrompt), so strip them from the end in reverse.
 	base := a.system
-	if memoryFiles != "" && len(a.system) >= len(memoryFiles) &&
-		a.system[len(a.system)-len(memoryFiles):] == memoryFiles {
-		base = a.system[:len(a.system)-len(memoryFiles)]
+	trimSuffix := func(suffix string) {
+		if suffix != "" && strings.HasSuffix(base, suffix) {
+			base = base[:len(base)-len(suffix)]
+		}
 	}
+	memoryFiles := agentsMDPrompt(a.cfg.WorkingDir)
+	trimSuffix(memoryFiles)
+	userProfile := userProfilePrompt()
+	trimSuffix(userProfile)
 
 	segs := []ContextSegment{
 		{Label: "System", Tokens: tokensOf(base)},
@@ -67,6 +73,7 @@ func (a *Agent) ContextBreakdown() ContextBreakdown {
 		}
 	}
 
+	add(ContextSegment{Label: "User profile", Tokens: tokensOf(userProfile)})
 	add(a.memoryFilesSegment())
 	builtin, mcp, subagents, skills := a.toolSegments()
 	add(builtin)

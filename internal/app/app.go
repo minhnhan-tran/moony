@@ -52,12 +52,15 @@ func BuildServer(cfg *config.Config) (*web.Server, *session.Store, error) {
 		registry.RegisterPlan(plan)
 		mem := tools.NewMemorySink()
 		registry.RegisterRemember(mem)
+		userMem := tools.NewMemorySink()
+		registry.RegisterRememberUser(userMem)
 		ag := agent.New(&c, client, registry, store, sess)
 		ag.SetInteractive(true)    // a browser user answers approval/question prompts
 		ag.SetQuestionGroups(true) // the web UI renders ask_user questions[] as tabs
 		ag.AttachTodoStore(todos)
 		ag.AttachPlanStore(plan)
 		ag.AttachMemory(mem)
+		ag.AttachUserMemory(userMem)
 		ag.AttachPermissions(permissions.Load(workingDir))
 		mgmt := manage.Load(workingDir)
 		_, _ = subagents.SeedGlobalDefaultAgents() // editable build/plan in /agents (best-effort, idempotent)

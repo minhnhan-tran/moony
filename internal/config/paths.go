@@ -45,6 +45,18 @@ func GlobalConfigPath(elem ...string) (string, error) {
 	return filepath.Join(append([]string{dir}, elem...)...), nil
 }
 
+// UserProfileFilename is the global user-profile memory file: durable facts about
+// the USER (coding style, preferred output/formats, workflow habits, standing
+// requests) that apply to every session across all projects. Kept separate from
+// AGENTS.md, which holds project/repo rules and conventions.
+const UserProfileFilename = "USER.md"
+
+// UserProfilePath returns the absolute path of the global user-profile memory
+// file, <GlobalConfigDir>/USER.md.
+func UserProfilePath() (string, error) {
+	return GlobalConfigPath(UserProfileFilename)
+}
+
 // MigrateLegacyConfigDir relocates the global config dir from the location this
 // app used before it pinned GlobalConfigDir to ~/.config/moony — Go's
 // os.UserConfigDir(), which on macOS is ~/Library/Application Support/

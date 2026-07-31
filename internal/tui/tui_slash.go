@@ -10,6 +10,7 @@ import (
 
 	"github.com/atotto/clipboard"
 
+	"github.com/pysty1995/moony/internal/agent"
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/domains"
 	"github.com/pysty1995/moony/internal/lsp"
@@ -323,14 +324,21 @@ func domainsList(list *domains.List) string {
 	return b.String()
 }
 
-// remember saves a note to memory (project, or global) under an optional
-// category, and returns a status line; it does not send anything to the model.
-func (m Model) remember(note, category string, global bool) string {
+// remember saves a note to memory (this project, the global AGENTS.md, or the
+// global USER.md user profile) under an optional category, and returns a status
+// line; it does not send anything to the model.
+func (m Model) remember(note, category string, scope agent.MemoryScope) string {
 	note = strings.TrimSpace(note)
 	if note == "" {
-		return "Nothing to remember. Use /memory <note> or start a line with #."
+		return "Nothing to remember. Use /memory <note> (add --global or --user to widen the scope), or start a line with #."
 	}
-	out, err := m.agent.Remember(note, category, global)
+	var out string
+	var err error
+	if scope == agent.ScopeUser {
+		out, err = m.agent.RememberUser(note, category)
+	} else {
+		out, err = m.agent.Remember(note, category, scope == agent.ScopeGlobal)
+	}
 	if err != nil {
 		return "Could not save memory: " + err.Error()
 	}

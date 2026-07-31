@@ -1321,7 +1321,7 @@ func (m Model) submit() (tea.Model, tea.Cmd) {
 	// A leading "#" is the quick-memory shortcut (like Claude Code): save the
 	// note to project memory instead of sending it to the model.
 	if strings.HasPrefix(text, "#") {
-		m.trans.add(entry{kind: entryInfo, text: m.remember(strings.TrimSpace(text[1:]), "", false)})
+		m.trans.add(entry{kind: entryInfo, text: m.remember(strings.TrimSpace(text[1:]), "", agent.ScopeProject)})
 		m.refresh()
 		return m, nil
 	}
@@ -1448,7 +1448,7 @@ func (m Model) remoteSubmit(text string) (tea.Model, tea.Cmd) {
 	}
 
 	if strings.HasPrefix(text, "#") {
-		note := m.remember(strings.TrimSpace(text[1:]), "", false)
+		note := m.remember(strings.TrimSpace(text[1:]), "", agent.ScopeProject)
 		m.trans.add(entry{kind: entryInfo, text: note})
 		m.publishInfo(note)
 		m.refresh()
@@ -1941,8 +1941,8 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 			m.trans.add(entry{kind: entryInfo, text: m.agent.MemoryView()})
 		} else {
 			arg := strings.TrimSpace(strings.TrimPrefix(text, fields[0]))
-			note, category, global := agent.ParseMemoryFlags(arg)
-			m.trans.add(entry{kind: entryInfo, text: m.remember(note, category, global)})
+			note, category, scope := agent.ParseMemoryScope(arg)
+			m.trans.add(entry{kind: entryInfo, text: m.remember(note, category, scope)})
 		}
 	case "/undo":
 		out, err := m.agent.Undo(context.Background())
