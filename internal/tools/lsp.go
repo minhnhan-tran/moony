@@ -129,7 +129,7 @@ func (t *lspDefinitionTool) Execute(ctx context.Context, input json.RawMessage) 
 	if server == "" {
 		return noServerMsg(abs), nil
 	}
-	return formatLocations(t.r.root, locs), nil
+	return formatLocations(t.r.Root(), locs), nil
 }
 
 // lspReferencesTool wraps textDocument/references.
@@ -174,7 +174,7 @@ func (t *lspReferencesTool) Execute(ctx context.Context, input json.RawMessage) 
 	if server == "" {
 		return noServerMsg(abs), nil
 	}
-	return formatLocations(t.r.root, locs), nil
+	return formatLocations(t.r.Root(), locs), nil
 }
 
 // lspHoverTool wraps textDocument/hover.

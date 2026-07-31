@@ -216,7 +216,7 @@ func (t *readTool) notFoundHint(abs string) string {
 // relDisplay renders abs relative to the workspace root when it's inside it (so
 // hints stay short), falling back to the absolute path otherwise.
 func (t *readTool) relDisplay(abs string) string {
-	if rel, err := filepath.Rel(t.r.root, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if rel, err := filepath.Rel(t.r.Root(), abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return rel
 	}
 	return abs

@@ -45,7 +45,7 @@ func (t *lintTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	if err := decode(input, &in); err != nil {
 		return "", err
 	}
-	target := t.r.root
+	target := t.r.Root()
 	if p := strings.TrimSpace(in.Path); p != "" {
 		abs, err := t.r.resolve(p)
 		if err != nil {
@@ -57,9 +57,9 @@ func (t *lintTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		return searchDedupStub(t.Name()), nil
 	}
 
-	runs := planLintRuns(t.r.root, target)
+	runs := planLintRuns(t.r.Root(), target)
 	if len(runs) == 0 {
-		rel, _ := filepath.Rel(t.r.root, target)
+		rel, _ := filepath.Rel(t.r.Root(), target)
 		return fmt.Sprintf("No recognized project type (go.mod, package.json, pyproject.toml/requirements.txt/setup.py, or Cargo.toml) found for %s; nothing to lint.", orDot(rel)), nil
 	}
 

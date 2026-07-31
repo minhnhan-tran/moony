@@ -128,14 +128,14 @@ func (t *searchCodeTool) Execute(ctx context.Context, input json.RawMessage) (st
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		rel, _ := filepath.Rel(t.r.root, p)
+		rel, _ := filepath.Rel(t.r.Root(), p)
 		if d.IsDir() {
-			if p != abs && t.r.ignore.Match(rel, true) {
+			if p != abs && t.r.ignoreSet().Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if t.r.ignore.Match(rel, false) {
+		if t.r.ignoreSet().Match(rel, false) {
 			return nil
 		}
 		if len(includes) > 0 && !includeMatch(includes, rel) {
@@ -173,7 +173,7 @@ func (t *searchCodeTool) Execute(ctx context.Context, input json.RawMessage) (st
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				data, rerr := os.ReadFile(filepath.Join(t.r.root, files[i]))
+				data, rerr := os.ReadFile(filepath.Join(t.r.Root(), files[i]))
 				if rerr != nil || isBinary(data) {
 					continue
 				}

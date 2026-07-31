@@ -109,11 +109,21 @@ type Registry struct {
 	closeMu sync.Mutex
 	closers []func()
 
-	// repoMapOnce memoizes RepoMap so its whole-tree walk runs at most once per
-	// registry, not on every system-prompt rebuild (remember/MCP-connect/attach).
-	// The map is a coarse, session-stable orientation snapshot — mild count drift
-	// as the agent edits files is acceptable.
-	repoMapOnce sync.Once
+	// rootMu guards root and ignore. Both are REPLACED at runtime by SetRoot (the
+	// /cd command) while background workers — the symbol-map and repo-map builders,
+	// which outlive the tool call that started them — are still walking the tree
+	// with them, so a plain field read races a re-root.
+	rootMu sync.RWMutex
+
+	// repoMapMu/repoMapDone/repoMapStr memoize RepoMap so its whole-tree walk runs
+	// at most once per root, not on every system-prompt rebuild
+	// (remember/MCP-connect/attach). The map is a coarse, session-stable
+	// orientation snapshot — mild count drift as the agent edits files is
+	// acceptable. A plain mutex rather than sync.Once because SetRoot has to INVALIDATE
+	// the memo, and resetting a sync.Once is itself a data race against a
+	// concurrent Do.
+	repoMapMu   sync.Mutex
+	repoMapDone bool
 	repoMapStr  string
 
 	// symbolMap memoizes the scored symbol/caller map (see symbolmap.go). It's
@@ -450,7 +460,19 @@ func (r *Registry) Close() {
 }
 
 // Root returns the registry's working-directory root (the path-sandbox boundary).
-func (r *Registry) Root() string { return r.root }
+func (r *Registry) Root() string {
+	r.rootMu.RLock()
+	defer r.rootMu.RUnlock()
+	return r.root
+}
+
+// ignoreSet returns the active ignore matcher under the read lock. Use this
+// instead of touching r.ignoreSet() directly: SetRoot replaces it at runtime.
+func (r *Registry) ignoreSet() *IgnoreSet {
+	r.rootMu.RLock()
+	defer r.rootMu.RUnlock()
+	return r.ignore
+}
 
 // SetRoot re-roots the registry at dir IN PLACE: it changes the path-sandbox
 // boundary, reloads the ignore set for the new tree, and clears the root-relative
@@ -460,12 +482,19 @@ func (r *Registry) Root() string { return r.root }
 // resolve against dir; extra/temp roots are unchanged. Not safe to call during an
 // in-flight tool call (callers gate it on the session being idle).
 func (r *Registry) SetRoot(dir string) {
+	// Load the new ignore set BEFORE taking the lock: LoadIgnore reads files, and
+	// holding the lock across that would stall every concurrent path resolution.
+	ig := LoadIgnore(dir)
+	r.rootMu.Lock()
 	r.root = dir
-	r.ignore = LoadIgnore(dir)
+	r.ignore = ig
+	r.rootMu.Unlock()
 	// Reset the orientation/dedup caches: they're keyed/derived against the old
 	// root and would otherwise leak across the switch.
-	r.repoMapOnce = sync.Once{}
+	r.repoMapMu.Lock()
+	r.repoMapDone = false
 	r.repoMapStr = ""
+	r.repoMapMu.Unlock()
 	r.symbolMapMu.Lock()
 	r.symbolMap = nil
 	r.symbolMapMu.Unlock()
@@ -480,9 +509,9 @@ func (r *Registry) SetRoot(dir string) {
 // allRoots returns the primary working dir followed by any extra allowed roots.
 func (r *Registry) allRoots() []string {
 	if len(r.extraRoots) == 0 {
-		return []string{r.root}
+		return []string{r.Root()}
 	}
-	return append([]string{r.root}, r.extraRoots...)
+	return append([]string{r.Root()}, r.extraRoots...)
 }
 
 // Roots returns all workspace roots (primary first). Used by the bash sandbox to
@@ -507,7 +536,7 @@ func (r *Registry) AddRoots(dirs ...string) {
 			}
 		}
 		abs = filepath.Clean(abs)
-		if abs == r.root {
+		if abs == r.Root() {
 			continue
 		}
 		dup := false
@@ -524,7 +553,7 @@ func (r *Registry) AddRoots(dirs ...string) {
 }
 
 // Ignore returns the ignore set for read-side tools (glob/grep/list_dir).
-func (r *Registry) Ignore() *IgnoreSet { return r.ignore }
+func (r *Registry) Ignore() *IgnoreSet { return r.ignoreSet() }
 
 // Register adds a tool to the registry.
 func (r *Registry) Register(t Tool) {
@@ -818,7 +847,7 @@ func (r *Registry) resolve(path string) (string, error) {
 	}
 	p := path
 	if !filepath.IsAbs(p) {
-		p = filepath.Join(r.root, p)
+		p = filepath.Join(r.Root(), p)
 	}
 	p = filepath.Clean(p)
 

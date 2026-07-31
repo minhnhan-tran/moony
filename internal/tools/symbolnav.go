@@ -35,14 +35,14 @@ const symbolNavMaxFiles = 20000
 // file under the registry root whose relative path matches the include globs
 // (when non-empty). Paths passed to fn are relative to root.
 func (r *Registry) walkSourceFiles(includes []includeGlob, fn func(rel string, data []byte)) error {
-	root := r.root
+	root := r.Root()
 	count := 0
 	return filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip unreadable entries
 		}
 		if d.IsDir() {
-			if p != root && r.ignore != nil && r.ignore.Match(p, true) {
+			if p != root && r.ignoreSet() != nil && r.ignoreSet().Match(p, true) {
 				return filepath.SkipDir
 			}
 			base := d.Name()
@@ -62,7 +62,7 @@ func (r *Registry) walkSourceFiles(includes []includeGlob, fn func(rel string, d
 		if len(includes) > 0 && !includeMatch(includes, rel) {
 			return nil
 		}
-		if r.ignore != nil && r.ignore.Match(p, false) {
+		if r.ignoreSet() != nil && r.ignoreSet().Match(p, false) {
 			return nil
 		}
 		info, ierr := d.Info()
@@ -158,7 +158,7 @@ func (t *readSymbolTool) Execute(_ context.Context, input json.RawMessage) (stri
 			if derr != nil {
 				return "", derr
 			}
-			rel, _ := filepath.Rel(t.r.root, abs)
+			rel, _ := filepath.Rel(t.r.Root(), abs)
 			scan(filepath.ToSlash(rel), data)
 		}
 	} else {
@@ -205,7 +205,7 @@ func (t *readSymbolTool) walkUnder(absDir string, fn func(rel string, data []byt
 			return nil
 		}
 		if d.IsDir() {
-			if p != absDir && t.r.ignore != nil && t.r.ignore.Match(p, true) {
+			if p != absDir && t.r.ignoreSet() != nil && t.r.ignoreSet().Match(p, true) {
 				return filepath.SkipDir
 			}
 			if base := d.Name(); p != absDir && (base == ".git" || base == "node_modules") {
@@ -213,7 +213,7 @@ func (t *readSymbolTool) walkUnder(absDir string, fn func(rel string, data []byt
 			}
 			return nil
 		}
-		if t.r.ignore != nil && t.r.ignore.Match(p, false) {
+		if t.r.ignoreSet() != nil && t.r.ignoreSet().Match(p, false) {
 			return nil
 		}
 		info, ierr := d.Info()
@@ -224,7 +224,7 @@ func (t *readSymbolTool) walkUnder(absDir string, fn func(rel string, data []byt
 		if derr != nil || isBinary(data) {
 			return nil
 		}
-		rel, _ := filepath.Rel(t.r.root, p)
+		rel, _ := filepath.Rel(t.r.Root(), p)
 		fn(filepath.ToSlash(rel), data)
 		return nil
 	})

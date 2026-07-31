@@ -152,21 +152,21 @@ func (t *semanticSearchTool) reindex(ctx context.Context) (int, error) {
 	var refs []ref
 	capped := false
 
-	walkErr := filepath.WalkDir(t.r.root, func(p string, d fs.DirEntry, werr error) error {
+	walkErr := filepath.WalkDir(t.r.Root(), func(p string, d fs.DirEntry, werr error) error {
 		if werr != nil {
 			return nil
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		rel, _ := filepath.Rel(t.r.root, p)
+		rel, _ := filepath.Rel(t.r.Root(), p)
 		if d.IsDir() {
-			if p != t.r.root && t.r.ignore.Match(rel, true) {
+			if p != t.r.Root() && t.r.ignoreSet().Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if t.r.ignore.Match(rel, false) {
+		if t.r.ignoreSet().Match(rel, false) {
 			return nil
 		}
 		if info, ierr := d.Info(); ierr == nil && info.Size() > maxGrepFileSize {

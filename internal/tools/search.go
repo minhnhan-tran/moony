@@ -76,8 +76,8 @@ func (r *Registry) dirListing(abs string) (string, error) {
 	skipped := 0
 	for _, e := range entries {
 		full := filepath.Join(abs, e.Name())
-		rel, _ := filepath.Rel(r.root, full)
-		if r.ignore.Match(rel, e.IsDir()) {
+		rel, _ := filepath.Rel(r.Root(), full)
+		if r.ignoreSet().Match(rel, e.IsDir()) {
 			skipped++
 			continue
 		}
@@ -138,19 +138,22 @@ func (t *globTool) Execute(_ context.Context, input json.RawMessage) (string, er
 
 	const max = 200
 	var matches []string
-	walkErr := filepath.WalkDir(t.r.root, func(path string, d fs.DirEntry, err error) error {
+	// One guarded read of the root + ignore set for the whole walk, not one per
+	// visited file (see repoMap): cheaper, and consistent if /cd re-roots midway.
+	root, ig := t.r.Root(), t.r.ignoreSet()
+	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		rel, _ := filepath.Rel(t.r.root, path)
+		rel, _ := filepath.Rel(root, path)
 		rel = filepath.ToSlash(rel) // glob matching + tool output use '/' on every OS
 		if d.IsDir() {
-			if path != t.r.root && t.r.ignore.Match(rel, true) {
+			if path != root && ig.Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if t.r.ignore.Match(rel, false) {
+		if ig.Match(rel, false) {
 			return nil
 		}
 		if re.MatchString(rel) {
@@ -381,7 +384,7 @@ func (t *grepTool) search(ctx context.Context, in grepInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	searchTarget, _ := filepath.Rel(t.r.root, abs)
+	searchTarget, _ := filepath.Rel(t.r.Root(), abs)
 	if searchTarget == "" {
 		searchTarget = "."
 	}
@@ -419,15 +422,15 @@ func (t *grepTool) scanWithGo(ctx context.Context, in grepInput, re *regexp.Rege
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		rel, _ := filepath.Rel(t.r.root, path)
+		rel, _ := filepath.Rel(t.r.Root(), path)
 		rel = filepath.ToSlash(rel) // gitignore/include globs and tool output use '/' on every OS
 		if d.IsDir() {
-			if path != abs && t.r.ignore.Match(rel, true) {
+			if path != abs && t.r.ignoreSet().Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if t.r.ignore.Match(rel, false) {
+		if t.r.ignoreSet().Match(rel, false) {
 			return nil
 		}
 		if len(includes) > 0 && !includeMatch(includes, rel) {
@@ -459,7 +462,7 @@ func (t *grepTool) scanWithGo(ctx context.Context, in grepInput, re *regexp.Rege
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				data, rerr := os.ReadFile(filepath.Join(t.r.root, files[i]))
+				data, rerr := os.ReadFile(filepath.Join(t.r.Root(), files[i]))
 				if rerr != nil || isBinary(data) {
 					continue
 				}
@@ -713,7 +716,7 @@ func (t *grepTool) scanWithRipgrep(ctx context.Context, rgPath string, in grepIn
 	rgCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cmd := exec.CommandContext(rgCtx, rgPath, buildRgArgs(in, ctxN, rawGlobs, t.sqeignorePath(), searchTarget)...)
-	cmd.Dir = t.r.root
+	cmd.Dir = t.r.Root()
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, nil, false
@@ -752,11 +755,11 @@ func (t *grepTool) scanWithRipgrep(ctx context.Context, rgPath string, in grepIn
 // ignored. The Go walk gets this for free (it SkipDir's ignored directories);
 // ripgrep doesn't, so we replicate it when filtering rg's results for parity.
 func (t *grepTool) ignored(rel string) bool {
-	if t.r.ignore.Match(rel, false) {
+	if t.r.ignoreSet().Match(rel, false) {
 		return true
 	}
 	for dir := filepath.Dir(rel); dir != "." && dir != "/" && dir != ""; dir = filepath.Dir(dir) {
-		if t.r.ignore.Match(dir, true) {
+		if t.r.ignoreSet().Match(dir, true) {
 			return true
 		}
 	}
@@ -766,7 +769,7 @@ func (t *grepTool) ignored(rel string) bool {
 // sqeignorePath returns the project's .sqeignore path if it exists, so it can be
 // passed to ripgrep (which honors .gitignore but not .sqeignore).
 func (t *grepTool) sqeignorePath() string {
-	p := filepath.Join(t.r.root, ".sqeignore")
+	p := filepath.Join(t.r.Root(), ".sqeignore")
 	if _, err := os.Stat(p); err == nil {
 		return p
 	}

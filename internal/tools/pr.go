@@ -58,7 +58,7 @@ func (t *prCreateTool) resolve(ctx context.Context) (githost.Client, error) {
 	if t.client != nil {
 		return t.client, nil
 	}
-	_, c, err := resolveGitHostClient(ctx, t.r.root)
+	_, c, err := resolveGitHostClient(ctx, t.r.Root())
 	return c, err
 }
 
@@ -96,7 +96,7 @@ func (t *prCreateTool) parseInput(ctx context.Context, input json.RawMessage) (g
 	}
 	head := strings.TrimSpace(in.Head)
 	if head == "" {
-		branch, _, isRepo := GitInfo(t.r.root)
+		branch, _, isRepo := GitInfo(t.r.Root())
 		if !isRepo || branch == "" {
 			return githost.CreatePROpts{}, fmt.Errorf("head is required (couldn't detect the current branch)")
 		}
@@ -104,7 +104,7 @@ func (t *prCreateTool) parseInput(ctx context.Context, input json.RawMessage) (g
 	}
 	base := strings.TrimSpace(in.Base)
 	if base == "" {
-		base = detectDefaultBase(ctx, t.r.root)
+		base = detectDefaultBase(ctx, t.r.Root())
 	}
 	return githost.CreatePROpts{Title: in.Title, Body: in.Body, Head: head, Base: base, Draft: in.Draft}, nil
 }
@@ -155,7 +155,7 @@ func (t *prListTool) resolve(ctx context.Context) (githost.Client, error) {
 	if t.client != nil {
 		return t.client, nil
 	}
-	_, c, err := resolveGitHostClient(ctx, t.r.root)
+	_, c, err := resolveGitHostClient(ctx, t.r.Root())
 	return c, err
 }
 
@@ -244,7 +244,7 @@ func (t *prCommentsTool) resolve(ctx context.Context) (githost.Client, error) {
 	if t.client != nil {
 		return t.client, nil
 	}
-	_, c, err := resolveGitHostClient(ctx, t.r.root)
+	_, c, err := resolveGitHostClient(ctx, t.r.Root())
 	return c, err
 }
 
@@ -350,7 +350,7 @@ func (t *prChecksTool) resolve(ctx context.Context) (githost.Client, error) {
 	if t.client != nil {
 		return t.client, nil
 	}
-	_, c, err := resolveGitHostClient(ctx, t.r.root)
+	_, c, err := resolveGitHostClient(ctx, t.r.Root())
 	return c, err
 }
 

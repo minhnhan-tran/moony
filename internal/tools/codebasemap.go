@@ -265,7 +265,7 @@ func (r *Registry) codebaseMapModel() (dirs []string, byDir map[string][]*cbmFil
 	sort.Strings(dirs)
 
 	return dirs, byDir, cbmMeta{
-		root: r.root, counts: counts, rootFiles: rootFiles,
+		root: r.Root(), counts: counts, rootFiles: rootFiles,
 		total: total, truncated: truncated, indexed: len(byFile),
 	}, true
 }

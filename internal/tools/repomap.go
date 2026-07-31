@@ -37,7 +37,12 @@ var rootMarkerFiles = []string{
 // an empty tree. Memoized per registry (computeRepoMap's whole-tree walk runs at
 // most once) so repeated system-prompt rebuilds don't re-walk the tree.
 func (r *Registry) RepoMap() string {
-	r.repoMapOnce.Do(func() { r.repoMapStr = r.computeRepoMap() })
+	r.repoMapMu.Lock()
+	defer r.repoMapMu.Unlock()
+	if !r.repoMapDone {
+		r.repoMapStr = r.computeRepoMap()
+		r.repoMapDone = true
+	}
 	return r.repoMapStr
 }
 
@@ -54,7 +59,7 @@ func (r *Registry) computeRepoMap() string {
 	if truncated {
 		approx = "+"
 	}
-	fmt.Fprintf(&b, "Repository map — %s", filepath.Base(r.root))
+	fmt.Fprintf(&b, "Repository map — %s", filepath.Base(r.Root()))
 	if stack := detectStack(rootFiles); stack != "" {
 		fmt.Fprintf(&b, " (%s)", stack)
 	}
@@ -99,22 +104,26 @@ func (r *Registry) walkTreeCounts() (counts map[string]int, children map[string]
 	children = map[string]map[string]bool{}
 	rootFiles = map[string]bool{}
 
-	_ = filepath.WalkDir(r.root, func(path string, d fs.DirEntry, err error) error {
+	// One guarded read of the root + ignore set for the whole walk rather than one
+	// per visited file: cheaper, and every path in this walk is resolved against
+	// the SAME root even if a concurrent /cd re-roots the registry midway.
+	root, ig := r.Root(), r.ignoreSet()
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		rel, e := filepath.Rel(r.root, path)
+		rel, e := filepath.Rel(root, path)
 		if e != nil || rel == "." {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
-			if r.ignore.Match(rel, true) {
+			if ig.Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if r.ignore.Match(rel, false) {
+		if ig.Match(rel, false) {
 			return nil
 		}
 		total++

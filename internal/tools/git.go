@@ -383,7 +383,7 @@ func (t *gitStatusTool) Execute(ctx context.Context, input json.RawMessage) (str
 	if _, ok := t.r.searchCacheLookup(t.Name(), input); ok {
 		return searchDedupStub(t.Name()), nil
 	}
-	out, err := runGit(ctx, t.r.root, t.max, "status", "--short", "--branch")
+	out, err := runGit(ctx, t.r.Root(), t.max, "status", "--short", "--branch")
 	if err != nil {
 		return "", err
 	}
@@ -431,7 +431,7 @@ func (t *gitDiffTool) Execute(ctx context.Context, input json.RawMessage) (strin
 	if strings.TrimSpace(in.Path) != "" {
 		args = append(args, "--", in.Path)
 	}
-	out, err := runGit(ctx, t.r.root, t.max, args...)
+	out, err := runGit(ctx, t.r.Root(), t.max, args...)
 	if err != nil {
 		return "", err
 	}
@@ -483,7 +483,7 @@ func (t *gitLogTool) Execute(ctx context.Context, input json.RawMessage) (string
 	if strings.TrimSpace(in.Path) != "" {
 		args = append(args, "--", in.Path)
 	}
-	out, err := runGit(ctx, t.r.root, t.max, args...)
+	out, err := runGit(ctx, t.r.Root(), t.max, args...)
 	if err != nil {
 		return "", err
 	}
@@ -543,7 +543,7 @@ func (t *gitCommitTool) Preview(ctx context.Context, input json.RawMessage) (Pre
 		diffArgs = []string{"diff", "--stat"} // working-tree changes that -a will stage
 		summary = "commit all tracked changes"
 	}
-	diff, _ := runGit(ctx, t.r.root, t.max, diffArgs...)
+	diff, _ := runGit(ctx, t.r.Root(), t.max, diffArgs...)
 	return Preview{Summary: summary + ": " + firstLine(msg), Diff: diff}, nil
 }
 
@@ -558,7 +558,7 @@ func (t *gitCommitTool) Execute(ctx context.Context, input json.RawMessage) (str
 		args = append(args, "-a")
 	}
 	args = append(args, "-m", msg)
-	out, err := runGit(ctx, t.r.root, t.max, args...)
+	out, err := runGit(ctx, t.r.Root(), t.max, args...)
 	if err != nil {
 		return "", err
 	}
@@ -601,7 +601,7 @@ func (t *gitBranchTool) Execute(ctx context.Context, input json.RawMessage) (str
 		args = append(args, "-b")
 	}
 	args = append(args, in.Name)
-	out, err := runGit(ctx, t.r.root, 1<<16, args...)
+	out, err := runGit(ctx, t.r.Root(), 1<<16, args...)
 	if err != nil {
 		return "", err
 	}

@@ -248,22 +248,25 @@ func (r *Registry) buildAndStore() *SymbolMap {
 func (r *Registry) repoGeneration() int64 {
 	var latest int64
 	var n int64
-	_ = filepath.WalkDir(r.root, func(path string, d fs.DirEntry, err error) error {
+	// One guarded read of the root + ignore set per walk rather than per file
+	// (see repoMap): cheaper, and consistent if /cd re-roots midway.
+	root, ig := r.Root(), r.ignoreSet()
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		rel, e := filepath.Rel(r.root, path)
+		rel, e := filepath.Rel(root, path)
 		if e != nil || rel == "." {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
-			if r.ignore.Match(rel, true) {
+			if ig.Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !symbolLangExt[strings.ToLower(filepath.Ext(rel))] || r.ignore.Match(rel, false) {
+		if !symbolLangExt[strings.ToLower(filepath.Ext(rel))] || ig.Match(rel, false) {
 			return nil
 		}
 		n++
@@ -284,22 +287,25 @@ func (r *Registry) buildSymbolMap() *SymbolMap {
 	var totalBytes int64
 	files := 0
 
-	_ = filepath.WalkDir(r.root, func(path string, d fs.DirEntry, err error) error {
+	// One guarded read of the root + ignore set per walk rather than per file
+	// (see repoMap): cheaper, and consistent if /cd re-roots midway.
+	root, ig := r.Root(), r.ignoreSet()
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		rel, e := filepath.Rel(r.root, path)
+		rel, e := filepath.Rel(root, path)
 		if e != nil || rel == "." {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
-			if r.ignore.Match(rel, true) {
+			if ig.Match(rel, true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !symbolLangExt[strings.ToLower(filepath.Ext(rel))] || r.ignore.Match(rel, false) {
+		if !symbolLangExt[strings.ToLower(filepath.Ext(rel))] || ig.Match(rel, false) {
 			return nil
 		}
 		if files >= symbolMapMaxFiles || totalBytes >= symbolMapMaxTotal {

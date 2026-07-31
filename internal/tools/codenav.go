@@ -115,13 +115,13 @@ func (t *codeNavTool) Execute(ctx context.Context, input json.RawMessage) (strin
 		if err != nil {
 			return navErr(err)
 		}
-		return formatNavLocations("definition", in.Symbol, locs, t.r.root), nil
+		return formatNavLocations("definition", in.Symbol, locs, t.r.Root()), nil
 	case "references":
 		locs, _, err := t.r.lsp.References(ctx, abs, line, char, true)
 		if err != nil {
 			return navErr(err)
 		}
-		return formatNavLocations("references", in.Symbol, locs, t.r.root), nil
+		return formatNavLocations("references", in.Symbol, locs, t.r.Root()), nil
 	default: // hover
 		text, _, err := t.r.lsp.Hover(ctx, abs, line, char)
 		if err != nil {

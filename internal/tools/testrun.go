@@ -53,7 +53,7 @@ func (t *testRunTool) Execute(ctx context.Context, input json.RawMessage) (strin
 	if err := decode(input, &in); err != nil {
 		return "", err
 	}
-	target := t.r.root
+	target := t.r.Root()
 	if p := strings.TrimSpace(in.Path); p != "" {
 		abs, err := t.r.resolve(p)
 		if err != nil {
@@ -72,17 +72,17 @@ func (t *testRunTool) Execute(ctx context.Context, input json.RawMessage) (strin
 	cctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	if base, ok := findMarker(dir, t.r.root, "go.mod"); ok {
+	if base, ok := findMarker(dir, t.r.Root(), "go.mod"); ok {
 		return t.runGo(cctx, base, target, isFile, run)
 	}
-	if base, ok := findMarker(dir, t.r.root, "package.json"); ok {
+	if base, ok := findMarker(dir, t.r.Root(), "package.json"); ok {
 		args := []string{"test"}
 		if run != "" {
 			args = append(args, "--", "-t", run)
 		}
 		return t.runGeneric(cctx, "npm/JS", base, "npm", args...)
 	}
-	if base, ok := findMarker(dir, t.r.root, "Cargo.toml"); ok {
+	if base, ok := findMarker(dir, t.r.Root(), "Cargo.toml"); ok {
 		args := []string{"test"}
 		if run != "" {
 			args = append(args, run)
@@ -90,7 +90,7 @@ func (t *testRunTool) Execute(ctx context.Context, input json.RawMessage) (strin
 		return t.runGeneric(cctx, "Rust", base, "cargo", args...)
 	}
 	for _, marker := range []string{"pyproject.toml", "pytest.ini", "setup.py", "requirements.txt"} {
-		if base, ok := findMarker(dir, t.r.root, marker); ok {
+		if base, ok := findMarker(dir, t.r.Root(), marker); ok {
 			args := []string{}
 			if run != "" {
 				args = append(args, "-k", run)
@@ -98,7 +98,7 @@ func (t *testRunTool) Execute(ctx context.Context, input json.RawMessage) (strin
 			return t.runGeneric(cctx, "Python", base, "pytest", args...)
 		}
 	}
-	rel, _ := filepath.Rel(t.r.root, target)
+	rel, _ := filepath.Rel(t.r.Root(), target)
 	return fmt.Sprintf("No recognized project type (go.mod, package.json, Cargo.toml, or pyproject.toml) found for %s; nothing to test.", orDot(rel)), nil
 }
 

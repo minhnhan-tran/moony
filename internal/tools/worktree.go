@@ -74,7 +74,7 @@ func sanitizeName(name string) (string, error) {
 // worktreePath returns the absolute path of the named worktree, guaranteed to
 // be inside the repo root.
 func (t *gitWorktreeTool) worktreePath(name string) string {
-	return filepath.Join(t.r.root, worktreeDir, name)
+	return filepath.Join(t.r.Root(), worktreeDir, name)
 }
 
 // excludeWorktreeDir adds the worktree base dir to the repo's LOCAL exclude
@@ -86,7 +86,7 @@ func (t *gitWorktreeTool) worktreePath(name string) string {
 // visible to git. Best-effort and idempotent — any failure is ignored since
 // this is cosmetic cleanup, not correctness.
 func (t *gitWorktreeTool) excludeWorktreeDir(ctx context.Context) {
-	commonDir, err := runGit(ctx, t.r.root, 0, "rev-parse", "--git-common-dir")
+	commonDir, err := runGit(ctx, t.r.Root(), 0, "rev-parse", "--git-common-dir")
 	if err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (t *gitWorktreeTool) excludeWorktreeDir(ctx context.Context) {
 		return
 	}
 	if !filepath.IsAbs(commonDir) {
-		commonDir = filepath.Join(t.r.root, commonDir)
+		commonDir = filepath.Join(t.r.Root(), commonDir)
 	}
 	excludePath := filepath.Join(commonDir, "info", "exclude")
 	entry := worktreeDir + "/" // ".sqe/worktrees/"
@@ -155,7 +155,7 @@ func (t *gitWorktreeTool) add(ctx context.Context, in worktreeInput) (string, er
 	if base := strings.TrimSpace(in.Base); base != "" {
 		args = append(args, base)
 	}
-	out, err := runGit(ctx, t.r.root, t.max, args...)
+	out, err := runGit(ctx, t.r.Root(), t.max, args...)
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +168,7 @@ func (t *gitWorktreeTool) add(ctx context.Context, in worktreeInput) (string, er
 }
 
 func (t *gitWorktreeTool) list(ctx context.Context) (string, error) {
-	out, err := runGit(ctx, t.r.root, t.max, "worktree", "list")
+	out, err := runGit(ctx, t.r.Root(), t.max, "worktree", "list")
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +188,7 @@ func (t *gitWorktreeTool) remove(ctx context.Context, in worktreeInput) (string,
 	if in.Force {
 		args = append(args, "--force")
 	}
-	if _, err := runGit(ctx, t.r.root, t.max, args...); err != nil {
+	if _, err := runGit(ctx, t.r.Root(), t.max, args...); err != nil {
 		return "", err
 	}
 	msg := fmt.Sprintf("Removed worktree %q.", name)
@@ -201,7 +201,7 @@ func (t *gitWorktreeTool) remove(ctx context.Context, in worktreeInput) (string,
 		if in.Force {
 			flag = "-D"
 		}
-		if out, err := runGit(ctx, t.r.root, t.max, "branch", flag, branch); err != nil {
+		if out, err := runGit(ctx, t.r.Root(), t.max, "branch", flag, branch); err != nil {
 			return msg + fmt.Sprintf("\nCould not delete branch %q: %v", branch, err), nil
 		} else {
 			msg += fmt.Sprintf("\nDeleted branch %q. %s", branch, strings.TrimSpace(out))
@@ -230,7 +230,7 @@ func (t *gitWorktreeTool) merge(ctx context.Context, in worktreeInput) (string, 
 			return "", fmt.Errorf("worktree %q has uncommitted changes; commit them first or pass force=true", name)
 		}
 	}
-	out, err := runGit(ctx, t.r.root, t.max, "merge", "--no-ff", branch)
+	out, err := runGit(ctx, t.r.Root(), t.max, "merge", "--no-ff", branch)
 	if err != nil {
 		return "", fmt.Errorf("merge of %q failed (resolve in the main tree, or abort with `git merge --abort`): %v", branch, err)
 	}
@@ -241,7 +241,7 @@ func (t *gitWorktreeTool) merge(ctx context.Context, in worktreeInput) (string, 
 		rmArgs = append(rmArgs, "--force")
 	}
 	rmNote := ""
-	if _, rmErr := runGit(ctx, t.r.root, t.max, rmArgs...); rmErr != nil {
+	if _, rmErr := runGit(ctx, t.r.Root(), t.max, rmArgs...); rmErr != nil {
 		rmNote = fmt.Sprintf("\n(merged, but could not remove worktree dir: %v)", rmErr)
 	}
 	return fmt.Sprintf("Merged branch %q into the current branch and removed worktree %q.%s\n%s", branch, name, rmNote, out), nil
@@ -269,7 +269,7 @@ func (t *gitWorktreeTool) Preview(ctx context.Context, input json.RawMessage) (P
 			branch = "sqe/" + strings.TrimSpace(in.Name)
 		}
 		// Show what the merge would bring in.
-		diff, _ := runGit(ctx, t.r.root, t.max, "diff", "--stat", "HEAD.."+branch)
+		diff, _ := runGit(ctx, t.r.Root(), t.max, "diff", "--stat", "HEAD.."+branch)
 		return Preview{Summary: fmt.Sprintf("merge worktree branch %q into the current branch", branch), Diff: diff}, nil
 	default:
 		return Preview{Summary: "git worktree " + action}, nil

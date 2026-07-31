@@ -151,7 +151,7 @@ func (t *pullRequestTool) Preview(ctx context.Context, input json.RawMessage) (P
 			kind = "draft pull request"
 		}
 		// Show the commits that would ship in the PR for context.
-		commits, _ := runGit(ctx, t.r.root, t.max, "log", "--oneline", "-20", "@{upstream}..HEAD")
+		commits, _ := runGit(ctx, t.r.Root(), t.max, "log", "--oneline", "-20", "@{upstream}..HEAD")
 		diff := in.Body
 		if strings.TrimSpace(commits) != "" {
 			diff = "commits:\n" + commits + "\n\n" + in.Body
@@ -186,7 +186,7 @@ func (t *pullRequestTool) Execute(ctx context.Context, input json.RawMessage) (s
 		if in.Draft {
 			args = append(args, "--draft")
 		}
-		out, err := runGH(ctx, t.r.root, 60*time.Second, t.max, args...)
+		out, err := runGH(ctx, t.r.Root(), 60*time.Second, t.max, args...)
 		if err != nil {
 			return "", fmt.Errorf("%w\n%s", err, out)
 		}
@@ -197,7 +197,7 @@ func (t *pullRequestTool) Execute(ctx context.Context, input json.RawMessage) (s
 			args = append(args, strconv.Itoa(in.Number))
 		}
 		args = append(args, "--body", in.Body)
-		out, err := runGH(ctx, t.r.root, 45*time.Second, t.max, args...)
+		out, err := runGH(ctx, t.r.Root(), 45*time.Second, t.max, args...)
 		if err != nil {
 			return "", fmt.Errorf("%w\n%s", err, out)
 		}
@@ -208,7 +208,7 @@ func (t *pullRequestTool) Execute(ctx context.Context, input json.RawMessage) (s
 			args = append(args, strconv.Itoa(in.Number))
 		}
 		args = append(args, "--comments")
-		out, err := runGH(ctx, t.r.root, 45*time.Second, t.max, args...)
+		out, err := runGH(ctx, t.r.Root(), 45*time.Second, t.max, args...)
 		if err != nil {
 			return "", fmt.Errorf("%w\n%s", err, out)
 		}
@@ -255,7 +255,7 @@ func (t *ciStatusTool) Execute(ctx context.Context, input json.RawMessage) (stri
 
 	ref := strings.TrimSpace(in.Ref)
 	if ref == "" {
-		ref = currentBranch(ctx, t.r.root)
+		ref = currentBranch(ctx, t.r.Root())
 		if ref == "" {
 			return "", fmt.Errorf("no ref given and the current HEAD is detached; pass ref (a branch name or PR number)")
 		}
@@ -265,7 +265,7 @@ func (t *ciStatusTool) Execute(ctx context.Context, input json.RawMessage) (stri
 	// branch name (which would silently match nothing).
 	branch := ref
 	if _, numErr := strconv.Atoi(ref); numErr == nil {
-		if head, herr := runGH(ctx, t.r.root, 20*time.Second, 256, "pr", "view", ref, "--json", "headRefName", "--jq", ".headRefName"); herr == nil {
+		if head, herr := runGH(ctx, t.r.Root(), 20*time.Second, 256, "pr", "view", ref, "--json", "headRefName", "--jq", ".headRefName"); herr == nil {
 			if h := strings.TrimSpace(head); h != "" {
 				branch = h
 			}
@@ -275,13 +275,13 @@ func (t *ciStatusTool) Execute(ctx context.Context, input json.RawMessage) (stri
 	var b strings.Builder
 	// `gh pr checks` exits non-zero when checks are failing/pending but still
 	// prints the useful table, so keep its output regardless of the exit code.
-	checks, err := runGH(ctx, t.r.root, 45*time.Second, t.max, "pr", "checks", ref)
+	checks, err := runGH(ctx, t.r.Root(), 45*time.Second, t.max, "pr", "checks", ref)
 	failed := looksFailed(checks)
 	noPR := err != nil && strings.Contains(strings.ToLower(checks), "no pull requests found")
 	switch {
 	case noPR:
 		// No PR for this ref — fall back to the branch's recent workflow runs.
-		runs, rerr := runGH(ctx, t.r.root, 45*time.Second, t.max, "run", "list", "--branch", branch, "--limit", "10")
+		runs, rerr := runGH(ctx, t.r.Root(), 45*time.Second, t.max, "run", "list", "--branch", branch, "--limit", "10")
 		if rerr != nil && strings.TrimSpace(runs) == "" {
 			return "", fmt.Errorf("no PR for %q and could not list workflow runs: %w", ref, rerr)
 		}
@@ -311,13 +311,13 @@ func looksFailed(checks string) bool {
 // failedRunLogs fetches the failing-step logs of the most recent failed Actions
 // run on branch (best-effort; "" if none or unavailable).
 func (t *ciStatusTool) failedRunLogs(ctx context.Context, branch string) string {
-	id, err := runGH(ctx, t.r.root, 30*time.Second, 256,
+	id, err := runGH(ctx, t.r.Root(), 30*time.Second, 256,
 		"run", "list", "--branch", branch, "--status", "failure", "--limit", "1", "--json", "databaseId", "--jq", ".[0].databaseId")
 	id = strings.TrimSpace(id)
 	if err != nil || id == "" {
 		return ""
 	}
-	logs, err := runGH(ctx, t.r.root, 60*time.Second, t.max, "run", "view", id, "--log-failed")
+	logs, err := runGH(ctx, t.r.Root(), 60*time.Second, t.max, "run", "view", id, "--log-failed")
 	if err != nil && strings.TrimSpace(logs) == "" {
 		return ""
 	}
