@@ -173,6 +173,13 @@ type Registry struct {
 	// server is running (code_nav then degrades to a helpful message).
 	lsp lspManager
 
+	// toolsMu guards the tools map and the order slice. Both are mutated at
+	// RUNTIME, not just at startup: an MCP reload, a skills toggle, or a subagent
+	// change re-registers tools while a turn may be concurrently reading them
+	// (Schemas for the next request, Execute for the current call), and a map
+	// write racing a map read is a hard crash, not just a stale value.
+	toolsMu sync.RWMutex
+
 	// changeReviewer, when set via SetChangeReviewer, returns a single combined
 	// unified diff of every file changed so far in the current turn, bounded to
 	// maxBytes. Owned by the Agent (its snapshot store is the source of truth);
@@ -521,6 +528,8 @@ func (r *Registry) Ignore() *IgnoreSet { return r.ignore }
 
 // Register adds a tool to the registry.
 func (r *Registry) Register(t Tool) {
+	r.toolsMu.Lock()
+	defer r.toolsMu.Unlock()
 	if _, exists := r.tools[t.Name()]; !exists {
 		r.order = append(r.order, t.Name())
 	}
@@ -530,6 +539,8 @@ func (r *Registry) Register(t Tool) {
 // Unregister removes a tool by name (no-op if absent). Used when a tool's
 // backing set becomes empty — e.g. all skills disabled — or on MCP reload.
 func (r *Registry) Unregister(name string) {
+	r.toolsMu.Lock()
+	defer r.toolsMu.Unlock()
 	if _, ok := r.tools[name]; !ok {
 		return
 	}
@@ -544,6 +555,8 @@ func (r *Registry) Unregister(name string) {
 
 // Schemas returns the tool definitions to advertise to the model.
 func (r *Registry) Schemas() []llm.Tool {
+	r.toolsMu.RLock()
+	defer r.toolsMu.RUnlock()
 	out := make([]llm.Tool, 0, len(r.order))
 	for _, name := range r.order {
 		t := r.tools[name]
@@ -607,12 +620,16 @@ func firstSentence(s string) string {
 
 // Names returns the registered tool names in registration order.
 func (r *Registry) Names() []string {
+	r.toolsMu.RLock()
+	defer r.toolsMu.RUnlock()
 	names := append([]string(nil), r.order...)
 	return names
 }
 
 // Has reports whether a tool with the given name is registered.
 func (r *Registry) Has(name string) bool {
+	r.toolsMu.RLock()
+	defer r.toolsMu.RUnlock()
 	_, ok := r.tools[name]
 	return ok
 }
@@ -621,7 +638,23 @@ func (r *Registry) Has(name string) bool {
 // the live instance (not just its schema) to introspect it — e.g. the context
 // meter sizing the per-persona / per-skill detail of the task/skill tools.
 func (r *Registry) Get(name string) Tool {
+	r.toolsMu.RLock()
+	defer r.toolsMu.RUnlock()
 	return r.tools[name]
+}
+
+// lookup resolves a tool by name under the read lock, also returning the sorted
+// available-names list for the "unknown tool" error. Every dispatch path goes
+// through this so none of them touches the maps unguarded (they are mutated at
+// runtime by MCP reloads / skill toggles).
+func (r *Registry) lookup(name string) (Tool, bool, string) {
+	r.toolsMu.RLock()
+	defer r.toolsMu.RUnlock()
+	t, ok := r.tools[name]
+	if !ok {
+		return nil, false, strings.Join(sortedNames(r.tools), ", ")
+	}
+	return t, true, ""
 }
 
 // schemaRequired returns the "required" field names declared by a tool's JSON
@@ -678,9 +711,9 @@ func missingArgsError(name string, schema, input json.RawMessage) error {
 
 // Execute dispatches a tool call by name.
 func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessage) (string, error) {
-	t, ok := r.tools[name]
+	t, ok, avail := r.lookup(name)
 	if !ok {
-		return "", fmt.Errorf("unknown tool %q (available: %s)", name, strings.Join(sortedNames(r.tools), ", "))
+		return "", fmt.Errorf("unknown tool %q (available: %s)", name, avail)
 	}
 	if err := missingArgsError(name, t.Schema(), input); err != nil {
 		return "", err
@@ -694,9 +727,9 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 // only) — alongside the text output. Tools that produce neither go through the
 // normal text Execute path with nil media slices.
 func (r *Registry) ExecuteMedia(ctx context.Context, name string, input json.RawMessage) (string, []Image, []Video, error) {
-	t, ok := r.tools[name]
+	t, ok, avail := r.lookup(name)
 	if !ok {
-		return "", nil, nil, fmt.Errorf("unknown tool %q (available: %s)", name, strings.Join(sortedNames(r.tools), ", "))
+		return "", nil, nil, fmt.Errorf("unknown tool %q (available: %s)", name, avail)
 	}
 	if err := missingArgsError(name, t.Schema(), input); err != nil {
 		return "", nil, nil, err
@@ -718,9 +751,9 @@ func (r *Registry) ExecuteMedia(ctx context.Context, name string, input json.Raw
 // the text output. Tools that don't produce images go through the normal text
 // Execute path with a nil image slice.
 func (r *Registry) ExecuteImages(ctx context.Context, name string, input json.RawMessage) (string, []Image, error) {
-	t, ok := r.tools[name]
+	t, ok, avail := r.lookup(name)
 	if !ok {
-		return "", nil, fmt.Errorf("unknown tool %q (available: %s)", name, strings.Join(sortedNames(r.tools), ", "))
+		return "", nil, fmt.Errorf("unknown tool %q (available: %s)", name, avail)
 	}
 	if err := missingArgsError(name, t.Schema(), input); err != nil {
 		return "", nil, err
@@ -735,7 +768,7 @@ func (r *Registry) ExecuteImages(ctx context.Context, name string, input json.Ra
 // Mutates reports whether the named tool changes state and should be gated
 // behind approval. Unknown tools are treated as mutating (fail safe).
 func (r *Registry) Mutates(name string) bool {
-	t, ok := r.tools[name]
+	t, ok, _ := r.lookup(name)
 	if !ok {
 		return true
 	}
@@ -745,7 +778,7 @@ func (r *Registry) Mutates(name string) bool {
 // Preview returns a pending-change preview for the named tool when it supports
 // previewing. ok is false when the tool is not a Previewer.
 func (r *Registry) Preview(ctx context.Context, name string, input json.RawMessage) (Preview, bool) {
-	t, exists := r.tools[name]
+	t, exists, _ := r.lookup(name)
 	if !exists {
 		return Preview{}, false
 	}
