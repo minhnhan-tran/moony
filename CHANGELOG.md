@@ -5,6 +5,14 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.7.1] — 2026-07-31
+
+### Fixed
+
+- **`bash` ignored its timeout and interrupts.** The foreground `bash` tool ran `sh -c` without a process group, so cancelling killed only the shell — the actual work kept running, and because a surviving grandchild inherits the output pipe, the tool blocked until the command finished on its own. A `timeout_sec: 1` call that spawned a background child took 30 seconds to return, and interrupting a turn didn't stop the command. The whole process tree is now killed (shared `procutil.KillTree`: process group + group signal + a `WaitDelay` backstop), which also fixes the same latent bug in the verify runner and lifecycle hooks. `kill(-pid)` is now guarded against a zero/absurd pid, which would have signalled the agent's *own* process group.
+- **Data race on the registry root.** `/cd` replaces the path-sandbox root and ignore set in place, while the symbol-map and repo-map builders read them from background goroutines that outlive the tool call that started them. Both are now behind a read/write lock, and the whole-tree walks read them once per walk instead of once per file — cheaper, and every path in a walk now resolves against one consistent root. The reset-able `sync.Once` guarding the repo-map memo was also replaced: resetting a `sync.Once` is itself a race against a concurrent `Do`.
+- **Data race on the cached system prompt**, plus `/cd` mid-turn. The prompt is rebuilt at runtime (MCP connect, a `remember`, a background map refresh) while a turn reads it to build a request; it is now lock-guarded, and concurrent rebuilds are serialized so a slower older build can't clobber a newer prompt. `/cd` is now refused while a turn is running — re-rooting swapped the sandbox, ignore set, skills and permissions out from under in-flight tool calls — and the web path re-roots before persisting, so a refusal no longer leaves the saved session pointing somewhere the live agent isn't.
+
 ## [2.7.0] — 2026-07-31
 
 ### Added
