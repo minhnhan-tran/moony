@@ -545,12 +545,17 @@ func (s *Server) changeDir(live *session, arg string, info func(string)) {
 		return
 	}
 	// Persist the new working dir on the stored session so a reopen/replay (and the
-	// status snapshot) reflect it; best-effort — the live re-root is what matters.
+	// status snapshot) reflect it. Re-root the LIVE agent first: it can refuse (a
+	// turn is running), and persisting the new dir before that would leave the saved
+	// session pointing somewhere the live agent isn't.
+	if err := live.agent.SetWorkingDir(abs); err != nil {
+		info("cd: " + err.Error())
+		return
+	}
 	if sess, lerr := s.store.Load(live.id); lerr == nil {
 		sess.WorkingDir = abs
 		_ = s.store.Save(sess)
 	}
-	live.agent.SetWorkingDir(abs)
 	s.attachWorkflowTool(live) // re-advertise saved workflows (run_workflow) for the new dir
 	info("Working dir → " + abs + "\nTools, skills, agents, and permissions now resolve here. (MCP servers and LSP keep their original root until you restart the session.)")
 	live.publishEvent(s.statusEvent(nil, live))

@@ -268,7 +268,26 @@ func (a *Agent) memoryContains(text string) bool {
 // AFTER the agent is created (async connect), so their tool-specific prompt
 // guidance reflects what's actually available.
 func (a *Agent) rebuildSystemPrompt() {
-	a.system = buildSystemPrompt(a.cfg, a.tools)
+	// Serialize rebuilds so a slower, older build can't finish last and clobber a
+	// newer prompt (MCP connect, a remember, /cd and a background map refresh can
+	// all trigger this concurrently).
+	a.rebuildMu.Lock()
+	defer a.rebuildMu.Unlock()
+	// Built OUTSIDE systemMu: buildSystemPrompt walks the tree and reads memory
+	// files, so holding the read/write lock across it would block every reader.
+	built := buildSystemPrompt(a.cfg, a.tools)
+	a.systemMu.Lock()
+	a.system = built
+	a.systemMu.Unlock()
+}
+
+// systemPrompt returns the current system prompt under the read lock. Background
+// workers (the symbol/repo-map builders) rebuild the prompt after the turn that
+// started them has moved on, so a plain field read races that write.
+func (a *Agent) systemPrompt() string {
+	a.systemMu.RLock()
+	defer a.systemMu.RUnlock()
+	return a.system
 }
 
 // RefreshSystemPrompt rebuilds the system prompt from the current config and the

@@ -53,7 +53,7 @@ func (a *Agent) ContextBreakdown() ContextBreakdown {
 	// base.
 	// The suffix is userProfilePrompt() + agentsMDPrompt(), in that order (see
 	// buildSystemPrompt), so strip them from the end in reverse.
-	base := a.system
+	base := a.systemPrompt()
 	trimSuffix := func(suffix string) {
 		if suffix != "" && strings.HasSuffix(base, suffix) {
 			base = base[:len(base)-len(suffix)]

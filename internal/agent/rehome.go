@@ -5,6 +5,7 @@ package agent
 // (manage/skills) stay local.
 
 import (
+	"fmt"
 	"github.com/pysty1995/moony/internal/manage"
 	"github.com/pysty1995/moony/internal/permissions"
 	"github.com/pysty1995/moony/internal/skills"
@@ -23,7 +24,14 @@ import (
 // processes on a dir switch is out of scope here. The caller must ensure no turn
 // is in flight (it mutates shared state without locking; /cd is idle-only) and
 // pass an already-resolved, existing absolute directory.
-func (a *Agent) SetWorkingDir(dir string) {
+func (a *Agent) SetWorkingDir(dir string) error {
+	// Refuse mid-turn. Re-rooting replaces the path sandbox, ignore set, skills,
+	// subagents and permissions; doing that under a running turn would let an
+	// in-flight tool call resolve paths against one root while its permission check
+	// used another. Callers surface this as a "finish or interrupt first" message.
+	if a.inTurn.Load() > 0 {
+		return fmt.Errorf("a turn is running — interrupt it or wait for it to finish before changing directory")
+	}
 	a.cfg.WorkingDir = dir
 	if a.tools != nil {
 		a.tools.SetRoot(dir)
@@ -32,4 +40,5 @@ func (a *Agent) SetWorkingDir(dir string) {
 	mgmt := manage.Load(dir)
 	a.AttachSubAgents(manage.Filter(subagents.Load(dir), func(p subagents.Persona) string { return p.Name }, mgmt.AgentEnabled))
 	a.AttachSkills(manage.Filter(skills.Load(dir), func(s skills.Skill) string { return s.Name }, mgmt.SkillEnabled))
+	return nil
 }

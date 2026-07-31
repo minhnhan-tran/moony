@@ -1812,7 +1812,10 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 			m.trans.add(entry{kind: entryInfo, text: "cd: " + err.Error()})
 			break
 		}
-		m.agent.SetWorkingDir(abs)
+		if err := m.agent.SetWorkingDir(abs); err != nil {
+			m.trans.add(entry{kind: entryInfo, text: "cd: " + err.Error()})
+			break
+		}
 		m.trans.add(entry{kind: entryInfo, text: "Working dir → " + abs + "\nTools, skills, agents, and permissions now resolve here. (MCP servers and LSP keep their original root until you restart.)"})
 		m.publishStatus() // reflect the new dir in the status bar / header
 	case "/plan":

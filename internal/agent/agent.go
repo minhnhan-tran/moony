@@ -51,11 +51,19 @@ var (
 
 // Agent ties together the model client, tools, history, and persistence.
 type Agent struct {
-	cfg      *config.Config
-	client   llm.Streamer
-	tools    *tools.Registry
+	cfg    *config.Config
+	client llm.Streamer
+	tools  *tools.Registry
+	// system is the cached system prompt. Guarded by systemMu: it's rebuilt at
+	// runtime (MCP connect, /cd, a remember, a background symbol-map refresh)
+	// while a turn may be reading it to build a request.
 	system   string
-	messages []llm.Message
+	systemMu sync.RWMutex
+	// rebuildMu serializes prompt REBUILDS (as opposed to reads). Two concurrent
+	// rebuilds would each build from their own snapshot and race to store the
+	// result, so an older build finishing last would clobber a newer prompt.
+	rebuildMu sync.Mutex
+	messages  []llm.Message
 
 	store       *session.Store
 	sess        *session.Session
@@ -83,6 +91,13 @@ type Agent struct {
 	// read/grep loop never inflates reasoning. Reset each turn; incremented from
 	// concurrent tool workers (read-only tools run in parallel), so it's atomic.
 	turnFriction atomic.Int64
+
+	// inTurn is non-zero while RunWith is executing a turn. Re-rooting the session
+	// (SetWorkingDir) mid-turn would swap the path sandbox, ignore set, skills and
+	// permissions out from under in-flight tool calls, so it is refused while this
+	// is set. Atomic because the check happens on the caller's goroutine (a slash
+	// command / HTTP handler), not the turn's.
+	inTurn atomic.Int64
 
 	// turnAuxCostBits accumulates, as IEEE-754 bits (via math.Float64bits), the
 	// real $ cost of every streamAux call made this turn — self-review, checkpoint
@@ -954,6 +969,8 @@ func buildUserMessage(userInput string, attachments []llm.ContentBlock) llm.Mess
 // extracted-file text) appended to the user turn after the prompt text. A turn
 // with attachments but no text is allowed (e.g. "describe this image").
 func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm.ContentBlock, emit func(Event)) error {
+	a.inTurn.Add(1)
+	defer a.inTurn.Add(-1)
 	turnStart := time.Now()
 	// A sub-agent's RunWith arrives with its persona identity already stamped on
 	// ctx (by the task tool); the top-level user turn doesn't. Capture that here,
@@ -1289,7 +1306,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// change (e.g. exit_plan) is reflected immediately. Cache-neutral: the suffix
 		// is uncached (see appendTurnContext), so the cached prefix is unaffected, and
 		// across steps where nothing changed it's byte-identical.
-		turnSystem := appendTurnContext(a.system, directive, a.turnContextPreface())
+		turnSystem := appendTurnContext(a.systemPrompt(), directive, a.turnContextPreface())
 
 		// In-turn ratchet: on "auto", raise the reasoning effort as the turn proves
 		// hard (more tool rounds), so the CURRENT turn gets more thinking when it
