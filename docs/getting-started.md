@@ -24,6 +24,8 @@ user message ─► model (stream) ─► tool_use? ─► run tools ─► tool
 | `internal/skills` · `internal/subagents` · `internal/manage` | Agent Skills + sub-agent personas (discover/scaffold/remove) and their per-project/global enable–disable state |
 | `internal/mcp`    | MCP client (stdio + HTTP/SSE): connect servers, register their tools/resources/prompts, hot-reload |
 | `internal/lsp` · `internal/hooks` · `internal/doctor` | Diagnostics-only LSP client, lifecycle hook runner, and the `/doctor` environment/config checker |
+| `internal/rag`    | Local per-workspace embedding vector index (single gob file, brute-force cosine) behind `semantic_search` |
+| `internal/quickactions` · `internal/taskboard` | Web preset prompts (project + global scope) and the parallel isolated task runner (one throwaway git worktree per task) |
 | `internal/format` · `internal/permissions` | Format-on-write formatter runner and persisted allow/deny permission rules (global + per-project) |
 | `internal/attach` | Resolves images/PDFs/Office files into model content blocks (vision, document, or locally-extracted text) for both UIs |
 | `internal/worker` | Drives external worker agents (Claude Code via `-p`/JSON; Optimus via the ACP protocol) behind the `delegate` tool |
@@ -32,8 +34,21 @@ user message ─► model (stream) ─► tool_use? ─► run tools ─► tool
 | `internal/app` · `cmd/release` | Shared server builder and the release tool |
 
 ### Built-in tools
-`read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash`, `bash_output`, `bash_kill`, `web_fetch`, `batch_web_fetch`, `web_search`, `test_run`, `recall`, `usage`, `todo_write`, plus git: `git_status`, `git_diff`, `git_log` (read-only) and `git_commit`, `git_branch`, `git_worktree` (mutating), plus GitHub/GitLab: `pr_list`, `pr_checks` (read-only) and `pr_create`, `pr_comments` (mutating when posting).
-The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash`, `bash_kill`, `git_commit`, `git_branch`, `git_worktree`, `pr_create`, `pr_comments`) are gated behind a configurable approval policy (see below); `git_commit`/`pr_create`/`pr_comments` show the pending diff/PR/comment in their approval prompt.
+**Files & shell** — `read_file`, `write_file`, `edit_file`, `multi_edit`, `apply_patch`, `list_dir`, `glob`, `grep`, `bash`, `bash_output`, `bash_kill`.
+
+**Code discovery** — `search_code`, `semantic_search`, `find_symbol`, `find_references`, `read_symbol`, `find_files`, `codebase_map`, `code_nav`, plus the diagnostics-only `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics`.
+
+**Web** — `web_fetch`, `batch_web_fetch`, `web_search`, `browser`.
+
+**Project & VCS** — `test_run`, `lint`, `diff`, `review_changes`, git: `git_status`, `git_diff`, `git_log` (read-only) and `git_commit`, `git_branch`, `git_worktree` (mutating); GitHub/GitLab: `pr_list`, `pr_checks` (read-only), `pr_create`, `pr_comments` (mutating when posting), plus the `gh`-CLI-based `pull_request` and `ci_status`.
+
+**Memory, planning & delegation** — `remember`, `remember_user`, `recall`, `usage`, `todo_write`, `plan_write`, `exit_plan`, `ask_user`, `task`, `delegate`.
+
+**Media & devices** — `generate_image`, `generate_video` (only registered when a media model is configured), `mobile`.
+
+**Debugging** — `dap_connect`, `dap_launch`, `dap_attach`, `dap_set_breakpoints`, `dap_continue`, `dap_next`, `dap_step_in`, `dap_step_out`, `dap_pause`, `dap_stack_trace`, `dap_scopes`, `dap_variables`, `dap_evaluate`, `dap_disconnect`.
+
+The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash`, `bash_kill`, `git_commit`, `git_branch`, `git_worktree`, `pr_create`, `pr_comments`, `pull_request`, `mobile`, `generate_image`, `generate_video`) are gated behind a configurable approval policy (see below); `git_commit`/`pr_create`/`pr_comments` show the pending diff/PR/comment in their approval prompt.
 
 `multi_edit` applies several exact-string replacements to **one** file in a single atomic step — the edits run in order, each against the result of the previous, and either all apply or none do (the file is left untouched on any miss). Prefer it over repeated `edit_file` calls when changing several spots in the same file.
 
@@ -51,7 +66,25 @@ The mutating ones (`write_file`, `edit_file`, `multi_edit`, `apply_patch`, `bash
 
 `test_run` runs the project's tests and returns a **structured** summary — total/passed/failed/skipped, coverage, and the names + output of failing tests — instead of raw scrollback. It detects the ecosystem by marker file (`go.mod` → `go test -json`, parsed from the test2json stream; `package.json` → `npm test`; `Cargo.toml` → `cargo test`; `pyproject.toml` → `pytest`) and treats a failing suite as a normal result, not a tool error.
 
-`recall` searches your **persisted long-term memory** (the notes `remember` writes to project + global `AGENTS.md`) and returns the entries most **relevant** to a query, ranked with BM25 over identifier-aware tokens (plus an optional hybrid semantic rerank, same as `search_code` — see `MN_EMBEDDINGS_MODEL`) — the read-side companion to `remember`.
+`semantic_search` finds code by **meaning** rather than by matching text: it embeds the workspace into a local vector index and returns the chunks closest to a natural-language query, so "where do we handle API rate limiting?" finds a throttle/backoff implementation that never uses the word "rate". The index is a single gob file inside the project (`.sqe/rag/index.gob`, or `MN_RAG_INDEX_DIR`), built on first use and refreshed incrementally as files change — brute-force cosine over the stored vectors, so there's no external service or cgo dependency. Needs `MN_EMBEDDINGS_MODEL`; without it the tool isn't registered. Use `search_code`/`grep` for exact strings and this for concepts.
+
+`codebase_map` maintains a **`CODEBASE_MAP.md`** at the project root and injects it into the system prompt, so the model reads a map of the project instead of re-exploring the tree every turn. It has three sections: an auto-generated **structure** digest (directories, key definitions, and how many other files reference each one — built from a symbol/caller graph and refreshed whenever the code changes), a **narrative** the agent writes on demand mapping features → files, and **pinned notes** you own outright (architecture decisions, gotchas, invariants) that nothing regenerates. Enabled when a `CODEBASE_MAP.md` exists or `MN_CODEBASE_MAP=1`; `MN_CODEBASE_MAP_BYTES` bounds how much is injected. The web UI's *Manage → Codebase map* panel views it, regenerates the structure, and edits the pinned notes.
+
+`find_files` answers "which files are involved in X" from the same symbol/caller graph: query terms are matched against symbol names, file paths, and the cross-file reference graph, and files are ranked by symbol importance, term hits, and how widely their symbols are used. Cheaper than a grep-then-read loop when you want a shortlist to read before editing.
+
+`code_nav` resolves definitions, references, and hover **through a running language server**, so unlike the regex-based `find_symbol`/`find_references` it disambiguates overloads, methods, and shadowed names via the actual compiler. Give it a file, a symbol name, and optionally a line to pick the occurrence. Degrades with a clear message when no server handles that file type.
+
+`review_changes` returns **one combined unified diff** of every file the current turn changed — a cohesive multi-file view for self-review before finishing, rather than re-reading each file. Read-only, and backed by the same turn snapshots that power `/undo`.
+
+`pull_request` and `ci_status` drive the **`gh` CLI**: `pull_request` creates, views, or comments on a PR for the current branch, and `ci_status` reports GitHub Actions check status for a branch or PR **including the logs of failed checks**, so a red build can be diagnosed without leaving the session. These complement the token/API-based `pr_*` tools (which also support GitLab); use whichever matches your auth.
+
+`mobile` drives an **iOS simulator or Android emulator/device**: list devices, boot, install and launch a built app, tap/swipe/type/press keys, read logs, and take a screenshot (returned as an image the model can see). It only handles device control — build the app first with `bash` (`xcodebuild`/`xcrun`, or `./gradlew`). iOS input injection needs Meta's `idb` on `PATH`; without it screenshots still work.
+
+`generate_image` and `generate_video` produce media with an image- or video-output model — placeholder assets, icons, UI mockups, diagrams, or a short clip. `generate_image` runs on any OpenAI-compatible route and can **edit** existing images by passing `reference_images`; `generate_video` uses the native Gemini route (Veo models). Both are registered only when `MN_IMAGE_MODEL` / `MN_VIDEO_MODEL` is set. Generated images are fed back to the model so it can see the result; videos are surfaced to the UI only (models can't watch video), with the saved path returned as text.
+
+`remember` and `remember_user` split durable memory by **what the fact is about**. `remember` writes project knowledge — conventions, build/test commands, architecture notes, repo rules — to this project's `AGENTS.md` (or the global one), so it travels with the code. `remember_user` writes facts about **you** — coding style, preferred output format, tone, workflow habits, standing requests — to `~/.config/moony/USER.md`, which is injected into every session in **every** project and never committed to a repo. Both are non-mutating (no approval prompt): frictionless memory is the point.
+
+`recall` searches your **persisted long-term memory** (the notes `remember`/`remember_user` write to project + global `AGENTS.md` and `USER.md`) and returns the entries most **relevant** to a query, ranked with BM25 over identifier-aware tokens (plus an optional hybrid semantic rerank, same as `search_code` — see `MN_EMBEDDINGS_MODEL`) — the read-side companion to `remember`.
 
 `usage` reports the session's **token and cost** usage aggregated from per-turn metadata: total input/output/cached tokens, estimated USD cost, call counts, and a per-model (or, with `group_by: "turn"`, per-turn) breakdown.
 

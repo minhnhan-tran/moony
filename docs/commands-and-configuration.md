@@ -9,7 +9,7 @@
 - `/paste` — stage an image from the macOS clipboard for your next message
 - `/plan` — draft a first-class, approvable **plan artifact** (and switch to read-only **plan mode** while doing so). `/plan <description>` has the agent explore read-only and propose ordered steps via the `plan_write` tool; `/plan add <step>` amends the draft, `/plan approve` accepts it and starts executing (mutating tools re-enabled), `/plan clear` discards it, and bare `/plan` shows the current plan + status. The plan is persisted with the session and rendered in the sidebar.
 - `/build` — leave plan mode; mutating tools are re-enabled
-- `/memory [note]` — show project + global memory, or append a note (`--global` for the user-level file; or start a line with `#`)
+- `/memory [note]` — show project + global memory, or append a note (or start a line with `#`). Scope: default is this project's `AGENTS.md`, `--global` the user-level `AGENTS.md`, `--user` the `USER.md` profile of facts about *you* (style, formats, habits) that apply in every project
 - `/doctor` — run an environment & config check (Ollama reachability, MCP/LSP servers, Go env)
 - `/model [id]` — show the current model, or set it (saved to config for next launch)
 - `/models` — fetch the models installed on the configured Ollama server and pick one (↑/↓ to move, enter to select)
@@ -109,6 +109,13 @@
 | `MN_AUX_MODEL` | _(falls back to `MN_FAST_MODEL`)_ | pin the model used for small mechanical sub-tasks (e.g. summarization); checked before `MN_FAST_MODEL` |
 | `MN_EMBEDDINGS_MODEL` | _(unset)_ | enable hybrid semantic reranking in `search_code` and `recall`: the top BM25 candidates are re-scored by embedding cosine similarity to the query and blended with their lexical score. Unset = pure BM25 |
 | `MN_EMBEDDINGS_PROVIDER` | _(falls back to Ollama)_ | which backend serves `MN_EMBEDDINGS_MODEL`, independent of the session's main provider — so a session on e.g. Anthropic can still point embeddings at OpenAI (or any other OpenAI-compatible provider: OpenRouter, Gemini, DeepSeek, Groq, xAI, Mistral, Together, Fireworks, NVIDIA NIM, Hugging Face, Venice, DashScope, Moonshot, Z.AI) without switching its main model. Unset or `ollama` uses Ollama's native embeddings endpoint. Anthropic has no embeddings API and is rejected with a clear error |
+| `MN_RAG_INDEX_DIR` | `<project>/.sqe/rag/index.gob` | where `semantic_search` keeps its local vector index. Point several git worktrees of one repo at the same path to share (and avoid re-embedding) an index |
+| `MN_CODEBASE_MAP` | _(auto)_ | `1`/`on` keeps `CODEBASE_MAP.md`'s generated structure section fresh and injects the map into the system prompt; `0`/`off` forces it off. Enabled implicitly when a `CODEBASE_MAP.md` already exists at the project root |
+| `MN_CODEBASE_MAP_BYTES` | built-in default | caps how much of the codebase map is injected into the system prompt, so a large map can't crowd out the conversation |
+| `MN_IMAGE_MODEL` | _(unset — tool off)_ | image-output model enabling `generate_image` (any OpenAI-compatible route, e.g. a Gemini/GPT image model) |
+| `MN_VIDEO_MODEL` | _(unset — tool off)_ | video-output model enabling `generate_video` (a Veo model on the native Gemini route; needs `MN_GEMINI_API_KEY`) |
+| `MN_TASKBOARD_MAX_PARALLEL` | `2` | how many web **Task Board** tasks run at once. Each task is a headless sub-process in its own throwaway git worktree, so this bounds concurrent CPU/API load |
+| `MN_ACCESS_LOG` | `0` (off) | set `1`/`on` to log one line per HTTP request (method, route, status, duration) alongside the `/metrics` counters |
 | `MN_GITHUB_TOKEN` / `GITHUB_TOKEN` | _(falls back to `gh auth token`, then `~/.netrc`)_ | auth for the `pr_*` tools on GitHub repos |
 | `MN_GITHUB_BASE_URL` | _(unset — github.com)_ | GitHub Enterprise API base, e.g. `https://git.example.com/api/v3`; also identifies which self-hosted host is GitHub for repo detection |
 | `MN_GITLAB_TOKEN` / `GITLAB_TOKEN` | _(falls back to `glab auth token`, then `~/.netrc`)_ | auth for the `pr_*` tools on GitLab repos |
@@ -132,6 +139,7 @@
 | `MN_SANDBOX_NET` | _(on)_ | when the sandbox is on, set `0`/`off` to also deny network access to sandboxed commands |
 | `MN_NETRC` | _(on)_ | `web_fetch`/`batch_web_fetch` read `~/.netrc` (or `$NETRC`) and send the matching host's `password` as `Authorization: Bearer <token>`; set `0`/`off` to disable. A caller-supplied `Authorization` header always wins |
 | `MN_VERIFY_CMD` | _(unset)_ | shell command (e.g. `go test ./...`) run automatically on file edits to feed failures back for self-correction |
+| `MN_VERIFY_AUTO` | `0` (off) | set `1`/`on` to **auto-detect** a verify command when `MN_VERIFY_CMD` is unset, from the project's own markers (a Makefile `test`/`check` target, `go.mod`, a `package.json` test script, `Cargo.toml`, pytest/tox, Maven/Gradle). Opt-in on purpose — it runs a project command you didn't type; an explicit `MN_VERIFY_CMD` always wins |
 | `MN_VERIFY_MAX` | `2` | max verify retries per turn before stopping for review |
 | `MN_VERIFY_TIMEOUT` | `120` | timeout in seconds for a single verify command run |
 | `MN_SELF_REVIEW` | `0` (off) | set to `1`/`on`/`true` to run a cheap fast-model self-review on changed diffs to detect and fix bugs before ending a turn |

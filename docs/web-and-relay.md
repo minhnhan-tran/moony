@@ -14,7 +14,27 @@ MN_RELAY=127.0.0.1:8771 moony  # terminal 2 — connect this machine to the rela
 
 Save the relay address so every launch auto-connects in the background: run `/relay host:port` in the TUI (persisted to your config); `/relay off` disables it, `/relay` shows the current state. `MN_RELAY` overrides the saved value for a single run. While a relay is configured the status bar shows a **relay pill** — green when connected, amber while connecting/retrying — and the same state is mirrored to the web header.
 
-The browser replays each conversation from the start (history is kept), so a viewer can open the page mid-session and catch up, then follow live. The terminal stays the single owner of the agent, so remote actions are delivered into its normal input loop — one conversation, one history, one approval at a time. See *Relay mode* for the multi-laptop tree, and *Authentication* for login + HTTPS.
+The browser replays each conversation so a viewer can open the page mid-session and catch up, then follow live. To keep a long transcript from streaming and rendering in full on connect, only the most recent turns are replayed; when older turns exist a **"Load full history"** banner appears above the transcript, and `GET /api/sessions/{id}/history` serves earlier turns as pages. The terminal stays the single owner of the agent, so remote actions are delivered into its normal input loop — one conversation, one history, one approval at a time. See *Relay mode* for the multi-laptop tree, and *Authentication* for login + HTTPS.
+
+### Web-only features
+
+Beyond mirroring the terminal, the browser UI adds a few things that only exist there:
+
+- **Quick actions** — a split button beside the turn pager that fires a preset prompt at the agent without typing it ("run the tests", "review my changes"). Each action can pin a **model, provider, or reasoning level for its own turn only**; the session reverts afterwards, and the transcript says where the turn ran. Presets live in a committable per-project `.sqe/quickactions.json` with a global fallback, and are edited in *Manage → Quick actions* (reorder to pick the button's default).
+- **Task Board** (*Manage → Task Board*) — queue prompts that run as **parallel headless sub-processes, each in its own throwaway git worktree**, so they can't clobber each other or your working tree. Tasks may depend on one another, and each finished task is reviewed as a diff you **Apply** or **Discard**. `MN_TASKBOARD_MAX_PARALLEL` bounds concurrency; worktrees are torn down when the session closes.
+- **File viewer** — a read-only, ignore-aware browser over the session's working tree (the document icon in the composer meta row), sandboxed to the project root.
+- **Transcript search** — the sidebar search box queries every session on **every connected machine** and merges the hits, so "where did we discuss X" is one query instead of reopening sessions one by one.
+- **Doctor** (*Manage → Doctor*) — the `/doctor` environment/config checks plus live probes only a running session can do: an embeddings smoke test (a real request, not just "is it configured") and the actual connected state of your LSP and MCP servers.
+- **Codebase map** (*Manage → Codebase map*) — view `CODEBASE_MAP.md`, regenerate its generated structure section, and edit the hand-authored pinned notes, without spending a turn asking the agent to do it.
+
+### Health and metrics
+
+The connector exposes two operational endpoints:
+
+- `GET /healthz` — liveness JSON: `status`, the build `version`, and `uptimeSeconds`.
+- `GET /metrics` — Prometheus text exposition: uptime, in-flight and total requests (by route, method and status), request duration, active/total SSE streams, and counters for capped replays and history pages served. Set `MN_ACCESS_LOG=1` to also log one line per request.
+
+Route labels collapse opaque path segments (a session id becomes `:id`), so ids never become metric labels and the cardinality stays bounded. Neither endpoint exposes transcript content. `/healthz` is reachable without a login so probes work; `/metrics` goes through the normal auth gate like any other path (see *Authentication*).
 
 ## Relay mode
 
