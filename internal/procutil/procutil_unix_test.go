@@ -3,9 +3,13 @@
 package procutil
 
 import (
+	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestDetachSetsSetsid(t *testing.T) {
@@ -47,5 +51,34 @@ func TestDetachStartsNewSession(t *testing.T) {
 	}
 	if ourPgid, _ := syscall.Getpgid(0); childPgid == ourPgid {
 		t.Errorf("detached child must not share the parent's process group (%d)", ourPgid)
+	}
+}
+
+// KillTree must kill the whole process tree on cancel, and let Wait return
+// promptly even when a descendant inherited the output pipe. Without it, a
+// cancelled `sh -c` leaves its children running and Wait blocks until they exit —
+// so timeouts and interrupts are silently ignored.
+func TestKillTreeKillsGrandchildrenAndUnblocksWait(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "alive")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, "sh", "-c",
+		"sh -c 'sleep 4; touch "+marker+"' & sleep 30")
+	KillTree(cmd)
+
+	start := time.Now()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { time.Sleep(300 * time.Millisecond); cancel() }()
+	_ = cmd.Wait()
+	if el := time.Since(start); el > 8*time.Second {
+		t.Fatalf("Wait returned after %s — a descendant kept the pipe open", el)
+	}
+
+	time.Sleep(5 * time.Second) // past the grandchild's sleep
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("grandchild survived cancellation: process tree was not killed")
 	}
 }

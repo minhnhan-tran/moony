@@ -22,3 +22,8 @@ func Terminate(p *os.Process) {
 	}
 	_ = p.Kill()
 }
+
+// KillTree: on platforms without POSIX process groups this is a no-op beyond the
+// WaitDelay backstop, so Wait can still return after cancel even if a descendant
+// holds the output pipe. (Windows has no process-group SIGKILL.)
+func KillTree(cmd *exec.Cmd) { cmd.WaitDelay = 3 * time.Second }

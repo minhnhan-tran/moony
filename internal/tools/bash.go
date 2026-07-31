@@ -66,7 +66,7 @@ func (t *bashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	// when the working directory contains a space and the model writes the path
 	// unquoted (e.g. "cd /…/Source Code/… && git log" → cd: /…/Source: not found).
 	// Drop that redundant cd; a cd to any OTHER directory is left untouched.
-	in.Command = stripRedundantLeadingCD(in.Command, t.r.root)
+	in.Command = stripRedundantLeadingCD(in.Command, t.r.Root())
 
 	// Background mode: launch detached and return a job id immediately.
 	if in.Background {
@@ -93,8 +93,15 @@ func (t *bashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	// when disabled or unavailable, so the command runs identically otherwise.
 	name, args := sandboxCommand(t.r.sandboxConfig(), t.r.allRoots(), "sh", "-c", in.Command)
 	cmd := exec.CommandContext(cctx, name, args...)
-	cmd.Dir = t.r.root
-	cmd.Env = scrubbedEnvFor(t.r.root) // secrets stripped; $PWD pinned to the working dir
+	// Make the command killable as a whole process TREE. Without this, cancel only
+	// SIGKILLs the `sh` we spawned: the real work (a build, a server, a sleep) keeps
+	// running, and — because a surviving grandchild inherits our stdout/stderr pipe
+	// — CombinedOutput blocks until IT exits. The visible symptom is that both the
+	// timeout and a turn interrupt are ignored: a `timeout_sec: 1` call returns only
+	// when the command finishes on its own.
+	configureProcessGroup(cmd)
+	cmd.Dir = t.r.Root()
+	cmd.Env = scrubbedEnvFor(t.r.Root()) // secrets stripped; $PWD pinned to the working dir
 	out, err := cmd.CombinedOutput()
 
 	result := truncate(string(out), t.maxOutputBytes)

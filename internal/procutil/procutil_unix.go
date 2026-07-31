@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 // Detach configures cmd to start in a new session with no controlling terminal,
@@ -40,7 +41,53 @@ func Terminate(p *os.Process) {
 	if p == nil {
 		return
 	}
+	// Guard the pid before negating it. kill(0, …) signals OUR OWN process group
+	// (killing the agent), and kill(-1, …) signals every process we may signal —
+	// so a zero/absurd pid from an already-reaped or never-started process must
+	// never reach the group form.
+	if p.Pid <= 1 {
+		_ = p.Kill()
+		return
+	}
 	if err := syscall.Kill(-p.Pid, syscall.SIGKILL); err != nil {
 		_ = p.Kill()
 	}
+}
+
+// KillTree makes cmd killable as a whole process TREE rather than just the
+// immediate child, and must be called before Start/Run/CombinedOutput.
+//
+// It exists because exec.CommandContext's default cancel only SIGKILLs the direct
+// child. For `sh -c <command>` that kills the shell and leaves the actual work (a
+// build, a server, a sleep) running. Worse, a surviving grandchild inherits the
+// stdout/stderr pipe, so CombinedOutput/Wait blocks until THAT exits — which makes
+// the context timeout and turn interrupts appear to be ignored entirely.
+//
+// Setpgid puts the child in its own process group; the Cancel hook signals the
+// whole group; WaitDelay is the backstop that forces Wait to return shortly after
+// cancel if some descendant still holds the pipe.
+func KillTree(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setpgid = true
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		// Guard before negating: kill(0, …) would signal our OWN process group and
+		// take the agent down with it, and kill(-1, …) would signal everything we
+		// have permission to. Fall back to a single-process kill instead.
+		if cmd.Process.Pid <= 1 {
+			return cmd.Process.Kill()
+		}
+		// Negative pid targets the whole process group led by the child.
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
+			// The group may already be gone (or Setpgid failed); still make sure the
+			// direct child dies, or Wait would hang until WaitDelay fires.
+			return cmd.Process.Kill()
+		}
+		return nil
+	}
+	cmd.WaitDelay = 3 * time.Second
 }

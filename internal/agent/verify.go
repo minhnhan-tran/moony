@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/pysty1995/moony/internal/llm"
+	"github.com/pysty1995/moony/internal/procutil"
 	"github.com/pysty1995/moony/internal/tools"
 )
 
@@ -49,6 +50,9 @@ func (a *Agent) runVerify(ctx context.Context) verifyResult {
 	defer cancel()
 
 	cmd := exec.CommandContext(cctx, "sh", "-c", cmdline)
+	// Kill the whole tree on timeout: a test/build runner spawns children, and
+	// without this the timeout can't actually stop them (see procutil.KillTree).
+	procutil.KillTree(cmd)
 	cmd.Dir = a.cfg.WorkingDir
 	cmd.Env = tools.ScrubbedEnv() // keep auth secrets out of the verify command (parity with bash)
 	out, err := cmd.CombinedOutput()

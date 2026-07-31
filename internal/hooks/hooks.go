@@ -40,6 +40,8 @@ import (
 	"time"
 
 	"github.com/pysty1995/moony/internal/config"
+
+	"github.com/pysty1995/moony/internal/procutil"
 )
 
 // Event identifies a lifecycle point.
@@ -165,6 +167,9 @@ func (s *Set) runOne(parent context.Context, command string, env []string, dir s
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	// A hook that spawns a child must not be able to outlive its 10s budget (or
+	// wedge us holding the output pipe) — see procutil.KillTree.
+	procutil.KillTree(cmd)
 	cmd.Env = env
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
