@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.7.0] — 2026-07-31
+
+### Added
+
+- `remember_user`: durable facts about **you** — coding style, preferred output format, tone, workflow habits, standing requests — saved to `~/.config/moony/USER.md` and injected into every session in every project. Complements `remember`, which stays project-scoped (`AGENTS.md`): the split is *who you are* vs *what this repo does*. `/memory --user` writes the same file, `recall` searches all three scopes, and the context breakdown reports the profile as its own segment.
+- Docs for everything shipped in 2.5.0 and 2.6.0: the 10 new tools (`semantic_search`, `codebase_map`, `find_files`, `code_nav`, `review_changes`, `pull_request`, `ci_status`, `mobile`, `generate_image`, `generate_video`), the web-only features (quick actions, Task Board, file viewer, transcript search, Doctor, codebase-map panel, `/healthz` + `/metrics`), and the new environment variables.
+
+### Fixed
+
+- **Data race in the tool registry.** The tool map and ordering slice are mutated at runtime — an MCP reload, a skills toggle, or a sub-agent change re-registers tools — while a turn concurrently reads them for the next request's schemas or to dispatch the current call. A map write racing a map read is a hard crash, not a stale read. All accesses now go through an `RWMutex`, with dispatch resolving the tool under a read lock and releasing it before running the (potentially long) call.
+- Tests no longer spawn real MCP subprocesses. `MN_MCP=0` was set per-test, so a test that built a server directly inherited the ambient environment and launched real servers that wrote into its temp `HOME` — and kept writing after the test returned, making `t.TempDir` cleanup fail in whichever test happened to be running next. It is now pinned for the whole test binary.
+- `remember`'s `category` accepts `style` and `format` (filed under their own headings) instead of silently falling back to keyword heuristics.
+
 ## [2.6.0] — 2026-07-30
 
 ### Added
