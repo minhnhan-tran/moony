@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"github.com/pysty1995/moony/internal/agent"
@@ -368,6 +369,12 @@ func toWire(ev agent.Event) wireEvent {
 		return wireEvent{Type: "title", Text: e.Title}
 	case agent.Info:
 		return wireEvent{Type: "info", Text: e.Text}
+	case agent.Compaction:
+		// Emitted by compact.go when older turns are summarized away. It had no case
+		// here, so it fell through to the default branch and reached the browser as a
+		// text-less "info" — which is exactly the "undefined" bubble. Surface it as the
+		// note it is, so the user can see why earlier turns vanished.
+		return wireEvent{Type: "info", Text: fmt.Sprintf("Compacted context: summarized %d earlier turn(s) to free space.", e.Turns)}
 	case agent.ContextStats:
 		return wireEvent{Type: "context", Context: &contextWire{Segments: contextSegmentsWire(e.Segments), Total: e.Total, Window: e.Window}}
 	case agent.ApprovalRequest:
@@ -388,7 +395,12 @@ func toWire(ev agent.Event) wireEvent {
 		// Live worker progress; the browser nests it under the delegate call.
 		return wireEvent{Type: "worker", Tool: e.Worker, ToolID: e.ID, Summary: e.Kind, Text: e.Text}
 	default:
-		return wireEvent{Type: "info"}
+		// An unmapped agent event must NOT become a text-less "info": the browser
+		// renders an info bubble from ev.text, so a missing Text shows the literal
+		// string "undefined" (and here would throw on ev.text.startsWith, killing the
+		// whole event handler). "unknown" is inert client-side, so a kind we don't map
+		// degrades to nothing visible instead of a broken bubble.
+		return wireEvent{Type: "unknown"}
 	}
 }
 

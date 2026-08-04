@@ -404,3 +404,19 @@ func TestMirrorSSEStreamsStatus(t *testing.T) {
 		t.Errorf("SSE body missing replayed status snapshot:\n%s", body)
 	}
 }
+
+// mirrorWire has the same trap as toWire's default branch: an unmapped bridge.Kind
+// returned as a text-less "info" renders as the literal "undefined" in mirrored and
+// hub-routed sessions.
+func TestUnmappedBridgeKindDegradesToInertType(t *testing.T) {
+	w := mirrorWire(bridge.Msg{Kind: "no-such-kind", Seq: 7})
+	if w.Type == "info" {
+		t.Error("unmapped bridge kind became a text-less \"info\" (renders as \"undefined\")")
+	}
+	if w.Type != "unknown" {
+		t.Errorf("Type = %q, want \"unknown\"", w.Type)
+	}
+	if w.Seq != 7 {
+		t.Errorf("Seq = %d, want 7 (sequence must survive)", w.Seq)
+	}
+}

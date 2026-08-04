@@ -1441,8 +1441,15 @@ function handle(ev) {
       lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0;
       break;
     }
+    // Inert: a wire event whose kind the host didn't map. Rendering it as an info
+    // bubble would show the literal "undefined"; dropping it shows nothing.
+    case "unknown":
+      return;
     case "info": {
       endAssistant(); endToolGroup(); endWorkerGroup();
+      // Defensive: an info with no text would throw on .startsWith below and take
+      // the whole event handler down with it.
+      if (!ev.text) return;
       // Track compaction progress so the status bar can show a chip while the
       // summarise LLM call is in flight.
       if (ev.text.startsWith("Compacting ")) {

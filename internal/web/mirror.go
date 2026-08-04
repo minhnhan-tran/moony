@@ -304,5 +304,8 @@ func mirrorWire(m bridge.Msg) wireEvent {
 		}
 		return wireEvent{Seq: m.Seq, Type: "sessions", Sessions: items}
 	}
-	return wireEvent{Seq: m.Seq, Type: "info"}
+	// Same trap as toWire's default branch: an unmapped bridge.Kind returned as a
+	// text-less "info" renders as the literal "undefined" in the transcript.
+	// "unknown" is inert client-side, so an unrecognized kind degrades to nothing.
+	return wireEvent{Seq: m.Seq, Type: "unknown"}
 }
