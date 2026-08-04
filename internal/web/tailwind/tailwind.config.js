@@ -2,7 +2,7 @@
 // Tailwind config used to PREBUILD internal/web/static/tailwind.css. The Apple
 // network blocks the Tailwind Play CDN, so the stylesheet is generated offline
 // and vendored. Regenerate with `make tailwind` after changing utility classes
-// in internal/web/static/index.html or app.js.
+// in internal/web/static/index.html or any of the static/*.js modules.
 //
 // Colors are bound to CSS custom properties (the `--c-*` palette tokens defined
 // in app.css) so the same utilities serve both the light and dark themes — the
@@ -12,7 +12,15 @@
 // utilities to the same tokens, so theming works even against the currently
 // vendored tailwind.css without a rebuild; keep the two in sync.
 module.exports = {
-  content: ["./internal/web/static/index.html", "./internal/web/static/app.js"],
+  // Glob every markup/script source, not a fixed list: the SPA's single app.js was
+  // long ago split into app-core/app-render/app-state/app-manage/app-workflow, so a
+  // literal "app.js" entry silently matched NOTHING and every utility used only in JS
+  // (w-full, font-medium, mt-3, focus:ring-1, …) was missing from the generated
+  // stylesheet — the classes were in the markup but had no rule, so they did nothing.
+  content: [
+    "./internal/web/static/*.html",
+    "./internal/web/static/*.js",
+  ],
   darkMode: "class",
   theme: {
     extend: {
@@ -24,6 +32,8 @@ module.exports = {
         ink: "rgb(var(--c-ink) / <alpha-value>)",
         faint: "rgb(var(--c-faint) / <alpha-value>)",
         brand: "rgb(var(--c-brand) / <alpha-value>)",
+        // Input/well background behind text fields (bg-backdrop).
+        backdrop: "rgb(var(--c-backdrop) / <alpha-value>)",
         ok: "rgb(var(--c-ok) / <alpha-value>)",
         warn: "rgb(var(--c-warn) / <alpha-value>)",
         danger: "rgb(var(--c-danger) / <alpha-value>)",

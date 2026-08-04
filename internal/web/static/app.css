@@ -36,6 +36,7 @@
   --c-violet: 163 113 247;     /* delegate-worker accent                */
   --c-shadow: 1 4 9;           /* drop-shadow color (near-black)        */
   --c-hi: 240 246 252;         /* top inset highlight (near-white)      */
+  --c-backdrop: 13 17 23;      /* inset well behind inline text inputs  */
   /* code-viewer syntax tokens (One Dark Pro) */
   --tok-c: 127 140 153;        /* comments */
   --tok-s: 152 195 121;        /* strings  */
@@ -70,6 +71,7 @@ html.light {
   --c-violet: 130 80 223;
   --c-shadow: 140 149 159;
   --c-hi: 255 255 255;
+  --c-backdrop: 255 255 255;
   --tok-c: 100 116 139;        /* comments */
   --tok-s: 22 163 74;          /* strings  */
   --tok-n: 217 119 6;          /* numbers  */

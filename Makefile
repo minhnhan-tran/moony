@@ -9,13 +9,17 @@ BIN_DIR     := bin
 PKG         := .
 GO          := env -u GOROOT GIT_TERMINAL_PROMPT=0 go
 
-.PHONY: all build build-relay run test smoke vet fmt tidy vendor clean install release release-dry relay tailwind dist publish eval
+.PHONY: all build build-relay run test smoke vet fmt tidy vendor clean install release release-dry relay tailwind tailwind-check dist publish eval
 
 BUMP ?= minor
 
 # TailwindCSS CLI used to (re)build the vendored web stylesheet. Override if the
 # binary lives elsewhere, e.g. `make tailwind TAILWIND=/path/to/tailwindcss`.
-TAILWIND ?= tailwindcss
+# This repo's tailwind.config.js is v3-style and the v4 CLI ignores it (emitting an
+# almost-empty stylesheet) instead of failing loudly, so v3 is required. Prefer a
+# tailwindcss already on PATH — assumed to be v3, and it keeps offline/air-gapped
+# builds working — and fall back to a pinned npx download only when there is none.
+TAILWIND ?= $(shell command -v tailwindcss 2>/dev/null || echo npx --yes tailwindcss@3.4.17)
 
 all: build
 
@@ -44,12 +48,30 @@ run: build
 relay:
 	$(GO) run ./cmd/relay $(if $(ADDR),-addr=$(ADDR),) $(if $(TUNNEL),-tunnel=$(TUNNEL),) $(FLAGS)
 
-## tailwind: regenerate the vendored web stylesheet from index.html. Needed only
-## after changing Tailwind classes in internal/web/static/index.html. Requires a
-## Tailwind v3 CLI on PATH (or pass TAILWIND=...); the built CSS is committed so
-## normal builds don't need it.
+## tailwind: regenerate the vendored web stylesheet by scanning the SPA sources.
+## Needed after using a NEW Tailwind class anywhere in internal/web/static (the
+## config globs *.html and *.js, so all five app-*.js modules count). Requires a
+## Tailwind v3 CLI — v4 silently ignores this v3-style config and emits a nearly
+## empty stylesheet, so the default pins v3 via npx. The built CSS is committed so
+## normal builds don't need this.
+##
+## Run `make tailwind-check` in CI/after edits to catch classes used in markup that
+## have no generated rule — those render as no-ops and are invisible in review.
 tailwind:
 	$(TAILWIND) -c internal/web/tailwind/tailwind.config.js -i internal/web/tailwind/input.css -o internal/web/static/tailwind.css --minify
+
+## tailwind-check: verify the committed stylesheet is up to date with the sources.
+## Regenerates into a temp file and diffs, so a class added to the markup without a
+## rebuild fails here instead of silently doing nothing in the browser.
+tailwind-check:
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT INT TERM; \
+	$(TAILWIND) -c internal/web/tailwind/tailwind.config.js -i internal/web/tailwind/input.css -o $$tmp/tailwind.css --minify >/dev/null 2>&1; \
+	if ! diff -q $$tmp/tailwind.css internal/web/static/tailwind.css >/dev/null; then \
+		echo "internal/web/static/tailwind.css is stale — run 'make tailwind'"; \
+		exit 1; \
+	fi; \
+	echo "tailwind.css is up to date"
 
 ## test: run unit tests (skips the live smoke test)
 test:
