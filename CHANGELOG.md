@@ -5,6 +5,27 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.8.1] — 2026-08-04
+
+### Fixed
+
+- **The codebase map described JS modules by their private locals instead of their
+  public API.** `codebase_map` already shipped, but with v2.8.0's JS indexing in place
+  the map's per-file listings were dominated by closures declared *inside* other
+  functions — `app-core.js` was advertised via `flush`, `commit`, `mutate` and `tick`
+  (40 nested helpers against only 7 module-level bindings), none of which are reachable
+  from outside their enclosing function. Definitions nested below a file's base
+  declaration level are now pruned, so each file is summarized by the entry points a
+  caller can actually use (`api`, `handle`, `sendText`, `boot`, …).
+
+  Two deliberate constraints: the base level is **detected per file** rather than assumed
+  to be column 0, because an IIFE-wrapped module (`app-workflow.js`) holds its entire
+  surface at one indent and a hardcoded column-0 rule would erase it from the map
+  outright — it keeps all 98 of its symbols. And pruning is limited to JS/TS: Go and
+  Rust nest functions too, but their top-level declarations dominate, so applying it
+  there would strip legitimate symbols. Both constraints are covered by tests, each
+  verified to fail when the corresponding guard is removed.
+
 ## [2.8.0] — 2026-08-04
 
 Ports the outstanding fixes from the upstream sibling project. All four were latent
