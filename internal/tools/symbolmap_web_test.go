@@ -182,3 +182,89 @@ func TestTruncateKeepingFileFloorShrinksToFitBudget(t *testing.T) {
 		t.Errorf("only %d of 26 files survived; the floor did not shrink to fit", len(per))
 	}
 }
+
+// A JS module's map entry must describe its module-level API, not the local closures
+// inside its functions. Those helpers are invisible outside their enclosing function,
+// yet they scored like top-level definitions and dominated what the codebase map showed.
+func TestSymbolMapPrunesInnerJSClosures(t *testing.T) {
+	dir := t.TempDir()
+	js := `function publicOne() {
+  const flush = () => { pendingW = 0; };
+  const tick = function () { return 1; };
+  function innerHelper() { return 2; }
+  if (x) {
+    const deeplyNested = () => 3;
+  }
+}
+const publicTwo = () => 4;
+function publicThree() {}
+`
+	if err := os.WriteFile(filepath.Join(dir, "mod.js"), []byte(js), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := symsFor(t, dir)
+
+	for _, want := range []string{"publicOne", "publicTwo", "publicThree"} {
+		if _, ok := got[want]; !ok {
+			t.Errorf("module-level %q missing from the symbol map", want)
+		}
+	}
+	for _, unwanted := range []string{"flush", "tick", "innerHelper", "deeplyNested"} {
+		if _, ok := got[unwanted]; ok {
+			t.Errorf("inner closure %q was indexed as a module-level definition", unwanted)
+		}
+	}
+}
+
+// The base level is DETECTED, not assumed to be column 0: an IIFE-wrapped module keeps
+// its entire public surface at one indent, so a hardcoded column-0 rule would erase
+// such a file from the map entirely.
+func TestSymbolMapKeepsIIFEWrappedModuleSurface(t *testing.T) {
+	dir := t.TempDir()
+	js := `(function () {
+  function wrappedPublic() {
+    const innerLocal = () => 1;
+    return innerLocal;
+  }
+  const alsoPublic = () => 2;
+})();
+`
+	if err := os.WriteFile(filepath.Join(dir, "iife.js"), []byte(js), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := symsFor(t, dir)
+
+	for _, want := range []string{"wrappedPublic", "alsoPublic"} {
+		if _, ok := got[want]; !ok {
+			t.Errorf("%q missing: an IIFE-wrapped module was erased by depth pruning", want)
+		}
+	}
+	if _, ok := got["innerLocal"]; ok {
+		t.Error("a closure nested inside the IIFE's function was indexed")
+	}
+}
+
+// Go nests functions too (closures, methods in blocks) but its top-level declarations
+// dominate, so pruning must not apply and strip legitimate Go symbols.
+func TestSymbolMapDoesNotPruneNestedGoDecls(t *testing.T) {
+	dir := t.TempDir()
+	code := `package p
+
+func Outer() {
+	inner := func() {}
+	_ = inner
+}
+
+type Thing struct{}
+`
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := symsFor(t, dir)
+	// (Names under 3 chars are filtered as noise by symbolMinTokenLen, so use real ones.)
+	for _, want := range []string{"Outer", "Thing"} {
+		if _, ok := got[want]; !ok {
+			t.Errorf("Go declaration %q was pruned; depth pruning must be JS/TS-only", want)
+		}
+	}
+}

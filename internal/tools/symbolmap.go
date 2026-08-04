@@ -225,6 +225,10 @@ type symDef struct {
 type defSite struct {
 	kind string // declaration keyword, normalized ("func", "type", "class", "const", …)
 	line int    // 1-based line of the declaration
+	// indent is the leading-whitespace width of the declaring line. Brace languages
+	// nest freely, so this is how a module's public surface is told apart from the
+	// closures inside its functions — see pruneNestedDefs.
+	indent int
 }
 
 // fileStat holds per-file extraction results used for scoring.
@@ -476,13 +480,14 @@ func extractFile(abs, rel string) (fileStat, bool) {
 		if skippableLine(line, isCSS) {
 			continue
 		}
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
 		if isCSS {
 			// CSS has no declaration keywords; its definitions are rules and custom
 			// properties, so it gets a dedicated pass instead of the keyword regexes.
 			defs, uses := extractCSSDefs(line)
 			for _, d := range defs {
 				if addDef(defSet, d.name) {
-					recordSite(fsStat.sites, d.name, d.kind, fsStat.lines)
+					recordSite(fsStat.sites, d.name, d.kind, fsStat.lines, indent)
 				}
 			}
 			for _, u := range uses {
@@ -493,17 +498,17 @@ func extractFile(abs, rel string) (fileStat, bool) {
 		// Definitions: keyword-led, JS/TS function binding, or a named export.
 		for _, m := range defKeywordRe.FindAllStringSubmatch(line, -1) {
 			if addDef(defSet, m[1]) {
-				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines)
+				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines, indent)
 			}
 		}
 		for _, m := range assignFuncRe.FindAllStringSubmatch(line, -1) {
 			if addDef(defSet, m[1]) {
-				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines)
+				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines, indent)
 			}
 		}
 		for _, m := range exportRe.FindAllStringSubmatch(line, -1) {
 			if addDef(defSet, m[1]) {
-				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines)
+				recordSite(fsStat.sites, m[1], declKeyword(m[0]), fsStat.lines, indent)
 			}
 		}
 		// A JS/HTML file that names a CSS class REFERENCES it, so the caller graph
@@ -524,6 +529,9 @@ func extractFile(abs, rel string) (fileStat, bool) {
 			}
 		}
 	}
+	if isNestingLang(rel) {
+		pruneNestedDefs(defSet, fsStat.sites)
+	}
 	for name := range defSet {
 		fsStat.defs = append(fsStat.defs, name)
 	}
@@ -542,9 +550,9 @@ func addDef(set map[string]bool, name string) bool {
 
 // recordSite remembers the FIRST declaration site seen for a name in a file
 // (later re-declarations, e.g. methods on other types, don't overwrite it).
-func recordSite(sites map[string]defSite, name, kind string, line int) {
+func recordSite(sites map[string]defSite, name, kind string, line, indent int) {
 	if _, seen := sites[name]; !seen {
-		sites[name] = defSite{kind: kind, line: line}
+		sites[name] = defSite{kind: kind, line: line, indent: indent}
 	}
 }
 
@@ -775,4 +783,56 @@ func truncateKeepingFileFloor(entries []SymbolEntry, max int) []SymbolEntry {
 		}
 	}
 	return out
+}
+
+// isNestingLang reports whether a file's language routinely declares functions
+// INSIDE other functions, making declaration depth meaningful. Go and Rust nest too,
+// but their top-level declarations dominate, whereas a JS/TS module is mostly
+// callbacks and closures — so the pruning below is limited to those.
+func isNestingLang(rel string) bool {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx":
+		return true
+	}
+	return false
+}
+
+// pruneNestedDefs drops definitions nested inside other functions, keeping the file's
+// module-level surface.
+//
+// Without it a large JS module is described by its inner closures: app-core.js has 211
+// declarations at its base level, but also 40 nested ones with names like `flush`,
+// `commit`, `mutate` and `tick`. Those are local helpers — invisible outside their
+// enclosing function — yet they scored like top-level API and were what the codebase
+// map showed for the file, so the map advertised private locals as entry points.
+//
+// The base level is DETECTED rather than assumed to be column 0: an IIFE-wrapped module
+// (`(function () { … })()`, as app-workflow.js uses) has its entire public surface at
+// one indent level, and hardcoding column 0 would erase such a file from the map
+// completely. Everything at the shallowest observed depth is kept; anything deeper is
+// dropped, unless that would leave nothing.
+func pruneNestedDefs(defSet map[string]bool, sites map[string]defSite) {
+	base := -1
+	for name := range defSet {
+		st, ok := sites[name]
+		if !ok {
+			continue // no recorded site (e.g. a call-only name); leave it alone
+		}
+		if base < 0 || st.indent < base {
+			base = st.indent
+		}
+	}
+	if base < 0 {
+		return
+	}
+	for name := range defSet {
+		st, ok := sites[name]
+		if !ok {
+			continue
+		}
+		if st.indent > base {
+			delete(defSet, name)
+			delete(sites, name)
+		}
+	}
 }
