@@ -5,6 +5,61 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.8.0] — 2026-08-04
+
+Ports the outstanding fixes from the upstream sibling project. All four were latent
+in moony and are verified by regression tests (each confirmed to fail without its fix).
+
+### Fixed
+
+- **The symbol map barely saw the web UI, and erased whole files.** Three compounding
+  defects: `defKeywordRe` listed Go's `func`, which does *not* match JavaScript's
+  `function`, so top-level JS functions were never indexed — `app-core.js` has 161 and
+  the map found 5. What it listed instead were the value bindings `assignFuncRe` swept
+  up (`const now = Date.now()`), so the largest frontend file was described by its
+  throwaway locals; that regex is now restricted to function-valued bindings, with a
+  separate `exportRe` for named exports. CSS was excluded entirely (0 symbols from a
+  2000-line stylesheet), so `.css` now gets a dedicated pass indexing top-level rules
+  and custom properties, and JS/HTML that names a class registers as a *reference* to
+  it — `#` is an id selector in CSS, not a comment, and was silently dropping every id
+  rule. Finally the global `entries[:1500]` cut was score-ordered, so flat files whose
+  names individually score low were deleted wholesale; a per-file floor now guarantees
+  each contributing file keeps its best few, and the cap is 6000 (only `CODEBASE_MAP.md`
+  and `find_files` read the full set — the prompt takes only its digest, so this costs
+  disk, not context). Net effect on this repo: 281 → 561 files represented,
+  `app-core.js` 5 → 231 symbols, `app.css` 0 → 522.
+- **Nested `.gitignore` files were ignored.** Only the repo-root ignore file was read,
+  so a vendored or generated subtree excluded by its own nested `.gitignore` was still
+  walked and indexed as project source, crowding real files out of the symbol map's
+  budget. Nested files are now honoured and, as git does, *scoped to their own
+  subtree*, so `editors/vscode/.gitignore`'s `out/` can't hide `internal/web/out/`.
+  The scope dir is deliberately never matched against its own rules — a catch-all `*`
+  would otherwise hide the very subtree the file lives in and prune it entirely.
+  Separately, a directory-only rule (`build/`) now also hides the files *underneath*
+  it: skipping non-dirs only works for callers that walk top-down and prune, so a tool
+  asking about one path directly was told a file inside an ignored directory was visible.
+- **Unmapped events rendered as the literal string `undefined` in the transcript.**
+  Both `toWire` and `mirrorWire` returned a text-less `info` event for any kind they
+  didn't recognize, and the browser builds an info bubble from `ev.text` — so the
+  bubble read `undefined`, and in moony's client it *threw* on `ev.text.startsWith`,
+  taking the whole event handler down with it. Both now return an inert `unknown` type
+  that the client drops, with a defensive text guard behind it. This was live, not
+  theoretical: `agent.Compaction` is emitted by the compactor and had no case, so it
+  hit the default branch every time context was compacted; it now surfaces as a proper
+  note explaining why earlier turns vanished.
+- **~18 Tailwind utility classes did nothing.** The generator's `content` globs listed
+  `static/app.js` — a file that no longer exists, having been split into the five
+  `app-*.js` modules — so it matched nothing and every class used only in JS was absent
+  from the vendored stylesheet. `w-full`, `font-medium`, `mt-3`, `break-all`,
+  `focus:ring-1` and others were present in the markup with no rule behind them (the
+  session-rename input, for one, was meant to be full-width with a focus ring and got
+  neither). The config now globs `*.html`/`*.js`, the missing `--c-backdrop` token is
+  defined for both themes, and the regenerated CSS drops 29 genuinely unused classes.
+  Two guards so this can't rot again: `TAILWIND` prefers a local v3 binary and falls
+  back to a *pinned* `npx tailwindcss@3` (the v4 CLI silently ignores this v3-style
+  config and emits an almost-empty stylesheet), and a new `make tailwind-check` fails
+  when the committed CSS is stale.
+
 ## [2.7.1] — 2026-07-31
 
 ### Fixed
