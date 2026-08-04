@@ -26,6 +26,11 @@ import (
 	"strings"
 )
 
+// nestedIgnoreMaxDepth bounds how deep LoadIgnore looks for nested .gitignore /
+// .sqeignore files. Real projects keep them near the top, and this scan runs at
+// startup, so a shallow bound keeps it cheap on a big tree.
+const nestedIgnoreMaxDepth = 4
+
 // defaultIgnorePatterns are always applied. They mirror what a sensible
 // .gitignore in any repo would carry.
 var defaultIgnorePatterns = []string{
@@ -47,6 +52,9 @@ type ignoreRule struct {
 	dirOnly  bool   // pattern ended with `/` (only matches directories)
 	negate   bool   // pattern began with `!`
 	hasSlash bool   // pattern contains a `/` after canonicalization
+	// scope confines the rule to one subtree (repo-relative dir, no trailing slash)
+	// when it came from a nested ignore file; empty means repo-wide.
+	scope string
 }
 
 // IgnoreSet holds the rules from one ignore root.
@@ -66,6 +74,7 @@ func LoadIgnore(root string) *IgnoreSet {
 	for _, name := range []string{".gitignore", ".sqeignore"} {
 		_ = set.appendFile(filepath.Join(root, name))
 	}
+	set.appendNested(root)
 	return set
 }
 
@@ -90,9 +99,76 @@ func (s *IgnoreSet) appendFile(path string) error {
 	return sc.Err()
 }
 
-// add canonicalizes one raw pattern and appends a rule.
-func (s *IgnoreSet) add(raw string) {
-	r := ignoreRule{}
+// add canonicalizes one raw pattern and appends a repo-wide rule.
+func (s *IgnoreSet) add(raw string) { s.addScoped(raw, "") }
+
+// appendNested finds ignore files BELOW root and adds their rules scoped to the
+// file's own directory, so a nested `.gitignore`'s `dist/` governs only its own
+// subtree and cannot match a same-named directory elsewhere in the repo.
+//
+// Reading only the root ignore file meant a vendored subtree excluded by a nested
+// .gitignore was still walked and indexed as project source, crowding real files out
+// of the symbol map's budget.
+//
+// Bounded deliberately: it descends only through directories the rules so far don't
+// already exclude, and stops at nestedIgnoreMaxDepth, so it stays a cheap startup
+// scan rather than a full walk.
+func (s *IgnoreSet) appendNested(root string) {
+	var walk func(dir, rel string, depth int)
+	walk = func(dir, rel string, depth int) {
+		if depth > nestedIgnoreMaxDepth {
+			return
+		}
+		ents, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range ents {
+			if !e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			childRel := name
+			if rel != "" {
+				childRel = rel + "/" + name
+			}
+			// Don't descend into anything already excluded: its ignore files are
+			// irrelevant and the tree may be huge (node_modules).
+			if s.Match(childRel, true) {
+				continue
+			}
+			for _, n := range []string{".gitignore", ".sqeignore"} {
+				s.appendFileScoped(filepath.Join(dir, name, n), childRel)
+			}
+			walk(filepath.Join(dir, name), childRel, depth+1)
+		}
+	}
+	walk(root, "", 0)
+}
+
+// appendFileScoped parses an ignore file whose rules apply only within scope (a
+// repo-relative directory), mirroring how git scopes a nested .gitignore.
+func (s *IgnoreSet) appendFileScoped(path, scope string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		s.addScoped(line, scope)
+	}
+}
+
+// addScoped canonicalizes one raw pattern and appends a rule. A non-empty scope
+// confines the pattern to that subtree: an unanchored name like `dist` would
+// otherwise match a same-named directory anywhere in the repo.
+func (s *IgnoreSet) addScoped(raw, scope string) {
+	r := ignoreRule{scope: scope}
 	if strings.HasPrefix(raw, "!") {
 		r.negate = true
 		raw = raw[1:]
@@ -119,10 +195,28 @@ func (s *IgnoreSet) Match(relPath string, isDir bool) bool {
 	relPath = filepath.ToSlash(relPath)
 	matched := false
 	for _, r := range s.rules {
-		if r.dirOnly && !isDir {
+		// A scoped rule (from a nested ignore file) governs the CONTENTS of its
+		// directory, never the directory itself — matching the scope dir against its own
+		// rules lets a catch-all like `*` hide the very subtree the file lives in, so a
+		// walker prunes it and the nested rules become self-defeating.
+		if r.scope != "" && !strings.HasPrefix(relPath, r.scope+"/") {
 			continue
 		}
-		if !ruleMatches(r, relPath) {
+		// Patterns in a nested ignore file are written relative to that file's own
+		// directory, so match against the path with the scope prefix removed.
+		cand := relPath
+		if r.scope != "" {
+			cand = strings.TrimPrefix(relPath, r.scope+"/")
+		}
+		if !ruleMatches(r, cand) {
+			continue
+		}
+		// A dir-only rule (`build/`) excludes the directory AND everything under it.
+		// Skipping it for non-dirs only works when the caller walks top-down and
+		// prunes; a direct question about a file path (find_files, or a tool checking a
+		// single path) would otherwise report a file inside an ignored directory as
+		// visible.
+		if r.dirOnly && !isDir && !ruleMatchesAncestor(r, cand) {
 			continue
 		}
 		if r.negate {
@@ -145,6 +239,23 @@ func ruleMatches(r ignoreRule, relPath string) bool {
 	}
 	for _, seg := range strings.Split(relPath, "/") {
 		if globMatch(r.pattern, seg) {
+			return true
+		}
+	}
+	return false
+}
+
+// ruleMatchesAncestor reports whether the rule matches any ANCESTOR directory of
+// relPath. It's what makes a dir-only rule (`build/`) also hide the files inside it
+// when a caller asks about one path directly rather than walking and pruning.
+func ruleMatchesAncestor(r ignoreRule, relPath string) bool {
+	segs := strings.Split(relPath, "/")
+	for i := 1; i < len(segs); i++ {
+		if globMatch(r.pattern, strings.Join(segs[:i], "/")) {
+			return true
+		}
+		// Unanchored patterns match any single segment along the way.
+		if !r.anchored && !r.hasSlash && globMatch(r.pattern, segs[i-1]) {
 			return true
 		}
 	}
