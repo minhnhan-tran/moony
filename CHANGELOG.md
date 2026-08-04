@@ -5,6 +5,33 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.9.0] — 2026-08-04
+
+### Added
+
+- **Quick-action editor: pick icons by sight instead of typing symbol names.** The icon
+  field was a free-text box, so setting one meant knowing an exact symbol name from
+  memory — and a wrong guess was *silent*, because `<app-icon>` falls back to a generic
+  "help" glyph with no error. It's now a dropdown of 51 previewed icons in 10 task-shaped
+  groups (Build & run, Test & verify, Source control, …), with an explicit "No icon"
+  choice, keyboard/outside-click dismissal, and flip-up placement when the viewport is
+  short. The catalog is curated for moony specifically: this app renders **Material
+  Symbols** through a name-mapping table, not SF Symbols, so every entry is checked to
+  exist in that table — `TestQuickActionIconsAreMapped` fails the build on an unmapped or
+  duplicated name, and a companion test fails if any picker class lacks a CSS rule.
+  (Adapting rather than copying mattered: 7 of the icons a direct port would have offered
+  are unmapped here and would have rendered as broken glyphs.)
+
+### Fixed
+
+- **The quick-action form was unlabelled while editing.** Fields carried only
+  placeholders, which disappear as soon as there's text — so editing an existing action
+  presented four anonymous boxes and "which one is the subtitle?" needed guessing. Each
+  control now has a persistent label plus a hint (`required — sent to the agent`,
+  `defaults to the prompt`). The form also gained a mode heading naming the action being
+  edited; previously the only cue that you were about to *overwrite* rather than *add*
+  was the submit button's text changing to "Save".
+
 ## [2.8.1] — 2026-08-04
 
 ### Fixed
