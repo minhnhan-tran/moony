@@ -2948,6 +2948,69 @@ html.light .diff-hunk { color: #0550ae; }
 .qa-reset { font-size: 12px; color: rgb(var(--c-faint)); background: none; border: 0; padding: .2rem 0; cursor: pointer; text-decoration: underline; }
 .qa-reset:hover { color: rgb(var(--c-danger)); }
 
+/* ---- Quick-action form: labelled fields, mode heading, and the icon picker. ---- */
+
+/* Mode heading — says whether the form will add or overwrite, and which action. */
+.qa-form-head { display: flex; align-items: center; gap: .35rem; font-size: 11px; color: rgb(var(--c-faint)); margin-bottom: .15rem; }
+.qa-form-head-icon { flex: 0 0 auto; }
+.qa-form-head-text { text-transform: uppercase; letter-spacing: .04em; }
+.qa-form-head-target {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+  color: rgb(var(--c-brand)); background: rgb(var(--c-brand) / .1);
+  border-radius: var(--r-xs); padding: .05rem .3rem;
+  max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Persistent labels: a placeholder disappears once a field has text, which made an
+   action being EDITED a stack of unlabelled boxes. */
+.qa-field { display: flex; flex-direction: column; gap: .15rem; }
+.qa-field-label { display: flex; align-items: baseline; gap: .35rem; font-size: 11px; color: rgb(var(--c-faint)); }
+.qa-field-hint { font-size: 10px; color: rgb(var(--c-faint) / .75); font-style: italic; }
+
+/* Icon picker: a preview button plus a grouped dropdown, replacing a free-text field
+   that required typing an exact symbol name from memory. */
+.qa-icon-picker { position: relative; display: flex; }
+/* Geometry deliberately mirrors .access-input (the sibling text fields in this form)
+   so the icon control lines up with them instead of looking like a different widget. */
+.qa-icon-btn {
+  display: flex; align-items: center; gap: .4rem; width: 100%;
+  padding: .35rem .6rem; font-size: 13px; text-align: left;
+  background: rgb(var(--c-base)); color: rgb(var(--c-ink));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); cursor: pointer;
+}
+.qa-icon-btn:hover { border-color: rgb(var(--c-brand) / .5); }
+.qa-icon-btn:focus-visible { outline: none; border-color: rgb(var(--c-brand)); box-shadow: var(--ring); }
+.qa-icon-btn-glyph { display: flex; flex: 0 0 auto; width: 1.1rem; justify-content: center; color: rgb(var(--c-brand)); }
+.qa-icon-btn-text { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qa-icon-btn-text.is-empty { color: rgb(var(--c-faint)); }
+.qa-icon-caret { flex: 0 0 auto; color: rgb(var(--c-faint)); }
+.qa-icon-none {
+  display: inline-block; width: .8rem; height: .8rem; border-radius: 2px;
+  border: 1px dashed rgb(var(--c-edge));
+}
+
+/* Portaled to <body> (the Config modal body scrolls and would clip it), so this is
+   position: fixed and needs to sit above the modal. */
+.qa-icon-list {
+  position: fixed; z-index: 1100; display: none;
+  margin: 0; padding: .25rem; list-style: none; overflow-y: auto;
+  background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-md); box-shadow: var(--shadow-lg);
+}
+.qa-icon-list.open { display: block; }
+.qa-icon-group {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+  color: rgb(var(--c-faint)); padding: .35rem .4rem .15rem;
+}
+.qa-icon-item {
+  display: flex; align-items: center; gap: .45rem;
+  padding: .25rem .4rem; font-size: 12px; border-radius: var(--r-xs); cursor: pointer;
+}
+.qa-icon-item:hover { background: rgb(var(--c-raised)); }
+.qa-icon-item.is-active { background: rgb(var(--c-brand) / .14); color: rgb(var(--c-brand)); }
+.qa-icon-glyph { flex: 0 0 auto; color: rgb(var(--c-brand)); }
+.qa-icon-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---- Task Board (Manage → Task Board): parallel isolated task runs with
         per-task diff review. ---- */
 .taskboard-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; }

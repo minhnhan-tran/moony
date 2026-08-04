@@ -1238,6 +1238,120 @@ async function renderQuickActionsPanel() {
   body.append(el("p", "access-intro",
     "Preset prompts for the quick-actions button beside the turn pager. Picking one sends it to the agent as if you'd typed it. An action can optionally pin a model, provider or reasoning level for its own turn only — the session reverts afterwards. Project actions live in .sqe/quickactions.json (commit it to share them); global actions are a fallback used only when a project defines none. The first action is the button's default."));
 
+// QA_ICONS is the curated icon catalog offered by the quick-action icon picker,
+// grouped by what an action tends to DO so the list is scannable.
+//
+// Every name here must exist in SF_TO_MATERIAL (app-state.js): <app-icon> falls back
+// to a generic "help" glyph for anything unmapped, so an unmapped suggestion would
+// silently render as a broken icon in both the picker and the composer button.
+// TestQuickActionIconsAreMapped guards this.
+const QA_ICONS = [
+  { group: "Build & run",     names: ["hammer", "hammer.fill", "play.fill", "stop.fill", "bolt.fill", "gearshape.fill", "wrench.and.screwdriver"] },
+  { group: "Test & verify",   names: ["checkmark", "checkmark.circle", "checkmark.circle.fill", "checklist", "checkmark.shield.fill"] },
+  { group: "Source control",  names: ["arrow.triangle.branch", "arrow.triangle.2.circlepath", "arrow.clockwise", "arrow.counterclockwise", "arrow.up", "square.and.arrow.down"] },
+  { group: "Ship & deploy",   names: ["shippingbox.fill", "cloud.fill", "paperplane.fill", "arrow.up.to.line", "tag.fill"] },
+  { group: "Code & terminal", names: ["curlybraces", "chevron.left.forwardslash.chevron.right", "doc.text", "doc.on.doc", "text.cursor"] },
+  { group: "Files & search",  names: ["folder.fill", "folder", "magnifyingglass", "doc.text.magnifyingglass", "tray.full"] },
+  { group: "Problems",        names: ["exclamationmark.triangle.fill", "exclamationmark.circle.fill", "ladybug.fill", "wrench.fill", "shield.fill"] },
+  { group: "AI & automation", names: ["sparkles", "wand.and.stars", "brain", "brain.head.profile", "cpu"] },
+  { group: "Time",            names: ["clock", "timer", "calendar"] },
+  { group: "Notes & comms",   names: ["note.text", "bubble.left.fill", "envelope.fill", "bell.fill", "book.fill"] },
+];
+
+// qaIconPicker builds the icon field: a button showing the current glyph plus a
+// grouped dropdown of previewed choices, so the icon can be picked by sight rather
+// than typed from memory (the field used to be a free-text box, which meant guessing
+// an exact symbol name and getting a silent fallback glyph when it was wrong).
+//
+// The list is portaled to <body> with fixed positioning because the Config modal's
+// body is `overflow-y-auto` — an in-flow dropdown would be clipped by it or would
+// scroll away from its button.
+function qaIconPicker() {
+  const wrap = el("div", "qa-icon-picker");
+  const btn = el("button", "qa-icon-btn");
+  btn.type = "button";
+  btn.setAttribute("aria-haspopup", "listbox");
+  btn.setAttribute("aria-expanded", "false");
+  const btnIcon = el("span", "qa-icon-btn-glyph");
+  const btnText = el("span", "qa-icon-btn-text");
+  btn.append(btnIcon, btnText, sym("chevron.down", "qa-icon-caret"));
+  const list = el("ul", "qa-icon-list");
+  list.setAttribute("role", "listbox");
+  let value = "";
+
+  const paint = () => {
+    btnIcon.replaceChildren(value ? sym(value, "qa-icon-glyph") : el("span", "qa-icon-none"));
+    btnText.textContent = value || "No icon";
+    btnText.classList.toggle("is-empty", !value);
+  };
+
+  const choose = (name) => { value = name; paint(); close(); };
+
+  const buildList = () => {
+    list.replaceChildren();
+    const mk = (name) => {
+      const li = el("li", "qa-icon-item" + (name === value ? " is-active" : ""));
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(name === value));
+      li.title = name || "None";
+      li.append(name ? sym(name, "qa-icon-glyph") : el("span", "qa-icon-none"),
+                el("span", "qa-icon-name", name || "None"));
+      li.onclick = () => choose(name);
+      return li;
+    };
+    list.append(mk("")); // explicit "no icon" choice
+    for (const g of QA_ICONS) {
+      list.append(el("li", "qa-icon-group", g.group));
+      for (const n of g.names) list.append(mk(n));
+    }
+  };
+
+  function close() {
+    list.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+    if (list.parentNode) list.remove();
+    document.removeEventListener("mousedown", onDocDown, true);
+    document.removeEventListener("keydown", onKey, true);
+  }
+  const onDocDown = (e) => { if (!list.contains(e.target) && !btn.contains(e.target)) close(); };
+  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); btn.focus(); } };
+
+  const open = () => {
+    buildList();
+    document.body.appendChild(list);
+    const r = btn.getBoundingClientRect();
+    list.style.left = r.left + "px";
+    list.style.minWidth = Math.max(200, r.width) + "px";
+    // Flip above the button when there isn't room below, so the list is never
+    // stranded off-screen at the bottom of a short viewport.
+    const room = window.innerHeight - r.bottom;
+    if (room < 240 && r.top > room) {
+      list.style.top = "";
+      list.style.bottom = (window.innerHeight - r.top + 4) + "px";
+      list.style.maxHeight = Math.min(320, r.top - 12) + "px";
+    } else {
+      list.style.bottom = "";
+      list.style.top = (r.bottom + 4) + "px";
+      list.style.maxHeight = Math.min(320, room - 12) + "px";
+    }
+    list.classList.add("open");
+    btn.setAttribute("aria-expanded", "true");
+    document.addEventListener("mousedown", onDocDown, true);
+    document.addEventListener("keydown", onKey, true);
+  };
+
+  btn.onclick = () => (list.classList.contains("open") ? close() : open());
+  wrap.append(btn);
+  // Expose .value so the picker drops into the form like the <input> it replaces.
+  Object.defineProperty(wrap, "value", {
+    get: () => value,
+    set: (v) => { value = String(v ?? ""); paint(); },
+    configurable: true,
+  });
+  paint();
+  return wrap;
+}
+
   let scope = "project";
   let data = { project: [], global: [], scope: "global" };
 
@@ -1253,7 +1367,7 @@ async function renderQuickActionsPanel() {
   const fPrompt = mkInput("Prompt sent to the agent (required), e.g. run the tests");
   const fLabel = mkInput("Button label (defaults to the prompt)");
   const fSub = mkInput("Subtitle (optional)");
-  const fIcon = mkInput("SF Symbol (optional), e.g. hammer");
+  const fIcon = qaIconPicker();
   // Pin selects are plain <select>s built from the same catalogs the Agents panel
   // uses; "" means "leave the session's setting alone".
   const mkSel = (title, width, opts, blank) => {
@@ -1287,7 +1401,40 @@ async function renderQuickActionsPanel() {
   const err = el("div", "qa-error"); err.hidden = true;
   const formActions = el("div", "qa-form-actions");
   formActions.append(saveBtn, cancelBtn);
-  form.append(fPrompt, fLabel, fSub, fIcon, pinRow, formActions, err);
+  // Each control gets a persistent label + hint. Placeholders alone vanish as soon as
+  // there's text, so while EDITING an existing action every field was an unlabelled box
+  // and "which one is the subtitle?" needed guessing.
+  const field = (label, hint, ctl) => {
+    const w = el("label", "qa-field");
+    const head = el("span", "qa-field-label", label);
+    if (hint) head.append(el("span", "qa-field-hint", hint));
+    w.append(head, ctl);
+    return w;
+  };
+  // Mode heading: the only previous cue that you were editing rather than adding was
+  // the submit button's text flipping to "Save", which is easy to miss — and nothing at
+  // all said WHICH action was loaded into the form.
+  const formHead = el("div", "qa-form-head");
+  form.append(
+    formHead,
+    field("Prompt", "required — sent to the agent", fPrompt),
+    field("Label", "button text; defaults to the prompt", fLabel),
+    field("Subtitle", "optional second line", fSub),
+    field("Icon", "optional", fIcon),
+    pinRow, formActions, err,
+  );
+
+  const setFormHead = (editing) => {
+    formHead.replaceChildren();
+    if (editing) {
+      formHead.append(sym("square.and.pencil", "qa-form-head-icon"),
+                      el("span", "qa-form-head-text", "Editing"),
+                      el("code", "qa-form-head-target", editing));
+    } else {
+      formHead.append(sym("plus", "qa-form-head-icon"),
+                      el("span", "qa-form-head-text", "New quick action"));
+    }
+  };
 
   const resetForm = () => {
     editingPrompt = null;
@@ -1296,6 +1443,7 @@ async function renderQuickActionsPanel() {
     saveBtn.textContent = "Add";
     cancelBtn.hidden = true;
     err.hidden = true;
+    setFormHead(null);
   };
 
   const mutate = async (method, payload, path) => {
@@ -1339,6 +1487,7 @@ async function renderQuickActionsPanel() {
     saveBtn.textContent = "Save";
     cancelBtn.hidden = false;
     err.hidden = true;
+    setFormHead(a.label || a.prompt);
     fPrompt.focus();
   };
 
@@ -1411,6 +1560,7 @@ async function renderQuickActionsPanel() {
       scope = data.scope === "global" && !(data.project || []).length ? "global" : "project";
     }
   } catch (_) { /* offline — render empty */ }
+  setFormHead(null); // paint the "New quick action" heading on first open
   render();
 }
 
