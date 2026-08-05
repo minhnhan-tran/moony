@@ -124,6 +124,16 @@ type TurnDone struct {
 // Info is an out-of-band notice (e.g. compaction happened).
 type Info struct{ Text string }
 
+// BackendSwitched reports that the agent moved to a different provider mid-turn
+// (the quota fallback). Separate from the prose Info notice so front ends can
+// update the model/provider chip and quota pill structurally, instead of leaving
+// the exhausted provider on screen until the turn ends.
+type BackendSwitched struct {
+	Provider  string // provider now in use (normalized)
+	Model     string
+	Reasoning string
+}
+
 // Compaction reports that a compaction removed Turns rendered user turns from
 // the transcript, so the UI can mark the boundary rather than silently losing
 // turns that are still on screen.
@@ -246,3 +256,4 @@ func (QuestionGroupRequest) isEvent() {}
 
 func (BoardMessagePosted) isEvent() {}
 func (Compaction) isEvent()         {}
+func (BackendSwitched) isEvent()    {}

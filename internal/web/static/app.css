@@ -2044,6 +2044,12 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
 .composer-meta > * { flex: none; }
 .composer-meta .cm-model { color: rgb(var(--c-brand)); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .composer-meta .cm-provider { color: rgb(var(--c-faint)); font-weight: 600; }
+/* Provider pill while a quota fallback is in force: the backend in use is NOT the
+   one that was picked, so it's tinted as a warning (details in the tooltip). */
+.composer-meta .cm-provider.is-fallback {
+  color: rgb(var(--c-warn)); background: rgb(var(--c-warn) / .12);
+  border-color: rgb(var(--c-warn) / .35);
+}
 .composer-meta .cm-sep { opacity: .45; font-weight: 400; }
 /* Session-memory pill in composer-meta: a brain glyph + rule count, clickable to
    open the AGENTS.md rules editor. Hover/focus mirror the reasoning pill. */

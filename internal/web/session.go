@@ -562,6 +562,30 @@ func (s *session) start(prompt string, blocks []llm.ContentBlock, atts []attachW
 // after the HTTP handler responds: the handler returns 202 immediately while the
 // turn runs for minutes, so restoring there would put the session back on its
 // original model almost instantly.
+// flushNotesIfIdle drains the agent's queued notices to disk, but only when no turn
+// is in flight.
+//
+// noteInfo writes s.agent's transcript state (session InfoNotes, message count), which
+// the TURN goroutine owns — so flushing from another goroutine while a turn runs is a
+// data race. A note queued during a turn needs no help: RunWith drains the queue
+// itself at the start of the next turn.
+//
+// Holds s.mu across the check AND the flush: startWith claims a turn by setting
+// s.state under this same lock, so checking idle and then releasing would leave a
+// window where a turn starts and we flush concurrently with it — exactly the race
+// this guard exists to prevent.
+func (s *session) flushNotesIfIdle() {
+	if s == nil || s.agent == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state != stateIdle {
+		return // mid-turn: the turn goroutine drains the queue itself (RunWith)
+	}
+	s.agent.FlushNotes()
+}
+
 func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []attachWire, ov turnOverride) bool {
 	s.mu.Lock()
 	if s.state != stateIdle {

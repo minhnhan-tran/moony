@@ -117,7 +117,13 @@ type Status struct {
 	QuotaTokensMax       int    // per-day token cap, when the budget carries one
 	QuotaTokenRate       int    // token rate limit (tokens per period)
 	QuotaTokenRatePeriod string // rate-limit window, e.g. "4m"
-	ContextPercent       int    // -1 when unknown (no completed turn yet)
+	// QuotaFallbackFrom names the provider an in-force quota fallback moved this
+	// session away from, and QuotaFallbackResetAt (RFC3339) when it reverts. Empty
+	// unless a fallback is active; lets the mirrored status explain why the provider
+	// isn't the one that was picked.
+	QuotaFallbackFrom    string
+	QuotaFallbackResetAt string
+	ContextPercent       int // -1 when unknown (no completed turn yet)
 	ActiveTool           string
 	ToolsInFlight        int
 	Agent                string // active primary-agent/persona name (build/plan/custom), for the composer badge

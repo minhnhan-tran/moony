@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pysty1995/moony/internal/llm"
@@ -23,6 +24,10 @@ func (a *Agent) persist() {
 		a.sess.Provider = a.cfg.LLMProvider
 		a.sess.Reasoning = a.cfg.ReasoningLevel
 	}
+	// Persist any in-force quota fallback alongside the selection above. Model /
+	// Provider already record the FALLBACK's choice, so without this a reload would
+	// look like a deliberate user pick and the primary would never be restored.
+	a.sess.QuotaFallback = a.QuotaFallbackSnapshot()
 	a.saveGoalToSession()
 	_ = a.store.Save(a.sess)
 }
@@ -95,6 +100,61 @@ func (a *Agent) noteInfo(text string) {
 		Time:     time.Now(),
 		MsgCount: len(a.messages),
 	})
+}
+
+// NoteInfo queues a status line to be persisted into the transcript, and is safe
+// to call from ANY goroutine.
+//
+// noteInfo itself is not: it appends to a.sess.InfoNotes and reads len(a.messages),
+// both owned by the turn goroutine. The quota-fallback notice originates on the
+// background goroutine in the web server's fetchQuota, so it cannot write them
+// directly — hence the queue, drained by flushPendingNotes at a safe point.
+func (a *Agent) NoteInfo(text string) {
+	if a == nil {
+		return
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	a.noteMu.Lock()
+	a.pendingNotes = append(a.pendingNotes, text)
+	a.noteMu.Unlock()
+}
+
+// flushPendingNotes persists any notes queued by NoteInfo. MUST be called from the
+// turn goroutine (or with no turn running), since noteInfo reads a.messages.
+// Returns true when it wrote something.
+func (a *Agent) flushPendingNotes() bool {
+	if a == nil {
+		return false
+	}
+	a.noteMu.Lock()
+	queued := a.pendingNotes
+	a.pendingNotes = nil
+	a.noteMu.Unlock()
+	if len(queued) == 0 {
+		return false
+	}
+	for _, t := range queued {
+		a.noteInfo(t)
+	}
+	return true
+}
+
+// FlushNotes drains queued notices and persists them. Callers use it when the note
+// should reach disk without waiting for the next turn (e.g. the usage poll fires while
+// the session is idle).
+//
+// NOT safe while a turn is in flight: it writes the transcript state owned by the turn
+// goroutine (session InfoNotes, message count). Callers must establish "no turn is
+// running" and hold that fact across this call — see session.flushNotesIfIdle, which
+// does the check under the session lock. A note queued DURING a turn needs no flush
+// here; RunWith drains the queue itself.
+func (a *Agent) FlushNotes() {
+	if a.flushPendingNotes() {
+		a.persist()
+	}
 }
 
 // recordTurnMeta appends a per-turn footer record (timestamp, elapsed time,

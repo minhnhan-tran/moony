@@ -51,6 +51,15 @@ type savedPrefs struct {
 	FastReasoning *string `json:"fast_reasoning,omitempty"`
 	AuxProvider   *string `json:"aux_provider,omitempty"`
 	AuxReasoning  *string `json:"aux_reasoning,omitempty"`
+	// Quota-based provider fallback. Budgets are pointers so an explicit 0
+	// ("disable this trigger") is distinguishable from "never set", and the chain
+	// is a *[]string so an explicitly emptied chain is distinguishable from nil.
+	// ProviderFallbacks holds full "provider[:model[:reasoning]]" specs.
+	QuotaFallback     *bool     `json:"quota_fallback,omitempty"`
+	QuotaResetAt      *string   `json:"quota_reset_at,omitempty"`
+	QuotaBudgetUSD    *float64  `json:"quota_budget_usd,omitempty"`
+	QuotaBudgetPct    *float64  `json:"quota_budget_pct,omitempty"`
+	ProviderFallbacks *[]string `json:"provider_fallbacks,omitempty"`
 }
 
 // prefsPath returns the path to the persisted preferences file.
@@ -87,26 +96,31 @@ func (c *Config) Save() error {
 		return err
 	}
 	data, err := json.MarshalIndent(savedPrefs{
-		Model:            c.Model,
-		LLMProvider:      c.LLMProvider,
-		ReasoningLevel:   c.ReasoningLevel,
-		ReasoningByModel: c.ReasoningByModel,
-		ApprovalPolicy:   c.ApprovalPolicy,
-		SandboxMode:      c.SandboxMode,
-		RelayAddr:        &c.RelayAddr, // non-nil: persists the explicit choice (addr, or "" for off)
-		ContextWindow:    c.ContextWindow,
-		VerifyCommand:    c.VerifyCommand,
-		VerifyMaxRetries: c.VerifyMaxRetries,
-		AutoPlan:         c.AutoPlanPersona,
-		SelfReview:       c.SelfReviewPersona,
-		CheapReads:       c.CheapReadsPersona,
-		AdaptiveModel:    c.AdaptiveModelPersona,
-		FastModel:        c.FastModelPersona,
-		AuxModel:         c.AuxModelPersona,
-		FastProvider:     c.FastProviderPersona,
-		FastReasoning:    c.FastReasoningPersona,
-		AuxProvider:      c.AuxProviderPersona,
-		AuxReasoning:     c.AuxReasoningPersona,
+		Model:             c.Model,
+		LLMProvider:       c.LLMProvider,
+		ReasoningLevel:    c.ReasoningLevel,
+		ReasoningByModel:  c.ReasoningByModel,
+		ApprovalPolicy:    c.ApprovalPolicy,
+		SandboxMode:       c.SandboxMode,
+		RelayAddr:         &c.RelayAddr, // non-nil: persists the explicit choice (addr, or "" for off)
+		ContextWindow:     c.ContextWindow,
+		VerifyCommand:     c.VerifyCommand,
+		VerifyMaxRetries:  c.VerifyMaxRetries,
+		AutoPlan:          c.AutoPlanPersona,
+		SelfReview:        c.SelfReviewPersona,
+		CheapReads:        c.CheapReadsPersona,
+		AdaptiveModel:     c.AdaptiveModelPersona,
+		FastModel:         c.FastModelPersona,
+		AuxModel:          c.AuxModelPersona,
+		FastProvider:      c.FastProviderPersona,
+		FastReasoning:     c.FastReasoningPersona,
+		AuxProvider:       c.AuxProviderPersona,
+		AuxReasoning:      c.AuxReasoningPersona,
+		QuotaFallback:     c.QuotaFallbackPersona,
+		QuotaResetAt:      c.QuotaResetAtPersona,
+		QuotaBudgetUSD:    c.QuotaBudgetUSDPersona,
+		QuotaBudgetPct:    c.QuotaBudgetPctPersona,
+		ProviderFallbacks: c.ProviderFallbacksPersona,
 	}, "", "  ")
 	if err != nil {
 		return err

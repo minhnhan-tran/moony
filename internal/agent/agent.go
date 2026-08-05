@@ -51,14 +51,22 @@ var (
 
 // Agent ties together the model client, tools, history, and persistence.
 type Agent struct {
-	cfg    *config.Config
-	client llm.Streamer
-	tools  *tools.Registry
+	cfg *config.Config
+	// quotaFB holds the quota-fallback recovery state (internal/agent/quotafallback.go):
+	// what to restore, and when. Guarded by its own mutex.
+	quotaFB quotaFallbackState
+	client  llm.Streamer
+	tools   *tools.Registry
 	// system is the cached system prompt. Guarded by systemMu: it's rebuilt at
 	// runtime (MCP connect, /cd, a remember, a background symbol-map refresh)
 	// while a turn may be reading it to build a request.
 	system   string
 	systemMu sync.RWMutex
+	// pendingNotes holds transcript notices queued from other goroutines by
+	// NoteInfo (e.g. the web server's background quota fetch), drained on the turn
+	// goroutine by flushPendingNotes. Guarded by noteMu.
+	noteMu       sync.Mutex
+	pendingNotes []string
 	// rebuildMu serializes prompt REBUILDS (as opposed to reads). Two concurrent
 	// rebuilds would each build from their own snapshot and race to store the
 	// result, so an older build finishing last would clobber a newer prompt.
@@ -339,6 +347,11 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 	if sess != nil {
 		a.messages = sess.Messages
 		a.loadGoalFromSession() // restore any persisted stop-condition + criteria/budget
+		// Reload a mid-flight quota fallback so the scheduled return to the primary
+		// provider survives a restart (applySessionLLMSelection above has already put
+		// the config back on the FALLBACK's model/provider, which on its own is
+		// indistinguishable from a deliberate user choice).
+		a.quotaFB.restoreFromLocked(sess.QuotaFallback)
 	}
 	// Apply the configured read_file default line cap (process-wide; read tools
 	// read it per-call, so this also affects already-registered tools).
@@ -462,6 +475,7 @@ func (a *Agent) Reset() {
 	if a.plan != nil {
 		a.plan.Sync(nil) // a fresh session has no plan (host-side reset, no notify)
 	}
+	a.resetQuotaFallback() // a fresh session isn't mid-fallback
 }
 
 // restoreLLMSelection re-applies a reopened session's persisted model, provider
@@ -514,9 +528,10 @@ func (a *Agent) Resume(sess *session.Session) {
 	}
 	a.sess = sess
 	a.messages = sess.Messages
-	a.restoreLLMSelection(sess)       // reopen on the model/provider/reasoning it last used
-	a.loadGoalFromSession()           // a resumed session carries its own stop-condition
-	a.titled = len(sess.Messages) > 0 // a session with history keeps its name
+	a.restoreLLMSelection(sess)                // reopen on the model/provider/reasoning it last used
+	a.RestoreQuotaFallback(sess.QuotaFallback) // and mid-fallback recovery state, if any
+	a.loadGoalFromSession()                    // a resumed session carries its own stop-condition
+	a.titled = len(sess.Messages) > 0          // a session with history keeps its name
 	if a.todos != nil {
 		// Replace (not merge) so the previous session's tasks don't linger.
 		a.todos.Set(tools.LatestTodosFromMessages(sess.Messages))
@@ -972,6 +987,12 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	a.inTurn.Add(1)
 	defer a.inTurn.Add(-1)
 	turnStart := time.Now()
+	// Anchor any notice queued from another goroutine (NoteInfo — the usage poll's
+	// quota-fallback note) BEFORE this turn's user message is appended, so it
+	// anchors to the exchange it actually followed rather than to this new turn.
+	// Done here because it's the one point guaranteed to run on the turn goroutine
+	// before a.messages changes; the turn's own persist() then writes it out.
+	a.flushPendingNotes()
 	// A sub-agent's RunWith arrives with its persona identity already stamped on
 	// ctx (by the task tool); the top-level user turn doesn't. Capture that here,
 	// before the messaging block below stamps the orchestrator's own identity, so
@@ -1454,6 +1475,33 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			},
 		})
 		if err != nil {
+			// A hard provider quota stop (the allocation is spent) can't be retried on
+			// the SAME backend or made smaller — but it can be served by the next
+			// provider in the fallback chain. Advance the chain and redo this round
+			// there, so the question the user actually asked gets answered instead of
+			// the turn dying with a quota message and needing a manual re-send.
+			//
+			// Safe to retry in place: a hard quota stop is detected from the response
+			// status/body before any token is streamed (quotaStopError in
+			// internal/llm/quotaerr.go), so there is no partial assistant output to
+			// duplicate and a.messages is untouched.
+			//
+			// Bounded by the chain itself: quotaFallbackOnError only returns a note
+			// when it actually moved to a new, usable provider, so once the chain is
+			// exhausted it returns "" and the turn fails with the provider's own
+			// message rather than looping over dead backends.
+			if note := a.quotaFallbackOnError(err); note != "" {
+				a.noteInfo(note) // persist: the reason the provider changed outlives the turn
+				emit(Info{Text: note})
+				// Tell the UI structurally too, so the composer's model chip and the
+				// status bar update immediately rather than showing the exhausted
+				// provider until the turn ends.
+				emit(a.backendSwitchedEvent())
+				a.rebuildSystemPrompt() // the prompt names the model/provider in use
+				emit(StreamReset{})     // drop any UI-side partial for this round
+				step--                  // redo the SAME round on the new backend
+				continue
+			}
 			return err
 		}
 		a.messages = append(a.messages, resp.AssistantMessage())

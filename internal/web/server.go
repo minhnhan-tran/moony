@@ -1379,6 +1379,14 @@ func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 	go func() {
 		resp, err := live.agent.Usage(context.Background())
 		if err != nil || resp == nil {
+			// No usable reading — but the scheduled return to the primary provider
+			// must NOT depend on one. Usage() errors on every backend without a quota
+			// endpoint (Ollama, LM Studio, llama.cpp), which is exactly where the
+			// fallback chain lands, so bailing here would strand the session on the
+			// fallback forever. Drive the time-based restore anyway.
+			if note := live.agent.MaybeQuotaRestore(); note != "" {
+				s.recordQuotaNote(sess, live, note)
+			}
 			return
 		}
 		for id, mdl := range resp.Quota.Models {
@@ -1397,8 +1405,40 @@ func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 			resp.Usage.InputTokens+resp.Usage.OutputTokens,
 			resp.Quota.Budget.InputTokens+resp.Quota.Budget.OutputTokens,
 			resp.Quota.Rates.Tokens, resp.Quota.Rates.TokensPeriod)
+		// Apply the quota-fallback policy to the fresh numbers. Runs before the
+		// status event below so a switch is reflected in the snapshot we publish.
+		if note := live.agent.MaybeQuotaFallback(agent.QuotaSnapshot{
+			Provider: live.agent.Config().LLMProvider,
+			Spend:    resp.Usage.Spend,
+			Budget:   resp.Quota.Budget.Spend,
+			ResetAt:  agent.ParseQuotaResetTime(resp.Quota.Budget.ResetTime),
+		}); note != "" {
+			s.recordQuotaNote(sess, live, note)
+		}
 		live.publishEvent(s.statusEvent(sess, live))
 	}()
+}
+
+// recordQuotaNote surfaces a quota-fallback notice and persists it into the
+// transcript, so the reason the provider changed survives a reload instead of
+// living only in a transient event.
+//
+// The note is queued (NoteInfo) rather than written directly: this runs on the
+// background usage-poll goroutine, and the transcript is owned by the turn
+// goroutine. When no turn is in flight we drain it immediately; otherwise the
+// in-flight turn's own flush picks it up.
+func (s *Server) recordQuotaNote(sess *sessionpkg.Session, live *session, note string) {
+	if live == nil || live.agent == nil || note == "" {
+		return
+	}
+	live.agent.NoteInfo(note)
+	// Persist it now when the session is idle, so the note survives even if no further
+	// turn ever runs. flushNotesIfIdle does the idle check under the session lock — an
+	// isRunning() test here would be TOCTOU, since a turn can start between the check
+	// and the flush.
+	live.flushNotesIfIdle()
+	live.publishEvent(wireEvent{Type: "info", Text: note})
+	live.publishEvent(s.statusEvent(sess, live))
 }
 
 func (s *Server) isLive(id string) bool {

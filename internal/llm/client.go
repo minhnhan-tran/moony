@@ -280,7 +280,14 @@ func (c *Client) streamWithRetry(ctx context.Context, newReq func() (*http.Reque
 		if resp.StatusCode != http.StatusOK {
 			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 			resp.Body.Close()
-			return nil, fmt.Errorf("%s returned %s: %s", label, resp.Status, strings.TrimSpace(string(msg)))
+			body := strings.TrimSpace(string(msg))
+			// doWithRetry only inspects statuses it considers retryable, so a hard
+			// quota stop arriving as a non-retryable status (402 Payment Required)
+			// reaches here unwrapped. Tag it so the quota fallback still sees it.
+			if qerr := quotaStopError(resp.StatusCode, body); qerr != nil {
+				return nil, qerr
+			}
+			return nil, fmt.Errorf("%s returned %s: %s", label, resp.Status, body)
 		}
 		out, perr := parse(resp.Body, h)
 		resp.Body.Close()
@@ -390,6 +397,14 @@ func (c *Client) doWithRetry(ctx context.Context, newReq func() (*http.Request, 
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 			resp.Body.Close()
 			bodyStr := strings.TrimSpace(string(body))
+			// A spent-out account is a HARD stop, not a transient throttle: no retry
+			// and no smaller request can succeed until the quota resets, so fail fast
+			// with the provider's own message instead of burning the retry budget and
+			// reporting a confusing "after N attempts: …429…". Wrapped in
+			// ErrQuotaExhausted so the agent's quota fallback can switch backends.
+			if qerr := quotaStopError(resp.StatusCode, bodyStr); qerr != nil {
+				return nil, qerr
+			}
 			lastErr = fmt.Errorf("ollama returned %s: %s", resp.Status, bodyStr)
 		}
 

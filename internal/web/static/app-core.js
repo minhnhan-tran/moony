@@ -1649,6 +1649,18 @@ function handle(ev) {
       cumTurnOut += ev.turnOut || 0;
       break;
     }
+    case "backend_switched": {
+      // The quota fallback hopped to another provider mid-turn. Refresh the status
+      // (model chip, provider label, quota pill) from the server rather than waiting
+      // for the turn to end, so the exhausted provider isn't left on screen.
+      if (lastStatus) {
+        lastStatus.provider = ev.text || lastStatus.provider;
+        lastStatus.model = ev.model || lastStatus.model;
+        if (ev.reasoning) lastStatus.reasoning = ev.reasoning;
+        renderHeader();
+      }
+      break;
+    }
     case "title": {
       // The agent auto-named this session after its first turn; refresh the
       // sidebar so the new name replaces "(untitled)" / the first-message guess.
@@ -2134,10 +2146,22 @@ function renderComposerMeta(s) {
   // legend's model-picker click from also firing.
   const prov = providerLabel(s.llmProvider);
   if (prov) {
-    const pp = el("span", "hdr-think-pill cm-provider", prov);
+    // A quota fallback switches provider on its own, so the pill can differ from
+    // what was picked. Mark it and say why, or the change looks like a bug.
+    const fbFrom = s.quotaFallbackFrom ? providerLabel(s.quotaFallbackFrom) : "";
+    const pp = el("span", "hdr-think-pill cm-provider" + (fbFrom ? " is-fallback" : ""), prov);
     pp.setAttribute("role", "button");
     pp.tabIndex = 0;
-    pp.title = "Provider: " + prov + " — click to change";
+    if (fbFrom) {
+      let t = "Quota fallback: " + fbFrom + " hit its budget, so this session moved to " + prov + ".";
+      if (s.quotaFallbackResetAt) {
+        const at = new Date(s.quotaFallbackResetAt);
+        if (!isNaN(at)) t += " Reverting to " + fbFrom + " after " + at.toLocaleString() + ".";
+      }
+      pp.title = t + " Click to change.";
+    } else {
+      pp.title = "Provider: " + prov + " — click to change";
+    }
     const openProvider = (e) => { e.stopPropagation(); openHdrMenu(pp, "provider", PROVIDER_OPTIONS, s.llmProvider || "ollama", "/provider"); };
     pp.onclick = openProvider;
     pp.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProvider(e); } };

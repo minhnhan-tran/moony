@@ -81,6 +81,14 @@ type personaEdit struct {
 	FastReasoning *string `json:"fastReasoning"`
 	AuxProvider   *string `json:"auxProvider"`
 	AuxReasoning  *string `json:"auxReasoning"`
+	// Quota-based provider fallback. Budgets/chain arrive as strings because the
+	// form sends text; "" is a real value here (clear the budget / empty the chain),
+	// which is why they're pointers.
+	QuotaFallback     *bool   `json:"quotaFallback"`
+	QuotaResetAt      *string `json:"quotaResetAt"`
+	QuotaBudgetUSD    *string `json:"quotaBudgetUsd"`
+	QuotaBudgetPct    *string `json:"quotaBudgetPct"`
+	ProviderFallbacks *string `json:"providerFallbacks"`
 	// Session-history encryption at rest (read by session.NewStore from the env).
 	// These are runtime env overrides and take effect on the NEXT restart, since
 	// the store resolves its key once at open.
@@ -350,6 +358,21 @@ func personaEditedFields(e personaEdit) []string {
 	if e.CheapReads != nil {
 		f = append(f, fmt.Sprintf("cheapReads=%t", *e.CheapReads))
 	}
+	if e.QuotaFallback != nil {
+		f = append(f, fmt.Sprintf("quotaFallback=%t", *e.QuotaFallback))
+	}
+	if e.QuotaResetAt != nil {
+		f = append(f, "quotaResetAt="+*e.QuotaResetAt)
+	}
+	if e.QuotaBudgetUSD != nil {
+		f = append(f, "quotaBudgetUsd="+*e.QuotaBudgetUSD)
+	}
+	if e.QuotaBudgetPct != nil {
+		f = append(f, "quotaBudgetPct="+*e.QuotaBudgetPct)
+	}
+	if e.ProviderFallbacks != nil {
+		f = append(f, "providerFallbacks="+*e.ProviderFallbacks)
+	}
 	if e.SelfReview != nil {
 		f = append(f, fmt.Sprintf("selfReview=%t", *e.SelfReview))
 	}
@@ -545,6 +568,41 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		cr := *e.CheapReads
 		c.CheapReadsPersona = &cr // remember as explicit persona choice
 	}
+	if e.QuotaFallback != nil {
+		c.QuotaFallback = *e.QuotaFallback
+		qf := *e.QuotaFallback
+		c.QuotaFallbackPersona = &qf // remember as explicit persona choice
+	}
+	if e.QuotaResetAt != nil {
+		ra := strings.TrimSpace(*e.QuotaResetAt)
+		c.QuotaResetAt = ra // "" is a real choice: disables the time-based restore
+		c.QuotaResetAtPersona = &ra
+	}
+	if e.QuotaBudgetUSD != nil {
+		// An unparseable or negative figure clears the trigger rather than keeping a
+		// stale one: a typo must not silently leave the previous budget enforcing.
+		v, err := strconv.ParseFloat(strings.TrimSpace(*e.QuotaBudgetUSD), 64)
+		if err != nil || v < 0 {
+			v = 0
+		}
+		c.QuotaBudgetUSD = v
+		c.QuotaBudgetUSDPersona = &v
+	}
+	if e.QuotaBudgetPct != nil {
+		v, err := strconv.ParseFloat(strings.TrimSpace(*e.QuotaBudgetPct), 64)
+		if err != nil || v < 0 || v > 100 {
+			v = 0
+		}
+		c.QuotaBudgetPct = v
+		c.QuotaBudgetPctPersona = &v
+	}
+	if e.ProviderFallbacks != nil {
+		// Re-parse so only real providers become live hops and the stored form is
+		// canonical ("provider[:model[:reasoning]]").
+		chain := config.FallbackChainSpecs(config.ParseFallbackChain(*e.ProviderFallbacks))
+		c.ProviderFallbacks = chain
+		c.ProviderFallbacksPersona = &chain
+	}
 	if e.SelfReview != nil {
 		c.SelfReview = *e.SelfReview
 		sr := *e.SelfReview
@@ -697,6 +755,16 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 			Desc: "After each turn that edits code, run a cheap fast-model review of the diff for logic bugs. One feedback cycle per turn; skipped for sub-agents. Persists across sessions."},
 		{Key: "adaptiveModel", Label: "Adaptive model (MN_ADAPTIVE_MODEL)", Type: "bool", Value: c.AdaptiveModel,
 			Desc: "Start turns on the cheaper FastModel; escalate to the full model only when friction (errors/retries) is detected. Runtime override — resets on restart."},
+		{Key: "quotaFallback", Label: "Quota fallback (MN_QUOTA_FALLBACK)", Type: "bool", Value: c.QuotaFallback,
+			Desc: "When the current provider's spend crosses a budget below — or it reports its quota exhausted — switch to the next backend in the fallback chain instead of failing for the rest of the period. Returns to the primary provider after the quota resets. Persists across sessions."},
+		{Key: "providerFallbacks", Label: "Fallback chain (MN_PROVIDER_FALLBACKS)", Type: "text", Value: strings.Join(c.ProviderFallbacks, ","),
+			Desc: "Ordered, comma-separated backends to move through as quotas run out, e.g. \"anthropic,openai,ollama\". A hop may pin its model and reasoning level (\"ollama:qwen3-coder:30b:high\"); a bare provider uses that backend's default model, since model ids aren't portable across backends. Unusable providers (no API key) are skipped, and the walk stops at the end rather than cycling."},
+		{Key: "quotaBudgetUsd", Label: "Quota budget $ (MN_QUOTA_BUDGET_USD)", Type: "text", Value: trimFloat(c.QuotaBudgetUSD),
+			Desc: "Absolute spend, in dollars, at which to fall back. 0 or empty disables this trigger."},
+		{Key: "quotaBudgetPct", Label: "Quota budget % (MN_QUOTA_BUDGET_PCT)", Type: "text", Value: trimFloat(c.QuotaBudgetPct),
+			Desc: "Percentage of the provider's OWN reported quota at which to fall back. 0 or empty disables this trigger; only usable for providers that report a spend cap."},
+		{Key: "quotaResetAt", Label: "Quota reset time (MN_QUOTA_RESET_AT)", Type: "text", Value: c.QuotaResetAt,
+			Desc: "Local time of day (\"HH:MM\") the quota rolls over, used to schedule the return to the primary provider. Only a fallback: a provider's own reported reset time always wins. Empty disables the timed restore."},
 		{Key: "maxAgentSteps", Label: "Max agent steps (MN_MAX_STEPS)", Type: "text", Value: fmt.Sprintf("%d", c.MaxAgentSteps),
 			Desc: "Max tool-call iterations per turn (default 80). A guard against runaway loops — raise for complex tasks, lower for tighter control. Runtime override — resets on restart."},
 		{Key: "autoContinue", Label: "Auto-continue extensions (MN_AUTO_CONTINUE)", Type: "text", Value: fmt.Sprintf("%d", c.AutoContinue),
@@ -954,4 +1022,14 @@ func auxModelSelectOptions(models []config.ModelInfo) []personaSelectOption {
 		}
 	}
 	return ensurePinnedOption(opts, os.Getenv("MN_AUX_MODEL"))
+}
+
+// trimFloat renders a budget for the persona form: an unset (zero) budget shows as
+// an empty field rather than "0", and a whole number loses its ".00" so the box
+// reads back the way it was typed.
+func trimFloat(f float64) string {
+	if f <= 0 {
+		return ""
+	}
+	return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(f, 'f', 2, 64), "0"), ".")
 }

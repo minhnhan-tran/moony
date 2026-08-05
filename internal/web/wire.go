@@ -222,27 +222,33 @@ type statusWire struct {
 	// Agent is the active primary profile's name (build / plan / a custom
 	// persona), so the browser can show it as a badge and offer a switcher
 	// (parity with the TUI's /agent and Tab).
-	Agent                string     `json:"agent,omitempty"`
-	Approval             string     `json:"approval,omitempty"`
-	Sandbox              string     `json:"sandbox,omitempty"`
-	GitBranch            string     `json:"gitBranch,omitempty"`
-	GitDirty             int        `json:"gitDirty,omitempty"`
-	GitAhead             int        `json:"gitAhead,omitempty"`    // commits ahead of upstream
-	GitBehind            int        `json:"gitBehind,omitempty"`   // commits behind upstream
-	GitUpstream          string     `json:"gitUpstream,omitempty"` // upstream ref, e.g. origin/main
-	Host                 string     `json:"host,omitempty"`
-	Relay                string     `json:"relay,omitempty"`
-	TokensIn             int        `json:"tokensIn"`
-	TokensOut            int        `json:"tokensOut"`
-	CostUSD              float64    `json:"costUSD,omitempty"`
-	QuotaSpend           float64    `json:"quotaSpend,omitempty"`
-	QuotaBudget          float64    `json:"quotaBudget,omitempty"`
-	QuotaKnown           bool       `json:"quotaKnown,omitempty"`
-	QuotaName            string     `json:"quotaName,omitempty"`            // tooltip: the gateway's project name, or "personal"
-	QuotaTokens          int        `json:"quotaTokens,omitempty"`          // tokens used in the quota period (24h)
-	QuotaTokensMax       int        `json:"quotaTokensMax,omitempty"`       // per-day token cap, when the budget carries one
-	QuotaTokenRate       int        `json:"quotaTokenRate,omitempty"`       // token rate limit (tokens per period)
-	QuotaTokenRatePeriod string     `json:"quotaTokenRatePeriod,omitempty"` // rate-limit window, e.g. "4m"
+	Agent                string  `json:"agent,omitempty"`
+	Approval             string  `json:"approval,omitempty"`
+	Sandbox              string  `json:"sandbox,omitempty"`
+	GitBranch            string  `json:"gitBranch,omitempty"`
+	GitDirty             int     `json:"gitDirty,omitempty"`
+	GitAhead             int     `json:"gitAhead,omitempty"`    // commits ahead of upstream
+	GitBehind            int     `json:"gitBehind,omitempty"`   // commits behind upstream
+	GitUpstream          string  `json:"gitUpstream,omitempty"` // upstream ref, e.g. origin/main
+	Host                 string  `json:"host,omitempty"`
+	Relay                string  `json:"relay,omitempty"`
+	TokensIn             int     `json:"tokensIn"`
+	TokensOut            int     `json:"tokensOut"`
+	CostUSD              float64 `json:"costUSD,omitempty"`
+	QuotaSpend           float64 `json:"quotaSpend,omitempty"`
+	QuotaBudget          float64 `json:"quotaBudget,omitempty"`
+	QuotaKnown           bool    `json:"quotaKnown,omitempty"`
+	QuotaName            string  `json:"quotaName,omitempty"`            // tooltip: the gateway's project name, or "personal"
+	QuotaTokens          int     `json:"quotaTokens,omitempty"`          // tokens used in the quota period (24h)
+	QuotaTokensMax       int     `json:"quotaTokensMax,omitempty"`       // per-day token cap, when the budget carries one
+	QuotaTokenRate       int     `json:"quotaTokenRate,omitempty"`       // token rate limit (tokens per period)
+	QuotaTokenRatePeriod string  `json:"quotaTokenRatePeriod,omitempty"` // rate-limit window, e.g. "4m"
+	// QuotaFallbackFrom names the provider the quota fallback moved this session
+	// AWAY from, and QuotaFallbackResetAt when it will move back — so the status bar
+	// can explain why the provider isn't the one that was picked. Empty unless a
+	// fallback is currently in force.
+	QuotaFallbackFrom    string     `json:"quotaFallbackFrom,omitempty"`
+	QuotaFallbackResetAt string     `json:"quotaFallbackResetAt,omitempty"`
 	ContextPercent       int        `json:"contextPercent"`
 	ContextTokens        int        `json:"contextTokens,omitempty"` // most recent turn's input-token size
 	ContextWindow        int        `json:"contextWindow,omitempty"` // model's context window, for the same calc as ContextPercent
@@ -375,6 +381,11 @@ func toWire(ev agent.Event) wireEvent {
 		// text-less "info" — which is exactly the "undefined" bubble. Surface it as the
 		// note it is, so the user can see why earlier turns vanished.
 		return wireEvent{Type: "info", Text: fmt.Sprintf("Compacted context: summarized %d earlier turn(s) to free space.", e.Turns)}
+	case agent.BackendSwitched:
+		// The quota fallback moved to another provider mid-turn. Carried as a
+		// "backend_switched" event (not just the prose Info beside it) so the client
+		// can refresh its model chip from the fields rather than parsing the notice.
+		return wireEvent{Type: "backend_switched", Model: e.Model, Reasoning: e.Reasoning, Text: e.Provider}
 	case agent.ContextStats:
 		return wireEvent{Type: "context", Context: &contextWire{Segments: contextSegmentsWire(e.Segments), Total: e.Total, Window: e.Window}}
 	case agent.ApprovalRequest:

@@ -5,6 +5,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -186,6 +187,17 @@ func (m Model) publishStatus() {
 	for _, f := range m.agent.ModifiedFiles() {
 		files = append(files, bridge.ModFile{Path: f.Path, Created: f.Created})
 	}
+	// Explain an in-force quota fallback in the mirrored status, so a web client
+	// watching a terminal session sees why the provider changed.
+	var fbFrom, fbReset string
+	if m.agent != nil {
+		if fb := m.agent.QuotaFallbackInfo(); fb.Switched {
+			fbFrom = fb.PrimaryProvider
+			if !fb.ResetAt.IsZero() {
+				fbReset = fb.ResetAt.Local().Format(time.RFC3339)
+			}
+		}
+	}
 	m.hub.PublishStatus(bridge.Status{
 		Version:              config.Version,
 		Model:                shortModel(m.cfg.Model),
@@ -213,6 +225,8 @@ func (m Model) publishStatus() {
 		QuotaTokensMax:       m.quotaTokensMax,
 		QuotaTokenRate:       m.quotaTokenRate,
 		QuotaTokenRatePeriod: m.quotaTokenRatePeriod,
+		QuotaFallbackFrom:    fbFrom,
+		QuotaFallbackResetAt: fbReset,
 		ContextPercent:       contextPercent(m.lastTurnInTokens, m.cfg.ContextWindowFor(m.cfg.Model)),
 		ActiveTool:           m.activeTool,
 		ToolsInFlight:        m.toolsInFlight,

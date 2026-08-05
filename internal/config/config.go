@@ -349,6 +349,22 @@ type Config struct {
 	FastReasoningPersona *string
 	AuxProviderPersona   *string
 	AuxReasoningPersona  *string
+	// Quota-fallback choices last set via the Persona modal (nil = never chosen).
+	// Persisted in savedPrefs and applied by Load() AFTER env vars, so a saved
+	// chain survives a restart and wins over (or clears) MN_QUOTA_FALLBACK /
+	// MN_QUOTA_RESET_AT / MN_QUOTA_BUDGET_USD / MN_QUOTA_BUDGET_PCT /
+	// MN_PROVIDER_FALLBACKS.
+	//
+	// The budgets are *float64 (not float64) so an explicit 0 — "disable this
+	// trigger" — stays distinguishable from "never set"; ProviderFallbacksPersona
+	// is a *[]string so an explicitly emptied chain is likewise distinct from nil.
+	// It holds full "provider[:model[:reasoning]]" specs rather than bare provider
+	// ids, so a per-hop model/reasoning choice persists too.
+	QuotaFallbackPersona     *bool
+	QuotaResetAtPersona      *string
+	QuotaBudgetUSDPersona    *float64
+	QuotaBudgetPctPersona    *float64
+	ProviderFallbacksPersona *[]string
 	// VerifyCommand, when non-empty, is a shell command (e.g. a test/build) run
 	// automatically at the end of a turn that edited files; if it exits non-zero
 	// the failure is fed back so the agent self-corrects before finishing. Set it
@@ -416,6 +432,38 @@ type Config struct {
 	// drafts a plan for your approval before touching files. Off by default;
 	// toggle with /plan auto on|off. /build always overrides it for a turn.
 	AutoPlan bool
+	// QuotaFallback, when true, lets the agent automatically switch to the next
+	// backend in ProviderFallbacks once the current provider's spend crosses
+	// QuotaBudgetUSD / QuotaBudgetPct, or when the provider reports a hard daily
+	// quota 429. Off by default: silently moving someone's traffic to another
+	// backend (different models, different billing) must be opt-in.
+	QuotaFallback bool
+	// QuotaResetAt is the local wall-clock time of day ("HH:MM", e.g. "00:00") at
+	// which the provider's quota rolls over. It's only a FALLBACK: providers that
+	// report their own reset timestamp always win. Without it, a hard 429 carries
+	// no reset time, so the session would stay on the fallback backend forever
+	// instead of returning to the primary once the quota refills. Empty disables
+	// the time-based restore.
+	QuotaResetAt string
+	// QuotaBudgetUSD is the absolute spend, in dollars, at or above which the
+	// agent falls back to the next provider. 0 disables the absolute check.
+	QuotaBudgetUSD float64
+	// QuotaBudgetPct is the percentage (0-100) of the provider's OWN reported
+	// budget at or above which the agent falls back. 0 disables the relative
+	// check. Only usable for providers that report a spend cap in their usage
+	// endpoint; others report no cap, so the percentage is unknowable there.
+	QuotaBudgetPct float64
+	// ProviderFallbacks is the ordered switch chain, e.g.
+	// ["anthropic","openai","ollama"]. The agent walks it left to right from the
+	// CURRENT provider, skipping entries that aren't usable on this machine (no
+	// API key / no base URL), and stops at the end — there is no wrap-around,
+	// since cycling back to an exhausted provider would thrash. Empty means "no
+	// fallback configured".
+	//
+	// Entries may carry a model and reasoning level ("provider:model:reasoning");
+	// ParseFallbackChain splits them. A bare provider id uses that backend's
+	// default model, because model ids are not portable across backends.
+	ProviderFallbacks []string
 	// AutoDelegate, when true, makes the agent auto-delegate a clearly read-heavy
 	// investigation ("how/where/why does X work", "investigate …", "check why …")
 	// to the read-only `explore` sub-agent via the task tool, so the file reads
@@ -631,6 +679,21 @@ func firstEnv(names ...string) string {
 		}
 	}
 	return ""
+}
+
+// lookupFirstEnv returns the first environment variable that is SET, even when
+// its value is empty, along with whether one was found.
+//
+// firstEnv can't express "set to empty on purpose", which some knobs need: for
+// MN_QUOTA_RESET_AT an empty value means "disable the time-based restore", not
+// "unset", so it must beat the built-in default.
+func lookupFirstEnv(names ...string) (string, bool) {
+	for _, n := range names {
+		if v, ok := os.LookupEnv(n); ok {
+			return v, true
+		}
+	}
+	return "", false
 }
 
 // NormalizeOllamaBaseURL turns a user-supplied Ollama host into the OpenAI-
@@ -1522,25 +1585,30 @@ func Load() *Config {
 		Model:               DefaultModel,
 		RelayAddr:           defaultRelayAddr, // on by default; prefs/env can override or disable
 		MaxTokens:           8192,
-		MaxToolOutputBytes:  16000,
-		MaxAgentSteps:       80,
-		SubagentMaxDepth:    2,
-		AutoContinue:        1,
-		BatchContext:        true,
-		RepoMap:             true,
-		LazyMCPTools:        true,
-		LazyBuiltinTools:    true,
-		Terse:               true,
-		CodeOutline:         true,
-		DynamicEffort:       true,
-		AdaptiveModel:       true, // default on: right-size the model to the task, escalate only on friction
-		CheapReads:          true, // default on: route pure-read rounds to the fast model
-		VerifyMaxRetries:    2,
-		VerifyTimeoutSec:    120,
-		MaxReadLines:        800,
-		WorkingDir:          wd,
-		ReasoningLevel:      ReasoningAuto,
-		ReasoningByModel:    map[string]string{},
+		// Quotas on the hosted providers roll over at midnight local time. Only a
+		// fallback for providers that report no reset timestamp of their own (and
+		// for hard 429s, which carry none); set MN_QUOTA_RESET_AT="" to disable the
+		// time-based restore.
+		QuotaResetAt:       "00:00",
+		MaxToolOutputBytes: 16000,
+		MaxAgentSteps:      80,
+		SubagentMaxDepth:   2,
+		AutoContinue:       1,
+		BatchContext:       true,
+		RepoMap:            true,
+		LazyMCPTools:       true,
+		LazyBuiltinTools:   true,
+		Terse:              true,
+		CodeOutline:        true,
+		DynamicEffort:      true,
+		AdaptiveModel:      true, // default on: right-size the model to the task, escalate only on friction
+		CheapReads:         true, // default on: route pure-read rounds to the fast model
+		VerifyMaxRetries:   2,
+		VerifyTimeoutSec:   120,
+		MaxReadLines:       800,
+		WorkingDir:         wd,
+		ReasoningLevel:     ReasoningAuto,
+		ReasoningByModel:   map[string]string{},
 
 		ApprovalPolicy:         ApprovalPrompt,
 		SandboxMode:            SandboxOff,
@@ -1776,6 +1844,31 @@ func Load() *Config {
 		// Defaults off; the env var can turn it ON (1/true/on/yes) or explicitly OFF.
 		c.AutoDelegate = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
 	}
+	// Quota-based provider fallback (see internal/agent/quotafallback.go).
+	// MN_QUOTA_RESET_AT is read with LookupEnv rather than the non-empty guard used
+	// for the others: for this knob an empty value means "disabled" (and so must
+	// beat the built-in default), while for the rest empty means "unset".
+	if v, ok := lookupFirstEnv("MN_QUOTA_RESET_AT"); ok {
+		c.QuotaResetAt = strings.TrimSpace(v)
+	}
+	if v := strings.TrimSpace(firstEnv("MN_QUOTA_FALLBACK")); v != "" {
+		c.QuotaFallback = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") || strings.EqualFold(v, "yes")
+	}
+	if v := strings.TrimSpace(firstEnv("MN_QUOTA_BUDGET_USD")); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			c.QuotaBudgetUSD = f
+		}
+	}
+	if v := strings.TrimSpace(firstEnv("MN_QUOTA_BUDGET_PCT")); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			c.QuotaBudgetPct = f
+		}
+	}
+	if v := strings.TrimSpace(firstEnv("MN_PROVIDER_FALLBACKS")); v != "" {
+		// Store the canonical per-hop specs so a model/reasoning choice in the env
+		// spec survives into the chain (FallbackChain re-parses them).
+		c.ProviderFallbacks = fallbackSpecs(ParseFallbackChain(v))
+	}
 	if v := strings.TrimSpace(os.Getenv("MN_RELAY")); v != "" {
 		// env overrides the saved relay address; an off sentinel disables it even
 		// when the default/saved value is on.
@@ -1985,6 +2078,33 @@ func Load() *Config {
 	if prefs.AutoPlan != nil {
 		c.AutoPlan = *prefs.AutoPlan
 		c.AutoPlanPersona = prefs.AutoPlan
+	}
+	// Quota fallback: applied after env vars for the same reason as the toggles
+	// above — a deployment's MN_QUOTA_* must not clobber an explicit persona
+	// choice on every restart.
+	if prefs.QuotaFallback != nil {
+		c.QuotaFallback = *prefs.QuotaFallback
+		c.QuotaFallbackPersona = prefs.QuotaFallback
+	}
+	if prefs.QuotaResetAt != nil {
+		ra := strings.TrimSpace(*prefs.QuotaResetAt)
+		c.QuotaResetAt = ra // "" is a real choice: disables the time-based restore
+		c.QuotaResetAtPersona = &ra
+	}
+	if prefs.QuotaBudgetUSD != nil {
+		c.QuotaBudgetUSD = *prefs.QuotaBudgetUSD
+		c.QuotaBudgetUSDPersona = prefs.QuotaBudgetUSD
+	}
+	if prefs.QuotaBudgetPct != nil {
+		c.QuotaBudgetPct = *prefs.QuotaBudgetPct
+		c.QuotaBudgetPctPersona = prefs.QuotaBudgetPct
+	}
+	if prefs.ProviderFallbacks != nil {
+		// Re-parse rather than trusting the stored strings: a provider removed from
+		// the build (or a hand-edited config.json) must not survive as a live hop.
+		chain := fallbackSpecs(ParseFallbackChain(strings.Join(*prefs.ProviderFallbacks, ",")))
+		c.ProviderFallbacks = chain
+		c.ProviderFallbacksPersona = &chain
 	}
 	if prefs.SelfReview != nil {
 		c.SelfReview = *prefs.SelfReview

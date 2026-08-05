@@ -261,6 +261,7 @@ func mirrorWire(m bridge.Msg) wireEvent {
 				TokensIn: s.TokensIn, TokensOut: s.TokensOut, CostUSD: s.CostUSD,
 				QuotaSpend: s.QuotaSpend, QuotaBudget: s.QuotaBudget, QuotaKnown: s.QuotaKnown, QuotaName: s.QuotaName,
 				QuotaTokens: s.QuotaTokens, QuotaTokensMax: s.QuotaTokensMax, QuotaTokenRate: s.QuotaTokenRate, QuotaTokenRatePeriod: s.QuotaTokenRatePeriod,
+				QuotaFallbackFrom: s.QuotaFallbackFrom, QuotaFallbackResetAt: s.QuotaFallbackResetAt,
 				ContextPercent: s.ContextPercent, ActiveTool: s.ActiveTool, ToolsInFlight: s.ToolsInFlight,
 				Agent: s.Agent,
 			}

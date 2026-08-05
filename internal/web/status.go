@@ -3,6 +3,7 @@ package web
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/provider"
@@ -85,6 +86,14 @@ func (s *Server) statusEvent(sess *sessionpkg.Session, live *session) wireEvent 
 		st.QuotaKnown = quotaKnown
 		st.QuotaName = live.quotaNameSnapshot()
 		st.QuotaTokens, st.QuotaTokensMax, st.QuotaTokenRate, st.QuotaTokenRatePeriod = live.quotaTokenSnapshot()
+		// Explain an automatic provider switch: without this the model/provider chip
+		// just silently differs from what the user chose.
+		if fb := live.agent.QuotaFallbackInfo(); fb.Switched {
+			st.QuotaFallbackFrom = fb.PrimaryProvider
+			if !fb.ResetAt.IsZero() {
+				st.QuotaFallbackResetAt = fb.ResetAt.Local().Format(time.RFC3339)
+			}
+		}
 	}
 	return wireEvent{Type: "status", Status: st}
 }

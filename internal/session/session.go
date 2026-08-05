@@ -27,12 +27,19 @@ type Session struct {
 	// live per-session config is otherwise re-seeded from the global default on
 	// restart). Empty on sessions saved before these were persisted; the restore
 	// path (agent.New / Resume) then leaves cfg at its default.
-	Provider   string        `json:"provider,omitempty"`
-	Reasoning  string        `json:"reasoning,omitempty"`
-	WorkingDir string        `json:"working_dir"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
-	Messages   []llm.Message `json:"messages"`
+	Provider  string `json:"provider,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"`
+	// QuotaFallback records an in-force automatic provider fallback so it survives
+	// a restart. Model/Provider above already persist the FALLBACK's selection, but
+	// without this the recovery state would be memory-only: a fresh process would
+	// reload the fallback as if the user had chosen it (switched=false), so the
+	// primary would never be restored — not at the reset, not ever. Nil when no
+	// fallback is active.
+	QuotaFallback *QuotaFallback `json:"quota_fallback,omitempty"`
+	WorkingDir    string         `json:"working_dir"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	Messages      []llm.Message  `json:"messages"`
 	// Goal is an optional stop-condition for the session: the agent won't end a
 	// turn until a judge model confirms the goal is met. Set via /goal.
 	Goal string `json:"goal,omitempty"`
@@ -86,6 +93,27 @@ type Session struct {
 	// count, so they replay in place when a saved session is reopened. Most
 	// agent.Info events stay live-only; only explicit noteInfo() calls land here.
 	InfoNotes []InfoNote `json:"info_notes,omitempty"`
+}
+
+// QuotaFallback is the persisted form of an in-force automatic provider fallback.
+//
+// Everything the restore needs to undo the hop, so it survives a restart: which
+// provider/model/reasoning to return TO, what the hop installed (so a later manual
+// change can be told apart from the fallback's own selection), and when the quota
+// period ends.
+type QuotaFallback struct {
+	// PrimaryProvider/Model/Reasoning are what the session was on before the hop —
+	// the state to restore once the period resets.
+	PrimaryProvider  string `json:"primary_provider,omitempty"`
+	PrimaryModel     string `json:"primary_model,omitempty"`
+	PrimaryReasoning string `json:"primary_reasoning,omitempty"`
+	// FallbackProvider/Model are what the hop moved the session TO. The restore
+	// compares against these so it only reverts its own change: if the user has
+	// since picked something else by hand, that deliberate choice is left alone.
+	FallbackProvider string `json:"fallback_provider,omitempty"`
+	FallbackModel    string `json:"fallback_model,omitempty"`
+	// ResetAt is when the quota period ends; the restore fires at/after this.
+	ResetAt time.Time `json:"reset_at,omitempty"`
 }
 
 // TurnMeta is the persisted footer metadata for one completed assistant turn,
