@@ -5,6 +5,31 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.12.0] — 2026-08-05
+
+### Added
+
+- Background jobs can run on a pseudo-terminal: `bash(background: true, tty: true)`,
+  a **TTY** switch in the jobs panel, and `tty` on `POST /api/sessions/{id}/jobs`.
+  Output stops being block-buffered (python, django, npm) and is stripped of escape
+  codes before it reaches the log the model reads.
+- A keyboard for TTY jobs in the jobs panel — Enter sends a line, `^C` interrupts —
+  backed by `POST /api/sessions/{id}/jobs/{job}/input`. The destructive-command
+  refusal that gates a job start also gates its input, applied to the assembled line
+  so splitting a command across calls can't slip past it.
+- A jobs button on the left of the pager pill, with a badge counting running jobs, so
+  a dev server left running after its turn stays visible.
+
+### Changed
+
+- Killing a TTY job now takes the whole process group with it, instead of leaving a
+  reloading dev server holding its port.
+- web: restore the spend/quota pill in the status bar
+
+### Fixed
+
+- Windows build break in `internal/procutil` (missing `time` import).
+
 ## [2.11.0] — 2026-08-05
 
 Closes the feature gaps against the sibling `sqeqct-coding-agent` codebase.
