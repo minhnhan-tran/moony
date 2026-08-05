@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -617,11 +618,22 @@ func bashRunsGitCommitOrPush(cmd string) bool {
 // the concurrency-safe emit channel and llm client.
 func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call llm.ContentBlock) llm.ContentBlock {
 	if a.hooks != nil {
-		_ = a.hooks.Run(ctx, hooks.PreTool, hooks.Context{
+		// A pre_tool hook exiting 77 BLOCKS the call. Report it as a tool error rather
+		// than a turn failure: the model can then explain the refusal or try another
+		// approach, whereas aborting the turn strands the user with no recourse. The
+		// hook's own output is the message, so the policy can say WHY.
+		if err := a.hooks.Run(ctx, hooks.PreTool, hooks.Context{
 			WorkingDir: a.cfg.WorkingDir,
 			ToolName:   call.Name,
 			ToolInput:  string(call.Input),
-		})
+		}); err != nil {
+			var deny *hooks.DenyError
+			if errors.As(err, &deny) {
+				msg := deny.Error() + ". This is a project policy hook, not a transient failure — do not retry the same call; explain the refusal or take a different approach."
+				emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
+				return llm.ToolResultBlock(call.ID, msg, true)
+			}
+		}
 	}
 
 	// Snapshot the prior contents of any file this tool is about to mutate, so

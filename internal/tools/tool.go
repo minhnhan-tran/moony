@@ -1104,3 +1104,14 @@ func parseFlexNumber(s string) (int, bool) {
 	}
 	return 0, false
 }
+
+// ExplicitSandbox reports the registry's explicitly-set sandbox setting, and whether
+// one was set at all. Used to propagate a runtime /sandbox decision into sub-agent
+// registries: a fresh registry falls back to the environment, which silently disagrees
+// with a sandbox the user turned on after startup.
+func (r *Registry) ExplicitSandbox() (enabled, network, ok bool) {
+	if r == nil || r.sandbox == nil {
+		return false, false, false
+	}
+	return r.sandbox.enabled, r.sandbox.network, true
+}

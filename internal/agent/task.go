@@ -192,6 +192,18 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	} else {
 		subRegistry = tools.Default(workDir, t.parent.cfg.MaxToolOutputBytes)
 	}
+	// Inherit the parent's EXPLICIT sandbox setting.
+	//
+	// A fresh registry has no explicit setting and so falls back to the MN_SANDBOX
+	// env vars — but the sandbox is normally turned on at runtime (/sandbox, or the
+	// web UI), and both of those touch only the parent's registry. Without this, a
+	// user who enabled the sandbox left every sub-agent unconfined while believing
+	// otherwise. That is the sub-agent's ONLY protection, since it auto-runs its
+	// tools with no approval prompt.
+	//
+	// When the parent has no explicit setting we leave the child's unset too, so both
+	// share the env fallback rather than silently disagreeing.
+	inheritSandbox(t.parent.tools, subRegistry)
 	// Give the sub-agent the shared message board tools so it can talk back to the
 	// orchestrator and its siblings (Option C-1). A default persona gets both; a
 	// persona with a restricted `tools:` allowlist only gets the ones it lists
@@ -218,6 +230,12 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		taskStore:   t.parent.taskStore, // share so handles are pollable session-wide
 	}
 	subAgent.isSubAgent = true
+	// Inherit the parent's hooks so a pre_tool policy also covers sub-agents. They
+	// auto-run their tools — no approval prompt can be surfaced from inside one — so a
+	// pre_tool hook is the only per-call gate they have. Without this, a hook installed
+	// to audit or block dangerous calls saw nothing a sub-agent did, which is the widest
+	// hole in a hook-based policy.
+	subAgent.hooks = t.parent.hooks
 	if wt != nil {
 		// Confine this isolated sub-agent's shell to the worktree: file tools are
 		// already registry-confined, but bash could otherwise reach the real repo.
@@ -868,4 +886,19 @@ func taskStreamEnabled() bool {
 		return false
 	}
 	return true
+}
+
+// inheritSandbox copies an explicitly-configured sandbox setting from the parent's
+// registry to a sub-agent's.
+//
+// Only an EXPLICIT setting is propagated: if the parent never set one, both registries
+// fall back to the MN_SANDBOX environment, which keeps them in agreement. Copying a
+// default-derived value instead would freeze the env's value at spawn time.
+func inheritSandbox(parent, child *tools.Registry) {
+	if parent == nil || child == nil {
+		return
+	}
+	if enabled, network, ok := parent.ExplicitSandbox(); ok {
+		child.SetSandbox(enabled, network)
+	}
 }

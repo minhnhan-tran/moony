@@ -24,7 +24,16 @@
 //	MN_TOOL_OUTPUT  the tool's text output (post_tool only)
 //	MN_TOOL_ERROR   the tool's error message, or empty (post_tool only)
 //
-// Hooks are best-effort: any error is logged via the optional logger but never
+// A pre_tool hook can therefore gate tools on its own policy, e.g. refuse writes
+// outside the repo:
+//
+//	case "$MN_TOOL_NAME" in write_file|edit_file)
+//	  echo "$MN_TOOL_INPUT" | grep -q '"path": *"/' && { echo "absolute paths are not allowed"; exit 77; } ;;
+//	esac
+//
+// Hooks are best-effort with one deliberate exception: a pre_tool hook that exits
+// with DenyExitCode (77) BLOCKS the tool call, and its output is reported to the model
+// as the reason. Every other failure is logged via the optional logger and never
 // blocks the agent. Each hook has a 10-second timeout.
 package hooks
 
@@ -124,9 +133,48 @@ func (s *Set) Events() []string {
 	return out
 }
 
-// Run fires every command bound to ev, with the given context, in registered
-// order. It always returns nil (errors are reported via the logger) so a misbehaving
-// hook never blocks the agent.
+// DenyExitCode is the exit status a pre_tool hook uses to BLOCK a tool call.
+//
+// Deliberately a distinct code rather than "any non-zero": a hook that is merely
+// broken (bad path, missing dependency, syntax error) exits non-zero too, and treating
+// that as a deny would silently wedge the agent.
+//
+// 77 specifically because the shell already claims the low codes, which would make a
+// malfunction indistinguishable from a policy decision: `sh -c` returns 2 for a SYNTAX
+// ERROR, 126 for "not executable", 127 for "command not found", and 128+n when killed
+// by a signal. A hook with a stray typo therefore exits 2 — so using 2 as the deny code
+// (the obvious first choice, and what git uses for hook rejections) would let a broken
+// hook silently block every tool call.
+const DenyExitCode = 77
+
+// DenyError reports that a pre_tool hook blocked a tool call.
+type DenyError struct {
+	Tool    string // the tool that was blocked
+	Command string // the hook that blocked it
+	Output  string // the hook's stdout/stderr, shown to the model as the reason
+}
+
+func (e *DenyError) Error() string {
+	msg := "blocked by a pre_tool hook"
+	if e.Tool != "" {
+		msg = "tool " + e.Tool + " blocked by a pre_tool hook"
+	}
+	if out := strings.TrimSpace(e.Output); out != "" {
+		return msg + ": " + out
+	}
+	return msg
+}
+
+// Run fires every command bound to ev, with the given context, in registered order.
+//
+// For PreTool, a hook exiting with DenyExitCode BLOCKS the call: Run stops at that
+// hook and returns a *DenyError, and the caller must not execute the tool. This is
+// what makes hooks a security control rather than a logging side-channel — otherwise
+// a hook can observe a dangerous call but not stop it.
+//
+// Every other failure stays advisory (logged, nil returned) so a misbehaving hook
+// never wedges the agent, and non-PreTool events are always advisory: denying a
+// post_tool call is meaningless once the tool has already run.
 func (s *Set) Run(ctx context.Context, ev Event, hctx Context) error {
 	if s.Empty() {
 		return nil
@@ -152,17 +200,27 @@ func (s *Set) Run(ctx context.Context, ev Event, hctx Context) error {
 		env = append(env, "MN_TOOL_ERROR="+hctx.ToolError)
 	}
 	for _, c := range cmds {
-		s.runOne(ctx, c, env, hctx.WorkingDir)
+		out, code := s.runOne(ctx, c, env, hctx.WorkingDir)
+		// Only pre_tool can deny, and only with the dedicated code. Checking the event
+		// here (not in runOne) keeps the "broken hook is advisory" rule in one place.
+		if ev == PreTool && code == DenyExitCode {
+			s.log(fmt.Sprintf("pre_tool hook denied %s: %s", hctx.ToolName, truncate(strings.TrimSpace(out), 200)))
+			return &DenyError{Tool: hctx.ToolName, Command: c, Output: out}
+		}
 	}
 	return nil
 }
 
-// runOne runs a single shell command with a 10s timeout. Output is forwarded to
-// the logger, prefixed with the event name and a snippet of the command, so
-// debugging stays readable even with many hooks.
-func (s *Set) runOne(parent context.Context, command string, env []string, dir string) {
+// runOne runs a single shell command with a 10s timeout, returning its combined
+// output and exit code. Output is forwarded to the logger, prefixed with the event
+// name and a snippet of the command, so debugging stays readable even with many hooks.
+//
+// The exit code is returned so Run can distinguish a deliberate deny (DenyExitCode)
+// from a hook that is simply broken. A timeout reports -1, never DenyExitCode: a hook
+// that hangs must not silently block tools.
+func (s *Set) runOne(parent context.Context, command string, env []string, dir string) (string, int) {
 	if strings.TrimSpace(command) == "" {
-		return
+		return "", 0
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
@@ -174,13 +232,23 @@ func (s *Set) runOne(parent context.Context, command string, env []string, dir s
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		return
+		return string(out), 0
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		s.log("hook timed out: " + truncate(command, 60))
-		return
+		return string(out), -1
 	}
-	s.log(fmt.Sprintf("hook failed (%s): %v: %s", truncate(command, 60), err, strings.TrimSpace(string(out))))
+	code := -1
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code = ee.ExitCode()
+	}
+	// A deny is an intended outcome, not a failure, so don't log it as one — Run logs
+	// the denial with the tool name instead.
+	if code != DenyExitCode {
+		s.log(fmt.Sprintf("hook failed (%s): %v: %s", truncate(command, 60), err, strings.TrimSpace(string(out))))
+	}
+	return string(out), code
 }
 
 func (s *Set) log(msg string) {
