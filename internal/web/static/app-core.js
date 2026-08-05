@@ -4261,12 +4261,24 @@ let activeTab = null;
 function renderTabStrip() {
   manageTabsEl.innerHTML = "";
   manageTabsEl.style.display = "flex";
+  let activeBtn = null;
   for (const t of activeTabs) {
-    const b = el("button", "config-tab" + (t.key === activeTab ? " config-tab-active" : ""), "");
+    const isActive = t.key === activeTab;
+    const b = el("button", "config-tab" + (isActive ? " config-tab-active" : ""), "");
     b.type = "button";
     b.append(sym(t.icon), el("span", "", " " + t.label));
     b.onclick = () => selectTab(t.key);
     manageTabsEl.append(b);
+    if (isActive) activeBtn = b;
+  }
+  // The strip scrolls horizontally and there are a dozen tabs, so the later ones
+  // (Jobs, Doctor) start off-screen. Opening one straight from a shortcut would
+  // otherwise render its body with the strip still parked on the first tab —
+  // which reads as "that tab doesn't exist".
+  if (activeBtn) {
+    requestAnimationFrame(() => {
+      try { activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" }); } catch (_) {}
+    });
   }
 }
 
