@@ -3178,3 +3178,67 @@ html.light .diff-hunk { color: #0550ae; }
 }
 .le-btn:hover:not(:disabled) { color: rgb(var(--c-ink)); background: rgb(var(--c-edge)); }
 .le-btn:disabled { opacity: .55; cursor: default; }
+
+/* ─── Background jobs panel ─────────────────────────────────────────────── */
+.jobs-list { display: flex; flex-direction: column; gap: 6px; }
+
+.job-row {
+  border: 1px solid rgb(var(--c-edge));
+  border-radius: 8px;
+  background: rgb(var(--c-raised));
+  overflow: hidden;
+}
+
+.job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  flex-wrap: wrap;
+}
+
+/* The command can be long; let it shrink rather than pushing the actions off-row. */
+.job-cmd {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: rgb(var(--c-ink));
+}
+
+.job-meta { font-size: 11px; color: rgb(var(--c-faint)); white-space: nowrap; }
+.job-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+
+/* State pill. Colour carries the same meaning as elsewhere in the app: amber for
+   in-flight, green for clean exit, red for failure. */
+.job-state {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.job-state-running { color: rgb(var(--c-warn));   background: rgb(var(--c-warn) / .12);   border-color: rgb(var(--c-warn) / .35); }
+.job-state-done    { color: rgb(var(--c-ok));     background: rgb(var(--c-ok) / .12);     border-color: rgb(var(--c-ok) / .35); }
+.job-state-failed,
+.job-state-killed  { color: rgb(var(--c-danger)); background: rgb(var(--c-danger) / .12); border-color: rgb(var(--c-danger) / .35); }
+
+.job-log {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid rgb(var(--c-edge));
+  background: rgb(var(--c-code));
+  color: rgb(var(--c-ink));
+  font-size: 11.5px;
+  line-height: 1.45;
+  /* Bounded so a chatty job can't grow the modal without limit. */
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

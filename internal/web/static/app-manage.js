@@ -1852,3 +1852,187 @@ async function renderDoctorPanel() {
   rerun.onclick = run;
   run();
 }
+
+// ─── Background jobs ────────────────────────────────────────────────────────
+//
+// Lists this session's background jobs and tails their output.
+//
+// Tailing uses an ABSOLUTE cursor (`?cursor=N`) that is independent of the cursor
+// `bash_output` consumes, so watching a job here never swallows output the model
+// hasn't read yet — an open panel must not change what the agent sees.
+
+let jobsPollTimer = null;   // status poll for the list
+let jobsOpenID = null;      // which job's log is expanded
+let jobsCursor = 0;         // absolute offset of the expanded job's log
+// jobsLogText holds the log accumulated so far. The status poll rebuilds the rows every
+// couple of seconds, which discards the <pre>; without keeping the text here the pane
+// would reset to "Loading…" and never refill, because the cursor has already advanced
+// past everything we'd fetched.
+let jobsLogText = "";
+let jobsLogScroll = 0;         // preserved scroll offset across re-renders
+let jobsLogAtBottom = true;    // follow the tail until the user scrolls up
+let jobsPolicy = "prompt";  // approval policy, for the pre-run warning
+
+// stopJobsPolling clears the timers. Called when the panel closes, so a hidden tab
+// isn't polling the session forever.
+function stopJobsPolling() {
+  if (jobsPollTimer) { clearInterval(jobsPollTimer); jobsPollTimer = null; }
+}
+
+async function renderJobsPanel() {
+  const body = manageBody;
+  stopJobsPolling();
+  body.innerHTML = "";
+  body.append(el("p", "access-intro", "Long-running commands started with the bash tool's background flag, plus any you start here. Output is buffered — expanding a job shows its log without consuming what the agent still has to read."));
+
+  // Start form. The button warns when the policy means it will prompt, so the
+  // approval dialog isn't a surprise.
+  const form = el("div", "schedule-form");
+  const cmdI = manageInput("command to run in the background…");
+  cmdI.style.flex = "1 1 auto";
+  const addBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Start job");
+  addBtn.prepend(sym("play.fill"));
+  const row = el("div", "schedule-form-row");
+  row.append(cmdI, addBtn);
+  form.append(row);
+  body.append(form);
+
+  const doStart = async () => {
+    const command = cmdI.value.trim();
+    if (!command) { alertBox("Enter a command to run."); return; }
+    addBtn.disabled = true;
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/jobs`), {
+        method: "POST", body: JSON.stringify({ command }),
+      });
+      if (!r.ok) { alertBox((await r.text().catch(() => "")).trim() || "Could not start the job."); return; }
+      const out = await r.json().catch(() => ({}));
+      // A denial is a normal outcome (the user said no), not an error dialog.
+      if (out && out.denied) { alertBox("The job was not approved."); return; }
+      cmdI.value = "";
+      renderJobsPanel();
+    } catch (_) {
+      alertBox("Could not start the job.");
+    } finally {
+      addBtn.disabled = false;
+    }
+  };
+  addBtn.onclick = doStart;
+  cmdI.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doStart(); } };
+
+  const list = el("div", "jobs-list");
+  body.append(el("div", "msg-label text-faint mt-3 mb-1.5", "Jobs"));
+  body.append(list);
+
+  await refreshJobsList(list);
+  // Poll while the panel is open: jobs finish on their own, and a stale "running"
+  // badge is worse than a slightly delayed one.
+  jobsPollTimer = setInterval(() => {
+    if (!document.body.contains(list)) { stopJobsPolling(); return; }
+    refreshJobsList(list);
+  }, 2000);
+}
+
+async function refreshJobsList(list) {
+  let data = null;
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/jobs`));
+    if (r.ok) data = await r.json();
+  } catch (_) { return; } // transient: keep the last render rather than blanking it
+  if (!data) return;
+  jobsPolicy = data.policy || "prompt";
+
+  const jobs = data.jobs || [];
+  list.innerHTML = "";
+  if (!jobs.length) {
+    list.append(el("div", "access-empty", "No background jobs yet."));
+    return;
+  }
+  for (const j of jobs) list.append(jobRow(j, list));
+}
+
+function jobRow(j, list) {
+  const wrap = el("div", "job-row");
+
+  const head = el("div", "job-head");
+  head.append(el("span", "job-state job-state-" + (j.state || "unknown"), j.state || "?"));
+  head.append(el("code", "job-cmd", j.command || ""));
+
+  const meta = [];
+  if (j.outputLen) meta.push(fmtBytes(j.outputLen));
+  if (!j.running && j.exit !== 0) meta.push("exit " + j.exit);
+  if (j.err) meta.push(j.err);
+  if (meta.length) head.append(el("span", "job-meta", meta.join("  ·  ")));
+
+  const actions = el("div", "job-actions");
+  const logBtn = el("button", "manage-install", jobsOpenID === j.id ? "Hide log" : "Log");
+  logBtn.onclick = () => {
+    // Toggle: collapsing resets the cursor so re-opening replays the whole buffer.
+    jobsOpenID = jobsOpenID === j.id ? null : j.id;
+    jobsCursor = 0;
+    jobsLogText = "";
+    jobsLogScroll = 0;
+    jobsLogAtBottom = true;
+    refreshJobsList(list);
+  };
+  actions.append(logBtn);
+  if (j.running) {
+    const killBtn = el("button", "manage-install", "Stop");
+    killBtn.onclick = async () => {
+      killBtn.disabled = true;
+      try { await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/kill`), { method: "POST" }); } catch (_) {}
+      refreshJobsList(list);
+    };
+    actions.append(killBtn);
+  }
+  head.append(actions);
+  wrap.append(head);
+
+  if (jobsOpenID === j.id) {
+    const pre = el("pre", "job-log");
+    // Restore what we already have, so a re-render doesn't blank the pane.
+    pre.textContent = jobsLogText || "Loading…";
+    wrap.append(pre);
+    // Re-apply the scroll position after the rebuild; without this the pane jumps to
+    // the top every poll and the log is unreadable while a job is producing output.
+    const prevTop = jobsLogScroll, wasBottom = jobsLogAtBottom;
+    requestAnimationFrame(() => {
+      pre.scrollTop = wasBottom ? pre.scrollHeight : prevTop;
+    });
+    pre.addEventListener("scroll", () => {
+      jobsLogScroll = pre.scrollTop;
+      // "At the bottom" within a couple of pixels, so follow-the-tail survives
+      // fractional scroll heights.
+      jobsLogAtBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 4;
+    });
+    tailJob(j.id, pre);
+  }
+  return wrap;
+}
+
+// tailJob fetches from the current cursor and appends. Called on each poll for the
+// expanded job, so a running command's log grows in place.
+async function tailJob(id, pre) {
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(id)}/tail?cursor=${jobsCursor}`));
+    if (!r.ok) { pre.textContent = "(log unavailable)"; return; }
+    const out = await r.json();
+    if (jobsCursor === 0) jobsLogText = "";
+    if (out.output) jobsLogText += out.output;
+    pre.textContent = jobsLogText || "(no output yet)";
+    // Trust the server's cursor rather than adding lengths locally: after a restart
+    // truncates the buffer the server pulls us back into sync.
+    jobsCursor = out.cursor || 0;
+    // Only follow the tail when the user hasn't scrolled up to read history.
+    if (jobsLogAtBottom) pre.scrollTop = pre.scrollHeight;
+  } catch (_) {
+    pre.textContent = "(log unavailable)";
+  }
+}
+
+function fmtBytes(n) {
+  if (!n) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1).replace(/\.0$/, "") + " KB";
+  return (n / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
+}

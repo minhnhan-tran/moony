@@ -288,6 +288,14 @@ func (s *Server) Handler() http.Handler {
 	// Per-session environment diagnostics for the Config modal's Doctor tab.
 	mux.HandleFunc("GET /api/sessions/{id}/history", s.handleHistory)
 	mux.HandleFunc("GET /api/sessions/{id}/doctor", s.handleDoctor)
+	// Background jobs. The reads use the store's view API, which never advances the
+	// cursor bash_output consumes, so an open panel can't starve the model of output.
+	mux.HandleFunc("GET /api/sessions/{id}/jobs", s.handleJobs)
+	mux.HandleFunc("GET /api/sessions/{id}/jobs/{job}/tail", s.handleJobTail)
+	mux.HandleFunc("POST /api/sessions/{id}/jobs/{job}/kill", s.handleJobKill)
+	// The only job route that executes anything; gated by the same approval +
+	// destructive-command checks as a model-issued bash call.
+	mux.HandleFunc("POST /api/sessions/{id}/jobs", s.handleJobStart)
 	mux.HandleFunc("GET /api/sessions/{id}/files", s.handleFileTree)
 	mux.HandleFunc("GET /api/sessions/{id}/file", s.handleViewFile)
 	mux.HandleFunc("GET /api/sessions/{id}/codebasemap", s.handleCodebaseMap)

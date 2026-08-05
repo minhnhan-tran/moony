@@ -21,7 +21,11 @@ const (
 	stateBusy     = "busy"
 	stateApproval = "awaiting_approval"
 	stateQuestion = "awaiting_question"
-	subBufferSize = 1024 // per-viewer event buffer; full → that viewer drops live events (recoverable via reload)
+	// stateJobPrompt: a UI-initiated background job is awaiting approval. Distinct from
+	// stateApproval so turnActive() treats the session as busy (blocking a turn start)
+	// while releaseJobPrompt can tell its own state apart from a turn's.
+	stateJobPrompt = "awaiting_job_approval"
+	subBufferSize  = 1024 // per-viewer event buffer; full → that viewer drops live events (recoverable via reload)
 )
 
 // session is one conversation: an agent plus a broadcast hub. Every emitted
@@ -430,7 +434,8 @@ func (s *session) unsubscribe(id int) {
 func (s *session) turnActive() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.state == stateBusy || s.state == stateApproval || s.state == stateQuestion
+	return s.state == stateBusy || s.state == stateApproval || s.state == stateQuestion ||
+		s.state == stateJobPrompt
 }
 
 // historySnapshot returns a copy of the session's replayable event history, for
@@ -878,4 +883,46 @@ func (s *session) removeQueuedAt(i int) bool {
 	s.queued = append(s.queued[:i], s.queued[i+1:]...)
 	s.publishQueueLocked()
 	return true
+}
+
+// claimForJobPrompt reserves the session's approval channel for a UI-initiated
+// background job, reporting false when a turn already owns it.
+//
+// A turn in flight owns s.reply; raising a second concurrent approval prompt would race
+// it and could deliver the job's answer to the turn (or vice versa). Refusing is the
+// honest outcome — the user retries once the turn finishes, instead of a decision being
+// silently mis-applied to the wrong request.
+func (s *session) claimForJobPrompt() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state != stateIdle {
+		return false
+	}
+	// Mark the session busy so a turn can't start underneath the prompt either.
+	s.state = stateJobPrompt
+	s.publishLocked(stateWire(stateJobPrompt))
+	return true
+}
+
+// releaseJobPrompt returns the session to idle after a UI-initiated job prompt.
+func (s *session) releaseJobPrompt() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Clear any state this flow can have produced.
+	//
+	// stateBusy is included deliberately: approve() sets it (it normally means "the turn
+	// is resuming"), but for a UI-started job there is no turn loop to hand the session
+	// back to idle. Omitting it wedged the session in busy forever after an approved
+	// job — blocking every later turn AND every later job. Safe because
+	// claimForJobPrompt only proceeds from idle, so no turn can own the session here.
+	if s.state == stateJobPrompt || s.state == stateApproval || s.state == stateBusy {
+		s.state = stateIdle
+		s.publishLocked(stateWire(stateIdle))
+	}
 }

@@ -28,22 +28,62 @@ type job struct {
 	command string
 	started time.Time
 
-	mu     sync.Mutex
-	buf    bytes.Buffer // combined stdout/stderr, grows as the process writes
-	read   int          // bytes already returned by bash_output (for incremental reads)
-	state  jobState
-	exit   int    // exit code once finished
-	errMsg string // non-empty if the process couldn't start / was killed
+	mu   sync.Mutex
+	buf  bytes.Buffer // combined stdout/stderr, grows as the process writes
+	read int          // bytes already returned by bash_output (for incremental reads)
+	// dropped counts bytes discarded from the front by trimLocked, so a viewer's
+	// absolute cursor can be rebased instead of pointing into bytes that no longer exist.
+	dropped int
+	state   jobState
+	exit    int    // exit code once finished
+	errMsg  string // non-empty if the process couldn't start / was killed
 
 	cancel context.CancelFunc
 }
 
 // Write implements io.Writer so cmd can stream combined output into the buffer
 // under the lock (stdout and stderr are both pointed here).
+// maxJobOutputBytes caps a single job's buffered output.
+//
+// The buffer lives in memory for the process's whole life, so an unbounded one is a
+// denial of service: `yes`, `cat /dev/urandom`, or any fast-printing loop backgrounded
+// once would grow it until the host OOM-kills the agent. 8 MB is far more than any log
+// a human or model reads, and small enough that even several runaway jobs stay bounded.
+const maxJobOutputBytes = 8 << 20
+
 func (j *job) Write(p []byte) (int, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	return j.buf.Write(p)
+	n, err := j.buf.Write(p)
+	j.trimLocked()
+	return n, err
+}
+
+// trimLocked drops the OLDEST output once the buffer exceeds the cap, keeping the tail.
+//
+// The tail is what matters: a runaway job's interesting part is where it is now (and its
+// eventual error), not its first megabyte. Both cursors are rebased by the amount
+// dropped so neither the model's incremental reads nor a UI tail can end up pointing
+// into freed bytes — a stale cursor would otherwise re-send the whole buffer or slice
+// out of range. Caller holds j.mu.
+func (j *job) trimLocked() {
+	over := j.buf.Len() - maxJobOutputBytes
+	if over <= 0 {
+		return
+	}
+	// Drop a whole chunk rather than trimming byte-by-byte on every write: repeated
+	// single-byte drops on a chatty job would be O(n²) memmoves.
+	drop := over + maxJobOutputBytes/8
+	if drop > j.buf.Len() {
+		drop = j.buf.Len()
+	}
+	j.buf.Next(drop) // discards from the front
+	j.dropped += drop
+	if j.read > drop {
+		j.read -= drop
+	} else {
+		j.read = 0 // the model had not caught up; it now resumes from the oldest kept byte
+	}
 }
 
 // snapshot returns any output not yet read plus the current status, advancing
