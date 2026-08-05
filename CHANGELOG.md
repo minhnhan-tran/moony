@@ -5,6 +5,48 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.10.0] — 2026-08-05
+
+### Added
+
+- **Quota-based automatic provider fallback.** When the current backend's spend crosses a
+  budget — or the provider refuses with a hard quota error — the agent now switches to the
+  next backend in a configured chain instead of failing for the rest of the period, and
+  switches back once the quota resets. Off by default: silently moving traffic to another
+  backend (different models, different billing) must be opt-in. Configure it in the
+  Persona panel or via `MN_QUOTA_FALLBACK`, `MN_PROVIDER_FALLBACKS`,
+  `MN_QUOTA_BUDGET_USD`, `MN_QUOTA_BUDGET_PCT` and `MN_QUOTA_RESET_AT`.
+  - The chain is an ordered spec like `anthropic,openai:gpt-4o,ollama:qwen3-coder:30b:high`.
+    A hop may pin its own model and reasoning level; a bare provider uses that backend's
+    default, because **model ids are not portable across backends** — so every switch
+    changes the model too, or the new backend would reject the old id.
+  - Hops **skip backends that aren't usable** on this machine (no API key, no base URL),
+    since hopping to a keyless provider would turn "near your quota" into "every turn
+    fails". The check reuses the streaming path's own credential resolution rather than
+    re-listing which provider needs which key.
+  - Typo'd provider ids are dropped rather than becoming live switch targets.
+  - The walk **never wraps around**: cycling back to an exhausted provider would thrash.
+  - The state is persisted on the session, so a hop — and its scheduled return to the
+    primary — survives a restart instead of looking like a deliberate user choice.
+  - The restore only ever reverts the fallback's **own** change: pick a provider by hand
+    afterwards and that choice wins. It also replays the primary's reasoning level, so a
+    hop's pinned level doesn't stick after returning home.
+  - Both the reason for the switch and the return are written into the transcript, shown
+    as an amber provider pill in the composer (with the reset time in its tooltip), and
+    reported in the status snapshot for terminal-mirrored clients too.
+
+### Fixed
+
+- **Hard provider quota errors are no longer retried as if transient.** A spent-out
+  account and an ordinary rate limit both arrive as HTTP 429; the client now tells them
+  apart and fails fast with the provider's own message instead of burning the retry budget
+  and reporting a confusing "after N attempts". Detection is deliberately conservative —
+  per-minute/"try again in" throttles stay retryable — because a false positive would
+  silently reroute a user's traffic for the rest of the period.
+- **Provider error bodies are redacted before being shown or persisted.** Some providers
+  echo the API key back in an error message, and that text is surfaced to the user *and*
+  written to the searchable transcript, so key-shaped tokens are now masked.
+
 ## [2.9.0] — 2026-08-04
 
 ### Added
