@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.12.1] — 2026-08-05
+
+### Fixed
+
+- TTY job input: an embedded CR/LF submitted a line to the shell without vetting it,
+  so a single `{"data": "rm -rf /\r"}` reached the terminal with the
+  destructive-command check seeing only the empty remainder. Every line the shell
+  will see is now checked.
+- A write to a terminal the program had stopped draining outlived its deadline: the
+  writer stayed parked and could deliver its bytes after the caller was told it
+  failed, possibly behind a newer write. One write is now in flight per job at most,
+  and the next call is refused rather than reordered.
+
 ## [2.12.0] — 2026-08-05
 
 ### Added
