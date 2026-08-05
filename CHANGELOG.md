@@ -5,6 +5,77 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.11.0] — 2026-08-05
+
+Closes the feature gaps against the sibling `sqeqct-coding-agent` codebase.
+
+### Added
+
+- **Background-jobs panel** (Config → Jobs). Lists the session's background jobs with a
+  live status pill, tails their output, and stops them. The tools existed already; there
+  was no way to see a job without asking the model to call `bash_output`.
+  - The log tail reads by **absolute offset and never advances the cursor `bash_output`
+    consumes**, so watching a job cannot starve the model of output it hasn't read.
+    Having the panel open must not change what the agent knows.
+  - Jobs can also be **started from the panel**, routed through the same gates as a
+    model-issued `bash` call: destructive commands are refused outright (a command typed
+    into a box carries none of the conversational context that could justify one), the
+    approval policy is honoured, and `safe`/`auto` still confirm — a backgrounded process
+    outlives the turn, and `hardApproval` commands must not slip through. Without this the
+    endpoint would be an unauthenticated remote shell on a hosted relay.
+  - Only one job approval at a time, and never during a turn: a turn owns the approval
+    channel, so a second concurrent prompt could cross answers.
+- **Per-provider image routing** (`MN_IMAGE_PROVIDER`, or the Persona panel). Few backends
+  serve an image-capable chat route, so a session on a local or text-only model previously
+  had no way to generate images at all. Empty inherits the session provider.
+- **`pre_tool` hooks can now block a tool call** by exiting with code **77**. Previously
+  hooks could observe a dangerous call but not stop it, which made them a logging
+  side-channel rather than a security control. A distinct code — not "any non-zero" —
+  because the shell already returns 2 for a syntax error and 127 for "command not found",
+  so a hook with a typo would otherwise wedge every tool call.
+- **`/changes`** (alias `/diff`) shows a combined diff of the current turn's file changes,
+  in both the TUI and the web UI. The agent had computed this all along for self-review;
+  nothing exposed it.
+- **Unattended auto-update for the daemon** (`MN_AUTO_UPDATE`, default on). An always-on
+  connector has nobody watching to run `/update`. Deferred while any session is mid-turn,
+  and re-checked *after* the download — the relaunch drops in-flight work, and a download
+  takes minutes during which a turn can start. A live terminal or browser session is never
+  auto-updated; it still only shows a notice.
+
+### Changed
+
+- **Sessions now persist through a `session.Backend` interface.** The web server, agent and
+  TUI depend on the interface rather than the concrete file store, so storage can change
+  without touching any call site. The file store remains the only (and default) backend —
+  no new dependencies, and the binary is unchanged in size.
+
+### Fixed
+
+- **A turn that overflows the model's context window now recovers instead of failing.** On
+  a provider's "prompt is too long" rejection the agent adopts the provider's authoritative
+  token count, trims stale tool output (cheap, and it preserves the prompt cache), then
+  summarizes if needed, and re-runs the round. Previously the turn just failed with a raw
+  provider 400 and the user had to run `/compact` by hand. Bounded to two attempts, and a
+  conversation that genuinely cannot fit still fails — now with guidance naming roomier
+  models instead of the provider's blob.
+- **Sub-agents ignored a sandbox enabled at runtime.** `/sandbox` and the web UI set the
+  sandbox on the parent's tool registry only; a sub-agent got a fresh registry that fell
+  back to the environment, so enabling the sandbox left every sub-agent unconfined while
+  the user believed otherwise. Sub-agents auto-run their tools with no approval prompt, so
+  that setting is their only protection.
+- **Sub-agents ran outside the parent's hooks**, so a `pre_tool` policy installed to audit
+  or block dangerous calls saw nothing a sub-agent did — the widest hole in a hook-based
+  policy, for the same reason.
+- **`/compact` left the persisted transcript anchors stale.** They are message-count
+  offsets and compaction shortens the history, so footers and notes pointed at the wrong
+  messages (or past the end) on replay. Both compaction paths now share one implementation.
+- **A background job's output buffer is now bounded** (8 MB, oldest-first, both cursors
+  rebased). It lived in memory for the process's whole life, so one `yes` or
+  `cat /dev/urandom` backgrounded once would grow it until the host OOM-killed the agent.
+- **A UI-approved background job no longer wedges the session.** Approving set the session
+  busy with no turn loop to hand it back to idle, blocking every later turn and job until
+  a restart.
+
 ## [2.10.0] — 2026-08-05
 
 ### Added
