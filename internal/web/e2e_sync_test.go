@@ -125,7 +125,7 @@ func (c *sseClient) drainUntilState(t *testing.T, within time.Duration) []wireEv
 }
 
 // seedSession builds and stores a session with n user/assistant turns.
-func seedSession(t *testing.T, store *sessionpkg.Store, dir string, n int) *sessionpkg.Session {
+func seedSession(t *testing.T, store sessionpkg.Backend, dir string, n int) *sessionpkg.Session {
 	t.Helper()
 	s := sessionpkg.New("m", dir)
 	for i := 0; i < n; i++ {

@@ -73,7 +73,7 @@ type Agent struct {
 	rebuildMu sync.Mutex
 	messages  []llm.Message
 
-	store       *session.Store
+	store       session.Backend
 	sess        *session.Session
 	alwaysAllow map[string]bool
 
@@ -317,7 +317,7 @@ type Agent struct {
 
 // New constructs an Agent. store and sess may be nil to disable persistence;
 // if store is non-nil but sess is nil, a fresh session is created.
-func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, store *session.Store, sess *session.Session) *Agent {
+func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, store session.Backend, sess *session.Session) *Agent {
 	if store != nil && sess == nil {
 		sess = session.New(cfg.Model, cfg.WorkingDir)
 	} else if sess != nil && cfg != nil {

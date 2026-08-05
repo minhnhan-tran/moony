@@ -373,7 +373,7 @@ func StartupDoneMsg() tea.Msg { return startupDoneMsg{} }
 type Model struct {
 	cfg   *config.Config
 	agent *agent.Agent
-	store *session.Store
+	store session.Backend
 
 	// hub mirrors this session to web viewers and routes their control actions
 	// back here. nil disables mirroring (the common case for tests).
@@ -567,7 +567,7 @@ type Model struct {
 
 // New builds the root model. store may be nil to disable session features; the
 // agent's existing history (e.g. a resumed session) is seeded into the view.
-func New(cfg *config.Config, ag *agent.Agent, store *session.Store) Model {
+func New(cfg *config.Config, ag *agent.Agent, store session.Backend) Model {
 	ta := textarea.New()
 	ta.Placeholder = "Ask moony to build, fix, or explain something…"
 	// Render the "› " marker only on the first line; without this the textarea

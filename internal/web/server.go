@@ -55,7 +55,7 @@ type AgentFactory func(workingDir string, sess *sessionpkg.Session) *agent.Agent
 
 // Server hosts persisted, project-scoped chat sessions and the browser UI.
 type Server struct {
-	store     *sessionpkg.Store
+	store     sessionpkg.Backend
 	launchDir string         // the project to show first (the dir the server was started in)
 	cfg       *config.Config // labels new sessions and drives the header/status snapshot
 	newAgent  AgentFactory
@@ -111,7 +111,7 @@ func (s *Server) SetUpdateRestart(fn func()) { s.restart = fn }
 // project surfaced first; cfg supplies the model for new sessions plus the
 // header/status fields shown in the browser; factory builds a per-session agent
 // rooted at the session's working dir.
-func NewServer(store *sessionpkg.Store, launchDir string, cfg *config.Config, f AgentFactory) *Server {
+func NewServer(store sessionpkg.Backend, launchDir string, cfg *config.Config, f AgentFactory) *Server {
 	return &Server{store: store, launchDir: launchDir, cfg: cfg, newAgent: f, sessions: map[string]*session{}, logf: defaultServerLog}
 }
 
