@@ -333,3 +333,101 @@ func TestSessionUsableAfterApprovedJobStart(t *testing.T) {
 		}
 	}
 }
+
+// The keyboard route must exist, refuse unknown jobs, and refuse to be the thing that
+// smuggles a destructive command past the start gate.
+func TestJobInputRoute(t *testing.T) {
+	srv, id := jobsFixture(t, config.ApprovalAuto)
+
+	rec, _ := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_nope/input", `{"data":"hi"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown job: status = %d, want 400 (%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "no such background job") {
+		t.Errorf("unhelpful error for an unknown job: %s", rec.Body.String())
+	}
+
+	if rec, _ := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs", `{"command":"sleep 5","tty":true}`); rec.Code != http.StatusOK {
+		t.Fatalf("start: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Same classifier as a start: a job's stdin is an execution path too, and it is
+	// applied even where the host gave the job pipes instead of a terminal.
+	rec, _ = doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_1/input", `{"data":"rm -rf /"}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "destructive") {
+		t.Fatalf("destructive input: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Chunking must not get past it: the store assembles the line first. The opening
+	// chunk is harmless on its own, so only the assembled line can explain a refusal.
+	if rec, _ := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_1/input", `{"data":"rm -","enter":false}`); rec.Code == http.StatusBadRequest && strings.Contains(rec.Body.String(), "destructive") {
+		t.Fatalf("harmless chunk refused: %s", rec.Body.String())
+	}
+	rec, _ = doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_1/input", `{"data":"rf /","enter":false}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "destructive") {
+		t.Fatalf("split destructive input got through: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Oversized input is refused rather than streamed into the process.
+	big := `{"data":"` + strings.Repeat("x", 5000) + `"}`
+	if rec, _ := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_1/input", big); rec.Code != http.StatusBadRequest {
+		t.Errorf("oversized input: status = %d, want 400", rec.Code)
+	}
+
+	rec, _ = doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_1/input", `not json`)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("malformed body: status = %d, want 400", rec.Code)
+	}
+
+	rec, _ = doJSON(t, srv, "POST", "/api/sessions/nope/jobs/bg_1/input", `{"data":"hi"}`)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("unknown session: status = %d, want 404", rec.Code)
+	}
+}
+
+// A UI-started TTY job has to actually run under a terminal, or the panel's keyboard
+// and the unbuffered output it promises are fiction.
+func TestJobStartTTYFlagReachesTheJob(t *testing.T) {
+	srv, id := jobsFixture(t, config.ApprovalAuto)
+	rec, out := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs", `{"command":"sleep 5","tty":true}`)
+	if rec.Code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("start: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	_, list := doJSON(t, srv, "GET", "/api/sessions/"+id+"/jobs", "")
+	jobs, _ := list["jobs"].([]any)
+	if len(jobs) != 1 {
+		t.Fatalf("got %d jobs, want 1: %v", len(jobs), list)
+	}
+	j, _ := jobs[0].(map[string]any)
+	if j["tty"] != true {
+		t.Errorf("job not marked as a TTY job: %v", j)
+	}
+}
+
+// The jobs UI is spread across four static files that have to agree with each other and
+// with the routes above; nothing else in the suite would notice a rename. Reading the
+// EMBEDDED copies is deliberate — that's what the relay actually serves.
+func TestJobsUIWiring(t *testing.T) {
+	read := func(name string) string {
+		b, err := staticFS.ReadFile("static/" + name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return string(b)
+	}
+	for _, want := range []struct{ file, needle, why string }{
+		{"index.html", `id="jobsBtn"`, "the pager needs the jobs button"},
+		{"index.html", `id="jobsBtnCount"`, "the button needs its running-count badge"},
+		{"app-state.js", `$("#jobsBtn")`, "the button must be bound like the other pager controls"},
+		{"app-core.js", `openConfigModal("jobs")`, "clicking it must open the jobs panel"},
+		{"app-core.js", `function refreshJobsBadge`, "the badge needs its poll"},
+		{"app-core.js", `data.jobs`, "the badge must read the {jobs,policy} envelope, not a bare array"},
+		{"app-manage.js", `/input`, "the panel's keyboard posts to the input route"},
+		{"app-manage.js", `j.tty`, "the keyboard is only offered for TTY jobs"},
+		{"app.css", `.pager-jobs`, "the button needs its styles"},
+	} {
+		if !strings.Contains(read(want.file), want.needle) {
+			t.Errorf("%s is missing %q: %s", want.file, want.needle, want.why)
+		}
+	}
+}

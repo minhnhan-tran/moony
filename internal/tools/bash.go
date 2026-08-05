@@ -27,7 +27,8 @@ func (t *bashTool) Description() string {
 		"system. Avoid interactive or long-running commands; supply a timeout for " +
 		"anything that might hang. Set background:true to start a long-running " +
 		"command (e.g. a dev server) without blocking — it returns a job id you " +
-		"poll with bash_output and stop with bash_kill."
+		"poll with bash_output and stop with bash_kill; add tty:true for programs " +
+		"that buffer their output or prompt for input when not on a terminal."
 }
 
 func (t *bashTool) Schema() json.RawMessage {
@@ -36,7 +37,8 @@ func (t *bashTool) Schema() json.RawMessage {
 		"properties": {
 			"command":     {"type": "string", "description": "The shell command to execute."},
 			"timeout_sec": {"type": "integer", "description": "Max seconds before the command is killed (default 120, max 600). Ignored when background is true."},
-			"background":  {"type": "boolean", "description": "Run detached in the background and return a job id immediately. Poll output with bash_output and stop it with bash_kill."}
+			"background":  {"type": "boolean", "description": "Run detached in the background and return a job id immediately. Poll output with bash_output and stop it with bash_kill."},
+			"tty":         {"type": "boolean", "description": "With background:true, run the command under a pseudo-terminal. Use for dev servers and scripts whose output would otherwise be block-buffered (python, django) or that prompt for input; the job can then be typed into. Ignored without background."}
 		},
 		"required": ["command"]
 	}`)
@@ -47,6 +49,7 @@ func (t *bashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 		Command    string  `json:"command"`
 		TimeoutSec flexInt `json:"timeout_sec"`
 		Background bool    `json:"background"`
+		TTY        bool    `json:"tty"`
 	}
 	if err := decode(input, &in); err != nil {
 		return "", err
@@ -70,12 +73,16 @@ func (t *bashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 
 	// Background mode: launch detached and return a job id immediately.
 	if in.Background {
-		j := t.r.jobs.start(t.r.sandboxConfig(), t.r.allRoots(), in.Command)
+		j := t.r.jobs.start(t.r.sandboxConfig(), t.r.allRoots(), in.Command, jobOpts{tty: in.TTY})
 		_, state, _, errMsg := j.snapshot()
 		if state == jobFailed && errMsg != "" {
 			return "", fmt.Errorf("%s", errMsg)
 		}
-		return fmt.Sprintf("Started background job %s.\nPoll output with bash_output(job_id=%q); stop it with bash_kill(job_id=%q).", j.id, j.id, j.id), nil
+		msg := fmt.Sprintf("Started background job %s.\nPoll output with bash_output(job_id=%q); stop it with bash_kill(job_id=%q).", j.id, j.id, j.id)
+		if in.TTY {
+			msg += "\nRunning under a pseudo-terminal: output is line-buffered and the job accepts keystrokes from the jobs panel."
+		}
+		return msg, nil
 	}
 
 	timeout := 120 * time.Second

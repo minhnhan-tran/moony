@@ -305,6 +305,7 @@ const mentionsEl = $("#mentions");
 const scrollBtn = $("#scrollBtn");
 const loadEarlierEl = $("#loadEarlier");
 const pager = $("#pager"), pagerNav = $("#pagerNav"), pagerPrev = $("#pagerPrev"), pagerNext = $("#pagerNext"), pagerPos = $("#pagerPos");
+const jobsBtn = $("#jobsBtn"), jobsBtnCount = $("#jobsBtnCount");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");
 const quickActions = $("#quickActions"), quickActionBtn = $("#quickActionBtn"), quickActionCaret = $("#quickActionCaret"), quickActionMenu = $("#quickActionMenu");

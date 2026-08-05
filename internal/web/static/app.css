@@ -2561,6 +2561,22 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 #pagerNav { display: flex; align-items: center; gap: .1rem; }
 #pagerNav[hidden] { display: none; }
 #scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
+/* The jobs button is a third, independent half: same divider treatment against
+   whichever of the other two follows it. */
+#jobsBtn:not([hidden]) + #scrollBtn:not([hidden]),
+#jobsBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); }
+/* Running-count badge: a digit tucked into the button's top-right corner, so a
+   glance at the pager says whether anything is still running. */
+.pager-jobs { position: relative; overflow: visible; }
+.pager-jobs.is-running { color: rgb(var(--c-brand)); }
+.pager-jobs-count {
+  position: absolute; top: -.15rem; right: -.15rem;
+  min-width: .72rem; height: .72rem; padding: 0 .12rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: rgb(var(--c-brand)); color: rgb(var(--c-base));
+  font-size: 8px; font-weight: 600; line-height: 1;
+}
+.pager-jobs-count[hidden] { display: none; }
 .pager-btn {
   display: flex; align-items: center; justify-content: center;
   width: 1.35rem; height: 1.35rem; border: 0; border-radius: var(--r-xs);
@@ -3242,3 +3258,20 @@ html.light .diff-hunk { color: #0550ae; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Keyboard for a TTY job: sits directly under its log, so typing and the echo that
+   follows read as one terminal. */
+.job-input {
+  display: flex; align-items: center; gap: .35rem;
+  padding: 6px 10px;
+  border-top: 1px solid rgb(var(--c-edge));
+  background: rgb(var(--c-base));
+}
+.job-input-field {
+  flex: 1 1 auto; min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm);
+  background: rgb(var(--c-code)); color: rgb(var(--c-ink));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
+}
+.job-input-field:focus { outline: none; border-color: rgb(var(--c-brand)); }

@@ -22,7 +22,7 @@ func waitFor(d time.Duration, cond func() bool) bool {
 
 func TestJobStoreRunToCompletion(t *testing.T) {
 	s := newJobStore()
-	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `printf 'hello'`)
+	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `printf 'hello'`, jobOpts{})
 
 	if !waitFor(2*time.Second, func() bool { return j.status() == jobDone }) {
 		t.Fatal("job did not reach done state")
@@ -44,7 +44,7 @@ func TestJobStoreRunToCompletion(t *testing.T) {
 
 func TestJobStoreFailingCommand(t *testing.T) {
 	s := newJobStore()
-	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `echo oops >&2; exit 3`)
+	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `echo oops >&2; exit 3`, jobOpts{})
 
 	if !waitFor(2*time.Second, func() bool { return j.status() == jobFailed }) {
 		t.Fatal("job did not reach failed state")
@@ -60,7 +60,7 @@ func TestJobStoreFailingCommand(t *testing.T) {
 
 func TestJobStoreKill(t *testing.T) {
 	s := newJobStore()
-	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`)
+	j := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`, jobOpts{})
 
 	// Should be running.
 	if j.status() != jobRunning {
@@ -74,8 +74,8 @@ func TestJobStoreKill(t *testing.T) {
 
 func TestJobStoreKillAll(t *testing.T) {
 	s := newJobStore()
-	j1 := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`)
-	j2 := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`)
+	j1 := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`, jobOpts{})
+	j2 := s.start(sandboxSetting{}, []string{t.TempDir()}, `sleep 30`, jobOpts{})
 
 	s.KillAll()
 
@@ -96,7 +96,7 @@ func TestJobStoreIncrementalReads(t *testing.T) {
 	dir := t.TempDir()
 	// Emit, pause, emit. Polling snapshot() between the two writes should yield
 	// the chunks incrementally rather than all at once.
-	j := s.start(sandboxSetting{}, []string{dir}, `printf 'one'; sleep 0.3; printf 'two'`)
+	j := s.start(sandboxSetting{}, []string{dir}, `printf 'one'; sleep 0.3; printf 'two'`, jobOpts{})
 
 	var collected strings.Builder
 	sawIncremental := false

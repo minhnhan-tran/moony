@@ -171,6 +171,12 @@
            offers a reload with the full transcript. -->
       <div id="loadEarlier" class="load-earlier" hidden></div>
       <div id="pager" class="pair-pager" hidden>
+        <!-- Background jobs: entry point to the jobs panel, with a live count of what's
+             running. Sits leftmost so the pair navigator keeps its accustomed spot. -->
+        <button id="jobsBtn" class="pager-btn pager-jobs" type="button" aria-label="Background jobs" title="Background jobs" hidden>
+          <app-icon name="bolt.horizontal.circle"></app-icon>
+          <span id="jobsBtnCount" class="pager-jobs-count" hidden></span>
+        </button>
         <button id="scrollBtn" class="pager-btn" type="button" aria-label="Scroll to bottom" hidden>
           <app-icon name="chevron.down"></app-icon>
         </button>

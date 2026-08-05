@@ -26,11 +26,12 @@ import (
 var ErrJobDenied = fmt.Errorf("background job denied")
 
 // StartBackgroundJobApproved validates and starts a user-requested background job,
-// returning its id.
+// returning its id. tty runs it under a pseudo-terminal, which is also what makes the
+// job typeable afterwards (see SendJobInput).
 //
 // emit delivers the approval request to whichever surface is driving (the web session,
 // the TUI); it blocks until the user answers or ctx is cancelled.
-func (a *Agent) StartBackgroundJobApproved(ctx context.Context, emit func(Event), command string) (string, error) {
+func (a *Agent) StartBackgroundJobApproved(ctx context.Context, emit func(Event), command string, tty bool) (string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
 		return "", fmt.Errorf("command is required")
@@ -38,14 +39,40 @@ func (a *Agent) StartBackgroundJobApproved(ctx context.Context, emit func(Event)
 	if a == nil || a.tools == nil {
 		return "", fmt.Errorf("no tool registry available")
 	}
-	if err := a.gateBackgroundJob(ctx, emit, command); err != nil {
+	if err := a.gateBackgroundJob(ctx, emit, command, tty); err != nil {
 		return "", err
 	}
-	id := a.tools.StartBackgroundJob(command)
+	id := a.tools.StartBackgroundJob(command, tty)
 	if id == "" {
 		return "", fmt.Errorf("failed to start background job")
 	}
 	return id, nil
+}
+
+// SendJobInput types data into a running TTY job on the user's behalf.
+//
+// No approval prompt here, deliberately: the job itself was already gated when it
+// started, and a per-keystroke prompt would make an interactive terminal unusable. The
+// destructive-command refusal DOES still apply, because a shell running under a pty
+// turns "input" back into "arbitrary execution" — the one thing the start gate exists
+// to bound. So `rm -rf /` typed into a job's keyboard is refused exactly like `rm -rf /`
+// typed into the new-job box.
+func (a *Agent) SendJobInput(id, data string, enter bool) error {
+	if a == nil || a.tools == nil {
+		return fmt.Errorf("no tool registry available")
+	}
+	// The store assembles the pending line before calling this, so splitting a
+	// command across calls doesn't get past the classifier.
+	return a.tools.SendJobInput(id, data, enter, func(line string) error {
+		input, err := json.Marshal(map[string]any{"command": line, "background": true})
+		if err != nil {
+			return err
+		}
+		if kind, bad := destructiveCommand("bash", input); bad {
+			return fmt.Errorf("refusing to send a destructive command to a job (%s)", kind)
+		}
+		return nil
+	})
 }
 
 // ApprovalPolicyName reports the agent's normalized approval policy, so a surface can
@@ -59,7 +86,7 @@ func (a *Agent) ApprovalPolicyName() string {
 
 // gateBackgroundJob applies every check a UI-started background job must pass before
 // anything runs: the destructive-command refusal, the approval policy, and the prompt.
-func (a *Agent) gateBackgroundJob(ctx context.Context, emit func(Event), command string) error {
+func (a *Agent) gateBackgroundJob(ctx context.Context, emit func(Event), command string, tty bool) error {
 	// Shape the command as a bash tool call so the existing classifiers see exactly
 	// what they see for a model-issued call — no second, subtly different parser.
 	input, err := json.Marshal(map[string]any{"command": command, "background": true})
@@ -95,6 +122,10 @@ func (a *Agent) gateBackgroundJob(ctx context.Context, emit func(Event), command
 			return fmt.Errorf("approval required but no prompt surface available")
 		}
 		summary := "Start background job: " + command
+		if tty {
+			// Worth spelling out: a terminal job can be typed into afterwards.
+			summary += " (interactive terminal)"
+		}
 		switch a.requestApproval(ctx, emit, "bash", summary, "") {
 		case Approve, ApproveAlways:
 			// proceed

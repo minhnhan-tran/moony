@@ -5,11 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/aymanbagabas/go-pty"
 )
 
 // jobState is the lifecycle status of a background bash job.
@@ -38,7 +42,29 @@ type job struct {
 	exit    int    // exit code once finished
 	errMsg  string // non-empty if the process couldn't start / was killed
 
+	// tty is set when the command runs under a pseudo-terminal; stdin is then the
+	// terminal's write end, so SendInput can type into the running program.
+	tty    bool
+	stdin  io.Writer
+	ttyCmd *pty.Cmd // kept for the kill path, which must reach the group behind the shell
+	// inputLine is what has been typed since the last Enter. It exists so a
+	// caller cannot smuggle a command past the destructive-command check by
+	// splitting it across calls: the check runs on the assembled line.
+	inputLine string
+
 	cancel context.CancelFunc
+}
+
+// jobOpts are the per-job knobs the bash tool and the jobs panel expose.
+type jobOpts struct {
+	// tty runs the command under a pseudo-terminal instead of pipes.
+	//
+	// Two things change, and both matter for the "run a dev server / a script" case:
+	// programs that block-buffer their output when stdout is a pipe (python, most
+	// logging setups) go back to line buffering, so the log streams instead of
+	// arriving in 4 KB lumps at exit; and the job gets a real keyboard, so prompts
+	// can be answered with SendInput.
+	tty bool
 }
 
 // Write implements io.Writer so cmd can stream combined output into the buffer
@@ -178,11 +204,116 @@ func (s *JobStore) KillAll() {
 	}
 }
 
+// maxJobInputBytes bounds a single SendInput call. Input is meant for answering a
+// prompt or typing a command, not for streaming a file into the process.
+const maxJobInputBytes = 4 << 10
+
+// jobInputTimeout bounds how long a write to a wedged terminal may block.
+const jobInputTimeout = 2 * time.Second
+
+// SendInput types data into a running TTY job, appending a carriage return when
+// enter is set (that, not "\n", is what a terminal sends for the Enter key).
+//
+// Only TTY jobs accept input: a pipe-backed job is started with no stdin at all, so
+// programs see EOF immediately and there is nothing to write to. The terminal echoes
+// what is typed, so input shows up in the job log like it would on a console.
+// check, when non-nil, vets the line assembled so far and can refuse it.
+func (s *JobStore) SendInput(id, data string, enter bool, check func(line string) error) error {
+	if s == nil {
+		return fmt.Errorf("no such background job %q", id)
+	}
+	j, ok := s.get(id)
+	if !ok {
+		return fmt.Errorf("no such background job %q", id)
+	}
+	if len(data) > maxJobInputBytes {
+		return fmt.Errorf("input too long (%d bytes, max %d)", len(data), maxJobInputBytes)
+	}
+	j.mu.Lock()
+	running, tty, w := j.state == jobRunning, j.tty, j.stdin
+	j.mu.Unlock()
+	if !running {
+		return fmt.Errorf("job %s is not running", id)
+	}
+	// Vetted before the TTY complaint so the refusal is the same answer on a host
+	// without a pty as on one with it.
+	if err := j.stageInput(data, enter, check); err != nil {
+		return err
+	}
+	if !tty || w == nil {
+		return fmt.Errorf("job %s has no TTY: start it with tty enabled to send input", id)
+	}
+	if enter {
+		data += "\r"
+	}
+	// Written off the job lock — a full terminal buffer would otherwise block every
+	// reader of this job's status behind a process that isn't consuming input — and
+	// under a deadline, because a program that has stopped reading stdin must not
+	// park an HTTP handler (and its goroutine) forever.
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.WriteString(w, data)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("write to job %s: %w", id, err)
+		}
+		return nil
+	case <-time.After(jobInputTimeout):
+		return fmt.Errorf("job %s is not reading input", id)
+	}
+}
+
+// stageInput folds data into the job's pending input line the way a terminal would and
+// hands the result to check.
+//
+// Chunking is the reason this exists: "rm -rf" plus " /" plus Enter is the same command
+// as sending it in one call, so vetting each call in isolation would vet nothing. The
+// pending line is therefore checked on EVERY call, which can flag a prefix that the
+// user was about to make harmless ("rm -rf /" on the way to "/tmp/x") — the safe
+// direction to be wrong in, and not a case the panel produces, since it sends whole
+// lines.
+func (j *job) stageInput(data string, enter bool, check func(string) error) error {
+	j.mu.Lock()
+	line := j.inputLine
+	for _, r := range data {
+		switch {
+		case r == 0x03 || r == 0x15: // Ctrl-C / Ctrl-U discard the line, as on a console
+			line = ""
+		case r == '\r' || r == '\n':
+			line = ""
+		case r >= 0x20 || r == '\t':
+			line += string(r)
+		}
+	}
+	if len(line) > maxJobInputBytes {
+		j.mu.Unlock()
+		return fmt.Errorf("pending input line too long (max %d bytes)", maxJobInputBytes)
+	}
+	j.mu.Unlock()
+
+	if check != nil && strings.TrimSpace(line) != "" {
+		if err := check(line); err != nil {
+			return err
+		}
+	}
+
+	j.mu.Lock()
+	if enter {
+		line = "" // the shell has the line now; start a fresh one
+	}
+	j.inputLine = line
+	j.mu.Unlock()
+	return nil
+}
+
 // start launches command as a background job under the given sandbox config,
 // returning the new job. The process runs detached from the caller's context
 // (it uses a fresh context cancelled only by bash_kill or KillAll) so it
 // survives the tool call that spawned it.
-func (s *JobStore) start(set sandboxSetting, roots []string, command string) *job {
+func (s *JobStore) start(set sandboxSetting, roots []string, command string, opts jobOpts) *job {
 	jctx, cancel := context.WithCancel(context.Background())
 	j := &job{
 		id:      s.newID(),
@@ -193,6 +324,19 @@ func (s *JobStore) start(set sandboxSetting, roots []string, command string) *jo
 	}
 
 	name, args := sandboxCommand(set, roots, "sh", "-c", command)
+
+	if opts.tty {
+		p, err := newPTY()
+		if err == nil {
+			s.runTTY(j, jctx, cancel, p, name, args, roots[0])
+			return j
+		}
+		// A missing pty is not fatal: fall back to pipes so the job still runs on
+		// hosts without ConPTY/openpty. The note goes into the log the model reads,
+		// so "why is this output buffered again" has an answer in the transcript.
+		fmt.Fprintf(j, "(no pty available: %v — running without a TTY)\n", err)
+	}
+
 	cmd := exec.CommandContext(jctx, name, args...)
 	cmd.Dir = roots[0]
 	cmd.Env = scrubbedEnvFor(roots[0]) // secrets stripped; $PWD pinned to the working dir

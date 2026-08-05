@@ -5,6 +5,7 @@ package procutil
 import (
 	"os"
 	"os/exec"
+	"time"
 )
 
 // Detach is a no-op on non-Unix platforms. The controlling-terminal corruption

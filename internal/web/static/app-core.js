@@ -1114,6 +1114,7 @@ function clearView() {
   questionEl.classList.add("hidden");
   if (scrollBtn) scrollBtn.hidden = true;
   if (jobsBtn) { jobsBtn.hidden = true; jobsBtn.classList.remove("is-running"); if (jobsBtnCount) jobsBtnCount.hidden = true; } // the next session re-counts its own
+  syncPagerVisibility(); // the pill must not linger as an empty shell
   todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; filesEl.classList.add("hidden"); filesEl.innerHTML = ""; mcpEl.classList.add("hidden"); mcpEl.innerHTML = "";
   planEl.classList.add("hidden"); planEl.innerHTML = ""; planExpanded = false; currentPlan = null; draftPlanEl = null; draftPlanExpanded = false; lastTodos = [];
   pendingAttachments = []; renderAttachStrip();
@@ -1570,8 +1571,8 @@ function handle(ev) {
       setState(ev.state);
       break;
     }
-    // A job was started or killed somewhere (the model's bash tool, another
-    // browser tab, the panel): re-count immediately instead of waiting out the poll.
+    // A job was started or killed through the panel (here or in another tab):
+    // re-count immediately instead of waiting out the poll.
     case "jobs_changed": {
       if (typeof refreshJobsBadge === "function") refreshJobsBadge();
       break;
@@ -3767,9 +3768,11 @@ async function refreshJobsBadge() {
   try {
     const r = await fetch(api(`/api/sessions/${current}/jobs`));
     if (!r.ok) throw new Error("jobs");
-    const list = await r.json();
-    total = Array.isArray(list) ? list.length : 0;
-    running = Array.isArray(list) ? list.filter((j) => j.running).length : 0;
+    // The list endpoint answers {jobs, policy}, not a bare array.
+    const data = await r.json();
+    const list = Array.isArray(data) ? data : (data && data.jobs) || [];
+    total = list.length;
+    running = list.filter((j) => j.running).length;
   } catch (_) {
     // A failed poll must not blank the button mid-session; leave what's on screen.
     return;

@@ -9,7 +9,10 @@ package tools
 // a cosmetic one. So everything below reads by absolute offset and never touches
 // j.read.
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // JobInfo is a point-in-time, JSON-serializable view of one background job.
 type JobInfo struct {
@@ -36,6 +39,10 @@ type JobInfo struct {
 	// OutputLen is the total bytes buffered so far, letting a viewer show progress
 	// (and detect that it is behind) without fetching the body.
 	OutputLen int `json:"outputLen"`
+
+	// TTY reports that the job runs under a pseudo-terminal, which is also what makes
+	// it able to accept input: the panel only offers a keyboard for these.
+	TTY bool `json:"tty"`
 }
 
 // info builds a status-only view (no output body). Caller must not hold j.mu.
@@ -59,6 +66,7 @@ func (j *job) infoLocked() JobInfo {
 		// Total bytes the job has produced, not just what is still buffered: a viewer
 		// showing "12 KB" for a job that emitted 40 MB would be misleading.
 		OutputLen: j.dropped + j.buf.Len(),
+		TTY:       j.tty,
 	}
 }
 
@@ -151,19 +159,28 @@ func (s *JobStore) KillJob(id string) bool {
 }
 
 // StartBackgroundJob launches a command as a background job and returns its id, or ""
-// if no store is available.
+// if no store is available. tty runs it under a pseudo-terminal (see jobtty.go).
 //
 // Deliberately reuses the registry's OWN sandbox setting and roots — the same values
 // the bash tool passes — so a UI-started job is confined exactly like a model-issued
 // one. Resolving them here rather than accepting them from the caller means a web
 // handler cannot widen a job's authority by passing different ones.
-func (r *Registry) StartBackgroundJob(command string) string {
+func (r *Registry) StartBackgroundJob(command string, tty bool) string {
 	if r == nil || r.jobs == nil {
 		return ""
 	}
-	j := r.jobs.start(r.sandboxConfig(), r.allRoots(), command)
+	j := r.jobs.start(r.sandboxConfig(), r.allRoots(), command, jobOpts{tty: tty})
 	if j == nil {
 		return ""
 	}
 	return j.id
+}
+
+// SendJobInput types data into a running TTY job (see JobStore.SendInput). check
+// vets the assembled input line; the agent passes its destructive-command refusal.
+func (r *Registry) SendJobInput(id, data string, enter bool, check func(line string) error) error {
+	if r == nil || r.jobs == nil {
+		return fmt.Errorf("no such background job %q", id)
+	}
+	return r.jobs.SendInput(id, data, enter, check)
 }

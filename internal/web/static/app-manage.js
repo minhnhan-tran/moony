@@ -1871,6 +1871,9 @@ let jobsCursor = 0;         // absolute offset of the expanded job's log
 let jobsLogText = "";
 let jobsLogScroll = 0;         // preserved scroll offset across re-renders
 let jobsLogAtBottom = true;    // follow the tail until the user scrolls up
+let jobsInputText = "";        // unsent keystrokes for the expanded TTY job
+let jobsInputFocused = false;  // whether to hand focus back after a poll rebuild
+let jobsInputCaret = 0;        // caret offset to restore with it
 let jobsPolicy = "prompt";  // approval policy, for the pre-run warning
 
 // stopJobsPolling clears the timers. Called when the panel closes, so a hidden tab
@@ -1883,17 +1886,23 @@ async function renderJobsPanel() {
   const body = manageBody;
   stopJobsPolling();
   body.innerHTML = "";
-  body.append(el("p", "access-intro", "Long-running commands started with the bash tool's background flag, plus any you start here. Output is buffered — expanding a job shows its log without consuming what the agent still has to read."));
+  body.append(el("p", "access-intro", "Long-running commands started with the bash tool's background flag, plus any you start here. Output is buffered — expanding a job shows its log without consuming what the agent still has to read. TTY jobs run under a pseudo-terminal: their output isn't block-buffered, and you can type into them."));
 
   // Start form. The button warns when the policy means it will prompt, so the
   // approval dialog isn't a surprise.
   const form = el("div", "schedule-form");
   const cmdI = manageInput("command to run in the background…");
   cmdI.style.flex = "1 1 auto";
+  // TTY switch. Off by default: pipes are the cheaper, quieter option, and a job
+  // only needs a terminal when it buffers its output or wants to be typed at.
+  const ttyBox = el("input", null); ttyBox.type = "checkbox";
+  const ttyLabel = el("label", "persona-toggle");
+  ttyLabel.title = "Run under a pseudo-terminal: line-buffered output (python, django, npm) and a keyboard for prompts.";
+  ttyLabel.append(ttyBox, el("span", "persona-label", "TTY"));
   const addBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Start job");
   addBtn.prepend(sym("play.fill"));
   const row = el("div", "schedule-form-row");
-  row.append(cmdI, addBtn);
+  row.append(cmdI, ttyLabel, addBtn);
   form.append(row);
   body.append(form);
 
@@ -1903,7 +1912,7 @@ async function renderJobsPanel() {
     addBtn.disabled = true;
     try {
       const r = await fetch(api(`/api/sessions/${current}/jobs`), {
-        method: "POST", body: JSON.stringify({ command }),
+        method: "POST", body: JSON.stringify({ command, tty: ttyBox.checked }),
       });
       if (!r.ok) { alertBox((await r.text().catch(() => "")).trim() || "Could not start the job."); return; }
       const out = await r.json().catch(() => ({}));
@@ -1959,6 +1968,7 @@ function jobRow(j, list) {
   head.append(el("code", "job-cmd", j.command || ""));
 
   const meta = [];
+  if (j.tty) meta.push("tty");
   if (j.outputLen) meta.push(fmtBytes(j.outputLen));
   if (!j.running && j.exit !== 0) meta.push("exit " + j.exit);
   if (j.err) meta.push(j.err);
@@ -1973,6 +1983,9 @@ function jobRow(j, list) {
     jobsLogText = "";
     jobsLogScroll = 0;
     jobsLogAtBottom = true;
+    jobsInputText = "";        // don't carry one job's half-typed line into another
+    jobsInputFocused = false;
+    jobsInputCaret = 0;
     refreshJobsList(list);
   };
   actions.append(logBtn);
@@ -2006,13 +2019,110 @@ function jobRow(j, list) {
       jobsLogAtBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 4;
     });
     tailJob(j.id, pre);
+
+    // Keyboard — only for a running TTY job, because that's the only kind with
+    // anything on the other end of stdin.
+    if (j.running && j.tty) wrap.append(jobKeyboard(j, list));
   }
   return wrap;
 }
 
+// jobKeyboard is the input line under an expanded TTY job's log: answer a prompt,
+// drive a shell, or interrupt what's running.
+//
+// The panel rebuilds every poll, so the typed-but-unsent text and the focus live in
+// module state — otherwise the field would empty itself under the user's fingers
+// every two seconds.
+function jobKeyboard(j, list) {
+  const kb = el("div", "job-input");
+  const inp = el("input", "job-input-field");
+  inp.type = "text";
+  inp.spellcheck = false;
+  inp.autocomplete = "off";
+  inp.placeholder = "type into the terminal — Enter sends…";
+  inp.value = jobsInputText;
+
+  const post = async (data, enter) => {
+    let ok = false;
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/input`), {
+        method: "POST", body: JSON.stringify({ data, enter }),
+      });
+      ok = r.ok;
+      if (!r.ok) alertBox((await r.text().catch(() => "")).trim() || "Could not send input.");
+    } catch (_) {
+      alertBox("Could not send input.");
+    }
+    // Pull the echo in straight away rather than waiting out the poll.
+    refreshJobsList(list);
+    return ok;
+  };
+
+  const sendLine = () => {
+    const data = inp.value;
+    // An empty line is legitimate: it's how you accept a prompt's default.
+    inp.value = "";
+    jobsInputText = "";
+    jobsInputCaret = 0;
+    // Put the line back if the server refused it, so a rejected command can be
+    // edited instead of retyped.
+    post(data, true).then((ok) => {
+      if (!ok) { inp.value = data; jobsInputText = data; jobsInputCaret = data.length; }
+    });
+  };
+
+  const rememberCaret = () => { jobsInputCaret = inp.selectionStart || 0; };
+  inp.oninput = () => { jobsInputText = inp.value; rememberCaret(); };
+  inp.addEventListener("keyup", rememberCaret);
+  inp.addEventListener("click", rememberCaret);
+  inp.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendLine(); return; }
+    // Ctrl-C with nothing selected means "interrupt", the way it would in a terminal;
+    // with a selection it stays a copy.
+    if (e.key === "c" && e.ctrlKey && inp.selectionStart === inp.selectionEnd) {
+      e.preventDefault();
+      post("\u0003", false);
+    }
+  };
+  inp.addEventListener("focus", () => { jobsInputFocused = true; });
+  inp.addEventListener("blur", () => {
+    // A blur caused by the poll ripping the row out doesn't count as the user
+    // leaving the field — only a blur while the node is still on screen does.
+    if (document.body.contains(inp)) jobsInputFocused = false;
+  });
+  if (jobsInputFocused) {
+    requestAnimationFrame(() => {
+      inp.focus();
+      // Restore the caret where it was, not at the end: a rebuild lands mid-edit.
+      const at = Math.min(jobsInputCaret, inp.value.length);
+      try { inp.setSelectionRange(at, at); } catch (_) {}
+    });
+  }
+
+  const sendBtn = el("button", "manage-install", "Send");
+  sendBtn.onclick = sendLine;
+  const intrBtn = el("button", "manage-install", "^C");
+  intrBtn.title = "Send an interrupt (Ctrl-C)";
+  intrBtn.onclick = () => post("\u0003", false);
+  // Keep the caret in the field: without this, mousedown blurs the input and the
+  // next poll rebuild drops focus for good.
+  for (const b of [sendBtn, intrBtn]) b.onmousedown = (e) => e.preventDefault();
+
+  kb.append(inp, sendBtn, intrBtn);
+  return kb;
+}
+
 // tailJob fetches from the current cursor and appends. Called on each poll for the
 // expanded job, so a running command's log grows in place.
+// Guarded against overlap: the 2s poll and a just-sent keystroke can both ask for
+// the tail, and two in-flight requests would each append their slice to
+// jobsLogText — the same output twice, with the cursor left wherever the loser
+// finished.
+let jobsTailBusy = false;
+
 async function tailJob(id, pre) {
+  if (jobsTailBusy) return;
+  jobsTailBusy = true;
   try {
     const r = await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(id)}/tail?cursor=${jobsCursor}`));
     if (!r.ok) { pre.textContent = "(log unavailable)"; return; }
@@ -2027,6 +2137,8 @@ async function tailJob(id, pre) {
     if (jobsLogAtBottom) pre.scrollTop = pre.scrollHeight;
   } catch (_) {
     pre.textContent = "(log unavailable)";
+  } finally {
+    jobsTailBusy = false;
   }
 }
 

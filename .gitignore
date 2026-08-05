@@ -23,3 +23,6 @@
 /ios/EnglishLearner/
 # Added by code-review-graph
 .code-review-graph/
+relay.log
+/moony.exe
+/relay.exe

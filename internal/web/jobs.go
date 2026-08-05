@@ -34,6 +34,8 @@ type jobWire struct {
 	Err       string `json:"err,omitempty"`
 	Running   bool   `json:"running"`
 	OutputLen int    `json:"outputLen"`
+	// TTY drives the panel's keyboard: only a pty job has somewhere to send input.
+	TTY bool `json:"tty"`
 }
 
 // jobTailResponse carries an incremental slice of one job's output.
@@ -64,6 +66,7 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 			Err:       j.Err,
 			Running:   j.Running,
 			OutputLen: j.OutputLen,
+			TTY:       j.TTY,
 		})
 	}
 	writeJSON(w, out)
@@ -101,6 +104,7 @@ func (s *Server) handleJobTail(w http.ResponseWriter, r *http.Request) {
 			Err:       info.Err,
 			Running:   info.Running,
 			OutputLen: info.OutputLen,
+			TTY:       info.TTY,
 		},
 		Output: info.Output,
 		Cursor: info.Cursor,
@@ -146,6 +150,7 @@ func (s *Server) handleJobStart(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Command string `json:"command"`
+		TTY     bool   `json:"tty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
@@ -165,7 +170,7 @@ func (s *Server) handleJobStart(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sess.releaseJobPrompt()
 
-	id, err := sess.agent.StartBackgroundJobApproved(r.Context(), sess.emit, body.Command)
+	id, err := sess.agent.StartBackgroundJobApproved(r.Context(), sess.emit, body.Command, body.TTY)
 	if err != nil {
 		if errors.Is(err, agent.ErrJobDenied) {
 			// Not a server error: the user said no.
@@ -177,4 +182,40 @@ func (s *Server) handleJobStart(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.publishEvent(wireEvent{Type: "jobs_changed"})
 	writeJSON(w, map[string]any{"ok": true, "id": id})
+}
+
+// handleJobInput types into a running TTY job: answering a prompt, or driving a shell
+// the user started themselves.
+//
+// Unlike a start this doesn't prompt for approval — the job was gated when it started,
+// and confirming every line would make a terminal unusable — but the destructive-command
+// refusal still applies (see agent.SendJobInput). Non-TTY jobs reject input outright:
+// they run with no stdin at all.
+func (s *Server) handleJobInput(w http.ResponseWriter, r *http.Request) {
+	sess := s.lookup(r)
+	if sess == nil || sess.agent == nil {
+		http.NotFound(w, r)
+		return
+	}
+	id := strings.TrimSpace(r.PathValue("job"))
+	if id == "" {
+		http.Error(w, "job id required", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Data string `json:"data"`
+		// Enter defaults to true: the common case is typing a line, and a client that
+		// wants a raw keystroke (^C) says so explicitly.
+		Enter *bool `json:"enter"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	enter := body.Enter == nil || *body.Enter
+	if err := sess.agent.SendJobInput(id, body.Data, enter); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true})
 }
