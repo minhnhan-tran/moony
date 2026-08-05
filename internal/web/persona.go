@@ -84,6 +84,9 @@ type personaEdit struct {
 	// ImageProvider routes generate_image to its own backend. "" = inherit the
 	// session provider, which is why it's a pointer (an explicit clear is a choice).
 	ImageProvider *string `json:"imageProvider"`
+	// AutoUpdate lets a background daemon self-update. A live terminal is never
+	// auto-updated regardless, so this only affects daemon-hosted machines.
+	AutoUpdate *bool `json:"autoUpdate"`
 	// Quota-based provider fallback. Budgets/chain arrive as strings because the
 	// form sends text; "" is a real value here (clear the budget / empty the chain),
 	// which is why they're pointers.
@@ -659,6 +662,10 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		v := strings.TrimSpace(*e.AuxProvider)
 		c.AuxProviderPersona = &v
 	}
+	if e.AutoUpdate != nil {
+		c.AutoUpdate = *e.AutoUpdate
+		c.AutoUpdatePersona = e.AutoUpdate
+	}
 	if e.ImageProvider != nil {
 		// Unlike the Fast/Aux tiers (which are read from the env at call time), the
 		// image route lives on Config, so set the field as well as the env var —
@@ -799,6 +806,9 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 			Value:   os.Getenv("MN_FAST_PROVIDER"),
 			Options: providerSelectOptions("Inherit (session provider)"),
 			Desc:    "Provider the Fast model runs on. Inherit = the session provider. A different provider must have its API key / base URL configured below. Pick it, Save, then choose its model above. Persists."},
+		{Key: "autoUpdate", Label: "Auto-update the daemon (MN_AUTO_UPDATE)", Type: "toggle",
+			Value: c.AutoUpdate,
+			Desc:  "Let a background daemon connector poll for a newer build and relaunch onto it. Never applies to a live terminal or browser session — those only show an update notice, because swapping the process under someone who is watching would drop their turn. Turn off to pin a machine to its current build. Persists."},
 		{Key: "imageProvider", Label: "Image model provider (MN_IMAGE_PROVIDER)", Type: "select",
 			Value:   c.ImageProvider,
 			Options: providerSelectOptions("Inherit (session provider)"),

@@ -499,6 +499,18 @@ type Config struct {
 	// Env: MN_EMBEDDINGS_PROVIDER.
 	EmbeddingsProvider string
 
+	// AutoUpdate, when true (default), lets a background daemon connector
+	// (internal/daemon) self-update: it polls for the published version every few
+	// minutes and, if behind, downloads the new build and re-execs onto it.
+	// Set MN_AUTO_UPDATE=0/off to keep a machine pinned to its current build instead
+	// (e.g. a locked-down or manually-managed host). A live terminal (TUI/web) is never
+	// auto-updated either way — it only shows a notice and waits for /update, because
+	// swapping the process under someone who is watching would drop their turn.
+	// Editable via the Persona modal (AutoUpdatePersona).
+	AutoUpdate bool
+	// AutoUpdatePersona remembers an explicit UI choice for AutoUpdate.
+	AutoUpdatePersona *bool
+
 	// ImageProvider selects which backend serves generate_image, independent of the
 	// session's chat provider. Image generation needs an OpenAI-compatible /chat/
 	// completions route that returns image parts, and few backends have one — so the
@@ -2121,10 +2133,23 @@ func Load() *Config {
 	if v := normalizedProviderEnv("MN_IMAGE_PROVIDER"); v != "" {
 		c.ImageProvider = v
 	}
+	// Default ON: an always-on daemon that silently rots on an old build is worse than
+	// one that keeps itself current, and it has no user watching to run /update.
+	c.AutoUpdate = true
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTO_UPDATE"))) {
+	case "1", "on", "true", "yes":
+		c.AutoUpdate = true
+	case "0", "off", "false", "no":
+		c.AutoUpdate = false
+	}
 
 	// Persona-explicit overrides — applied LAST so a user's explicit save from
 	// the web UI always wins over both the deployment env and the cheap preset.
 	// Only active when the user has actually made a choice (non-nil pointer).
+	if prefs.AutoUpdate != nil {
+		c.AutoUpdate = *prefs.AutoUpdate
+		c.AutoUpdatePersona = prefs.AutoUpdate
+	}
 	if prefs.ImageProvider != nil {
 		// Lookup, not Normalize: an unrecognised id must mean "inherit", never the
 		// default provider (see ImageProviderFor).

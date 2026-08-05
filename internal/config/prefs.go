@@ -53,7 +53,9 @@ type savedPrefs struct {
 	// ImageProvider routes generate_image to its own backend: few providers serve an
 	// image-capable chat route, so the session can stay on a local/text-only model.
 	ImageProvider *string `json:"image_provider,omitempty"`
-	AuxReasoning  *string `json:"aux_reasoning,omitempty"`
+	// AutoUpdate lets a background daemon connector self-update. nil = the default (on).
+	AutoUpdate   *bool   `json:"auto_update,omitempty"`
+	AuxReasoning *string `json:"aux_reasoning,omitempty"`
 	// Quota-based provider fallback. Budgets are pointers so an explicit 0
 	// ("disable this trigger") is distinguishable from "never set", and the chain
 	// is a *[]string so an explicitly emptied chain is distinguishable from nil.
@@ -119,6 +121,7 @@ func (c *Config) Save() error {
 		FastReasoning:     c.FastReasoningPersona,
 		AuxProvider:       c.AuxProviderPersona,
 		ImageProvider:     c.ImageProviderPersona,
+		AutoUpdate:        c.AutoUpdatePersona,
 		AuxReasoning:      c.AuxReasoningPersona,
 		QuotaFallback:     c.QuotaFallbackPersona,
 		QuotaResetAt:      c.QuotaResetAtPersona,

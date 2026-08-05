@@ -926,3 +926,21 @@ func (s *session) releaseJobPrompt() {
 		s.publishLocked(stateWire(stateIdle))
 	}
 }
+
+// activeTurnLabel returns a human label when this session is mid-turn, else "".
+//
+// "Mid-turn" includes waiting on the user (approval, a question) and an open job
+// approval: those hold real state that a process re-exec would destroy, so they must
+// count as busy even though no tokens are streaming.
+func (s *session) activeTurnLabel() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state != stateBusy && s.state != stateApproval && s.state != stateQuestion &&
+		s.state != stateJobPrompt {
+		return ""
+	}
+	if t := strings.TrimSpace(s.title); t != "" {
+		return t
+	}
+	return s.id
+}

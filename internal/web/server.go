@@ -1522,3 +1522,45 @@ var sseKeepalive = 20 * time.Second
 
 // writeSSEKeepalive writes an SSE comment line, ignored by EventSource clients.
 func writeSSEKeepalive(w http.ResponseWriter) { _, _ = io.WriteString(w, ": keepalive\n\n") }
+
+// ActiveTurns reports how many live sessions are mid-turn, plus one of their labels.
+//
+// Used by the daemon to decide whether an update may proceed: both re-exec paths
+// destroy in-flight work (syscall.Exec replaces the process image, so a turn dies with
+// no chance to persist its tail), and an unattended daemon has nobody watching to
+// notice or resend. A turn costs minutes at worst; losing one costs real work.
+func (s *Server) ActiveTurns() (int, string) { return s.activeTurnsExcept(nil) }
+
+// activeTurnsExcept is ActiveTurns ignoring one session — the one that requested the
+// update, which is itself mid-turn precisely because it is running /update.
+func (s *Server) activeTurnsExcept(skip *session) (int, string) {
+	s.mu.Lock()
+	sessions := make([]*session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		if sess != skip {
+			sessions = append(sessions, sess)
+		}
+	}
+	mirror := s.mirror
+	s.mu.Unlock()
+
+	n, name := 0, ""
+	for _, sess := range sessions {
+		label := sess.activeTurnLabel()
+		if label == "" {
+			continue
+		}
+		n++
+		if name == "" {
+			name = label
+		}
+	}
+	// The mirrored terminal session lives in the bridge hub, not s.sessions.
+	if mirror != nil && mirror.hub != nil && mirror.hub.State() != bridge.StateIdle {
+		n++
+		if name == "" {
+			name = "the terminal session"
+		}
+	}
+	return n, name
+}

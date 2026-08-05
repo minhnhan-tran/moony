@@ -21,6 +21,7 @@ import (
 	"github.com/pysty1995/moony/internal/app"
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/relay"
+	"github.com/pysty1995/moony/internal/selfupdate"
 	"os/user"
 )
 
@@ -85,9 +86,29 @@ func Serve(ctx context.Context, cfg *config.Config, logf func(string, ...any)) e
 	go runScheduler(ctx, logf)
 
 	standby := false
+	var lastUpdateCheck time.Time // zero => check on the first iteration
+	updateDeferred := false       // true while an update is held back by a running turn (logged once)
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		// Keep an unattended daemon current. Gated on AutoUpdate so a machine can be
+		// pinned to its current build, and skipped entirely while any session is
+		// mid-turn: the relaunch below drops in-flight work, and a daemon has nobody
+		// watching to notice or resend. A turn is minutes at worst; losing one costs the
+		// user real work.
+		if cfg.AutoUpdate && time.Since(lastUpdateCheck) >= updateCheckInterval {
+			if n, name := srv.ActiveTurns(); n > 0 {
+				// Log once, not every loop, or a long turn floods the log.
+				if !updateDeferred {
+					logf("update check deferred — %d session(s) mid-turn (e.g. %q)", n, name)
+					updateDeferred = true
+				}
+			} else {
+				updateDeferred = false
+				lastUpdateCheck = time.Now()
+				checkAndSelfUpdate(ctx, logf, srv.ActiveTurns)
+			}
 		}
 		// Yield the connector to a hand-run TUI while one is active (the relay
 		// keeps only one connector per machine). Re-check on a timer so we
@@ -152,4 +173,49 @@ func wait(ctx context.Context, d time.Duration) bool {
 	case <-t.C:
 		return true
 	}
+}
+
+// updateCheckInterval is how often an idle daemon looks for a newer build. Long enough
+// that the check is invisible next to normal work, short enough that a machine picks up
+// a fix the same day.
+const updateCheckInterval = 30 * time.Minute
+
+// checkAndSelfUpdate downloads and installs a newer build, then relaunches onto it.
+//
+// activeTurns is re-consulted AFTER the download: Apply can run for minutes, and
+// relaunching would kill a turn that started meanwhile with no chance to persist its
+// tail. The new binary is already on disk at that point, so the next idle iteration
+// picks it up for free — deferring costs nothing.
+func checkAndSelfUpdate(ctx context.Context, logf func(string, ...any), activeTurns func() (int, string)) {
+	vctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	latest, err := selfupdate.LatestVersion(vctx)
+	cancel()
+	if err != nil {
+		logf("update check failed: %v", err)
+		return
+	}
+	if !config.VersionLess(config.Version, latest) {
+		return // already current or ahead
+	}
+	logf("v%s is available (running v%s) — self-updating", latest, config.Version)
+
+	actx, acancel := context.WithTimeout(ctx, 10*time.Minute)
+	_, err = selfupdate.Apply(actx)
+	acancel()
+	if err != nil {
+		logf("self-update failed: %v — staying on v%s", err, config.Version)
+		return
+	}
+	if activeTurns != nil {
+		if n, name := activeTurns(); n > 0 {
+			logf("v%s installed but relaunch deferred — %d session(s) started running during the download (e.g. %q)", latest, n, name)
+			return
+		}
+	}
+	// Exit and let the service manager (launchd KeepAlive / systemd Restart=always)
+	// start the new build, matching the /update path above. Preferred over an in-process
+	// exec: it works the same on every platform and leaves process supervision to the
+	// thing that owns it.
+	logf("self-update to v%s installed — exiting so the service manager relaunches", latest)
+	os.Exit(0)
 }
