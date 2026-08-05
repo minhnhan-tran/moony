@@ -1113,6 +1113,7 @@ function clearView() {
   if (composerMetaEl) { composerMetaEl.innerHTML = ""; composerMetaEl.removeAttribute("title"); } // clear the composer model·reasoning legend
   questionEl.classList.add("hidden");
   if (scrollBtn) scrollBtn.hidden = true;
+  if (jobsBtn) { jobsBtn.hidden = true; jobsBtn.classList.remove("is-running"); if (jobsBtnCount) jobsBtnCount.hidden = true; } // the next session re-counts its own
   todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; filesEl.classList.add("hidden"); filesEl.innerHTML = ""; mcpEl.classList.add("hidden"); mcpEl.innerHTML = "";
   planEl.classList.add("hidden"); planEl.innerHTML = ""; planExpanded = false; currentPlan = null; draftPlanEl = null; draftPlanExpanded = false; lastTodos = [];
   pendingAttachments = []; renderAttachStrip();
@@ -1136,6 +1137,7 @@ function selectSession(id, turnsParam) {
   maybeRequestNotify(); // a click — a good moment to ask for notification permission
   clearView();
   current = id;
+  if (typeof refreshJobsBadge === "function") refreshJobsBadge(); // jobs are per-session
   loadEncryptionStatus(); // connector-scoped: run now that a laptop is focused (apiBase set), not at boot
   loadQuickActions();     // also connector-scoped: the project may ship its own presets
   showConnecting(); // jumping-Claude loader until the session's replay starts streaming in
@@ -1566,6 +1568,12 @@ function handle(ev) {
     case "state": {
       if (typeof ev.canQueue === "boolean") queueCapable = ev.canQueue;
       setState(ev.state);
+      break;
+    }
+    // A job was started or killed somewhere (the model's bash tool, another
+    // browser tab, the panel): re-count immediately instead of waiting out the poll.
+    case "jobs_changed": {
+      if (typeof refreshJobsBadge === "function") refreshJobsBadge();
       break;
     }
     case "queue": {
@@ -2324,6 +2332,31 @@ function renderStats() {
   tok.appendChild(tokPair("arrow.down", cumTurnOut || s.tokensOut));
   parts.push(tok);
 
+  // Spend: the gateway's authoritative quota when we have a reading, otherwise the
+  // in-session cost estimate marked with "~". Only providers with a usage endpoint
+  // report a quota (see llm.Client.Usage), so on everything else this is the
+  // estimate — but it must still show, or the bar looks like it lost a field.
+  const quotaLabel = s.quotaKnown
+    ? (s.quotaBudget > 0 ? `${fmtUSD(s.quotaSpend)}/${fmtUSD(s.quotaBudget)}` : `${fmtUSD(s.quotaSpend)} 24h`)
+    : (s.costUSD > 0 ? `${fmtUSD(s.costUSD)}~` : "");
+  if (quotaLabel) {
+    const wrap = el("span", "inline-flex items-center gap-1 cursor-pointer stat-quota");
+    wrap.setAttribute("role", "button");
+    wrap.tabIndex = 0;
+    wrap.title = s.quotaKnown ? "Usage quota — click for details" : "Estimated session cost — click for details";
+    const openQuota = (e) => { e.stopPropagation(); openHdrInfo(wrap, "quota", quotaInfoRows(s)); };
+    wrap.onclick = openQuota;
+    wrap.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openQuota(e); } };
+    // Amber past 90% of the budget, so a near-exhausted quota is visible without
+    // opening the popover; the estimate has no budget to compare against.
+    const spent = s.quotaKnown && s.quotaBudget > 0 ? (s.quotaSpend / s.quotaBudget) * 100 : 0;
+    const lbl = el("span", null, quotaLabel);
+    if (spent >= 100) lbl.style.color = themeColor("--c-danger");
+    else if (spent >= 90) lbl.style.color = themeColor("--c-warn");
+    wrap.appendChild(lbl);
+    parts.push(wrap);
+  }
+
   // context-window fill: a small progress bar + percentage (brand → amber → red as it fills)
   if (typeof s.contextPercent === "number" && s.contextPercent >= 0) {
     const pct = Math.max(0, Math.min(100, s.contextPercent));
@@ -2350,6 +2383,46 @@ function renderStats() {
     if (i > 0) statsEl.appendChild(el("span", "text-faint opacity-50", "·"));
     statsEl.appendChild(p);
   });
+}
+
+// quotaInfoRows builds the hdrMenu detail rows for the status bar's spend pill:
+// the gateway quota (name, spend vs. budget, token allowance) when one was
+// fetched, otherwise the locally computed cost estimate and why it's an estimate.
+function quotaInfoRows(s) {
+  const fmt = (n) => (Number(n) || 0).toLocaleString();
+  if (!s.quotaKnown) {
+    const rows = [{ label: "Session cost", desc: s.model || "current model" }];
+    rows.push({ label: `${fmtUSD(s.costUSD)}~`, desc: "estimated from this session's token usage" });
+    rows.push({ label: "No quota reading", desc: "this provider exposes no usage endpoint" });
+    return rows;
+  }
+  const rows = [{ label: "Usage quota", desc: s.quotaName || "current provider" }];
+  if (s.quotaBudget > 0) {
+    rows.push({ label: `${fmtUSD(s.quotaSpend)} / ${fmtUSD(s.quotaBudget)}`, desc: "spend / budget" });
+    rows.push({ label: `${Math.round((s.quotaSpend / s.quotaBudget) * 100)}%`, desc: "of budget used" });
+  } else {
+    rows.push({ label: fmtUSD(s.quotaSpend), desc: "spend, last 24h" });
+  }
+  if (s.quotaTokens > 0 || s.quotaTokensMax > 0) {
+    rows.push({
+      label: s.quotaTokensMax > 0 ? `${fmt(s.quotaTokens)} / ${fmt(s.quotaTokensMax)}` : fmt(s.quotaTokens),
+      desc: "tokens used" + (s.quotaTokensMax > 0 ? " / allowance" : ""),
+    });
+  }
+  if (s.quotaTokenRate > 0) {
+    rows.push({ label: `${fmt(s.quotaTokenRate)} tok`, desc: "rate limit" + (s.quotaTokenRatePeriod ? ` per ${s.quotaTokenRatePeriod}` : "") });
+  }
+  // A fallback means this quota belongs to a provider we were moved to, not the
+  // one that was picked — say so, or the numbers look like they're for the wrong backend.
+  if (s.quotaFallbackFrom) {
+    let desc = providerLabel(s.quotaFallbackFrom) + " hit its budget";
+    if (s.quotaFallbackResetAt) {
+      const at = new Date(s.quotaFallbackResetAt);
+      if (!isNaN(at)) desc += `, reverting ${at.toLocaleString()}`;
+    }
+    rows.push({ label: "Fallback active", desc });
+  }
+  return rows;
 }
 
 // contextInfoRows builds the hdrMenu detail rows for the context-usage bar:
@@ -3665,15 +3738,75 @@ function renderPager() {
   syncPagerVisibility();
 }
 
-// syncPagerVisibility shows the shared #pager container whenever either half
-// (scroll-to-bottom or the pair nav) needs to be visible, and hides it only
-// when NEITHER does — so it never lingers as an empty shell.
+// syncPagerVisibility shows the shared #pager container whenever any of its
+// parts (jobs, scroll-to-bottom, the pair nav) needs to be visible, and hides it
+// only when NONE do — so it never lingers as an empty shell.
 function syncPagerVisibility() {
   if (!pager) return;
   const navVisible = pagerNav && !pagerNav.hidden;
   const scrollVisible = scrollBtn && !scrollBtn.hidden;
-  pager.hidden = !navVisible && !scrollVisible;
+  const jobsVisible = jobsBtn && !jobsBtn.hidden;
+  pager.hidden = !navVisible && !scrollVisible && !jobsVisible;
   if (typeof syncQuickActionsOffset === "function") syncQuickActionsOffset();
+}
+
+// ─── Background-jobs button ─────────────────────────────────────────────────
+//
+// The pager pill doubles as the entry point to the jobs panel, because a job
+// outlives the turn that started it: without a permanent control, a dev server
+// left running is invisible until someone thinks to open Manage → Jobs.
+//
+// The badge counts RUNNING jobs only — a finished job is history, not something
+// that still wants attention.
+let jobsBadgePollTimer = null;
+
+async function refreshJobsBadge() {
+  if (!jobsBtn) return;
+  if (!current) { jobsBtn.hidden = true; syncPagerVisibility(); return; }
+  let running = 0, total = 0;
+  try {
+    const r = await fetch(api(`/api/sessions/${current}/jobs`));
+    if (!r.ok) throw new Error("jobs");
+    const list = await r.json();
+    total = Array.isArray(list) ? list.length : 0;
+    running = Array.isArray(list) ? list.filter((j) => j.running).length : 0;
+  } catch (_) {
+    // A failed poll must not blank the button mid-session; leave what's on screen.
+    return;
+  }
+  jobsBtn.hidden = false;
+  jobsBtn.classList.toggle("is-running", running > 0);
+  jobsBtn.title = running
+    ? `${running} background job${running === 1 ? "" : "s"} running`
+    : total
+      ? `Background jobs (${total})`
+      : "Background jobs";
+  if (jobsBtnCount) {
+    jobsBtnCount.hidden = running === 0;
+    jobsBtnCount.textContent = running > 9 ? "9+" : String(running);
+  }
+  syncPagerVisibility();
+}
+
+// Polled rather than pushed: jobs finish on their own, with no event to announce
+// it. Paused while the tab is hidden so a backgrounded browser isn't asking every
+// few seconds forever.
+function startJobsBadgePoll() {
+  if (jobsBadgePollTimer) clearInterval(jobsBadgePollTimer);
+  jobsBadgePollTimer = setInterval(() => {
+    if (!document.hidden) refreshJobsBadge();
+  }, 10000);
+  refreshJobsBadge();
+}
+
+if (jobsBtn) {
+  jobsBtn.onclick = () => {
+    if (typeof openConfigModal === "function") openConfigModal("jobs");
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshJobsBadge();
+  });
+  startJobsBadgePoll();
 }
 
 // openPagerMenu lists every question in the turn (newest last) in the shared
