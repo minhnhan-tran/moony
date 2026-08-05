@@ -81,6 +81,9 @@ type personaEdit struct {
 	FastReasoning *string `json:"fastReasoning"`
 	AuxProvider   *string `json:"auxProvider"`
 	AuxReasoning  *string `json:"auxReasoning"`
+	// ImageProvider routes generate_image to its own backend. "" = inherit the
+	// session provider, which is why it's a pointer (an explicit clear is a choice).
+	ImageProvider *string `json:"imageProvider"`
 	// Quota-based provider fallback. Budgets/chain arrive as strings because the
 	// form sends text; "" is a real value here (clear the budget / empty the chain),
 	// which is why they're pointers.
@@ -400,6 +403,9 @@ func personaEditedFields(e personaEdit) []string {
 	if e.AuxProvider != nil {
 		f = append(f, fmt.Sprintf("auxProvider=%q", *e.AuxProvider))
 	}
+	if e.ImageProvider != nil {
+		f = append(f, fmt.Sprintf("imageProvider=%q", *e.ImageProvider))
+	}
 	if e.AuxReasoning != nil {
 		f = append(f, fmt.Sprintf("auxReasoning=%q", *e.AuxReasoning))
 	}
@@ -653,6 +659,22 @@ func applyPersonaEdit(c *config.Config, e personaEdit) {
 		v := strings.TrimSpace(*e.AuxProvider)
 		c.AuxProviderPersona = &v
 	}
+	if e.ImageProvider != nil {
+		// Unlike the Fast/Aux tiers (which are read from the env at call time), the
+		// image route lives on Config, so set the field as well as the env var —
+		// otherwise the choice wouldn't take effect until the next restart.
+		// provider.Normalize resolves anything it doesn't recognise to the DEFAULT
+		// provider, so a typo would silently route images to a backend the user never
+		// named. Only accept an id that is actually known.
+		raw := strings.TrimSpace(*e.ImageProvider)
+		v := ""
+		if _, ok := provider.Lookup(raw); raw != "" && ok {
+			v = provider.Normalize(raw)
+		}
+		setEnvPlain("MN_IMAGE_PROVIDER", &v)
+		c.ImageProvider = v
+		c.ImageProviderPersona = &v
+	}
 	if e.AuxReasoning != nil {
 		setEnvPlain("MN_AUX_REASONING", e.AuxReasoning)
 		v := strings.TrimSpace(*e.AuxReasoning)
@@ -777,6 +799,10 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 			Value:   os.Getenv("MN_FAST_PROVIDER"),
 			Options: providerSelectOptions("Inherit (session provider)"),
 			Desc:    "Provider the Fast model runs on. Inherit = the session provider. A different provider must have its API key / base URL configured below. Pick it, Save, then choose its model above. Persists."},
+		{Key: "imageProvider", Label: "Image model provider (MN_IMAGE_PROVIDER)", Type: "select",
+			Value:   c.ImageProvider,
+			Options: providerSelectOptions("Inherit (session provider)"),
+			Desc:    "Provider that serves generate_image. Inherit = the session provider. Few backends offer an image-capable chat route, so a session on a local or text-only model can still generate images by pointing this at one that does. Persists."},
 		{Key: "fastReasoning", Label: "Fast model reasoning (MN_FAST_REASONING)", Type: "select",
 			Value:   os.Getenv("MN_FAST_REASONING"),
 			Options: reasoningSelectOptions("Inherit (turn effort)"),

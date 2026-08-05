@@ -72,12 +72,20 @@ func (c *Client) GenerateImage(ctx context.Context, model, prompt string, refs [
 		return nil, err
 	}
 
-	rb := c.remoteBackendFor(provider.Normalize(c.cfg.LLMProvider))
+	// Route to the image-specific backend when one is configured. Image generation
+	// needs an OpenAI-compatible chat route that returns image parts, which few
+	// backends have — so a session on a local or text-only provider would otherwise
+	// have no way to generate images at all.
+	target := provider.Normalize(c.cfg.LLMProvider)
+	if ov := c.cfg.ImageProviderFor(); ov != "" {
+		target = ov
+	}
+	rb := c.remoteBackendFor(target)
 	if strings.TrimSpace(rb.baseURL) == "" {
-		return nil, fmt.Errorf("image generation needs an OpenAI-compatible provider; %q has no base URL", c.cfg.LLMProvider)
+		return nil, fmt.Errorf("image generation needs an OpenAI-compatible provider; %q has no base URL", target)
 	}
 	if rb.apiKey == "" && !rb.noKeyOK {
-		return nil, fmt.Errorf("image generation needs an API key — set %s", rb.keyEnv)
+		return nil, fmt.Errorf("image generation on %q needs an API key — set %s", target, rb.keyEnv)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(rb.baseURL, "/")+"/chat/completions", bytes.NewReader(reqBody))
 	if err != nil {

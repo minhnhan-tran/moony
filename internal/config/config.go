@@ -498,6 +498,18 @@ type Config struct {
 	// Anthropic has no embeddings API and is rejected with a clear error.
 	// Env: MN_EMBEDDINGS_PROVIDER.
 	EmbeddingsProvider string
+
+	// ImageProvider selects which backend serves generate_image, independent of the
+	// session's chat provider. Image generation needs an OpenAI-compatible /chat/
+	// completions route that returns image parts, and few backends have one — so the
+	// session can be on a local or text-only provider while images come from wherever
+	// they actually work. Empty inherits the session provider.
+	// Env: MN_IMAGE_PROVIDER.
+	ImageProvider string
+
+	// ImageProviderPersona remembers an explicit UI/persona choice for
+	// ImageProvider, so it survives a restart and is distinguishable from "unset".
+	ImageProviderPersona *string
 	// CompactThresholdTokens is the estimated history size that triggers
 	// context compaction before a turn.
 	CompactThresholdTokens int
@@ -836,6 +848,29 @@ func FastProvider() string { return normalizedProviderEnv("MN_FAST_PROVIDER") }
 // to MN_FAST_PROVIDER, so a single "route my cheap work to X" pin covers both.
 // "" = inherit the session provider.
 func AuxProvider() string { return normalizedProviderEnv("MN_AUX_PROVIDER", "MN_FAST_PROVIDER") }
+
+// ImageProviderFor reports which backend should serve generate_image: the explicit
+// override when set, otherwise the session's own provider.
+//
+// Returns "" when there is no override, so callers can keep their existing
+// session-provider path untouched rather than re-deriving it here.
+func (c *Config) ImageProviderFor() string {
+	if c == nil {
+		return ""
+	}
+	// Validate with Lookup, not Normalize: Normalize resolves an unknown id to the
+	// DEFAULT provider, so a typo would silently route images somewhere the user never
+	// named — and report itself as a working override.
+	raw := strings.TrimSpace(c.ImageProvider)
+	if _, ok := provider.Lookup(raw); !ok {
+		return ""
+	}
+	ov := provider.Normalize(raw)
+	if ov == "" || strings.EqualFold(ov, provider.Normalize(c.LLMProvider)) {
+		return "" // nothing to override
+	}
+	return ov
+}
 
 // reasoningEnv returns the normalized reasoning level from the named env var, or
 // "" (inherit) when it is unset. A set-but-unrecognized value normalizes to
@@ -2083,10 +2118,23 @@ func Load() *Config {
 	if v := normalizedProviderEnv("MN_EMBEDDINGS_PROVIDER"); v != "" {
 		c.EmbeddingsProvider = v
 	}
+	if v := normalizedProviderEnv("MN_IMAGE_PROVIDER"); v != "" {
+		c.ImageProvider = v
+	}
 
 	// Persona-explicit overrides — applied LAST so a user's explicit save from
 	// the web UI always wins over both the deployment env and the cheap preset.
 	// Only active when the user has actually made a choice (non-nil pointer).
+	if prefs.ImageProvider != nil {
+		// Lookup, not Normalize: an unrecognised id must mean "inherit", never the
+		// default provider (see ImageProviderFor).
+		raw := strings.TrimSpace(*prefs.ImageProvider)
+		c.ImageProvider = ""
+		if _, ok := provider.Lookup(raw); ok {
+			c.ImageProvider = provider.Normalize(raw)
+		}
+		c.ImageProviderPersona = prefs.ImageProvider
+	}
 	if prefs.CheapReads != nil {
 		c.CheapReads = *prefs.CheapReads
 		c.CheapReadsPersona = prefs.CheapReads

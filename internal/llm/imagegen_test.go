@@ -245,3 +245,75 @@ func TestKnownModelNamePrefersCatalog(t *testing.T) {
 		t.Errorf("knownModelName(unknown) = %q, want humanized", got)
 	}
 }
+
+// The image route must honour ImageProvider: a session on a local/text-only backend
+// otherwise has no way to generate images at all, since few providers serve an
+// image-capable chat route.
+func TestGenerateImageRoutesToImageProvider(t *testing.T) {
+	body := `{"choices":[{"message":{"role":"assistant","content":"ok","images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,aGk="}}]}}]}`
+
+	var gotURL, gotAuth string
+	c := newTestClient(roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		gotURL = r.URL.String()
+		gotAuth = r.Header.Get("Authorization")
+		return resp(200, body), nil
+	}))
+	// Session is on a local backend with no key and no image capability…
+	c.cfg.LLMProvider = provider.Ollama
+	c.cfg.OllamaBaseURL = "http://localhost:11434/v1"
+	// …while images are routed to a backend that can serve them.
+	c.cfg.ImageProvider = provider.OpenAI
+	c.cfg.OpenAIAPIKey = "sk-image"
+	c.cfg.OpenAIBaseURL = "https://openai.test/v1"
+
+	if _, err := c.GenerateImage(context.Background(), "gemini-3.1-flash-image", "a cat", nil); err != nil {
+		t.Fatalf("GenerateImage: %v", err)
+	}
+	if !strings.Contains(gotURL, "openai.test") {
+		t.Errorf("request went to %q, want the image provider's base URL", gotURL)
+	}
+	if !strings.Contains(gotAuth, "sk-image") {
+		t.Errorf("Authorization = %q, want the image provider's key", gotAuth)
+	}
+}
+
+// With no override the existing behaviour must be untouched.
+func TestGenerateImageWithoutOverrideUsesSessionProvider(t *testing.T) {
+	body := `{"choices":[{"message":{"role":"assistant","content":"ok","images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,aGk="}}]}}]}`
+	var gotURL string
+	c := newTestClient(roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		gotURL = r.URL.String()
+		return resp(200, body), nil
+	}))
+	c.cfg.LLMProvider = provider.OpenAI
+	c.cfg.OpenAIAPIKey = "k"
+	c.cfg.OpenAIBaseURL = "https://session.test/v1"
+	c.cfg.ImageProvider = "" // inherit
+
+	if _, err := c.GenerateImage(context.Background(), "m", "a cat", nil); err != nil {
+		t.Fatalf("GenerateImage: %v", err)
+	}
+	if !strings.Contains(gotURL, "session.test") {
+		t.Errorf("request went to %q, want the session provider", gotURL)
+	}
+}
+
+// A misconfigured override must name the provider it tried, or the user has no way to
+// tell which of the two backends is missing a key.
+func TestGenerateImageOverrideErrorNamesProvider(t *testing.T) {
+	c := newTestClient(roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("no request should be made when the target has no credentials")
+		return nil, nil
+	}))
+	c.cfg.LLMProvider = provider.Ollama
+	c.cfg.OllamaBaseURL = "http://localhost:11434/v1"
+	c.cfg.ImageProvider = provider.OpenAI // no key set
+
+	_, err := c.GenerateImage(context.Background(), "m", "a cat", nil)
+	if err == nil {
+		t.Fatal("expected an error for a keyless image provider")
+	}
+	if !strings.Contains(err.Error(), provider.OpenAI) {
+		t.Errorf("error must name the attempted provider, got %q", err)
+	}
+}

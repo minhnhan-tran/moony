@@ -50,6 +50,9 @@ type savedPrefs struct {
 	FastProvider  *string `json:"fast_provider,omitempty"`
 	FastReasoning *string `json:"fast_reasoning,omitempty"`
 	AuxProvider   *string `json:"aux_provider,omitempty"`
+	// ImageProvider routes generate_image to its own backend: few providers serve an
+	// image-capable chat route, so the session can stay on a local/text-only model.
+	ImageProvider *string `json:"image_provider,omitempty"`
 	AuxReasoning  *string `json:"aux_reasoning,omitempty"`
 	// Quota-based provider fallback. Budgets are pointers so an explicit 0
 	// ("disable this trigger") is distinguishable from "never set", and the chain
@@ -115,6 +118,7 @@ func (c *Config) Save() error {
 		FastProvider:      c.FastProviderPersona,
 		FastReasoning:     c.FastReasoningPersona,
 		AuxProvider:       c.AuxProviderPersona,
+		ImageProvider:     c.ImageProviderPersona,
 		AuxReasoning:      c.AuxReasoningPersona,
 		QuotaFallback:     c.QuotaFallbackPersona,
 		QuotaResetAt:      c.QuotaResetAtPersona,

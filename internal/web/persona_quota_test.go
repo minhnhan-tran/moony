@@ -120,3 +120,60 @@ func TestApplyPersonaEditQuotaFallback(t *testing.T) {
 		}
 	})
 }
+
+// The image-provider row must exist and round-trip, since it's the only UI for it.
+func TestPersonaImageProviderRow(t *testing.T) {
+	c := &config.Config{ImageProvider: "openai"}
+	var found bool
+	for _, f := range personaFields(c, nil, nil, nil) {
+		if f.Key == "imageProvider" {
+			found = true
+			if f.Value != "openai" {
+				t.Errorf("imageProvider value = %v, want openai", f.Value)
+			}
+			if f.Type != "select" || len(f.Options) == 0 {
+				t.Errorf("imageProvider should be a populated select, got type=%q %d options", f.Type, len(f.Options))
+			}
+		}
+	}
+	if !found {
+		t.Fatal("the persona panel is missing the imageProvider row")
+	}
+}
+
+func TestApplyPersonaEditImageProvider(t *testing.T) {
+	str := func(s string) *string { return &s }
+
+	t.Run("sets the field, not just the env", func(t *testing.T) {
+		// The field matters: unlike the Fast/Aux tiers (read from the env at call
+		// time), the image route lives on Config, so an env-only write wouldn't take
+		// effect until the next restart.
+		c := &config.Config{}
+		applyPersonaEdit(c, personaEdit{ImageProvider: str("openai")})
+		if c.ImageProvider != "openai" {
+			t.Errorf("ImageProvider = %q, want openai", c.ImageProvider)
+		}
+		if c.ImageProviderPersona == nil || *c.ImageProviderPersona != "openai" {
+			t.Error("the choice must be remembered for persistence")
+		}
+	})
+
+	t.Run("an explicit clear means inherit", func(t *testing.T) {
+		c := &config.Config{ImageProvider: "openai"}
+		applyPersonaEdit(c, personaEdit{ImageProvider: str("")})
+		if c.ImageProvider != "" {
+			t.Errorf("ImageProvider = %q, want empty", c.ImageProvider)
+		}
+		if c.ImageProviderPersona == nil || *c.ImageProviderPersona != "" {
+			t.Error("an explicit inherit is a real choice and must be remembered")
+		}
+	})
+
+	t.Run("a typo never becomes a live route", func(t *testing.T) {
+		c := &config.Config{}
+		applyPersonaEdit(c, personaEdit{ImageProvider: str("opneai")})
+		if c.ImageProvider != "" {
+			t.Errorf("ImageProvider = %q, want empty for an unknown provider", c.ImageProvider)
+		}
+	})
+}
