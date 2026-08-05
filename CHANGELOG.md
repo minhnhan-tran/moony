@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.12.2] — 2026-08-05
+
+### Fixed
+
+- Config's tab strip now scrolls the active tab into view. With twelve tabs the later
+  ones (Jobs, Doctor) start off-screen behind a scrollbar most trackpads never show,
+  so opening Jobs from the pager button rendered its body while the strip stayed
+  parked on Skills — making the tab look like it didn't exist.
+
 ## [2.12.1] — 2026-08-05
 
 ### Fixed
