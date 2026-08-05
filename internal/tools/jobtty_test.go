@@ -228,3 +228,79 @@ func requirePTY(t *testing.T) {
 	}
 	_ = p.Close()
 }
+
+// An embedded newline SUBMITS a line to the shell, so it has to be vetted. Resetting on
+// it instead would have made "rm -rf /\r" a one-call bypass: the raw bytes reach the
+// terminal either way, and the checker would only ever see the empty remainder.
+func TestStageInputVetsEmbeddedNewlines(t *testing.T) {
+	j := &job{}
+	var seen []string
+	check := func(line string) error {
+		seen = append(seen, line)
+		if strings.Contains(line, "rm -rf /") {
+			return errRefused
+		}
+		return nil
+	}
+	if err := j.stageInput("rm -rf /"+string(rune(13)), false, check); err == nil {
+		t.Fatal("a command terminated by CR should have been refused")
+	}
+	if len(seen) == 0 || seen[0] != "rm -rf /" {
+		t.Fatalf("check saw %q; want the submitted line", seen)
+	}
+	if j.inputLine != "" {
+		t.Fatalf("a refused call must not change the pending line, got %q", j.inputLine)
+	}
+
+	// Several lines in one call: each is vetted, and the remainder stays pending.
+	seen = nil
+	if err := j.stageInput("echo a\necho b\nech", false, check); err != nil {
+		t.Fatalf("harmless multi-line input: %v", err)
+	}
+	if len(seen) != 3 || seen[0] != "echo a" || seen[1] != "echo b" || seen[2] != "ech" {
+		t.Fatalf("check saw %q; want each line plus the remainder", seen)
+	}
+	if j.inputLine != "ech" {
+		t.Fatalf("pending line = %q, want the unterminated remainder", j.inputLine)
+	}
+}
+
+// A process that never drains its terminal must not park the caller, leak an unbounded
+// number of writers, or let a later write overtake the stuck one.
+func TestSendInputTimesOutAndSerialises(t *testing.T) {
+	old := jobInputTimeout
+	jobInputTimeout = 50 * time.Millisecond
+	defer func() { jobInputTimeout = old }()
+
+	release := make(chan struct{})
+	s := newJobStore()
+	j := &job{id: "bg_1", state: jobRunning, tty: true, stdin: blockingWriter{release}}
+	s.add(j)
+
+	start := time.Now()
+	if err := s.SendInput("bg_1", "first", true, nil); err == nil || !strings.Contains(err.Error(), "not reading input") {
+		t.Fatalf("stuck write: err = %v, want a not-reading error", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("SendInput waited %v; the deadline should have cut it short", elapsed)
+	}
+	// The first write still owns the terminal, so the second must be refused rather
+	// than delivered out of order behind it.
+	if err := s.SendInput("bg_1", "second", true, nil); err == nil || !strings.Contains(err.Error(), "still pending") {
+		t.Fatalf("second write: err = %v, want a pending-write refusal", err)
+	}
+	// Unblocking the terminal (what closing the pty does) releases the writer.
+	close(release)
+	if !waitFor(2*time.Second, func() bool { return s.SendInput("bg_1", "third", true, nil) == nil }) {
+		t.Fatal("the terminal never became writable again")
+	}
+}
+
+// blockingWriter parks until released, standing in for a program that has stopped
+// reading its terminal.
+type blockingWriter struct{ release chan struct{} }
+
+func (b blockingWriter) Write(p []byte) (int, error) {
+	<-b.release
+	return len(p), nil
+}

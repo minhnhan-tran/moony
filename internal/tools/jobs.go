@@ -51,6 +51,9 @@ type job struct {
 	// caller cannot smuggle a command past the destructive-command check by
 	// splitting it across calls: the check runs on the assembled line.
 	inputLine string
+	// writeMu is held by an in-flight write to the terminal, not by the caller
+	// that started it: see SendInput.
+	writeMu sync.Mutex
 
 	cancel context.CancelFunc
 }
@@ -208,8 +211,9 @@ func (s *JobStore) KillAll() {
 // prompt or typing a command, not for streaming a file into the process.
 const maxJobInputBytes = 4 << 10
 
-// jobInputTimeout bounds how long a write to a wedged terminal may block.
-const jobInputTimeout = 2 * time.Second
+// jobInputTimeout bounds how long a write to a wedged terminal may block. A var so
+// tests don't have to wait it out.
+var jobInputTimeout = 2 * time.Second
 
 // SendInput types data into a running TTY job, appending a carriage return when
 // enter is set (that, not "\n", is what a terminal sends for the Enter key).
@@ -248,10 +252,21 @@ func (s *JobStore) SendInput(id, data string, enter bool, check func(line string
 	}
 	// Written off the job lock — a full terminal buffer would otherwise block every
 	// reader of this job's status behind a process that isn't consuming input — and
-	// under a deadline, because a program that has stopped reading stdin must not
-	// park an HTTP handler (and its goroutine) forever.
-	done := make(chan error, 1)
+	// under a deadline, because a program that has stopped reading stdin must not park
+	// an HTTP handler forever.
+	//
+	// writeMu, held by the writer goroutine rather than by this call, is what keeps
+	// that honest. A write that outlives its deadline still owns the terminal, so the
+	// next SendInput is refused instead of queueing behind it: at most one write is
+	// ever in flight, and bytes can't reach the shell out of order after their caller
+	// was told they failed. The stranded goroutine is bounded and self-clearing —
+	// killing the job (or the job exiting) closes the pty, which unblocks the write.
+	if !j.writeMu.TryLock() {
+		return fmt.Errorf("job %s is not reading input (a previous write is still pending)", id)
+	}
+	done := make(chan error, 1) // buffered: the goroutine must never block on send
 	go func() {
+		defer j.writeMu.Unlock()
 		_, err := io.WriteString(w, data)
 		done <- err
 	}()
@@ -267,36 +282,46 @@ func (s *JobStore) SendInput(id, data string, enter bool, check func(line string
 }
 
 // stageInput folds data into the job's pending input line the way a terminal would and
-// hands the result to check.
+// hands every line it produces to check.
 //
 // Chunking is the reason this exists: "rm -rf" plus " /" plus Enter is the same command
-// as sending it in one call, so vetting each call in isolation would vet nothing. The
-// pending line is therefore checked on EVERY call, which can flag a prefix that the
-// user was about to make harmless ("rm -rf /" on the way to "/tmp/x") — the safe
-// direction to be wrong in, and not a case the panel produces, since it sends whole
-// lines.
+// as sending it in one call, so vetting each call in isolation would vet nothing. Every
+// line the shell will see is vetted — the ones an embedded CR/LF submits mid-string as
+// well as the trailing remainder — because the raw data is written to the terminal
+// verbatim, so anything not vetted here runs unvetted. The trailing remainder is
+// checked even when it isn't submitted yet, which can flag a prefix the user was about
+// to make harmless ("rm -rf /" on the way to "/tmp/x"): the safe direction to be wrong
+// in, and not a case the panel produces, since it sends whole lines.
 func (j *job) stageInput(data string, enter bool, check func(string) error) error {
 	j.mu.Lock()
 	line := j.inputLine
+	j.mu.Unlock()
+
+	var vet []string // every line this call hands to the shell
 	for _, r := range data {
 		switch {
 		case r == 0x03 || r == 0x15: // Ctrl-C / Ctrl-U discard the line, as on a console
 			line = ""
-		case r == '\r' || r == '\n':
+		case r == '\r' || r == '\n': // submits the line rather than dropping it
+			vet = append(vet, line)
 			line = ""
 		case r >= 0x20 || r == '\t':
 			line += string(r)
 		}
+		if len(line) > maxJobInputBytes {
+			return fmt.Errorf("pending input line too long (max %d bytes)", maxJobInputBytes)
+		}
 	}
-	if len(line) > maxJobInputBytes {
-		j.mu.Unlock()
-		return fmt.Errorf("pending input line too long (max %d bytes)", maxJobInputBytes)
-	}
-	j.mu.Unlock()
+	vet = append(vet, line) // the remainder: submitted by Enter, or still being typed
 
-	if check != nil && strings.TrimSpace(line) != "" {
-		if err := check(line); err != nil {
-			return err
+	if check != nil {
+		for _, l := range vet {
+			if strings.TrimSpace(l) == "" {
+				continue
+			}
+			if err := check(l); err != nil {
+				return err // refused: the pending line is left exactly as it was
+			}
 		}
 	}
 
