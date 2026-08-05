@@ -611,9 +611,21 @@ func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []att
 		// goroutine would run after that turn already installed its own pin and would
 		// then undo it. Wrapped in a closure (rather than a bare call after RunWith)
 		// so a panic or early return still restores the session's settings.
+		// Capture both models for error reporting: turnModel is what actually served
+		// the request (a quick action may have pinned it elsewhere), sessionModel is
+		// what the session normally uses. A context-overflow message needs both to
+		// explain WHY it didn't fit — blaming the session's model when an action pinned
+		// a smaller one sends the user to fix the wrong thing.
+		var turnModel, sessionModel string
+		if cfg := s.agent.Config(); cfg != nil {
+			sessionModel = cfg.Model
+		}
 		err := func() error {
 			if restore := s.applyTurnOverride(ov); restore != nil {
 				defer restore()
+			}
+			if cfg := s.agent.Config(); cfg != nil {
+				turnModel = cfg.Model // read AFTER the override is applied
 			}
 			return s.agent.RunWith(ctx, prompt, blocks, s.emit)
 		}()
@@ -624,7 +636,7 @@ func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []att
 		s.replyQG = nil
 		s.state = stateIdle
 		if err != nil && ctx.Err() == nil {
-			s.publishLocked(wireEvent{Type: "error", Text: config.TurnErrorNote(err)})
+			s.publishLocked(wireEvent{Type: "error", Text: config.TurnErrorNoteForSession(err, turnModel, sessionModel)})
 		}
 		s.publishLocked(stateWire(stateIdle))
 		clean := err == nil && ctx.Err() == nil

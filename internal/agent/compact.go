@@ -49,26 +49,7 @@ func (a *Agent) calibrateTokens(actualInputTokens int, sent []llm.Message) {
 // Unlike maybeCompact, it ignores the threshold so a user-triggered /compact
 // always tries to summarize.
 func (a *Agent) Compact(ctx context.Context) (int, error) {
-	cut := a.compactBoundary()
-	if cut <= 0 {
-		return 0, nil
-	}
-	summary, err := a.summarize(ctx, a.messages[:cut])
-	if err != nil {
-		return 0, err
-	}
-	head := []llm.Message{
-		{Role: llm.RoleUser, Content: []llm.ContentBlock{
-			llm.TextBlock("[Summary of earlier conversation, compacted to save context]\n\n" + summary),
-		}},
-		{Role: llm.RoleAssistant, Content: []llm.ContentBlock{
-			llm.TextBlock("Understood. I'll continue with that context in mind."),
-		}},
-	}
-	a.messages = append(head, a.messages[cut:]...)
-	a.onCompacted() // compaction discarded history: refresh the checkpoint, avoid a watermark stall
-	a.persist()
-	return cut, nil
+	return a.compactAtBoundary(ctx, a.compactBoundary())
 }
 
 // maybeCompact summarizes older history into a single synthetic exchange when
@@ -117,14 +98,7 @@ func (a *Agent) maybeCompact(ctx context.Context, emit func(Event)) error {
 		return err
 	}
 
-	head := []llm.Message{
-		{Role: llm.RoleUser, Content: []llm.ContentBlock{
-			llm.TextBlock("[Summary of earlier conversation, compacted to save context]\n\n" + summary),
-		}},
-		{Role: llm.RoleAssistant, Content: []llm.ContentBlock{
-			llm.TextBlock("Understood. I'll continue with that context in mind."),
-		}},
-	}
+	head := compactedHead(summary)
 	dropped := cut
 	droppedTurns := countUserTurns(a.messages[:cut])
 	a.messages = append(head, a.messages[cut:]...)

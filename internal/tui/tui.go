@@ -124,6 +124,7 @@ var slashCommands = []slashCommand{
 	{"/goal", "[description|criteria|budget|clear]", "set a stop condition (criteria + token budget) the agent must satisfy"},
 	{"/checkpoint", "[now|clear]", "show, refresh, or clear the session's distilled state snapshot"},
 	{"/undo", "", "revert files written/edited in the most recent turn"},
+	{"/changes", "", "show a combined diff of this turn's file changes (/diff alias)"},
 	{"/rewind", "[n]", "roll back the last n turns — files AND conversation (default 1)"},
 	{"/tokens", "", "show token usage this session"},
 	{"/usage", "", "show token usage this session (hosted providers show no quota here)"},
@@ -1954,6 +1955,18 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 		} else {
 			m.trans.add(entry{kind: entryInfo, text: out})
 		}
+	// "/diff" is an accepted alias: it's the habitual name for this, and a user who
+	// types it would otherwise get "unknown command" for a feature that is right there.
+	case "/changes", "/diff":
+		diff := m.agent.TurnChangesDiff(0)
+		if strings.TrimSpace(diff) == "" {
+			m.trans.add(entry{kind: entryInfo, text: "No files changed in the current turn."})
+			break
+		}
+		m.trans.add(entry{kind: entryInfo, text: "Combined diff of this turn's changes (use /undo to revert all):"})
+		// As an assistant entry so it goes through the markdown/diff renderer; an info
+		// entry is plain text and would lose the +/- highlighting.
+		m.trans.add(entry{kind: entryAssistant, text: "```diff\n" + diff + "\n```"})
 	case "/rewind":
 		n := 1
 		if len(fields) > 1 {
@@ -2088,7 +2101,9 @@ func (m Model) handleStream(msg streamMsg) (tea.Model, tea.Cmd) {
 		m.toolsInFlight = 0
 		m.curStep, m.maxStep = 0, 0
 		if msg.err != nil && !isCanceled(msg.err) {
-			note := config.TurnErrorNote(msg.err)
+			// Pass the model so a context-overflow error can name it and suggest
+			// roomier alternatives instead of echoing the provider's raw 400.
+			note := config.TurnErrorNoteFor(msg.err, m.cfg.Model)
 			m.trans.add(entry{kind: entryError, text: note})
 			m.publishError(note)
 		}

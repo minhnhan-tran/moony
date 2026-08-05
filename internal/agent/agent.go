@@ -1291,6 +1291,9 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// delegation directive (below) so further investigation runs in a throwaway
 	// sub-agent context instead of continuing to bill this turn on every round.
 	readBytesThisTurn := 0
+	// compactRetries bounds the context-overflow recovery below. Without a cap, a
+	// conversation that can't be shrunk under the model's window would retry forever.
+	compactRetries := 0
 	for step := 0; step < ceiling; step++ {
 		rounds = step + 1
 		if err := ctx.Err(); err != nil {
@@ -1500,6 +1503,21 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 				a.rebuildSystemPrompt() // the prompt names the model/provider in use
 				emit(StreamReset{})     // drop any UI-side partial for this round
 				step--                  // redo the SAME round on the new backend
+				continue
+			}
+			// Context overflow: the provider refused the request because the conversation
+			// is bigger than the model's window. Recoverable without the user doing
+			// anything — nothing was generated, so a.messages is intact, and re-running
+			// this step after shrinking history yields the answer they actually asked for
+			// instead of a wall of instructions to run /compact themselves.
+			//
+			// Bounded twice over: compactAndRetry only reports true when the history
+			// genuinely shrank, and compactRetries caps the loop so a conversation that
+			// can't be shrunk far enough still fails with the provider's own message.
+			if compactRetries < maxCompactRetries && a.compactAndRetry(ctx, err, emit) {
+				compactRetries++
+				emit(StreamReset{}) // drop any UI-side partial for this round
+				step--              // redo the SAME round with a smaller history
 				continue
 			}
 			return err

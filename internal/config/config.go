@@ -1462,12 +1462,28 @@ func ModelRegionRestricted(err error) bool {
 
 // TurnErrorNote rewrites known turn/inference errors into friendlier
 // guidance for display; unrecognized errors return their raw text unchanged.
-func TurnErrorNote(err error) string {
+func TurnErrorNote(err error) string { return TurnErrorNoteFor(err, "") }
+
+// TurnErrorNoteFor is TurnErrorNote with the model that produced the error, so
+// context-overflow guidance can name it and suggest roomier alternatives.
+func TurnErrorNoteFor(err error, model string) string {
+	return TurnErrorNoteForSession(err, model, "")
+}
+
+// TurnErrorNoteForSession is TurnErrorNoteFor with the session's own model, so an
+// overflow on a model pinned by a quick action can name the pin as the cause rather
+// than blaming a session that is actually fine.
+func TurnErrorNoteForSession(err error, model, sessionModel string) string {
 	if err == nil {
 		return ""
 	}
 	if ModelRegionRestricted(err) {
 		return regionRestrictedNote
+	}
+	// Only reached once the automatic shrink-and-retry has given up, so the advice
+	// ("bigger model, or /compact") is the genuine remaining option.
+	if note := PromptTooLongNoteFor(err, model, sessionModel); note != "" {
+		return note
 	}
 	return err.Error()
 }

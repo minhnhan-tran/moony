@@ -60,6 +60,7 @@ var builtinCommands = []cmdWire{
 	{Name: "/checkpoint", Args: "[now|clear]", Desc: "show, refresh, or clear the distilled session state"},
 	{Name: "/memory", Args: "[note]", Desc: "show or append project memory"},
 	{Name: "/undo", Desc: "revert the last file change"},
+	{Name: "/changes", Desc: "show a combined diff of this turn's file changes"},
 	{Name: "/rewind", Args: "[n]", Desc: "roll back the last n turns (files + conversation)"},
 	{Name: "/sessions", Desc: "list this project's sessions"},
 	{Name: "/schedule", Args: "[add <spec> <prompt>|remove|enable|disable|run <id>]", Desc: "list or manage headless scheduled prompts"},
@@ -480,6 +481,18 @@ func (s *Server) runCommand(sess *session, text string) {
 		} else {
 			info(out)
 		}
+		return
+	// "/diff" is an accepted alias: it's the habitual name for this, and a user who
+	// types it would otherwise get "unknown command" for a feature that is right there.
+	case "/changes", "/diff":
+		diff := strings.TrimSpace(sess.agent.TurnChangesDiff(0))
+		if diff == "" {
+			info("No files changed in the current turn.")
+			return
+		}
+		// Fenced as `diff` so the client renders it with +/- highlighting, and the
+		// pointer to /undo is what makes the diff actionable rather than just informative.
+		info("Combined diff of this turn's changes (use /undo to revert all):\n\n```diff\n" + diff + "\n```")
 		return
 	case "/rewind":
 		n := 1
