@@ -49,3 +49,27 @@ func TestChangesAliasIsDispatched(t *testing.T) {
 		t.Error("the diff must be fenced as ```diff for the client to highlight it")
 	}
 }
+
+// The catalog is delivered to the client in the "commands" SSE event, so /changes must
+// be present there — a registry entry the client never receives is still invisible.
+func TestCommandsEventCarriesChanges(t *testing.T) {
+	srv, id := jobsFixture(t, "auto")
+	sess := srv.openSession(id)
+	if sess == nil {
+		t.Fatal("no session")
+	}
+	ev := srv.commandsEvent(sess)
+	if ev.Type != "commands" {
+		t.Fatalf("event type = %q, want commands", ev.Type)
+	}
+	var found bool
+	for _, c := range ev.Commands {
+		if c.Name == "/changes" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("/changes is not in the commands event, so the palette never shows it")
+	}
+}
