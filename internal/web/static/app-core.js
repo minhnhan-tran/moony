@@ -4011,7 +4011,8 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && quickActionMenu && quickActionMenu.classList.contains("open")) { closeQuickActionMenu(); return; }
   if (e.key === "Escape" && userMenuEl && userMenuEl.classList.contains("open")) { userMenuEl.classList.remove("open"); return; }
   if (e.key === "Escape" && document.body.classList.contains("nav-open")) { document.body.classList.remove("nav-open"); return; }
-  if (e.key === "Escape" && manageOverlay.style.display !== "none") { closeManage(); return; }
+  // No Escape-to-close for manageOverlay: the modal closes only via its X button
+  // (#manageClose), so an accidental keypress can't discard a partly-filled panel.
   if (e.key === "Escape" && !menuEl.classList.contains("hidden")) { hideMenu(); return; }
   if (approval.classList.contains("hidden")) return;
   if (e.key === "y") approve("approve"); else if (e.key === "n") approve("deny"); else if (e.key === "a") approve("always");

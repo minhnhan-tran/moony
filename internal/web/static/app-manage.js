@@ -1212,7 +1212,10 @@ function manageWorkersSection(items) {
 // green "connected" (with the tool count as a tooltip), red "failed" (full
 // error on hover), or a faint "off" when an enabled server hasn't connected.
 $("#manageClose").onclick = closeManage;
-manageOverlay.onclick = (e) => { if (e.target === manageOverlay) closeManage(); };
+// The X button is deliberately the ONLY dismissal: no backdrop-click close. These
+// panels hold half-finished input (a typed provider key in Persona, an edited
+// skill), and a stray click just outside the card would silently discard it.
+// Escape is likewise not wired — see the keydown chain in app-core.js.
 
 boot();
 loadAuthUser();
