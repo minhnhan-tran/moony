@@ -1878,6 +1878,8 @@ let jobsInputText = "";        // unsent keystrokes for the expanded TTY job
 let jobsInputFocused = false;  // whether to hand focus back after a poll rebuild
 let jobsInputCaret = 0;        // caret offset to restore with it
 let jobsPolicy = "prompt";  // approval policy, for the pre-run warning
+let jobsRestartingID = null; // job mid-restart; lives outside the row because the
+                             // 2s poll rebuilds every row and would re-enable its button
 
 // stopJobsPolling clears the timers. Called when the panel closes, so a hidden tab
 // isn't polling the session forever.
@@ -1963,6 +1965,82 @@ async function refreshJobsList(list) {
   for (const j of jobs) list.append(jobRow(j, list));
 }
 
+// waitForJobExit polls until a killed job reports not-running, so a restart doesn't
+// race the process it just stopped. JobStore.KillJob only *signals* cancellation
+// (internal/tools/jobsview.go) — it doesn't wait for the process to die — so starting
+// the replacement immediately would fight the old one for a port or a lock file.
+// Returns false if it's still running when we give up.
+async function waitForJobExit(id, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((res) => setTimeout(res, 150));
+    let data = null;
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/jobs`));
+      if (!r.ok) return false;
+      data = await r.json();
+    } catch (_) {
+      return false;
+    }
+    const j = ((data && data.jobs) || []).find((x) => x.id === id);
+    if (!j || !j.running) return true;
+  }
+  return false;
+}
+
+// restartJob stops a job (when it's still running) and runs its command again as a
+// NEW job, keeping the original's TTY mode.
+//
+// Deliberately re-POSTs to /jobs instead of adding a server-side restart endpoint:
+// that routes the re-run through StartBackgroundJobApproved, so it faces exactly the
+// same approval prompt and destructive-command refusal as the first start. A restart
+// must not become a way to re-run a command the policy would now reject.
+async function restartJob(j, list) {
+  if (jobsRestartingID) return; // one at a time; the poll rebuilds rows underneath us
+  jobsRestartingID = j.id;
+  refreshJobsList(list); // reflect the disabled/"Restarting…" state immediately
+  try {
+    if (j.running) {
+      try {
+        await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/kill`), { method: "POST" });
+      } catch (_) {
+        alertBox("Could not stop the job, so it was not restarted.");
+        return;
+      }
+      if (!(await waitForJobExit(j.id))) {
+        // Start anyway rather than stranding the user, but don't pretend it was clean:
+        // the replacement may fail if the old process still holds a port or lock.
+        alertBox("The old job is still shutting down — starting the new one anyway, so it may fail to bind a port it holds.");
+      }
+    }
+    const r = await fetch(api(`/api/sessions/${current}/jobs`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: j.command, tty: !!j.tty }),
+    });
+    if (!r.ok) { alertBox((await r.text().catch(() => "")).trim() || "Could not restart the job."); return; }
+    const out = await r.json().catch(() => ({}));
+    if (out && out.denied) { alertBox("The restart was not approved."); return; }
+    // Follow the replacement if the old job's log was open, otherwise the pane stays
+    // pinned to a dead buffer and the restart looks like it produced nothing.
+    if (jobsOpenID === j.id && out && out.id) {
+      jobsOpenID = out.id;
+      jobsCursor = 0;
+      jobsLogText = "";
+      jobsLogScroll = 0;
+      jobsLogAtBottom = true;
+      jobsInputText = "";
+      jobsInputFocused = false;
+      jobsInputCaret = 0;
+    }
+  } catch (_) {
+    alertBox("Could not restart the job.");
+  } finally {
+    jobsRestartingID = null;
+    refreshJobsList(list);
+  }
+}
+
 function jobRow(j, list) {
   const wrap = el("div", "job-row");
 
@@ -1992,8 +2070,10 @@ function jobRow(j, list) {
     refreshJobsList(list);
   };
   actions.append(logBtn);
+  const busy = jobsRestartingID === j.id;
   if (j.running) {
     const killBtn = el("button", "manage-install", "Stop");
+    killBtn.disabled = busy; // a restart already kills it; a second kill would hit the new job
     killBtn.onclick = async () => {
       killBtn.disabled = true;
       try { await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/kill`), { method: "POST" }); } catch (_) {}
@@ -2001,6 +2081,15 @@ function jobRow(j, list) {
     };
     actions.append(killBtn);
   }
+  // Restart is offered for finished jobs too — re-running a command that failed or
+  // exited is the common case, and it's the only way back without retyping it.
+  const restartBtn = el("button", "manage-install", busy ? "Restarting…" : "Restart");
+  restartBtn.disabled = busy;
+  restartBtn.title = j.running
+    ? "Stop this job and run the same command again as a new job."
+    : "Run this command again as a new job.";
+  restartBtn.onclick = () => restartJob(j, list);
+  actions.append(restartBtn);
   head.append(actions);
   wrap.append(head);
 
