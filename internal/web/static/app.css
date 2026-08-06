@@ -105,6 +105,17 @@ html.light {
   --r-2xl: 20px;
   --r-pill: 999px;
   --r-full: 50%;
+
+  /* Floating-pill geometry, shared by the turn pager (.pair-pager) and the quick-
+     actions split button (.quick-actions) so the two sit side by side at exactly
+     the same height. The pager pads around its buttons, while quick-actions' halves
+     run edge to edge (they carry the pill's own rounding) -- so those halves must be
+     --pager-btn PLUS that padding to come out level. Everything is border-box
+     (Tailwind preflight), so --pager-pill is the outer height minus the 1px border
+     both pills draw. */
+  --pager-btn: 1.35rem;
+  --pager-pad: .2rem;
+  --pager-pill: calc(var(--pager-btn) + 2 * var(--pager-pad));
 }
 
 /* Smooth the flip between themes (colors only — not transforms/opacity, so
@@ -2555,7 +2566,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;   /* +10px clears .pair-a's scrollbar track */
   display: flex; align-items: center; gap: .1rem;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
-  border-radius: var(--r-md); padding: .2rem;
+  border-radius: var(--r-md); padding: var(--pager-pad);
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
 }
 #pagerNav { display: flex; align-items: center; gap: .1rem; }
@@ -2579,7 +2590,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 .pager-jobs-count[hidden] { display: none; }
 .pager-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 1.35rem; height: 1.35rem; border: 0; border-radius: var(--r-xs);
+  width: var(--pager-btn); height: var(--pager-btn); border: 0; border-radius: var(--r-xs);
   background: transparent; color: rgb(var(--c-ink-soft)); cursor: pointer; transition: background .12s ease;
 }
 .pager-btn app-icon { font-size: 11px; }
@@ -2886,7 +2897,7 @@ html.light .diff-hunk { color: #0550ae; }
 .quick-actions[hidden] { display: none; }
 .quick-actions-main, .quick-actions-caret {
   display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
-  min-height: 1.35rem; /* match .pager-btn so both pills are the same height */
+  min-height: var(--pager-pill); /* .pager-btn PLUS the pager's padding: these halves have none of their own, so matching the button alone left this pill 6.4px short */
   padding: .2rem .5rem; border: 0; background: transparent;
   color: rgb(var(--c-ink-soft)); font-size: 12px; cursor: pointer;
   line-height: 1; /* 12px text's default 18px line box would outgrow the pager */
