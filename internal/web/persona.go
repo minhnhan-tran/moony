@@ -487,7 +487,10 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	}
 	var edit personaEdit
 	if err := json.Unmarshal(body, &edit); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		// Say WHICH field/type broke: one mistyped field rejects the whole payload
+		// (every provider credential with it), and a bare "bad request" is
+		// indistinguishable from an auth or routing failure in the browser.
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	applyPersonaEdit(cfg, edit)
@@ -806,7 +809,10 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 			Value:   os.Getenv("MN_FAST_PROVIDER"),
 			Options: providerSelectOptions("Inherit (session provider)"),
 			Desc:    "Provider the Fast model runs on. Inherit = the session provider. A different provider must have its API key / base URL configured below. Pick it, Save, then choose its model above. Persists."},
-		{Key: "autoUpdate", Label: "Auto-update the daemon (MN_AUTO_UPDATE)", Type: "toggle",
+		// "bool" (not "toggle"): the browser only renders bool/select/secret/text, and
+		// an unknown type falls through to a TEXT input — which posts "true"/"false" as
+		// a string for this *bool and 400s the WHOLE save, provider keys included.
+		{Key: "autoUpdate", Label: "Auto-update the daemon (MN_AUTO_UPDATE)", Type: "bool",
 			Value: c.AutoUpdate,
 			Desc:  "Let a background daemon connector poll for a newer build and relaunch onto it. Never applies to a live terminal or browser session — those only show an update notice, because swapping the process under someone who is watching would drop their turn. Turn off to pin a machine to its current build. Persists."},
 		{Key: "imageProvider", Label: "Image model provider (MN_IMAGE_PROVIDER)", Type: "select",

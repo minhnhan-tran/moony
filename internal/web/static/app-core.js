@@ -4629,14 +4629,24 @@ async function renderPersona() {
     }
     status.textContent = "Saving…";
     try {
-      const r = await fetch(api(`/api/sessions/${current}/persona`), { method: "POST", body: JSON.stringify(payload) });
-      status.textContent = r.ok ? "Saved — applied to this terminal." : `Save failed (${r.status}).`;
+      const r = await fetch(api(`/api/sessions/${current}/persona`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      // Surface the server's reason: a rejected payload saves NOTHING, so a bare
+      // status code leaves the user thinking a provider key was stored when it wasn't.
+      if (r.ok) status.textContent = "Saved — applied to this terminal.";
+      else {
+        let why = "";
+        try { why = (await r.text()).trim(); } catch (_) {}
+        status.textContent = `Save failed (${r.status})${why ? ": " + why.slice(0, 200) : "."}`;
+      }
       if (r.ok) renderPersona();
     } catch (_) { status.textContent = "Save failed."; }
   };
   const makeField = (f) => {
     const field = el("div", "persona-field");
-    if (f.type === "bool") {
+    // "toggle" is an alias for "bool": a connector older/newer than this relay's JS
+    // may send either, and rendering a boolean as text posts "true"/"false" as a
+    // string, which fails the server's json.Unmarshal and 400s the entire save.
+    if (f.type === "bool" || f.type === "toggle") {
       // Checkbox before the label: "[✓] Auto-delegate subtasks".
       const cb = el("input", null); cb.type = "checkbox"; cb.checked = !!f.value;
       const row = el("label", "persona-toggle"); row.append(cb, el("span", "persona-label", f.label));
@@ -4693,8 +4703,9 @@ async function renderPersona() {
   };
   const tierKeySet = new Set([...tierKeys.fast, ...tierKeys.aux]);
   const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
-  const toggles = fields.filter((f) => (f.type === "bool" || f.type === "select") && !tierKeySet.has(f.key));
-  const rest = fields.filter((f) => f.type !== "bool" && f.type !== "select");
+  const isBool = (f) => f.type === "bool" || f.type === "toggle"; // "toggle": legacy alias for "bool"
+  const toggles = fields.filter((f) => (isBool(f) || f.type === "select") && !tierKeySet.has(f.key));
+  const rest = fields.filter((f) => !isBool(f) && f.type !== "select");
   for (const f of toggles) form.append(makeField(f));
   // The column heading already names the tier ("Fast model" / "Self-review
   // model"), so inside a column each field only needs its role — "Provider",
