@@ -1113,7 +1113,7 @@ function clearView() {
   if (composerMetaEl) { composerMetaEl.innerHTML = ""; composerMetaEl.removeAttribute("title"); } // clear the composer model·reasoning legend
   questionEl.classList.add("hidden");
   if (scrollBtn) scrollBtn.hidden = true;
-  if (jobsBtn) { jobsBtn.hidden = true; jobsBtn.classList.remove("is-running"); if (jobsBtnCount) jobsBtnCount.hidden = true; } // the next session re-counts its own
+  if (jobsPill) { jobsPill.hidden = true; if (jobsBtn) jobsBtn.classList.remove("is-running"); if (jobsBtnCount) jobsBtnCount.hidden = true; } // the next session re-counts its own
   syncPagerVisibility(); // the pill must not linger as an empty shell
   todosEl.classList.add("hidden"); todosEl.innerHTML = ""; todosExpanded = false; todosSig = ""; filesEl.classList.add("hidden"); filesEl.innerHTML = ""; mcpEl.classList.add("hidden"); mcpEl.innerHTML = "";
   planEl.classList.add("hidden"); planEl.innerHTML = ""; planExpanded = false; currentPlan = null; draftPlanEl = null; draftPlanExpanded = false; lastTodos = [];
@@ -3011,13 +3011,13 @@ function renderQuickActionMenu() {
   if (quickActionBtn && !quickAction) quickActionBtn.disabled = true;
   else if (quickActionBtn && state === "idle") quickActionBtn.disabled = false;
   if (quickActions) quickActions.hidden = !quickActionList.length;
-  syncQuickActionsOffset(); // the label width changed, so re-measure
+  syncFloatingPills(); // the pill may have just appeared/hidden, so re-measure the strip
 }
 
+// The pill is icon-only, so the selected action's name is carried entirely by the
+// tooltip and the accessible name — there is no visible label to update.
 function renderQuickActionLabel() {
   if (!quickActionBtn) return;
-  const label = quickActionBtn.querySelector(".quick-actions-label");
-  if (label) label.textContent = quickAction ? (quickAction.label || quickAction.prompt) : "Quick";
   const desc = quickAction ? `Run "${quickAction.prompt}"` : "No quick actions configured";
   quickActionBtn.title = desc;
   quickActionBtn.setAttribute("aria-label", desc);
@@ -3032,13 +3032,27 @@ function closeQuickActionMenu() {
   }
 }
 
-// syncQuickActionsOffset keeps the quick-actions pill clear of the turn pager,
-// which sits in the same floating strip and changes width as it appears/hides.
-function syncQuickActionsOffset() {
-  if (!quickActions) return;
-  const showing = pager && !pager.hidden;
-  const w = showing ? Math.round(pager.getBoundingClientRect().width) : 0;
-  quickActions.style.setProperty("--turn-pager-w", w ? (w + 6) + "px" : "0px");
+// syncFloatingPills lays out the bottom-right pill strip. All of them are absolutely
+// positioned against the SAME right edge, so each is shifted left past the ones to its
+// right via --pill-shift. Order right to left: turn pager, quick actions, jobs.
+//
+// Widths are measured, not hardcoded: each pill appears, hides and changes width on its
+// own (the pager gains/loses its scroll-to-bottom half, quick actions vanish with no
+// presets), and a stale offset would overlap or leave a gap. A hidden pill measures 0
+// and contributes nothing, which is what collapses the strip correctly.
+//
+// The pager consumes no shift — it's rightmost, so its offset is always 0, and it is
+// left transform-free deliberately: a transform would become the containing block for
+// its "n/total" dropdown and move it off the button.
+const PILL_GAP = 6;
+function syncFloatingPills() {
+  let shift = 0;
+  for (const pill of [pager, quickActions, jobsPill]) {
+    if (!pill) continue;
+    if (pill.hidden) { pill.style.setProperty("--pill-shift", "0px"); continue; }
+    pill.style.setProperty("--pill-shift", shift ? shift + "px" : "0px");
+    shift += Math.round(pill.getBoundingClientRect().width) + PILL_GAP;
+  }
 }
 
 // runQuickAction fires an action. Accepts the action object so its configured
@@ -3739,16 +3753,17 @@ function renderPager() {
   syncPagerVisibility();
 }
 
-// syncPagerVisibility shows the shared #pager container whenever any of its
-// parts (jobs, scroll-to-bottom, the pair nav) needs to be visible, and hides it
-// only when NONE do — so it never lingers as an empty shell.
+// syncPagerVisibility shows the shared #pager container whenever either of its
+// parts (scroll-to-bottom, the pair nav) needs to be visible, and hides it only
+// when NEITHER does — so it never lingers as an empty shell. Jobs is no longer one
+// of them: it's its own pill now, and folding it in here kept the pager alive as an
+// empty frame around the jobs button alone.
 function syncPagerVisibility() {
   if (!pager) return;
   const navVisible = pagerNav && !pagerNav.hidden;
   const scrollVisible = scrollBtn && !scrollBtn.hidden;
-  const jobsVisible = jobsBtn && !jobsBtn.hidden;
-  pager.hidden = !navVisible && !scrollVisible && !jobsVisible;
-  if (typeof syncQuickActionsOffset === "function") syncQuickActionsOffset();
+  pager.hidden = !navVisible && !scrollVisible;
+  if (typeof syncFloatingPills === "function") syncFloatingPills();
 }
 
 // ─── Background-jobs button ─────────────────────────────────────────────────
@@ -3762,8 +3777,8 @@ function syncPagerVisibility() {
 let jobsBadgePollTimer = null;
 
 async function refreshJobsBadge() {
-  if (!jobsBtn) return;
-  if (!current) { jobsBtn.hidden = true; syncPagerVisibility(); return; }
+  if (!jobsBtn || !jobsPill) return;
+  if (!current) { jobsPill.hidden = true; syncFloatingPills(); return; }
   let running = 0, total = 0;
   try {
     const r = await fetch(api(`/api/sessions/${current}/jobs`));
@@ -3777,7 +3792,7 @@ async function refreshJobsBadge() {
     // A failed poll must not blank the button mid-session; leave what's on screen.
     return;
   }
-  jobsBtn.hidden = false;
+  jobsPill.hidden = false;
   jobsBtn.classList.toggle("is-running", running > 0);
   jobsBtn.title = running
     ? `${running} background job${running === 1 ? "" : "s"} running`
@@ -3788,7 +3803,9 @@ async function refreshJobsBadge() {
     jobsBtnCount.hidden = running === 0;
     jobsBtnCount.textContent = running > 9 ? "9+" : String(running);
   }
-  syncPagerVisibility();
+  // The badge changes the pill's width, and the pill may have just appeared, so the
+  // strip has to re-measure — the pager's own visibility is untouched by jobs now.
+  syncFloatingPills();
 }
 
 // Polled rather than pushed: jobs finish on their own, with no event to announce

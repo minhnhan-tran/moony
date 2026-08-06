@@ -416,15 +416,18 @@ func TestJobsUIWiring(t *testing.T) {
 		return string(b)
 	}
 	for _, want := range []struct{ file, needle, why string }{
-		{"index.html", `id="jobsBtn"`, "the pager needs the jobs button"},
+		{"index.html", `id="jobsBtn"`, "the jobs pill needs its button"},
+		{"index.html", `id="jobsPill"`, "the button lives in its own floating pill, not inside #pager"},
 		{"index.html", `id="jobsBtnCount"`, "the button needs its running-count badge"},
 		{"app-state.js", `$("#jobsBtn")`, "the button must be bound like the other pager controls"},
+		{"app-state.js", `$("#jobsPill")`, "the pill carries visibility, so it must be bound too"},
 		{"app-core.js", `openConfigModal("jobs")`, "clicking it must open the jobs panel"},
 		{"app-core.js", `function refreshJobsBadge`, "the badge needs its poll"},
 		{"app-core.js", `data.jobs`, "the badge must read the {jobs,policy} envelope, not a bare array"},
 		{"app-manage.js", `/input`, "the panel's keyboard posts to the input route"},
 		{"app-manage.js", `j.tty`, "the keyboard is only offered for TTY jobs"},
 		{"app.css", `.pager-jobs`, "the button needs its styles"},
+		{"app.css", `.jobs-pill`, "the pill needs its own chrome now that it is not inside the pager"},
 	} {
 		if !strings.Contains(read(want.file), want.needle) {
 			t.Errorf("%s is missing %q: %s", want.file, want.needle, want.why)

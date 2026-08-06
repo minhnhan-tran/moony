@@ -2569,13 +2569,26 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   border-radius: var(--r-md); padding: var(--pager-pad);
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
 }
+
+/* Background-jobs pill: its own floating pill rather than a pager button, so the
+   running count survives the pager hiding itself (and so the pair navigator keeps
+   its accustomed spot). Deliberately rebuilds .pair-pager's chrome around a single
+   .pager-btn -- same --pager-pad around the same button box means the same height as
+   the other two pills without asserting a pixel value anywhere. Sits left of
+   .quick-actions via --pill-shift (syncFloatingPills). */
+.jobs-pill[hidden] { display: none; }
+.jobs-pill {
+  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;
+  display: flex; align-items: center;
+  background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-md); padding: var(--pager-pad);
+  box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
+  transform: translateX(calc(-1 * var(--pill-shift, 0px)));
+  transition: transform .16s ease;
+}
 #pagerNav { display: flex; align-items: center; gap: .1rem; }
 #pagerNav[hidden] { display: none; }
 #scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
-/* The jobs button is a third, independent half: same divider treatment against
-   whichever of the other two follows it. */
-#jobsBtn:not([hidden]) + #scrollBtn:not([hidden]),
-#jobsBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); }
 /* Running-count badge: a digit tucked into the button's top-right corner, so a
    glance at the pager says whether anything is still running. */
 .pager-jobs { position: relative; overflow: visible; }
@@ -2881,17 +2894,19 @@ html.light .diff-hunk { color: #0550ae; }
 #transcript mark.tsearch-current { background: rgb(var(--c-warn)); color: rgb(var(--c-surface)); }
 
 /* ---- Quick actions: a split button that fires a user-defined preset prompt at
-        the agent without typing it. Floats over the transcript beside the turn
-        pager, sharing its raised-pill look, and shifts left by the pager's
-        measured width (--turn-pager-w, set by syncQuickActionsOffset) so the
-        two never overlap. ---- */
+        the agent without typing it. Icon-only — the bolt is the whole affordance,
+        and the chosen action's name lives in the tooltip/aria-label so the pill
+        keeps a fixed width whatever the preset is called. Floats over the
+        transcript in the right-anchored pill strip (pager, quick actions, jobs,
+        right to left), shifted clear of the pills to its right by --pill-shift
+        (measured by syncFloatingPills). ---- */
 .quick-actions {
   position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;
   display: inline-flex; align-items: stretch; overflow: visible; /* the menu escapes the pill */
   border-radius: var(--r-md); user-select: none;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
   box-shadow: 0 6px 18px -6px rgb(var(--c-shadow) / .8), var(--hairline);
-  transform: translateX(calc(-1 * var(--turn-pager-w, 0px)));
+  transform: translateX(calc(-1 * var(--pill-shift, 0px)));
   transition: transform .16s ease;
 }
 .quick-actions[hidden] { display: none; }
@@ -2915,8 +2930,6 @@ html.light .diff-hunk { color: #0550ae; }
 .quick-actions-caret.menu-open { background: rgb(var(--c-edge)); color: rgb(var(--c-ink)); }
 .quick-actions-caret app-icon { transition: transform .14s ease; }
 .quick-actions-caret.menu-open app-icon { transform: rotate(180deg); }
-/* The label is the first thing to go on narrow screens — the bolt still reads. */
-@media (max-width: 640px) { .quick-actions-label { display: none; } }
 
 .quick-actions-menu {
   position: absolute; right: 0; bottom: calc(100% + .4rem);
@@ -2947,7 +2960,7 @@ html.light .diff-hunk { color: #0550ae; }
 .quick-actions-item-title { display: block; }
 .quick-actions-item-sub { display: block; font-size: 11px; color: rgb(var(--c-faint)); margin-top: .05rem; }
 .quick-actions-empty { padding: .5rem .55rem; font-size: 12px; color: rgb(var(--c-faint)); }
-@media (prefers-reduced-motion: reduce) { .quick-actions-menu, .quick-actions-caret app-icon, .quick-actions { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .quick-actions-menu, .quick-actions-caret app-icon, .quick-actions, .jobs-pill { transition: none; } }
 
 /* ---- Quick actions manage panel (Manage → Quick actions) ---- */
 .qa-scopebar { display: flex; align-items: center; gap: .4rem; margin-bottom: .75rem; }
