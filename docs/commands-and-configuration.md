@@ -21,6 +21,7 @@
 - `/clear` — clear the screen
 - `/reset` — clear screen and start a **new** session (forgets history)
 - `/undo` — revert the files written or edited in the most recent turn (snapshots are recorded automatically)
+- `/changes` (alias `/diff`) — show one combined diff of every file the current turn changed, so you can review the whole change set before keeping it (`/undo` reverts it all)
 - `/tokens` — show token usage this session
 - `/usage` — show token usage for the session. Ollama is local and has no account, quota, or billing, so there's no remote spend to report.
 - `/sessions [id]` — pick a recent session for this directory to switch to (opens a picker; or switch directly by id)
@@ -47,6 +48,8 @@
 - During an approval prompt: **y** approve · **n** deny · **a** always allow that tool
 
 ## Configuration
+
+Most of these are also editable at runtime from the web UI's **Persona** panel (*Persona* in the header), which persists your choice so it survives a restart and wins over the environment.
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
@@ -113,6 +116,7 @@
 | `MN_CODEBASE_MAP` | _(auto)_ | `1`/`on` keeps `CODEBASE_MAP.md`'s generated structure section fresh and injects the map into the system prompt; `0`/`off` forces it off. Enabled implicitly when a `CODEBASE_MAP.md` already exists at the project root |
 | `MN_CODEBASE_MAP_BYTES` | built-in default | caps how much of the codebase map is injected into the system prompt, so a large map can't crowd out the conversation |
 | `MN_IMAGE_MODEL` | _(unset — tool off)_ | image-output model enabling `generate_image` (any OpenAI-compatible route, e.g. a Gemini/GPT image model) |
+| `MN_IMAGE_PROVIDER` | _(falls back to the session provider)_ | which backend serves `generate_image`, independent of the session's main provider. Few backends offer an image-capable chat route, so this lets a session on a local or text-only model still generate images by pointing it at one that does |
 | `MN_VIDEO_MODEL` | _(unset — tool off)_ | video-output model enabling `generate_video` (a Veo model on the native Gemini route; needs `MN_GEMINI_API_KEY`) |
 | `MN_TASKBOARD_MAX_PARALLEL` | `2` | how many web **Task Board** tasks run at once. Each task is a headless sub-process in its own throwaway git worktree, so this bounds concurrent CPU/API load |
 | `MN_ACCESS_LOG` | `0` (off) | set `1`/`on` to log one line per HTTP request (method, route, status, duration) alongside the `/metrics` counters |
@@ -135,6 +139,12 @@
 | `MN_MCP` | _(on)_ | connect to configured MCP servers; set to `0`/`off` to skip connecting (config discovery and the `/mcps` listing still work) |
 | `MN_MCP_CLAUDE` | _(on)_ | auto-discover MCP servers from Claude's config (`claude_desktop_config.json`, `~/.claude.json`); set to `0`/`off` to skip |
 | `MN_RELAY` | _(unset)_ | `host:port` of a relay (see `cmd/relay`) to dial out to; the terminal serves the full multi-project app over it (so a remote browser can browse and run all this machine's sessions), with this terminal's **live session wired in through the hub** — opening it drives the exact in-terminal conversation. Best-effort + auto-reconnecting, and the TUI runs normally whether or not it connects. Overrides the saved `/relay` address for the run |
+| `MN_AUTO_UPDATE` | `1` (on) | let a **background connector daemon** poll for a newer published build and relaunch onto it. Deferred while any session is mid-turn (the relaunch would drop in-flight work), and re-checked after the download. A live terminal or browser session is never auto-updated — it only shows a notice and waits for `/update`, because swapping the process under someone who is watching would lose their turn. Set `0`/`off` to pin a machine to its current build |
+| `MN_QUOTA_FALLBACK` | `0` (off) | opt in to **automatic provider fallback**: when the current backend crosses a spend budget, or hard-refuses with a quota error, switch to the next reachable provider in `MN_PROVIDER_FALLBACKS` and switch back once the quota period resets. Off by default because silently moving traffic to another backend means different models and different billing |
+| `MN_PROVIDER_FALLBACKS` | _(unset)_ | ordered fallback chain, e.g. `anthropic,openai:gpt-4o,ollama:qwen3-coder:30b:high`. Each hop is `provider[:model[:reasoning]]`; a bare provider uses that backend's default model (model ids aren't portable across providers, so every switch changes the model too). Hops with no configured credentials are skipped, unknown provider ids are dropped, and the chain never wraps around onto an exhausted provider |
+| `MN_QUOTA_BUDGET_USD` | _(unset)_ | absolute spend on the current provider that triggers a fallback |
+| `MN_QUOTA_BUDGET_PCT` | _(unset)_ | percentage of the provider's reported quota that triggers a fallback. Skipped when the provider reports no cap. Either threshold alone can fire |
+| `MN_QUOTA_RESET_AT` | `00:00` | local daily rollover used to schedule the return to the primary provider when the provider doesn't report a reset time (a hard 429 carries none). Set empty to disable the timed restore and stay on the fallback until you switch back by hand |
 | `MN_SANDBOX` | _(off)_ | confine `bash` writes to the working directory (plus temp and common build caches) via `sandbox-exec` (macOS) or `bwrap` (Linux). Set `on`/`1` to enable. Reads, process execution, and network are unaffected. No-op on other platforms or if the confinement tool isn't installed. |
 | `MN_SANDBOX_NET` | _(on)_ | when the sandbox is on, set `0`/`off` to also deny network access to sandboxed commands |
 | `MN_NETRC` | _(on)_ | `web_fetch`/`batch_web_fetch` read `~/.netrc` (or `$NETRC`) and send the matching host's `password` as `Authorization: Bearer <token>`; set `0`/`off` to disable. A caller-supplied `Authorization` header always wins |

@@ -76,7 +76,26 @@ Run user scripts at lifecycle points by adding either `~/.config/moony/hooks.jso
 }
 ```
 
-Hooks run via `sh -c` with these env vars: `MN_HOOK`, `MN_WORKING_DIR`, plus `MN_TOOL_NAME` / `MN_TOOL_INPUT` (pre_tool) / `MN_TOOL_OUTPUT` / `MN_TOOL_ERROR` (post_tool). 10-second timeout; failures are logged to stderr but never block the agent.
+Hooks run via `sh -c` with these env vars: `MN_HOOK`, `MN_WORKING_DIR`, plus `MN_TOOL_NAME` / `MN_TOOL_INPUT` (pre_tool) / `MN_TOOL_OUTPUT` / `MN_TOOL_ERROR` (post_tool). 10-second timeout; a hook that fails is logged to stderr and does **not** block the agent.
+
+### Blocking a tool call from a `pre_tool` hook
+
+A `pre_tool` hook that exits with status **77** *blocks* the call: the tool doesn't run, and the hook's own output is handed to the model as the reason, so your policy can explain itself. This makes hooks an enforcement point rather than just an audit log — e.g. refuse writes outside the repo:
+
+```sh
+#!/bin/sh
+case "$MN_TOOL_NAME" in
+  write_file|edit_file)
+    echo "$MN_TOOL_INPUT" | grep -q '"path": *"/' && {
+      echo "absolute paths are not allowed by project policy"
+      exit 77
+    } ;;
+esac
+```
+
+Only `pre_tool` can block, and only with exit code 77 — every other non-zero status is treated as a broken hook and ignored. That distinction is deliberate: `sh` already exits 2 on a syntax error and 127 on "command not found", so treating any failure as a deny would let a typo silently wedge every tool call. A hook that times out or hangs never blocks either.
+
+Sub-agents (`task`) inherit the parent's hooks and sandbox setting, so a `pre_tool` policy covers them too. This matters because a sub-agent auto-runs its tools with no approval prompt — hooks are the only per-call gate it has.
 
 ## Agent Skills
 
