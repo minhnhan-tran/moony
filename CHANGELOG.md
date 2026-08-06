@@ -5,6 +5,48 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.14.0] — 2026-08-06
+
+### Added
+
+- **Real quota readings from 7 more providers.** The usage/quota display previously worked
+  for exactly one provider (`sqe-anthropic`) and every other backend fell back to a local
+  token-count estimate — so on OpenRouter, DeepSeek and friends there was simply no "used
+  quota" to see. `Usage()` now dispatches to a per-provider adapter:
+  - **OpenRouter** (`GET /api/v1/auth/key`) — spend **and** limit. The only provider that
+    reports both, so it's also the only one where a percentage, and therefore
+    `MN_QUOTA_BUDGET_PCT`, is meaningful.
+  - **DeepSeek**, **Moonshot**, **Z.AI**, **DeepInfra**, **Venice** — prepaid credit
+    remaining. Venice prefers USD over its VCU/DIEM units so the figure stays comparable
+    with other providers.
+  - **xAI** (`GET /v1/api-key`) — no money figure exists, but a **blocked or disabled key**
+    is now reported, which is precisely what someone staring at a missing quota needs told.
+  - Endpoint existence was verified by probing each provider directly; response field names
+    come from documentation, so each parser accepts several spellings and reports "no
+    reading" rather than guessing when the shape is unfamiliar.
+  - Providers with no inference-key-readable endpoint are unchanged and now say so by name.
+    OpenAI and Anthropic do have usage APIs, but they require an **admin** key rather than
+    an inference key; Groq, Mistral, Together, Fireworks, NVIDIA, Hugging Face, Cerebras,
+    Perplexity and Gemini expose nothing; local backends have no billing concept.
+
+### Changed
+
+- **Remaining credit and amount spent are now displayed as the different things they are.**
+  A provider reporting spend against a cap shows `$12.50/$100.00`; a prepaid provider shows
+  `$4.66 left`. Putting a remaining balance in the "spent" field would have told users the
+  exact inverse of the truth, so it travels in its own field all the way through the LLM
+  client, the bridge, the web wire and both UIs. A prepaid balance never fabricates a
+  percentage, because there is no cap to divide by — and `$0.00 left` is reported as a real
+  (urgent) reading rather than being mistaken for "nothing reported".
+- The "no quota reading" tooltip now names the provider that can't report, instead of
+  saying "this provider" while other backends visibly show a real figure.
+- docs: lead the README with Highlights, then Quick start
+- deploy: add k8s manifests, compose file, .dockerignore, relay healthcheck probe, and deployment docs
+- docs: add real TUI and web UI screenshots to the README
+- docs: rework the README — fix the misaligned hero demo, add a quick start, and make highlights skimmable
+- docs: document /changes, jobs panel, blocking pre_tool hooks, quota fallback, image provider, and auto-update
+- web: regenerate tailwind.css after the jobs-pill and restart-button markup
+
 ## [2.13.0] — 2026-08-06
 
 ### Added
