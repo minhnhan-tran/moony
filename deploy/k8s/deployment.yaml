@@ -1,0 +1,112 @@
+# moony relay — Deployment.
+#
+# The relay is a stateless reverse proxy: browsers hit :8770, a connector (someone's
+# laptop or a CI box running `moony`) dials OUT to :8771 and serves the real app from
+# their machine. The relay holds no agent, no sessions and no disk state — which is why
+# a read-only root filesystem and multiple replicas are both safe.
+#
+# READ THIS BEFORE SCALING PAST 1 REPLICA: a connector's tunnel is a long-lived TCP
+# connection to ONE pod, and only that pod can serve that connector's sessions. With
+# >1 replica and no session affinity, a browser request can land on a pod with no
+# connector attached and see "waiting for a connector". Options:
+#   - 1 replica (simplest, and fine for a team relay), or
+#   - sessionAffinity: ClientIP on the browser Service (below), plus one connector per
+#     replica, or
+#   - a real L7 with consistent hashing in front.
+# Defaulting to 1 here: correctness beats a bigger number that quietly breaks.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moony-relay
+  labels: &labels
+    app.kubernetes.io/name: moony-relay
+    app.kubernetes.io/component: relay
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moony-relay
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # The relay makes outbound calls only to the OIDC issuer (when auth is on), so it
+      # needs no service account token mounted.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532        # matches USER 65532 in the Dockerfile (distroless nonroot)
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: relay
+          # Pin to a digest or an immutable tag in production; :latest makes rollbacks
+          # ambiguous and defeats the rolling update above.
+          image: ghcr.io/OWNER/moony-relay:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - -addr=0.0.0.0:8770
+            - -tunnel=0.0.0.0:8771
+            - -downloads=/usr/local/share/moony/downloads
+          ports:
+            - name: http
+              containerPort: 8770
+              protocol: TCP
+            - name: tunnel
+              containerPort: 8771
+              protocol: TCP
+          env:
+            # PUBLIC address connectors dial. This value is advertised at /api/relay and
+            # baked into the /install.sh one-liner, so if it is wrong every laptop that
+            # runs the installer gets a daemon that cannot connect. Must be the EXTERNAL
+            # host:port of the tunnel Service, not the cluster-internal one.
+            - name: MN_RELAY_TUNNEL
+              value: "relay.example.com:8771"
+          # Auth is optional and OFF by default: with MN_AUTH unset the relay runs open,
+          # so anyone who can reach it can drive the connected machine's agent. Turn it
+          # on for anything reachable beyond localhost — see deploy/k8s/secret.example.yaml.
+          envFrom:
+            - secretRef:
+                name: moony-relay-auth
+                optional: true
+          # /healthz is served by the relay itself (not proxied to the connector), so it
+          # answers even when no connector is attached — which is the correct readiness
+          # signal: the relay IS ready to accept one.
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 2
+            failureThreshold: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              # No CPU limit on purpose: the relay is a proxy, and throttling it adds
+              # latency to every streamed token. Memory is capped because a leak should
+              # kill the pod rather than the node.
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true   # verified: the relay writes nothing to disk
+            capabilities:
+              drop: ["ALL"]
+      # Give in-flight streams a moment to drain on rollout instead of cutting them.
+      terminationGracePeriodSeconds: 30

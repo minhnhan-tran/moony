@@ -1,0 +1,65 @@
+# Services for the moony relay.
+#
+# TWO services, deliberately, because the relay speaks two different protocols:
+#
+#   :8770  HTTP  — the browser app. Can sit behind an Ingress / L7 load balancer.
+#   :8771  raw TCP — the connector tunnel. It is NOT HTTP, so it cannot share an L7
+#                    ingress; it needs its own L4 (TCP) path to the outside world.
+#
+# Collapsing these into one Ingress is the most common way to deploy this wrong: the
+# browser side works, connectors fail to dial, and the UI just says "waiting for a
+# connector" with nothing obviously broken.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moony-relay
+  labels:
+    app.kubernetes.io/name: moony-relay
+spec:
+  type: ClusterIP
+  # ClientIP affinity keeps a browser pinned to one pod. Harmless at 1 replica, and
+  # required if you scale up (see the note in deployment.yaml).
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800   # 3h — long enough that a working session isn't rehomed
+  selector:
+    app.kubernetes.io/name: moony-relay
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# The tunnel needs a Layer-4 entry point. LoadBalancer is the portable choice; on a
+# bare-metal cluster use a NodePort or MetalLB instead.
+#
+# Whatever address this ends up on MUST match MN_RELAY_TUNNEL in the Deployment, since
+# that is what connectors are told to dial.
+apiVersion: v1
+kind: Service
+metadata:
+  name: moony-relay-tunnel
+  labels:
+    app.kubernetes.io/name: moony-relay
+    app.kubernetes.io/component: tunnel
+  annotations:
+    # Long-lived connections: don't let the LB idle-timeout a connector that is simply
+    # waiting for its next request. (AWS NLB shown; adjust for your provider.)
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+spec:
+  type: LoadBalancer
+  # A connector's tunnel is a long-lived TCP session to one pod, so never rehome it
+  # mid-connection.
+  sessionAffinity: ClientIP
+  # Preserve the client IP so relay-side logs identify the connector, not a node.
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: moony-relay
+  ports:
+    - name: tunnel
+      port: 8771
+      targetPort: tunnel
+      protocol: TCP

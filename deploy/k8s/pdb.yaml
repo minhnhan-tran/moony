@@ -1,0 +1,21 @@
+# PodDisruptionBudget for the relay.
+#
+# Uses maxUnavailable rather than minAvailable on purpose. At replicas: 1 a
+# `minAvailable: 1` budget permits ZERO voluntary evictions, so `kubectl drain` hangs
+# forever and node maintenance silently stalls — a classic self-inflicted outage. With
+# maxUnavailable: 1 a drain proceeds, and the rolling update (maxSurge 1 /
+# maxUnavailable 0) is what actually keeps the relay reachable during a deploy.
+#
+# If you scale to N>1 replicas WITH one connector per replica, switch this to
+# `minAvailable: 1` so a drain can never take every relay at once.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: moony-relay
+  labels:
+    app.kubernetes.io/name: moony-relay
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moony-relay

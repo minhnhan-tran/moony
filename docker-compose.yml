@@ -1,0 +1,73 @@
+# moony relay — single-host deployment.
+#
+#   docker compose up -d --build      # build and run
+#   docker compose logs -f relay      # watch it
+#
+# Then open http://localhost:8770 and, on the machine you want the agent to run on:
+#
+#   moony -relay=localhost:8771       # or: MN_RELAY=localhost:8771 moony
+#
+# The relay serves the browser app; the CONNECTOR (moony on your laptop) is what
+# actually runs the agent, reads your files and executes commands. The relay itself
+# holds no state and no agent.
+
+services:
+  relay:
+    build:
+      context: .
+      # Set WITH_DOWNLOADS=0 for a much faster build that skips cross-compiling the CLI
+      # for four platforms. The relay works either way; /download and /install.sh just
+      # have nothing to offer.
+      args:
+        WITH_DOWNLOADS: "1"
+    image: moony-relay:local
+    # Fixed name so `docker compose exec relay ...` is predictable.
+    container_name: moony-relay
+    restart: unless-stopped
+    ports:
+      - "8770:8770"   # browser app (HTTP)
+      - "8771:8771"   # connector tunnel (raw TCP — not HTTP, cannot go behind an L7 proxy)
+    environment:
+      # PUBLIC address connectors should dial. It is advertised at /api/relay and baked
+      # into the /install.sh one-liner, so it must be reachable FROM the connector's
+      # machine — "localhost" only works when the connector runs on this same host.
+      # Change it to this host's LAN name/IP (e.g. dev-box.local:8771) for anyone else.
+      MN_RELAY_TUNNEL: "localhost:8771"
+
+      # Auth is OFF by default. With it off, anyone who can reach port 8770 can drive
+      # the connected machine's agent — including running shell commands on it. Fine
+      # bound to localhost; turn it on before exposing this beyond your own machine:
+      #
+      # MN_AUTH: "on"
+      # MN_AUTH_SECRET: "generate with: openssl rand -hex 32"
+      # MN_OIDC_ISSUER: "https://accounts.example.com"
+      # MN_OIDC_CLIENT_ID: "moony-relay"
+      # MN_OIDC_CLIENT_SECRET: "..."
+      # MN_OIDC_REDIRECT_URL: "http://localhost:8770/auth/callback"
+      # MN_AUTH_ADMINS: "you@example.com"
+
+    # The image is distroless (no shell/curl), so the healthcheck re-execs the relay in
+    # its own probe mode. Matches the HEALTHCHECK baked into the Dockerfile; repeated
+    # here so `docker compose ps` reports health even for a pulled image.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/relay", "-healthcheck=127.0.0.1:8770"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+    # The relay writes nothing to disk, so lock the filesystem down. No tmpfs needed —
+    # verified: no temp files, no caches.
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Bound memory so a leak kills the container instead of the host. No CPU limit: the
+    # relay proxies streamed tokens, and throttling it shows up as UI latency.
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

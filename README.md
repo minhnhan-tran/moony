@@ -119,6 +119,7 @@ Mix them freely: run cheap models for file reads and a strong one for reasoning,
 | **[Commands & configuration](docs/commands-and-configuration.md)** | Every slash command, key binding and environment variable |
 | **[Web UI & relay](docs/web-and-relay.md)** | Browser front end, relay, task board, background jobs |
 | **[Extensibility](docs/extensibility.md)** | MCP, skills, sub-agents, hooks, plugins |
+| **[Deployment](docs/deployment.md)** | Docker, Kubernetes, TLS, and relay authentication |
 | **[Development](docs/development.md)** | Repo layout, build and test |
 
 ## License

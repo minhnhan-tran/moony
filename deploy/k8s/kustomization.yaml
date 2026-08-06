@@ -1,0 +1,24 @@
+# Apply everything with:  kubectl apply -k deploy/k8s
+#
+# secret.example.yaml is intentionally NOT included: it is a template with placeholder
+# values, and applying it verbatim would install a relay whose MN_AUTH_SECRET is the
+# literal string "replace-me-...". Create the real Secret out-of-band (see the
+# kubectl create secret command in that file); the Deployment references it with
+# optional: true, so the relay starts open until you do.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - pdb.yaml
+  # Browser-side ingress. Drop this if you terminate TLS elsewhere, or if you only reach
+  # the relay in-cluster / via port-forward.
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: moony
+
+images:
+  - name: ghcr.io/OWNER/moony-relay
+    newTag: latest

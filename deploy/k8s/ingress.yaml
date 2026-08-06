@@ -1,0 +1,43 @@
+# Ingress for the BROWSER side of the relay only (:8770).
+#
+# The connector tunnel (:8771) is raw TCP and deliberately absent here — an HTTP ingress
+# cannot carry it. It is exposed by the separate LoadBalancer Service in service.yaml.
+#
+# The relay streams responses over SSE, so the timeouts and buffering settings below are
+# not optional decoration: with a default 60s proxy timeout, every turn longer than a
+# minute dies mid-stream, and with buffering on, tokens arrive in clumps instead of live.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: moony-relay
+  labels:
+    app.kubernetes.io/name: moony-relay
+  annotations:
+    # --- nginx ingress ---
+    # Long-lived SSE streams: a turn can legitimately run for many minutes.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Stream tokens through instead of buffering them into batches.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # File uploads (attachments) and large diffs.
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    # Keep a browser on the pod that holds its connector (see deployment.yaml).
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "moony-relay-pod"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["relay.example.com"]
+      secretName: moony-relay-tls
+  rules:
+    - host: relay.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: moony-relay
+                port:
+                  name: http

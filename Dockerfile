@@ -30,15 +30,28 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/relay ./cmd/relay
 # Cross-compile the CLI (the "terminal": TUI + connector) for the platforms the
 # relay offers at /download + /install.sh — macOS for laptops, Linux for running
 # the agent inside containers/CI. CGO is already off, so these cross-builds work
-# from this Linux builder. SHA256SUMS lets the installer (and humans) verify.
-RUN for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do \
-      os="${t%/*}"; arch="${t#*/}"; \
-      GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
-        -o "/out/dl/moony_${os}_${arch}" . ; \
-    done
-
+# from this Linux builder.
+#
+# Gated behind an ARG because it is four full builds: on a relay-only change you pay
+# for them on every rebuild for downloads nobody asked for. Keep it ON by default so a
+# plain `docker build` still produces a relay whose /install.sh works; turn it off for
+# fast iteration with `--build-arg WITH_DOWNLOADS=0`.
+#
+# When off, /out/dl still gets created (empty) so the runtime COPY below always has a
+# source — otherwise the build would fail instead of just serving no downloads.
 # SHA256SUMS lets the installer (and humans) verify the downloaded binaries.
-RUN (cd /out/dl && sha256sum moony_* > SHA256SUMS)
+ARG WITH_DOWNLOADS=1
+RUN mkdir -p /out/dl && \
+    if [ "$WITH_DOWNLOADS" = "1" ]; then \
+      for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do \
+        os="${t%/*}"; arch="${t#*/}"; \
+        GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
+          -o "/out/dl/moony_${os}_${arch}" . ; \
+      done; \
+      (cd /out/dl && sha256sum moony_* > SHA256SUMS); \
+    else \
+      echo "WITH_DOWNLOADS=0 — skipping the CLI cross-build; /download will be empty" >&2; \
+    fi
 
 # ---- runtime stage --------------------------------------------------------
 # distroless "static" is the smallest, most-hardened base for a static Go
@@ -53,4 +66,14 @@ COPY --from=build /out/dl /usr/local/share/moony/downloads
 # read-only root filesystem is fine too (set it in the Deployment securityContext).
 USER 65532
 EXPOSE 8770 8771
+
+# The image has no shell, curl or wget (distroless), so the probe re-execs the relay
+# binary in its own -healthcheck mode: it GETs /healthz and exits 0/1.
+#
+# Only the browser port is probed. The tunnel port is a raw TCP listener with no
+# handshake to speak, and "no connector attached" is a normal idle state — failing the
+# container for it would restart a perfectly healthy relay.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD ["/usr/local/bin/relay", "-healthcheck=127.0.0.1:8770"]
+
 ENTRYPOINT ["/usr/local/bin/relay", "-addr=0.0.0.0:8770", "-tunnel=0.0.0.0:8771", "-downloads=/usr/local/share/moony/downloads"]

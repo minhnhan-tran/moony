@@ -1,0 +1,58 @@
+# Docker build context excludes.
+#
+# The image builds from `COPY . .`, so anything left here is uploaded to the daemon on
+# every build and invalidates the layer cache whenever it changes. Without this file the
+# context is ~83 MB, of which ~75 MB is .git and bin/ — neither of which the build reads.
+#
+# IMPORTANT: do not exclude anything the binary embeds at compile time. `go:embed` reads
+# from the build context, so excluding an embedded path yields a binary that builds fine
+# and then serves nothing at runtime. Currently embedded:
+#   internal/web/static          -> the entire web UI (web.SPAHandler)
+#   internal/skills/catalog/*.md -> the bundled skills catalog
+#   internal/config/default_global_agents.md
+# Those must stay in.
+
+# Version control and CI metadata.
+.git
+.gitignore
+.github
+
+# Local build output. bin/ alone is ~60 MB and is rebuilt inside the image anyway.
+bin/
+dist/
+*.exe
+# Leading slash matters: a bare `relay` would also match cmd/relay/ and silently
+# exclude the relay's own source, breaking the build.
+/moony
+/relay
+
+# Dependency trees that are only needed to regenerate CSS, never to build the relay.
+node_modules/
+**/node_modules/
+
+# Test artefacts and local scratch.
+*.test
+coverage.out
+*.log
+test/browser/test-results/
+test/browser/playwright-report/
+e2e/
+
+# Editor and OS noise.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Docs and media: not compiled in, and the media/ PNGs are ~350 KB of pure context.
+# (README is kept — it is small and handy for `docker run --rm image cat`-style checks.)
+docs/
+.github/media/
+CHANGELOG.md
+
+# Deployment descriptors describe how to RUN the image; they are never part of it.
+deploy/
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore

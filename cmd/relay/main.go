@@ -15,9 +15,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pysty1995/moony/internal/announce"
@@ -29,14 +31,22 @@ import (
 
 func main() {
 	var (
-		httpAddr   = flag.String("addr", "127.0.0.1:8770", "address to serve the browser UI on")
-		tunnelAddr = flag.String("tunnel", "127.0.0.1:8771", "address connectors dial in on")
-		tunnelPub  = flag.String("tunnel-public", "", "PUBLIC host:port connectors reach the tunnel at (also MN_RELAY_TUNNEL); advertised at /api/relay + baked into /install.sh for the auto-daemon")
-		tlsCert    = flag.String("tls-cert", "", "PEM certificate file to serve HTTPS (also MN_RELAY_TLS_CERT)")
-		tlsKey     = flag.String("tls-key", "", "PEM private key file to serve HTTPS (also MN_RELAY_TLS_KEY)")
-		downloads  = flag.String("downloads", "", "directory of prebuilt CLI binaries to serve at /download + /install.sh")
+		httpAddr    = flag.String("addr", "127.0.0.1:8770", "address to serve the browser UI on")
+		tunnelAddr  = flag.String("tunnel", "127.0.0.1:8771", "address connectors dial in on")
+		tunnelPub   = flag.String("tunnel-public", "", "PUBLIC host:port connectors reach the tunnel at (also MN_RELAY_TUNNEL); advertised at /api/relay + baked into /install.sh for the auto-daemon")
+		tlsCert     = flag.String("tls-cert", "", "PEM certificate file to serve HTTPS (also MN_RELAY_TLS_CERT)")
+		tlsKey      = flag.String("tls-key", "", "PEM private key file to serve HTTPS (also MN_RELAY_TLS_KEY)")
+		downloads   = flag.String("downloads", "", "directory of prebuilt CLI binaries to serve at /download + /install.sh")
+		healthCheck = flag.String("healthcheck", "", "probe MODE: GET /healthz at this host:port and exit 0/1 (for container HEALTHCHECK / k8s exec probes)")
 	)
 	flag.Parse()
+
+	// Probe mode, before any listener is opened. Exists because the runtime image is
+	// distroless: it has no shell, curl or wget, so a container HEALTHCHECK has nothing
+	// to run except this binary. Exits 0 when the relay answers /healthz, 1 otherwise.
+	if addr := strings.TrimSpace(*healthCheck); addr != "" {
+		os.Exit(probeHealth(addr))
+	}
 
 	config.LoadDotEnv() // local-dev .env (won't override real env / Whisper)
 
@@ -197,4 +207,36 @@ func browsable(addr string) string {
 func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "relay: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+// probeHealth GETs /healthz on addr and returns a process exit code: 0 when the relay
+// reports healthy, 1 otherwise. Used by the container HEALTHCHECK and by Kubernetes
+// exec probes, since the distroless runtime image has no HTTP client of its own.
+//
+// Deliberately tiny and dependency-free: a health probe that can itself fail in
+// interesting ways is worse than none.
+func probeHealth(addr string) int {
+	// Accept "8770", ":8770" and "host:port" so the flag is forgiving in a Dockerfile.
+	if !strings.Contains(addr, ":") {
+		addr = "127.0.0.1:" + addr
+	} else if strings.HasPrefix(addr, ":") {
+		addr = "127.0.0.1" + addr
+	}
+	c := &http.Client{Timeout: 3 * time.Second}
+	resp, err := c.Get("http://" + addr + "/healthz")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "healthcheck: %v\n", err)
+		return 1
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64))
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "healthcheck: HTTP %d\n", resp.StatusCode)
+		return 1
+	}
+	if strings.TrimSpace(string(body)) != "ok" {
+		fmt.Fprintf(os.Stderr, "healthcheck: unexpected body %q\n", string(body))
+		return 1
+	}
+	return 0
 }
