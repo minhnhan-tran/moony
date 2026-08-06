@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.12.3] — 2026-08-06
+
+### Fixed
+
+- The background-jobs button and the Jobs tab in Config showed a question mark, and the
+  pair pager's "previous" arrow did the same: `<app-icon>` falls back to a generic "help"
+  glyph when a name is missing from its map or from the subset font, silently and with no
+  console error. Mapped `bolt.horizontal.circle`, and added `chevron_left` (U+E5CB) to both
+  the codepoint map and the vendored font. Unmapped icon names now fail the tests.
+- Persona saves no longer fail with a 400 on every field.
+
 ## [2.12.2] — 2026-08-05
 
 ### Fixed
