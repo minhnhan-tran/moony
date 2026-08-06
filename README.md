@@ -22,22 +22,9 @@
 
 Written in Go, in the spirit of [OpenCode](https://github.com/sst/opencode) and Claude Code. Point it at a local **[Ollama](https://ollama.com)** server with no API key, or at any of **28 supported providers**. It streams the response, calls tools (read/write/edit files, run shell commands, search the tree, drive a browser), and loops until your task is finished — all inside a Bubble Tea TUI, with an optional web UI.
 
-```
-┌ moony ─────────────────────────────────── claude-sonnet-4-6 · ~/repo ┐
-│ You                                                                  │
-│ add a --json flag to the export command                              │
-│                                                                      │
-│ moony                                                                │
-│ I'll update the command and show you the change first.               │
-│ ✓ read_file   {"path":"cmd/export.go"}                               │
-│ ⚙ edit_file   cmd/export.go — 1 match (+6 -1)                        │
-│   - func export(w io.Writer) {                                       │
-│   + func export(w io.Writer, asJSON bool) {                          │
-│ ┌ ⚠ approve edit_file? ────────────────────────────────────────────┐ │
-│ │ y approve    n deny    a always allow this tool                  │ │
-│ └──────────────────────────────────────────────────────────────────┘ │
-└ awaiting approval — y/n/a ─────────────────────────────── ↑1834 ↓212 ┘
-```
+<p align="center">
+  <img src=".github/media/tui.png" alt="moony running in the terminal" width="860">
+</p>
 
 ## Quick start
 
@@ -112,6 +99,10 @@ Inside the TUI, `/help` lists every command, `/model` switches models, `/relay` 
 Mix them freely: run cheap models for file reads and a strong one for reasoning, route embeddings or image generation to a different backend entirely, and — with quota fallback on — hop to the next provider in a chain when one hits its spend budget, then return once the quota resets.
 
 ### Beyond the terminal
+
+<p align="center">
+  <img src=".github/media/web-ui.png" alt="the moony web UI, served through the relay" width="900">
+</p>
 
 | | |
 |---|---|
