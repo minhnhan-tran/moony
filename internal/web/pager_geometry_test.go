@@ -104,6 +104,35 @@ func TestQuickActionsHasNoVisibleLabel(t *testing.T) {
 	}
 }
 
+// The pager's children are laid out by DOM order (.pair-pager is a flex row), so the
+// pair navigator must precede scroll-to-bottom — and the divider, which only appears
+// when both halves show, has to hang off whichever comes SECOND. Mirroring one without
+// the other either loses the divider or draws it on the wrong side.
+func TestPagerChildOrder(t *testing.T) {
+	html := mustReadStatic(t, "index.html")
+	nav, scroll := strings.Index(html, `id="pagerNav"`), strings.Index(html, `id="scrollBtn"`)
+	if nav < 0 || scroll < 0 {
+		t.Fatal("pager is missing #pagerNav or #scrollBtn")
+	}
+	if scroll < nav {
+		t.Error("#scrollBtn precedes #pagerNav; it belongs to the right of the pair navigator")
+	}
+
+	css := mustReadStatic(t, "app.css")
+	if !strings.Contains(css, "#pagerNav:not([hidden]) + #scrollBtn:not([hidden])") {
+		t.Error("the divider must select #scrollBtn as the sibling AFTER #pagerNav to match the DOM order")
+	}
+	if strings.Contains(css, "#scrollBtn:not([hidden]) + #pagerNav") {
+		t.Error("stale divider rule pointing the old direction (#scrollBtn before #pagerNav)")
+	}
+	// .pager-btn is a fixed-width border-box, so a divider that adds border+padding must
+	// restate the width or the chevron gets squeezed off-centre instead of the pill growing.
+	body := ruleBody(css, "#pagerNav:not([hidden]) + #scrollBtn:not([hidden])")
+	if strings.Contains(body, "padding-left") && !strings.Contains(body, "width:") {
+		t.Error("the divider adds padding to a fixed-width .pager-btn without restating width")
+	}
+}
+
 func mustReadStatic(t *testing.T, name string) string {
 	t.Helper()
 	b, err := staticFS.ReadFile("static/" + name)

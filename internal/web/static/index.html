@@ -171,9 +171,6 @@
            offers a reload with the full transcript. -->
       <div id="loadEarlier" class="load-earlier" hidden></div>
       <div id="pager" class="pair-pager" hidden>
-        <button id="scrollBtn" class="pager-btn" type="button" aria-label="Scroll to bottom" hidden>
-          <app-icon name="chevron.down"></app-icon>
-        </button>
         <div id="pagerNav" hidden>
           <button id="pagerPrev" class="pager-btn" type="button" aria-label="Previous question">
             <app-icon name="chevron.left"></app-icon>
@@ -183,6 +180,9 @@
             <app-icon name="chevron.right"></app-icon>
           </button>
         </div>
+        <button id="scrollBtn" class="pager-btn" type="button" aria-label="Scroll to bottom" hidden>
+          <app-icon name="chevron.down"></app-icon>
+        </button>
       </div>
       <!-- Quick actions: a split button whose dropdown fires a preset prompt at
            the agent without typing. Sits beside the pager as a matching frosted

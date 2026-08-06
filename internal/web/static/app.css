@@ -2551,16 +2551,17 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
 }
 
-/* Pager: one bottom-right control merging scroll-to-bottom (#scrollBtn) with
-   the prev/pos/next pair navigator (#pagerNav) — a single shared
+/* Pager: one bottom-right control merging the prev/pos/next pair navigator
+   (#pagerNav) with scroll-to-bottom (#scrollBtn, to its right) — a single shared
    background/border/shadow, not separate floating buttons. Its +10px right
    offset keeps it clear of .pair-a's scrollbar track. Either sub-part
-   shows/hides on its own (scrollBtn per scroll position, pagerNav per pair
-   count); the container itself is hidden only when NEITHER is needed (see
+   shows/hides on its own (pagerNav per pair count, scrollBtn per scroll
+   position); the container itself is hidden only when NEITHER is needed (see
    syncPagerVisibility). The middle "n/total" opens a dropdown listing every
    question in the turn. Positioned relative to .transcript-wrap (the nearest
-   positioned ancestor); DOM order doesn't matter. Its 3rem clearance in
-   .pair-a above keeps it from ever overlapping the answer text. */
+   positioned ancestor); where the pill sits doesn't depend on DOM order, but the
+   order of these two children does set their left-to-right order. Its 3rem
+   clearance in .pair-a above keeps it from ever overlapping the answer text. */
 .pair-pager[hidden] { display: none; }
 .pair-pager {
   position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;   /* +10px clears .pair-a's scrollbar track */
@@ -2588,7 +2589,14 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 }
 #pagerNav { display: flex; align-items: center; gap: .1rem; }
 #pagerNav[hidden] { display: none; }
-#scrollBtn:not([hidden]) + #pagerNav:not([hidden]) { margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge)); } /* divider only when both halves show */
+/* Divider only when both halves show. It hangs off #scrollBtn (the second child now),
+   and the width is restated because .pager-btn is a fixed-width border-box: without it
+   the border+padding would be carved OUT of the 1.35rem box and push the chevron
+   off-centre instead of widening the pill. */
+#pagerNav:not([hidden]) + #scrollBtn:not([hidden]) {
+  margin-left: .15rem; padding-left: .2rem; border-left: 1px solid rgb(var(--c-edge));
+  width: calc(var(--pager-btn) + .2rem + 1px);
+}
 /* Running-count badge: a digit tucked into the button's top-right corner, so a
    glance at the pager says whether anything is still running. */
 .pager-jobs { position: relative; overflow: visible; }
