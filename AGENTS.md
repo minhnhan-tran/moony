@@ -11,6 +11,7 @@
 - After completing any code change, always add a CHANGELOG.md entry and bump config.Version via `make release` (BUMP=patch for fixes, minor for features, major for breaking) — do this automatically as part of finishing the work, don't wait to be asked.
 - After every git commit (including release commits), always run `git push origin main --tags` immediately — don't leave pushes pending.
 - CI (.github/workflows/ci.yml) only runs its test/windows-build/gofmt jobs when the triggering commit message contains the phrase "github build" (case-insensitive), gated by a `gate` job. Include "github build" in a commit message to actually trigger CI on push/PR.
+- Web UI: the manage modal (#manageOverlay / .app-modal) must be closable ONLY via the #manageClose X button — no backdrop-click and no Escape-to-close, so panels can't discard half-filled input.
 
 ### Notes
 
