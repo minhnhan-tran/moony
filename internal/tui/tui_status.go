@@ -29,6 +29,7 @@ func (m *Model) applyUsage(r *llm.UsageResponse) {
 	}
 	m.quotaSpend = r.Usage.Spend
 	m.quotaBudget = r.Quota.Budget.Spend
+	m.quotaBalance, m.quotaBalanceSet = r.Balance, r.BalanceSet
 	m.quotaResetTime = r.Quota.Budget.ResetTime
 	m.quotaTokens = r.Usage.InputTokens + r.Usage.OutputTokens
 	m.quotaTokensMax = r.Quota.Budget.InputTokens + r.Quota.Budget.OutputTokens
@@ -157,13 +158,22 @@ func formatUsage(r *llm.UsageResponse) string {
 		fmt.Fprintf(&b, "Account: dsid %s\n", r.DSID)
 	}
 
-	// Budget: show used / cap and remaining when both are known.
+	// Budget. Three cases, and conflating them would misinform:
+	//   spend + cap   -> a percentage is meaningful
+	//   spend only    -> absolute spend, no invented denominator
+	//   balance only  -> credit REMAINING, which is the opposite of spend
 	used := r.Usage.Spend
 	cap := r.Quota.Budget.Spend
-	if cap > 0 {
+	switch {
+	case cap > 0 && used > 0:
 		pct := used / cap * 100
 		fmt.Fprintf(&b, "Budget: $%s / $%s (%.1f%% used)", formatUSD(used), formatUSD(cap), pct)
-	} else {
+	case r.HasBalance():
+		fmt.Fprintf(&b, "Credit remaining: $%s", formatUSD(r.Balance))
+		if cap > 0 {
+			fmt.Fprintf(&b, " of $%s", formatUSD(cap))
+		}
+	default:
 		fmt.Fprintf(&b, "Spend (24h): $%s", formatUSD(used))
 	}
 	if r.Quota.Budget.ResetTime != "" {

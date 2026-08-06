@@ -28,7 +28,21 @@ type UsageResponse struct {
 	Quota              UsageQuota `json:"quota"`
 	Usage              UsageData  `json:"usage"`
 	LifetimeBatchSpend float64    `json:"lifetime_batch_spend,omitempty"`
+
+	// Balance is prepaid credit REMAINING, for providers that report that instead of
+	// an amount spent (DeepSeek, Moonshot, Z.AI, DeepInfra, Venice — see
+	// quota_providers.go). Kept separate from Usage.Spend on purpose: the two mean
+	// opposite things, and rendering a remaining balance as "spent" would tell the user
+	// the inverse of the truth.
+	//
+	// BalanceSet distinguishes "$0.00 left" (a real and urgent reading) from "no
+	// balance reported", which a bare float cannot express.
+	Balance    float64 `json:"-"`
+	BalanceSet bool    `json:"-"`
 }
+
+// HasBalance reports whether this reading carries a remaining-credit figure.
+func (u *UsageResponse) HasBalance() bool { return u != nil && u.BalanceSet }
 
 // UsageQuota mirrors the `quota` key.
 type UsageQuota struct {
@@ -95,14 +109,32 @@ type UsageModelData struct {
 // IsProject reports whether this response describes project-scoped usage.
 func (r *UsageResponse) IsProject() bool { return r.ProjectID != "" }
 
-// Usage fetches the caller's 24-hour usage/budget snapshot from the SQE Anthropic
-// gateway's /api/usage/v1/personal endpoint (same auth as the Messages API:
-// x-api-key + anthropic-version). It is only available for the sqe-anthropic
-// provider; every other provider returns a "not available" error so callers can
-// degrade gracefully (treating it as "quota unknown" and hiding the display).
+// Usage fetches a quota/usage snapshot for the active provider.
+//
+// Routing:
+//   - sqe-anthropic → the gateway's /api/usage/v1/personal endpoint (below), which
+//     returns the full spend + budget + per-model rate schema.
+//   - any provider with an adapter in quota_providers.go → that provider's own endpoint,
+//     normalized onto the same UsageResponse.
+//   - everything else → an error naming the provider, so the caller can degrade to a
+//     local cost estimate and TELL the user why there is no real reading. Most providers
+//     land here: they either have no such endpoint, or gate it behind an admin/org
+//     credential the inference key doesn't carry.
 func (c *Client) Usage(ctx context.Context) (*UsageResponse, error) {
-	if c.cfg == nil || provider.Normalize(c.cfg.LLMProvider) != provider.SQEAnthropic {
-		return nil, fmt.Errorf("usage/quota stats are only available for the sqe-anthropic provider")
+	if c == nil || c.cfg == nil {
+		return nil, fmt.Errorf("usage/quota stats need a configured client")
+	}
+	if provider.Normalize(c.cfg.LLMProvider) != provider.SQEAnthropic {
+		// providerUsage returns (nil, nil) when the provider has no adapter, keeping
+		// "unsupported" distinguishable from "the request failed".
+		out, err := c.providerUsage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if out != nil {
+			return out, nil
+		}
+		return nil, fmt.Errorf("provider %q exposes no usage/quota endpoint for an inference key", c.cfg.LLMProvider)
 	}
 	key := strings.TrimSpace(c.anthropicKey())
 	if key == "" {

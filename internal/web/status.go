@@ -85,6 +85,7 @@ func (s *Server) statusEvent(sess *sessionpkg.Session, live *session) wireEvent 
 		st.QuotaBudget = budget
 		st.QuotaKnown = quotaKnown
 		st.QuotaName = live.quotaNameSnapshot()
+		st.QuotaBalance, st.QuotaBalanceSet = live.quotaBalanceSnapshot()
 		st.QuotaTokens, st.QuotaTokensMax, st.QuotaTokenRate, st.QuotaTokenRatePeriod = live.quotaTokenSnapshot()
 		// Explain an automatic provider switch: without this the model/provider chip
 		// just silently differs from what the user chose.

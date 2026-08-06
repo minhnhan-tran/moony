@@ -496,7 +496,11 @@ type Model struct {
 	// /usage. quotaFetched flips true on the first successful response so
 	// the status bar can choose between "real quota" and the in-session
 	// estimate.
-	quotaSpend           float64
+	quotaSpend float64
+	// quotaBalance is prepaid credit REMAINING (DeepSeek, Moonshot, Z.AI, DeepInfra,
+	// Venice report this rather than spend); quotaBalanceSet marks a real $0.00.
+	quotaBalance         float64
+	quotaBalanceSet      bool
 	quotaBudget          float64
 	quotaResetTime       string
 	quotaProject         string // non-empty when on a project-scoped account
@@ -1657,9 +1661,14 @@ func (m Model) command(text string) (tea.Model, tea.Cmd) {
 			if m.quotaProject != "" {
 				label = "Usage (24h, project " + m.quotaProject + ")"
 			}
-			if m.quotaBudget > 0 {
+			switch {
+			case m.quotaBudget > 0 && m.quotaSpend > 0:
 				msg += fmt.Sprintf("\n%s: $%s / $%s", label, formatUSD(m.quotaSpend), formatUSD(m.quotaBudget))
-			} else {
+			case m.quotaBalanceSet:
+				// Prepaid providers report credit LEFT, not spent — say which, or the
+				// number reads as the opposite of what it is.
+				msg += fmt.Sprintf("\nCredit remaining: $%s", formatUSD(m.quotaBalance))
+			default:
 				msg += fmt.Sprintf("\n%s: $%s spent (no budget cap)", label, formatUSD(m.quotaSpend))
 			}
 		} else if m.quotaErr != "" {

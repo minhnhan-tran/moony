@@ -143,7 +143,7 @@ Most of these are also editable at runtime from the web UI's **Persona** panel (
 | `MN_QUOTA_FALLBACK` | `0` (off) | opt in to **automatic provider fallback**: when the current backend crosses a spend budget, or hard-refuses with a quota error, switch to the next reachable provider in `MN_PROVIDER_FALLBACKS` and switch back once the quota period resets. Off by default because silently moving traffic to another backend means different models and different billing |
 | `MN_PROVIDER_FALLBACKS` | _(unset)_ | ordered fallback chain, e.g. `anthropic,openai:gpt-4o,ollama:qwen3-coder:30b:high`. Each hop is `provider[:model[:reasoning]]`; a bare provider uses that backend's default model (model ids aren't portable across providers, so every switch changes the model too). Hops with no configured credentials are skipped, unknown provider ids are dropped, and the chain never wraps around onto an exhausted provider |
 | `MN_QUOTA_BUDGET_USD` | _(unset)_ | absolute spend on the current provider that triggers a fallback |
-| `MN_QUOTA_BUDGET_PCT` | _(unset)_ | percentage of the provider's reported quota that triggers a fallback. Skipped when the provider reports no cap. Either threshold alone can fire |
+| `MN_QUOTA_BUDGET_PCT` | _(unset)_ | percentage of the provider's reported quota that triggers a fallback. Skipped when the provider reports no cap — see [Quota readings](#quota-readings) for which providers report one. Either threshold alone can fire |
 | `MN_QUOTA_RESET_AT` | `00:00` | local daily rollover used to schedule the return to the primary provider when the provider doesn't report a reset time (a hard 429 carries none). Set empty to disable the timed restore and stay on the fallback until you switch back by hand |
 | `MN_SANDBOX` | _(off)_ | confine `bash` writes to the working directory (plus temp and common build caches) via `sandbox-exec` (macOS) or `bwrap` (Linux). Set `on`/`1` to enable. Reads, process execution, and network are unaffected. No-op on other platforms or if the confinement tool isn't installed. |
 | `MN_SANDBOX_NET` | _(on)_ | when the sandbox is on, set `0`/`off` to also deny network access to sandboxed commands |
@@ -235,3 +235,40 @@ Every provider except Anthropic, AWS Bedrock, and GitHub Copilot speaks the **Op
 
 Sessions are stored under `~/.config/moony/sessions/`. Your model and reasoning-level choices (set via `/model`, `/models`, or `/reasoning`) persist to `~/.config/moony/config.json` and are restored on the next launch. Precedence is **flags > environment variables > saved config > built-in defaults**. Approval and compaction thresholds (`ApprovalEnabled`, `CompactThresholdTokens`, `CompactKeepTokens`) live in `internal/config`.
 
+
+## Quota readings
+
+The status bar shows a real usage figure when the provider exposes one to the **same API
+key** used for inference. Most don't: quota lives in a dashboard, or behind an admin/org
+credential a normal key doesn't carry. When there's no reading, moony shows an *estimate*
+from local token counts instead, suffixed with `~`, and says which provider couldn't
+report.
+
+| Provider | What it reports | Endpoint |
+|---|---|---|
+| **OpenRouter** | spend **and** limit — the only one with both, so percentage thresholds work | `GET /api/v1/auth/key` |
+| **DeepSeek** | credit remaining | `GET /user/balance` |
+| **Moonshot** | credit remaining | `GET /v1/users/me/balance` |
+| **Z.AI** | credit remaining | `GET /api/paas/v4/account/balance` |
+| **DeepInfra** | balance, or spend + limit | `GET /v1/me` |
+| **Venice** | credit remaining (USD preferred over VCU/DIEM) | `GET /api/v1/api_keys/rate_limits` |
+| **xAI** | no money figure; reports a **blocked or disabled key** | `GET /v1/api-key` |
+| **sqe-anthropic** | full spend + budget + per-model rates | gateway `/api/usage/v1/personal` |
+
+Everything else shows the local estimate:
+
+- **No such endpoint:** Groq, Mistral, Together.ai, Fireworks.ai, NVIDIA NIM, Hugging Face, Cerebras, Perplexity, Gemini.
+- **Needs a different credential:** OpenAI and Anthropic both have usage APIs, but they require an *admin* key, not an inference key. Azure, Vertex and Bedrock bill through their cloud provider's own APIs.
+- **No billing concept:** Ollama, LM Studio, llama.cpp.
+
+### Spend vs remaining credit
+
+These are opposite quantities, and moony labels them differently rather than blurring the
+two. A provider reporting **spend** with a cap shows `$12.50/$100.00`; a prepaid provider
+reporting **credit left** shows `$4.66 left`. Only the first can produce a percentage, so
+`MN_QUOTA_BUDGET_PCT` has no effect on prepaid providers — use `MN_QUOTA_BUDGET_USD` there.
+
+> Endpoint *existence* was verified by probing each provider directly. The exact response
+> field names come from provider documentation and have not all been confirmed against a
+> live paid account, so each parser accepts several spellings and reports "no reading"
+> rather than guessing if the shape is unfamiliar.

@@ -91,28 +91,32 @@ type MenuItem struct {
 // (MCP servers and modified files). Unlike transcript events it isn't part of
 // history; only the latest snapshot is retained and replayed to new viewers.
 type Status struct {
-	Version              string
-	Model                string
-	Provider             string
-	LLMProvider          string // /provider backend (anthropic/gemini/ollama); distinct from Provider (the route)
-	Reasoning            string
-	WorkingDir           string
-	Approval             string
-	Sandbox              string
-	GitBranch            string
-	GitDirty             int
-	GitAhead             int    // commits ahead of upstream
-	GitBehind            int    // commits behind upstream
-	GitUpstream          string // upstream ref (e.g. origin/main)
-	Host                 string // the terminal machine's local name (e.g. macOS Computer Name)
-	Relay                string // relay connection state: "", "connecting", "connected", "retrying"
-	TokensIn             int
-	TokensOut            int
-	CostUSD              float64
-	QuotaSpend           float64
-	QuotaBudget          float64
-	QuotaKnown           bool
-	QuotaName            string // "personal" or a gateway project name (status-bar tooltip)
+	Version     string
+	Model       string
+	Provider    string
+	LLMProvider string // /provider backend (anthropic/gemini/ollama); distinct from Provider (the route)
+	Reasoning   string
+	WorkingDir  string
+	Approval    string
+	Sandbox     string
+	GitBranch   string
+	GitDirty    int
+	GitAhead    int    // commits ahead of upstream
+	GitBehind   int    // commits behind upstream
+	GitUpstream string // upstream ref (e.g. origin/main)
+	Host        string // the terminal machine's local name (e.g. macOS Computer Name)
+	Relay       string // relay connection state: "", "connecting", "connected", "retrying"
+	TokensIn    int
+	TokensOut   int
+	CostUSD     float64
+	QuotaSpend  float64
+	QuotaBudget float64
+	QuotaKnown  bool
+	QuotaName   string // "personal" or a gateway project name (status-bar tooltip)
+	// QuotaBalance is prepaid credit REMAINING, for providers that report that instead
+	// of an amount spent. QuotaBalanceSet separates a real $0.00 from "not reported".
+	QuotaBalance         float64
+	QuotaBalanceSet      bool
 	QuotaTokens          int    // tokens used in the quota period (24h)
 	QuotaTokensMax       int    // per-day token cap, when the budget carries one
 	QuotaTokenRate       int    // token rate limit (tokens per period)

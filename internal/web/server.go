@@ -1410,9 +1410,21 @@ func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 		// name when a project token is in use, else "personal".
 		quotaName := strings.TrimSpace(resp.ProjectName)
 		if quotaName == "" {
-			quotaName = "personal"
+			// Only the SQE gateway reports a project name; for every other provider the
+			// useful label is which provider answered, so the tooltip explains where the
+			// figure came from rather than claiming "personal" for all of them.
+			pid := ""
+			if c := live.agent.Config(); c != nil {
+				pid = strings.TrimSpace(c.LLMProvider)
+			}
+			if pid != "" && provider.Normalize(pid) != provider.SQEAnthropic {
+				quotaName = provider.Label(provider.Normalize(pid))
+			} else {
+				quotaName = "personal"
+			}
 		}
-		live.setQuota(resp.Usage.Spend, resp.Quota.Budget.Spend, quotaName,
+		live.setQuotaFull(resp.Usage.Spend, resp.Quota.Budget.Spend,
+			resp.Balance, resp.BalanceSet, quotaName,
 			resp.Usage.InputTokens+resp.Usage.OutputTokens,
 			resp.Quota.Budget.InputTokens+resp.Quota.Budget.OutputTokens,
 			resp.Quota.Rates.Tokens, resp.Quota.Rates.TokensPeriod)

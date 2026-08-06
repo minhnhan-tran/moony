@@ -2338,13 +2338,17 @@ function renderStats() {
   // report a quota (see llm.Client.Usage), so on everything else this is the
   // estimate — but it must still show, or the bar looks like it lost a field.
   const quotaLabel = s.quotaKnown
-    ? (s.quotaBudget > 0 ? `${fmtUSD(s.quotaSpend)}/${fmtUSD(s.quotaBudget)}` : `${fmtUSD(s.quotaSpend)} 24h`)
+    ? (s.quotaBudget > 0 ? `${fmtUSD(s.quotaSpend)}/${fmtUSD(s.quotaBudget)}`
+      : s.quotaBalanceSet ? `${fmtUSD(s.quotaBalance)} left`
+      : `${fmtUSD(s.quotaSpend)} 24h`)
     : (s.costUSD > 0 ? `${fmtUSD(s.costUSD)}~` : "");
   if (quotaLabel) {
     const wrap = el("span", "inline-flex items-center gap-1 cursor-pointer stat-quota");
     wrap.setAttribute("role", "button");
     wrap.tabIndex = 0;
-    wrap.title = s.quotaKnown ? "Usage quota — click for details" : "Estimated session cost — click for details";
+    wrap.title = s.quotaKnown
+      ? (s.quotaBalanceSet ? "Prepaid credit remaining — click for details" : "Usage quota — click for details")
+      : "Estimated session cost — click for details";
     const openQuota = (e) => { e.stopPropagation(); openHdrInfo(wrap, "quota", quotaInfoRows(s)); };
     wrap.onclick = openQuota;
     wrap.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openQuota(e); } };
@@ -2354,6 +2358,12 @@ function renderStats() {
     const lbl = el("span", null, quotaLabel);
     if (spent >= 100) lbl.style.color = themeColor("--c-danger");
     else if (spent >= 90) lbl.style.color = themeColor("--c-warn");
+    // Prepaid credit has no percentage to compare against, so warn on the absolute
+    // amount left — running out mid-turn is the failure this is meant to pre-empt.
+    else if (s.quotaKnown && s.quotaBalanceSet) {
+      if (s.quotaBalance <= 0) lbl.style.color = themeColor("--c-danger");
+      else if (s.quotaBalance < 1) lbl.style.color = themeColor("--c-warn");
+    }
     wrap.appendChild(lbl);
     parts.push(wrap);
   }
@@ -2394,13 +2404,24 @@ function quotaInfoRows(s) {
   if (!s.quotaKnown) {
     const rows = [{ label: "Session cost", desc: s.model || "current model" }];
     rows.push({ label: `${fmtUSD(s.costUSD)}~`, desc: "estimated from this session's token usage" });
-    rows.push({ label: "No quota reading", desc: "this provider exposes no usage endpoint" });
+    // Name the provider: "no usage endpoint" is confusing when the same UI shows a real
+    // reading on other backends, so say WHICH one can't report.
+    rows.push({
+      label: "No quota reading",
+      desc: (s.provider ? providerLabel(s.provider) + " exposes" : "this provider exposes") +
+            " no usage endpoint for an inference key",
+    });
     return rows;
   }
   const rows = [{ label: "Usage quota", desc: s.quotaName || "current provider" }];
   if (s.quotaBudget > 0) {
     rows.push({ label: `${fmtUSD(s.quotaSpend)} / ${fmtUSD(s.quotaBudget)}`, desc: "spend / budget" });
     rows.push({ label: `${Math.round((s.quotaSpend / s.quotaBudget) * 100)}%`, desc: "of budget used" });
+  } else if (s.quotaBalanceSet) {
+    // Prepaid providers report credit REMAINING, not spend. Labelling this "spend"
+    // would state the exact inverse of the truth.
+    rows.push({ label: fmtUSD(s.quotaBalance), desc: "credit remaining" });
+    rows.push({ label: `${fmtUSD(s.costUSD)}~`, desc: "this session's estimated cost" });
   } else {
     rows.push({ label: fmtUSD(s.quotaSpend), desc: "spend, last 24h" });
   }

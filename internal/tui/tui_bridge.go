@@ -221,6 +221,8 @@ func (m Model) publishStatus() {
 		QuotaBudget:          m.quotaBudget,
 		QuotaKnown:           m.quotaFetched,
 		QuotaName:            quotaName(m.quotaFetched, m.quotaProject),
+		QuotaBalance:         m.quotaBalance,
+		QuotaBalanceSet:      m.quotaBalanceSet,
 		QuotaTokens:          m.quotaTokens,
 		QuotaTokensMax:       m.quotaTokensMax,
 		QuotaTokenRate:       m.quotaTokenRate,

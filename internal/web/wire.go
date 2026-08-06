@@ -222,23 +222,29 @@ type statusWire struct {
 	// Agent is the active primary profile's name (build / plan / a custom
 	// persona), so the browser can show it as a badge and offer a switcher
 	// (parity with the TUI's /agent and Tab).
-	Agent                string  `json:"agent,omitempty"`
-	Approval             string  `json:"approval,omitempty"`
-	Sandbox              string  `json:"sandbox,omitempty"`
-	GitBranch            string  `json:"gitBranch,omitempty"`
-	GitDirty             int     `json:"gitDirty,omitempty"`
-	GitAhead             int     `json:"gitAhead,omitempty"`    // commits ahead of upstream
-	GitBehind            int     `json:"gitBehind,omitempty"`   // commits behind upstream
-	GitUpstream          string  `json:"gitUpstream,omitempty"` // upstream ref, e.g. origin/main
-	Host                 string  `json:"host,omitempty"`
-	Relay                string  `json:"relay,omitempty"`
-	TokensIn             int     `json:"tokensIn"`
-	TokensOut            int     `json:"tokensOut"`
-	CostUSD              float64 `json:"costUSD,omitempty"`
-	QuotaSpend           float64 `json:"quotaSpend,omitempty"`
-	QuotaBudget          float64 `json:"quotaBudget,omitempty"`
-	QuotaKnown           bool    `json:"quotaKnown,omitempty"`
-	QuotaName            string  `json:"quotaName,omitempty"`            // tooltip: the gateway's project name, or "personal"
+	Agent       string  `json:"agent,omitempty"`
+	Approval    string  `json:"approval,omitempty"`
+	Sandbox     string  `json:"sandbox,omitempty"`
+	GitBranch   string  `json:"gitBranch,omitempty"`
+	GitDirty    int     `json:"gitDirty,omitempty"`
+	GitAhead    int     `json:"gitAhead,omitempty"`    // commits ahead of upstream
+	GitBehind   int     `json:"gitBehind,omitempty"`   // commits behind upstream
+	GitUpstream string  `json:"gitUpstream,omitempty"` // upstream ref, e.g. origin/main
+	Host        string  `json:"host,omitempty"`
+	Relay       string  `json:"relay,omitempty"`
+	TokensIn    int     `json:"tokensIn"`
+	TokensOut   int     `json:"tokensOut"`
+	CostUSD     float64 `json:"costUSD,omitempty"`
+	QuotaSpend  float64 `json:"quotaSpend,omitempty"`
+	QuotaBudget float64 `json:"quotaBudget,omitempty"`
+	QuotaKnown  bool    `json:"quotaKnown,omitempty"`
+	QuotaName   string  `json:"quotaName,omitempty"` // tooltip: the gateway's project name, or "personal"
+	// QuotaBalance is prepaid credit REMAINING (DeepSeek, Moonshot, Z.AI, DeepInfra,
+	// Venice report this instead of an amount spent). QuotaBalanceSet distinguishes a
+	// real "$0.00 left" from "this provider reports no balance" — omitempty alone
+	// cannot, since 0 is a meaningful value here.
+	QuotaBalance         float64 `json:"quotaBalance,omitempty"`
+	QuotaBalanceSet      bool    `json:"quotaBalanceSet,omitempty"`
 	QuotaTokens          int     `json:"quotaTokens,omitempty"`          // tokens used in the quota period (24h)
 	QuotaTokensMax       int     `json:"quotaTokensMax,omitempty"`       // per-day token cap, when the budget carries one
 	QuotaTokenRate       int     `json:"quotaTokenRate,omitempty"`       // token rate limit (tokens per period)

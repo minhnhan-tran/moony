@@ -64,14 +64,19 @@ type session struct {
 	btwBusy bool
 
 	// usage accumulated across this session's turns (from TurnDone events).
-	tokensIn             int
-	tokensOut            int
-	cachedIn             int     // of tokensIn, the portion read from the prompt cache (cheap)
-	cacheCreateIn        int     // of tokensIn, the portion that wrote new cache entries
-	lastTurnIn           int     // input tokens of the most recent turn (for context %)
-	quotaSpend           float64 // authoritative provider 24h usage, when fetched
-	quotaBudget          float64
-	quotaKnown           bool
+	tokensIn      int
+	tokensOut     int
+	cachedIn      int     // of tokensIn, the portion read from the prompt cache (cheap)
+	cacheCreateIn int     // of tokensIn, the portion that wrote new cache entries
+	lastTurnIn    int     // input tokens of the most recent turn (for context %)
+	quotaSpend    float64 // authoritative provider 24h usage, when fetched
+	quotaBudget   float64
+	quotaKnown    bool
+	// quotaBalance is prepaid credit REMAINING, for providers that report that rather
+	// than an amount spent. Separate from quotaSpend because the two mean opposite
+	// things; quotaBalanceSet distinguishes a real $0.00 from "not reported".
+	quotaBalance         float64
+	quotaBalanceSet      bool
 	quotaName            string // label for the quota source: a provider project name, or "personal"
 	quotaTokens          int    // tokens used in the quota period (24h), when fetched
 	quotaTokensMax       int    // per-day token cap, when the provider budget carries one (often 0)
@@ -302,8 +307,16 @@ func (s *session) cacheSnapshot() (read, create int) {
 // tokens used; tokensMax is the per-day token cap (0 when the budget has none);
 // rate/ratePeriod are the token rate limit and its window (e.g. 1e9 per "4m").
 func (s *session) setQuota(spend, budget float64, name string, tokens, tokensMax, rate int, ratePeriod string) {
+	s.setQuotaFull(spend, budget, 0, false, name, tokens, tokensMax, rate, ratePeriod)
+}
+
+// setQuotaFull is setQuota plus a remaining-credit figure, for providers that report a
+// prepaid BALANCE instead of an amount spent. balanceSet distinguishes "$0.00 left" —
+// real, and worth shouting about — from "this provider reports no balance".
+func (s *session) setQuotaFull(spend, budget, balance float64, balanceSet bool, name string, tokens, tokensMax, rate int, ratePeriod string) {
 	s.mu.Lock()
 	s.quotaSpend, s.quotaBudget, s.quotaKnown, s.quotaName = spend, budget, true, name
+	s.quotaBalance, s.quotaBalanceSet = balance, balanceSet
 	s.quotaTokens, s.quotaTokensMax = tokens, tokensMax
 	s.quotaTokenRate, s.quotaTokenRatePeriod = rate, ratePeriod
 	s.mu.Unlock()
@@ -316,6 +329,7 @@ func (s *session) setQuota(spend, budget float64, name string, tokens, tokensMax
 func (s *session) clearQuota() {
 	s.mu.Lock()
 	s.quotaSpend, s.quotaBudget, s.quotaKnown, s.quotaName = 0, 0, false, ""
+	s.quotaBalance, s.quotaBalanceSet = 0, false
 	s.quotaTokens, s.quotaTokensMax = 0, 0
 	s.quotaTokenRate, s.quotaTokenRatePeriod = 0, ""
 	s.mu.Unlock()
@@ -335,6 +349,13 @@ func (s *session) quotaNameSnapshot() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.quotaName
+}
+
+// quotaBalanceSnapshot returns the remaining-credit figure and whether one was reported.
+func (s *session) quotaBalanceSnapshot() (float64, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.quotaBalance, s.quotaBalanceSet
 }
 
 // publishEvent appends a fully-formed wire event to history and fans it out to
