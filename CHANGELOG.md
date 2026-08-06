@@ -5,6 +5,37 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.13.0] — 2026-08-06
+
+### Added
+
+- Each row in the background-jobs panel has a **Restart** button: it stops the job when
+  it is still running, waits for the process to actually exit, then re-runs the same
+  command and TTY mode as a new job. The re-run goes back through `POST /jobs`, so it
+  faces the same approval prompt and destructive-command refusal as the original start.
+
+### Changed
+
+- Background jobs moved out of the turn pager into their own floating pill, left of the
+  quick actions. The pager no longer lingers as an empty frame around the jobs button
+  alone, and the running count stays visible when the pager hides itself. The one-off
+  pager-width offset became `syncFloatingPills`, which lays the strip out right-to-left
+  from measured widths so each pill can appear and resize independently.
+- The quick-actions pill is icon-only; the selected preset's name now lives in its
+  tooltip and accessible name, so the pill's width no longer varies with the preset.
+- Scroll-to-bottom sits to the right of the pair navigator in the pager, with the
+  divider flipped to match.
+- The manage modal closes only via its X button — backdrop-click and Escape are gone, so
+  a stray click can no longer discard a half-filled panel (a typed provider key, an
+  edited skill).
+
+### Fixed
+
+- The quick-actions pill rendered 6.4px shorter than the turn pager beside it: it sized
+  its halves to `.pager-btn` alone, but the pager also pads around that button, and under
+  `box-sizing: border-box` that padding sits inside the halves' `min-height`. Both pills
+  now derive from shared `--pager-*` tokens.
+
 ## [2.12.3] — 2026-08-06
 
 ### Fixed
