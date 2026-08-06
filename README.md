@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
   <a href="#highlights">Highlights</a> ·
+  <a href="#quick-start">Quick start</a> ·
   <a href="docs/getting-started.md">Docs</a> ·
   <a href="docs/web-and-relay.md">Web UI</a>
 </p>
@@ -25,39 +25,6 @@ Written in Go, in the spirit of [OpenCode](https://github.com/sst/opencode) and 
 <p align="center">
   <img src=".github/media/tui.png" alt="moony running in the terminal" width="860">
 </p>
-
-## Quick start
-
-```sh
-git clone https://github.com/minhnhan-tran/moony && cd moony
-make build         # -> ./bin/moony
-```
-
-Then pick a backend. Local, no key, nothing to sign up for:
-
-```sh
-ollama serve &
-ollama pull llama3.1:8b     # moony's default model
-./bin/moony
-```
-
-…or use a hosted provider:
-
-```sh
-export MN_OPENAI_API_KEY=sk-...     # or MN_ANTHROPIC_API_KEY, MN_GEMINI_API_KEY, …
-./bin/moony -model gpt-5
-```
-
-Useful from the first run:
-
-```sh
-./bin/moony -p "explain what this repo does"   # headless: one prompt, then exit
-./bin/moony --continue                         # resume your last session
-```
-
-Inside the TUI, `/help` lists every command, `/model` switches models, `/relay` connects you to the browser UI, and `/init` writes an `AGENTS.md` so the agent learns your project's conventions. Full walkthrough: **[docs/getting-started.md](docs/getting-started.md)**.
-
-> **Requirements:** Go 1.26+ to build. Everything else is optional — `git` for worktree features, `ripgrep` for faster search, Node only if you touch the web UI's CSS.
 
 ## Highlights
 
@@ -110,6 +77,39 @@ Mix them freely: run cheap models for file reads and a strong one for reasoning,
 | **Extensible** | MCP servers, Agent Skills, custom sub-agents, lifecycle hooks, and Bubble Tea plugins. |
 | **Automation** | Headless single-prompt runs with JSON output, scheduled prompts, multi-step workflows, and an always-on daemon that can keep itself updated. |
 | **LSP + debugging** | Real diagnostics from your language server, and DAP breakpoints for stepping through a failure. |
+
+## Quick start
+
+```sh
+git clone https://github.com/minhnhan-tran/moony && cd moony
+make build         # -> ./bin/moony
+```
+
+Then pick a backend. Local, no key, nothing to sign up for:
+
+```sh
+ollama serve &
+ollama pull llama3.1:8b     # moony's default model
+./bin/moony
+```
+
+…or use a hosted provider:
+
+```sh
+export MN_OPENAI_API_KEY=sk-...     # or MN_ANTHROPIC_API_KEY, MN_GEMINI_API_KEY, …
+./bin/moony -model gpt-5
+```
+
+Useful from the first run:
+
+```sh
+./bin/moony -p "explain what this repo does"   # headless: one prompt, then exit
+./bin/moony --continue                         # resume your last session
+```
+
+Inside the TUI, `/help` lists every command, `/model` switches models, `/relay` connects you to the browser UI, and `/init` writes an `AGENTS.md` so the agent learns your project's conventions. Full walkthrough: **[docs/getting-started.md](docs/getting-started.md)**.
+
+> **Requirements:** Go 1.26+ to build. Everything else is optional — `git` for worktree features, `ripgrep` for faster search, Node only if you touch the web UI's CSS.
 
 ## Documentation
 
