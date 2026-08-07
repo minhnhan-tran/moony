@@ -5,6 +5,24 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.15.1] — 2026-08-07
+
+### Fixed
+
+- SQE Anthropic sessions no longer report themselves as plain **Anthropic**. The quota
+  popover read the wire-family label from the status payload instead of the actual
+  provider, so an SQE session whose quota fetch failed claimed "Anthropic exposes no
+  usage endpoint" — the wrong backend, and untrue, since SQE Anthropic is the only
+  provider that does report real quota. Three error messages in the shared
+  Anthropic-wire client likewise hardcoded `MN_ANTHROPIC_API_KEY` (a variable that
+  ranks *behind* `MN_SQE_ANTHROPIC_API_KEY`, so the advice appeared not to work) and
+  named "the Anthropic API" when the endpoint is a LAN gateway.
+- The documented fallback from `MN_SQE_ANTHROPIC_API_KEY` to `MN_ANTHROPIC_API_KEY`
+  now applies per request, not only at startup — a key entered in the Persona panel
+  sets the Anthropic field alone, so the fallback the config field and the panel card
+  both promise had silently stopped holding after launch. The reverse never applies:
+  an SQE credential is never sent to `api.anthropic.com`.
+
 ## [2.15.0] — 2026-08-07
 
 ### Added
