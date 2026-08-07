@@ -952,6 +952,16 @@ body.agent-awaiting .app-statusbar::after {
 /* ---- Persona panel (env/config form: stacked fields, masked secrets) ------ */
 .persona-form { display: flex; flex-direction: column; gap: 1rem; margin-top: .25rem; }
 .persona-section-title { margin-top: .75rem; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: rgb(var(--c-faint)); }
+/* Add-an-env-var form and the user-added fields it produces. The name input is wider
+   than the value: a variable name is long and must be readable to be checked, while the
+   value is masked anyway. A field queued for removal dims instead of disappearing, so
+   the removal is visible but reversible until Save. */
+.persona-addenv { margin-top: .5rem; }
+.persona-addenv .persona-row > .persona-input:first-child { flex: 2 1 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+.persona-custom-head { align-items: baseline; justify-content: space-between; gap: .5rem; }
+.persona-custom-head .persona-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.persona-removing { opacity: .5; }
+.persona-removing .persona-input { text-decoration: line-through; }
 .persona-scroll { display: flex; flex-direction: column; gap: 1rem; max-height: 40vh; overflow-y: auto; padding-right: .4rem; border-top: 1px solid rgb(var(--c-edge)); padding-top: 1rem; }
 .persona-field { display: flex; flex-direction: column; gap: .3rem; }
 /* Fast model / Self-review model: their 3 fields (model list, provider,

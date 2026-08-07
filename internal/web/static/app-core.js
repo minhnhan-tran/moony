@@ -4659,13 +4659,22 @@ async function renderPersona() {
   // persist saves all fields, then re-renders from the server response. Shared by
   // the Save button and the provider selects — changing the Fast/Self-review
   // provider must refetch that provider's model catalogue into the model dropdown.
-  const persist = async () => {
+  // Names the user asked to delete this round. Collected rather than sent immediately so
+  // one Save applies edits and removals together, and so a mis-click can be undone by
+  // closing the panel instead of having already destroyed a value.
+  const pendingRemovals = new Set();
+
+  const persist = async (extra) => {
     const payload = {};
     for (const f of fields) {
+      // A field queued for removal must not also submit its (masked) value back.
+      if (f.custom && pendingRemovals.has(f.label)) continue;
       const v = readers[f.key] ? readers[f.key]() : undefined;
       if (f.type === "secret") { if (v) payload[f.key] = v; } // blank secret => keep existing
       else payload[f.key] = v;
     }
+    if (pendingRemovals.size) payload.envVarRemove = [...pendingRemovals];
+    Object.assign(payload, extra || {});
     status.textContent = "Saving…";
     try {
       const r = await fetch(api(`/api/sessions/${current}/persona`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -4710,7 +4719,28 @@ async function renderPersona() {
       // dropdown, so persist + re-render on change (the model list is server-side).
       if (f.key === "fastProvider" || f.key === "auxProvider") sel.onchange = () => { persist(); };
     } else {
-      field.append(el("div", "persona-label", f.label));
+      if (f.custom) {
+        // User-added var: label plus a remove control, since nothing else in the UI can
+        // take a hand-typed name back out of the dotenv.
+        const head = el("div", "persona-row persona-custom-head");
+        head.append(el("div", "persona-label", f.label));
+        const rm = el("button", "persona-reveal"); rm.type = "button";
+        const paint = () => {
+          const queued = pendingRemovals.has(f.label);
+          rm.textContent = queued ? "undo" : "remove";
+          field.classList.toggle("persona-removing", queued);
+        };
+        rm.onclick = () => {
+          if (pendingRemovals.has(f.label)) pendingRemovals.delete(f.label);
+          else pendingRemovals.add(f.label);
+          paint();
+        };
+        paint();
+        head.append(rm);
+        field.append(head);
+      } else {
+        field.append(el("div", "persona-label", f.label));
+      }
       if (f.desc) field.append(el("div", "persona-desc", f.desc));
       if (f.type === "secret") {
         const inp = el("input", "access-input persona-input"); inp.type = "password";
@@ -4820,6 +4850,38 @@ async function renderPersona() {
     }
   }
   body.append(form);
+
+  // Add an env var the panel didn't discover — a provider or tool that needs a variable
+  // no MCP server, skill or agent declares. Saved to the dotenv like any other, and it
+  // comes back as a removable field on the next open (see customEnvFields).
+  const addWrap = el("div", "persona-addenv");
+  addWrap.append(el("div", "persona-section-title", "Add environment variable"));
+  const addName = el("input", "access-input persona-input");
+  addName.placeholder = "NAME (e.g. FOO_API_KEY)";
+  addName.spellcheck = false;
+  addName.autocapitalize = "characters";
+  const addVal = el("input", "access-input persona-input"); addVal.type = "password";
+  addVal.placeholder = "value";
+  const addBtn = el("button", "persona-reveal", "Add");
+  addBtn.type = "button";
+  const addRow = el("div", "persona-row"); addRow.append(addName, addVal, addBtn);
+  addWrap.append(addRow);
+  addWrap.append(el("div", "persona-desc",
+    "Applied live and saved to ~/.config/moony/.env. Names are UPPER_SNAKE_CASE; a few the agent depends on (PATH, HOME, the loader hooks) are refused."));
+  const doAdd = async () => {
+    const name = addName.value.trim().toUpperCase();
+    const val = addVal.value;
+    // Validate here as well as on the server: a bad name would otherwise be dropped
+    // silently by the server's gate, which reads as "Saved" with nothing added.
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) { status.textContent = "Not a valid variable name."; addName.focus(); return; }
+    if (!val.trim()) { status.textContent = "Give the variable a value."; addVal.focus(); return; }
+    addBtn.disabled = true;
+    try { await persist({ ["envVar:" + name]: val }); } finally { addBtn.disabled = false; }
+  };
+  addBtn.onclick = doAdd;
+  addVal.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doAdd(); } };
+  body.append(addWrap);
+
   const save = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5", "Save");
   save.onclick = () => persist();
   const actions = el("div", "persona-actions"); actions.append(save, status);

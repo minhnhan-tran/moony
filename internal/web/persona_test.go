@@ -49,7 +49,7 @@ func TestApplyEnvTokenEdits(t *testing.T) {
 // Discovered tokens must reach the persistent dotenv, not just os.Setenv -- otherwise
 // the panel takes a credential, reports "Saved", and loses it on the next restart.
 func TestEnvPersistSetIncludesDiscoveredTokens(t *testing.T) {
-	up := envPersistSet(personaEdit{}, map[string]string{"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_1"})
+	up := envPersistSet(personaEdit{}, envWrite{tokens: map[string]string{"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_1"}})
 	if up["GITHUB_PERSONAL_ACCESS_TOKEN"] != "ghp_1" {
 		t.Errorf("discovered token missing from the persist set: %v", up)
 	}
@@ -60,7 +60,7 @@ func TestEnvPersistSetIncludesDiscoveredTokens(t *testing.T) {
 // so it must not be overwritten by whatever the discovered field happened to hold.
 func TestEnvPersistSetProviderWinsCollision(t *testing.T) {
 	typed := "sk-from-provider-card"
-	up := envPersistSet(personaEdit{OpenAIAPIKey: &typed}, map[string]string{"MN_OPENAI_API_KEY": "sk-from-discovered"})
+	up := envPersistSet(personaEdit{OpenAIAPIKey: &typed}, envWrite{tokens: map[string]string{"MN_OPENAI_API_KEY": "sk-from-discovered"}})
 	if up["MN_OPENAI_API_KEY"] != typed {
 		t.Errorf("MN_OPENAI_API_KEY = %q, want the typed provider value %q", up["MN_OPENAI_API_KEY"], typed)
 	}
@@ -70,7 +70,7 @@ func TestEnvPersistSetProviderWinsCollision(t *testing.T) {
 // so a blank field would wipe a stored credential instead of keeping it.
 func TestEnvPersistSetNeverEmptiesTokens(t *testing.T) {
 	blank := ""
-	for k, v := range envPersistSet(personaEdit{OpenAIAPIKey: &blank}, map[string]string{}) {
+	for k, v := range envPersistSet(personaEdit{OpenAIAPIKey: &blank}, envWrite{}) {
 		if strings.TrimSpace(v) == "" {
 			t.Errorf("%s persists as empty, which would delete it from the dotenv", k)
 		}
@@ -87,7 +87,7 @@ func TestDiscoveredTokenReachesDotEnv(t *testing.T) {
 	tokens := applyEnvTokenEdits(map[string]json.RawMessage{
 		"envToken:GITHUB_PERSONAL_ACCESS_TOKEN": json.RawMessage(`"ghp_persisted"`),
 	})
-	if err := config.UpsertDotEnv(envPersistSet(personaEdit{}, tokens)); err != nil {
+	if err := config.UpsertDotEnv(envPersistSet(personaEdit{}, envWrite{tokens: tokens})); err != nil {
 		t.Fatalf("UpsertDotEnv: %v", err)
 	}
 	b, err := os.ReadFile(path)

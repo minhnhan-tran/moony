@@ -35,11 +35,48 @@ import (
 // fields in the Persona panel so their keys don't collide with the typed fields.
 const tokenEnvFieldPrefix = "envToken:"
 
+// customEnvFieldPrefix namespaces env vars the USER added by hand in the panel.
+// Kept distinct from tokenEnvFieldPrefix because the two are validated differently:
+// a discovered name must look like a credential (it was harvested from config we
+// merely read), whereas a hand-typed name is an explicit instruction and only has to
+// be a legal, non-hazardous variable name.
+const customEnvFieldPrefix = "envVar:"
+
+// customEnvRemoveKey is the POST field listing user-added vars to delete: adding a var
+// with no way back would leave a typo in the dotenv forever.
+const customEnvRemoveKey = "envVarRemove"
+
 // tokenVarRe matches env-var names that look like a personal credential, so the
 // panel only surfaces secrets and not arbitrary config vars (NODE_ENV, etc.).
 var tokenVarRe = regexp.MustCompile(`(?i)(TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|API[_-]?KEY|(^|_)KEY$|(^|_)PAT$)`)
 
 func looksLikeTokenVar(name string) bool { return tokenVarRe.MatchString(name) }
+
+// envVarNameRe is the POSIX-ish shape of a legal environment variable name.
+var envVarNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// protectedEnvVars are never settable from the panel. Two kinds: vars that would
+// break or hijack the running process (PATH, the dynamic-loader hooks), and vars whose
+// meaning the agent itself depends on. A hand-typed name is explicit, but "explicit"
+// is not the same as "safe" — the panel is reachable by anyone who can reach the
+// session, so it must not become a way to run code in the connector.
+var protectedEnvVars = map[string]bool{
+	"PATH": true, "HOME": true, "USERPROFILE": true, "SHELL": true, "COMSPEC": true,
+	"SYSTEMROOT": true, "WINDIR": true, "TEMP": true, "TMP": true, "TMPDIR": true,
+	"PWD": true, "OLDPWD": true, "USER": true, "LOGNAME": true,
+	"LD_PRELOAD": true, "LD_LIBRARY_PATH": true, "LD_AUDIT": true,
+	"DYLD_INSERT_LIBRARIES": true, "DYLD_LIBRARY_PATH": true, "DYLD_FRAMEWORK_PATH": true,
+	"GOROOT": true, "GOPATH": true, "GOTOOLCHAIN": true,
+	"MN_ENV_FILE": true, // redirecting the dotenv from inside the panel that writes it
+}
+
+// validEnvVarName reports whether a hand-typed name may be set from the panel.
+func validEnvVarName(name string) bool {
+	if len(name) == 0 || len(name) > 128 || !envVarNameRe.MatchString(name) {
+		return false
+	}
+	return !protectedEnvVars[strings.ToUpper(name)]
+}
 
 // personaField describes one editable knob for the panel UI.
 type personaField struct {
@@ -54,6 +91,7 @@ type personaField struct {
 
 	Group       string `json:"group,omitempty"`       // provider label; fields sharing a group render as one card
 	Placeholder string `json:"placeholder,omitempty"` // text: shown greyed when empty (e.g. the default base URL)
+	Custom      bool   `json:"custom,omitempty"`      // user-added env var: the UI offers a remove control
 }
 
 // personaSelectOption is one entry in a "select" field's option list.
@@ -500,7 +538,11 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	// Dynamically-discovered MCP/tool credential env vars (keyed "envToken:<NAME>").
 	var rawFields map[string]json.RawMessage
 	_ = json.Unmarshal(body, &rawFields)
-	tokenChanged := applyEnvTokenEdits(rawFields)
+	envw := envWrite{
+		tokens: applyEnvTokenEdits(rawFields),
+		custom: applyCustomEnvEdits(rawFields),
+		remove: applyEnvVarRemovals(rawFields),
+	}
 	// Persist the savedPrefs subset (e.g. AutoPlan) so persistable settings stick.
 	// Session-encryption secrets and the limit/URL overrides that aren't provider
 	// credentials stay runtime-only and revert to the deployed env on restart.
@@ -511,16 +553,22 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	// neither has to be re-entered each launch. A real env var of the same name still
 	// wins on load. Best-effort — a write failure only loses persistence, not the live
 	// edit already applied above.
-	if up := envPersistSet(edit, tokenChanged); len(up) > 0 {
+	if up := envPersistSet(edit, envw); len(up) > 0 {
 		persistErr = config.UpsertDotEnv(up)
 	}
 	if s.logf != nil {
-		tokenNames := make([]string, 0, len(tokenChanged))
-		for n := range tokenChanged {
-			tokenNames = append(tokenNames, n)
+		envNames := make([]string, 0, len(envw.tokens)+len(envw.custom)+len(envw.remove))
+		for n := range envw.tokens {
+			envNames = append(envNames, n)
 		}
-		sort.Strings(tokenNames) // stable log line regardless of map order
-		changed := append(personaEditedFields(edit), tokenNames...)
+		for n := range envw.custom {
+			envNames = append(envNames, n)
+		}
+		for _, n := range envw.remove {
+			envNames = append(envNames, "-"+n) // leading - reads as removed in the log
+		}
+		sort.Strings(envNames) // stable log line regardless of map order
+		changed := append(personaEditedFields(edit), envNames...)
 		switch {
 		case saveErr != nil || persistErr != nil:
 			s.logf(fmt.Sprintf("persona: saved config (%s); persist warning: prefs=%v env=%v", strings.Join(changed, ", "), saveErr, persistErr))
@@ -867,6 +915,21 @@ func personaFields(c *config.Config, models, fastModels, auxModels []config.Mode
 	// Auto-discover credential env vars any MCP/tool declares or references, so
 	// personal tokens (GitHub, …) appear without hardcoding.
 	fields = append(fields, tokenEnvFields(c.WorkingDir)...)
+	// Then whatever the user added by hand, minus anything already shown above — a var
+	// that no MCP server, skill or agent declares has no other way back into the panel.
+	covered := map[string]bool{}
+	for _, f := range fields {
+		if name, ok := strings.CutPrefix(f.Key, tokenEnvFieldPrefix); ok {
+			covered[name] = true
+		}
+	}
+	for _, pc := range providerCreds {
+		covered[pc.env] = true
+		if pc.baseEnv != "" {
+			covered[pc.baseEnv] = true
+		}
+	}
+	fields = append(fields, customEnvFields(covered)...)
 	return fields
 }
 
@@ -938,6 +1001,105 @@ func tokenEnvFields(workingDir string) []personaField {
 	return out
 }
 
+// customEnvFields lists env vars the user added by hand: everything in the persistent
+// dotenv that no provider card and no discovered field already covers. Without this the
+// panel would take a var, save it, and then never show it again — the value would be in
+// the dotenv, invisible and un-editable, which is worse than not persisting at all.
+//
+// `covered` is the set of names already rendered elsewhere in the panel.
+func customEnvFields(covered map[string]bool) []personaField {
+	stored, err := config.DotEnvValues()
+	if err != nil || len(stored) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(stored))
+	for name := range stored {
+		if covered[name] || !validEnvVarName(name) {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	out := make([]personaField, 0, len(names))
+	for _, name := range names {
+		// Show the LIVE value, not the stored one: a real env var of the same name beats
+		// the dotenv on load, so the stored value may not be what the agent is using.
+		v := os.Getenv(name)
+		if v == "" {
+			v = stored[name]
+		}
+		out = append(out, personaField{
+			Key:    customEnvFieldPrefix + name,
+			Label:  name,
+			Type:   "secret",
+			Set:    strings.TrimSpace(v) != "",
+			Hint:   lastFour(v),
+			Desc:   "Env var you added here. Applied live and saved to ~/.config/moony/.env (persists).",
+			Custom: true,
+		})
+	}
+	return out
+}
+
+// applyCustomEnvEdits sets any "envVar:<NAME>" fields from a raw persona POST body
+// into the process environment (blank = keep existing, as for any secret field).
+// Gated by validEnvVarName rather than looksLikeTokenVar: these names are typed
+// deliberately, so they need not look like credentials — but they still may not be a
+// protected var, and a crafted key still can't smuggle in a malformed name.
+// Returns the name -> value pairs that changed, for the caller to persist.
+func applyCustomEnvEdits(raw map[string]json.RawMessage) map[string]string {
+	changed := map[string]string{}
+	for k, rv := range raw {
+		name, ok := strings.CutPrefix(k, customEnvFieldPrefix)
+		if !ok || !validEnvVarName(name) {
+			continue
+		}
+		var val string
+		if json.Unmarshal(rv, &val) != nil {
+			continue
+		}
+		if v := strings.TrimSpace(val); v != "" {
+			_ = os.Setenv(name, v)
+			changed[name] = v
+		}
+	}
+	return changed
+}
+
+// applyEnvVarRemovals unsets the vars named in the "envVarRemove" array and returns
+// them, so the caller can delete them from the dotenv too. Refuses names owned by a
+// provider card: those have their own editor, and removing one here would clear a
+// credential from a control the user isn't looking at.
+func applyEnvVarRemovals(raw map[string]json.RawMessage) []string {
+	rv, ok := raw[customEnvRemoveKey]
+	if !ok {
+		return nil
+	}
+	var names []string
+	if json.Unmarshal(rv, &names) != nil {
+		return nil
+	}
+	owned := map[string]bool{}
+	for _, pc := range providerCreds {
+		owned[pc.env] = true
+		if pc.baseEnv != "" {
+			owned[pc.baseEnv] = true
+		}
+	}
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if !validEnvVarName(name) || owned[name] {
+			continue
+		}
+		_ = os.Unsetenv(name)
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // applyEnvTokenEdits sets any "envToken:<NAME>" fields from a raw persona POST
 // body into the process environment (blank = keep existing). Only names that
 // look like credentials are honored, so a crafted key can't set arbitrary env.
@@ -961,25 +1123,38 @@ func applyEnvTokenEdits(raw map[string]json.RawMessage) map[string]string {
 	return changed
 }
 
+// envWrite is the set of dotenv changes one persona save asks for, from the three
+// places a value can come from plus explicit deletions.
+type envWrite struct {
+	tokens map[string]string // discovered MCP/skill/agent credential fields
+	custom map[string]string // env vars the user added by hand in the panel
+	remove []string          // user-added vars to delete
+}
+
 // envPersistSet is everything a persona save should write to the persistent dotenv:
-// the typed provider credentials plus the dynamically discovered MCP/skill/agent
-// tokens. Discovered tokens used to be os.Setenv-only, which meant retyping them
-// after every restart even though they were already gated by looksLikeTokenVar.
+// typed provider credentials, discovered MCP/skill/agent tokens, and hand-added vars.
+// Discovered tokens used to be os.Setenv-only, which meant retyping them after every
+// restart even though they were already gated by looksLikeTokenVar.
 //
-// A typed provider field wins a name collision: an MCP server referencing
-// ${MN_OPENAI_API_KEY} surfaces that name in BOTH lists, and the provider card is
-// the canonical editor for it.
+// Precedence on a name collision is provider card > discovered > hand-added: an MCP
+// server referencing ${MN_OPENAI_API_KEY} surfaces that name in more than one list,
+// and the provider card is its canonical editor.
 //
-// Blank submissions never arrive here (applyEnvTokenEdits drops them, and a blank
-// secret means "keep the current value"), so this can only add or replace a key --
-// never delete one, which an empty value would do in UpsertDotEnv.
-func envPersistSet(e personaEdit, tokens map[string]string) map[string]string {
+// Only `remove` may yield an empty value, which is how UpsertDotEnv deletes a key.
+// Blank edits never reach here (the appliers drop them, since a blank secret means
+// "keep the current value"), so an untouched field can never clear a stored one.
+func envPersistSet(e personaEdit, w envWrite) map[string]string {
 	up := providerEnvPersist(e)
-	for name, v := range tokens {
-		if _, taken := up[name]; taken {
-			continue
+	for _, src := range []map[string]string{w.tokens, w.custom} {
+		for name, v := range src {
+			if _, taken := up[name]; taken {
+				continue
+			}
+			up[name] = v
 		}
-		up[name] = v
+	}
+	for _, name := range w.remove {
+		up[name] = "" // UpsertDotEnv deletes empty-valued keys
 	}
 	return up
 }

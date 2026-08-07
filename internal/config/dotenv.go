@@ -170,3 +170,32 @@ func formatEnvLine(k, v string) string {
 	}
 	return k + "=" + v
 }
+
+// DotEnvValues returns the key/value pairs currently stored in the persistent
+// dotenv — the same file UpsertDotEnv writes. A missing file yields an empty map
+// rather than an error: nothing has been persisted yet, which is not a fault.
+//
+// Used by the Persona panel to list env vars the user added by hand, which no
+// MCP server, skill or sub-agent declares and so nothing else would surface.
+func DotEnvValues() (map[string]string, error) {
+	out := map[string]string{}
+	path, err := PersistentDotEnvPath()
+	if err != nil {
+		return out, err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return out, err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		if k, v, ok := parseEnvLine(sc.Text()); ok {
+			out[k] = v
+		}
+	}
+	return out, sc.Err()
+}
