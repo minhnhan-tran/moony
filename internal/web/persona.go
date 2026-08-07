@@ -506,17 +506,21 @@ func (s *Server) handlePersona(w http.ResponseWriter, r *http.Request) {
 	// credentials stay runtime-only and revert to the deployed env on restart.
 	// Best-effort.
 	saveErr := cfg.Save()
-	// Provider credentials (API keys + base-URL overrides) DO persist: write them
-	// to the auto-loaded dotenv (~/.config/moony/.env) so they survive a restart
-	// rather than needing re-entry each launch. A real env var of the same name
-	// still wins on load. Best-effort — a write failure only loses persistence,
-	// not the live edit already applied above.
 	var persistErr error
-	if up := providerEnvPersist(edit); len(up) > 0 {
+	// Provider credentials AND discovered MCP/skill/agent tokens both persist here, so
+	// neither has to be re-entered each launch. A real env var of the same name still
+	// wins on load. Best-effort — a write failure only loses persistence, not the live
+	// edit already applied above.
+	if up := envPersistSet(edit, tokenChanged); len(up) > 0 {
 		persistErr = config.UpsertDotEnv(up)
 	}
 	if s.logf != nil {
-		changed := append(personaEditedFields(edit), tokenChanged...)
+		tokenNames := make([]string, 0, len(tokenChanged))
+		for n := range tokenChanged {
+			tokenNames = append(tokenNames, n)
+		}
+		sort.Strings(tokenNames) // stable log line regardless of map order
+		changed := append(personaEditedFields(edit), tokenNames...)
 		switch {
 		case saveErr != nil || persistErr != nil:
 			s.logf(fmt.Sprintf("persona: saved config (%s); persist warning: prefs=%v env=%v", strings.Join(changed, ", "), saveErr, persistErr))
@@ -928,7 +932,7 @@ func tokenEnvFields(workingDir string) []personaField {
 			Type:  "secret",
 			Set:   strings.TrimSpace(v) != "",
 			Hint:  lastFour(v),
-			Desc:  "Credential env var an installed MCP server / skill / agent needs; set at runtime for the next (re)connect.",
+			Desc:  "Credential env var an installed MCP server / skill / agent needs. Applied live and saved to ~/.config/moony/.env (persists).",
 		})
 	}
 	return out
@@ -937,9 +941,9 @@ func tokenEnvFields(workingDir string) []personaField {
 // applyEnvTokenEdits sets any "envToken:<NAME>" fields from a raw persona POST
 // body into the process environment (blank = keep existing). Only names that
 // look like credentials are honored, so a crafted key can't set arbitrary env.
-// Returns the names that were changed.
-func applyEnvTokenEdits(raw map[string]json.RawMessage) []string {
-	var changed []string
+// Returns the name -> value pairs that changed, so the caller can also persist them.
+func applyEnvTokenEdits(raw map[string]json.RawMessage) map[string]string {
+	changed := map[string]string{}
 	for k, rv := range raw {
 		name, ok := strings.CutPrefix(k, tokenEnvFieldPrefix)
 		if !ok || !looksLikeTokenVar(name) {
@@ -951,10 +955,33 @@ func applyEnvTokenEdits(raw map[string]json.RawMessage) []string {
 		}
 		if v := strings.TrimSpace(val); v != "" {
 			_ = os.Setenv(name, v)
-			changed = append(changed, name)
+			changed[name] = v
 		}
 	}
 	return changed
+}
+
+// envPersistSet is everything a persona save should write to the persistent dotenv:
+// the typed provider credentials plus the dynamically discovered MCP/skill/agent
+// tokens. Discovered tokens used to be os.Setenv-only, which meant retyping them
+// after every restart even though they were already gated by looksLikeTokenVar.
+//
+// A typed provider field wins a name collision: an MCP server referencing
+// ${MN_OPENAI_API_KEY} surfaces that name in BOTH lists, and the provider card is
+// the canonical editor for it.
+//
+// Blank submissions never arrive here (applyEnvTokenEdits drops them, and a blank
+// secret means "keep the current value"), so this can only add or replace a key --
+// never delete one, which an empty value would do in UpsertDotEnv.
+func envPersistSet(e personaEdit, tokens map[string]string) map[string]string {
+	up := providerEnvPersist(e)
+	for name, v := range tokens {
+		if _, taken := up[name]; taken {
+			continue
+		}
+		up[name] = v
+	}
+	return up
 }
 
 // lastFour returns a secret's last 4 chars for recognition (the full value is

@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,8 +41,61 @@ func TestApplyEnvTokenEdits(t *testing.T) {
 	if got := os.Getenv("NODE_ENV"); got != "production" {
 		t.Errorf("NODE_ENV = %q, want production (non-token must be ignored)", got)
 	}
-	if len(changed) != 1 || changed[0] != "GITHUB_PERSONAL_ACCESS_TOKEN" {
-		t.Errorf("changed = %v, want [GITHUB_PERSONAL_ACCESS_TOKEN]", changed)
+	if len(changed) != 1 || changed["GITHUB_PERSONAL_ACCESS_TOKEN"] != "ghp_abc123" {
+		t.Errorf("changed = %v, want {GITHUB_PERSONAL_ACCESS_TOKEN: ghp_abc123}", changed)
+	}
+}
+
+// Discovered tokens must reach the persistent dotenv, not just os.Setenv -- otherwise
+// the panel takes a credential, reports "Saved", and loses it on the next restart.
+func TestEnvPersistSetIncludesDiscoveredTokens(t *testing.T) {
+	up := envPersistSet(personaEdit{}, map[string]string{"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_1"})
+	if up["GITHUB_PERSONAL_ACCESS_TOKEN"] != "ghp_1" {
+		t.Errorf("discovered token missing from the persist set: %v", up)
+	}
+}
+
+// A name can appear as BOTH a provider card and a discovered token (an MCP server
+// referencing ${MN_OPENAI_API_KEY}). The typed provider field is the canonical editor,
+// so it must not be overwritten by whatever the discovered field happened to hold.
+func TestEnvPersistSetProviderWinsCollision(t *testing.T) {
+	typed := "sk-from-provider-card"
+	up := envPersistSet(personaEdit{OpenAIAPIKey: &typed}, map[string]string{"MN_OPENAI_API_KEY": "sk-from-discovered"})
+	if up["MN_OPENAI_API_KEY"] != typed {
+		t.Errorf("MN_OPENAI_API_KEY = %q, want the typed provider value %q", up["MN_OPENAI_API_KEY"], typed)
+	}
+}
+
+// envPersistSet must never emit an empty value: UpsertDotEnv deletes empty-valued keys,
+// so a blank field would wipe a stored credential instead of keeping it.
+func TestEnvPersistSetNeverEmptiesTokens(t *testing.T) {
+	blank := ""
+	for k, v := range envPersistSet(personaEdit{OpenAIAPIKey: &blank}, map[string]string{}) {
+		if strings.TrimSpace(v) == "" {
+			t.Errorf("%s persists as empty, which would delete it from the dotenv", k)
+		}
+	}
+}
+
+// End to end through the real dotenv writer (redirected to a temp file with MN_ENV_FILE),
+// so the round trip is proven rather than just the map handed to it.
+func TestDiscoveredTokenReachesDotEnv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	t.Setenv("MN_ENV_FILE", path)
+	t.Setenv("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+
+	tokens := applyEnvTokenEdits(map[string]json.RawMessage{
+		"envToken:GITHUB_PERSONAL_ACCESS_TOKEN": json.RawMessage(`"ghp_persisted"`),
+	})
+	if err := config.UpsertDotEnv(envPersistSet(personaEdit{}, tokens)); err != nil {
+		t.Fatalf("UpsertDotEnv: %v", err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read dotenv: %v", err)
+	}
+	if !strings.Contains(string(b), "GITHUB_PERSONAL_ACCESS_TOKEN=ghp_persisted") {
+		t.Errorf("dotenv missing the discovered token:\n%s", b)
 	}
 }
 
