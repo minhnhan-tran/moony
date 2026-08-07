@@ -5,6 +5,21 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.17.1] — 2026-08-07
+
+### Fixed
+
+- Reopening a session while `MN_PROVIDER` or `MN_MODEL` was pinned could mix halves from
+  two different backends — `MN_PROVIDER=ollama` over an Anthropic session kept ollama but
+  adopted the session's `anthropic.claude-opus-5`, so the UI showed the session's model
+  while requests went to `localhost:11434` asking for a Claude id (and the mirror case
+  stranded a pinned local model on a hosted provider). Provider and model now restore as
+  a pair, each half only when it fits the other, and the restored reasoning level clamps
+  against the model that actually ends up active.
+- Switching provider without also setting a model left the wire route naming the previous
+  backend's API family, which the status bar and quota panel read; `config.SetLLMProvider`
+  now re-derives the two together.
+
 ## [2.17.0] — 2026-08-07
 
 ### Added
