@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.17.0] — 2026-08-07
+
+### Added
+
+- `MN_ANTHROPIC_CUSTOM_HEADERS` (falling back to `ANTHROPIC_CUSTOM_HEADERS`) adds extra
+  headers to Anthropic-wire requests, so `MN_ANTHROPIC_BASE_URL` can point at a gateway
+  that has auth of its own — HTTP Basic, a proxy token, ngrok's skip-warning header.
+  Previously any such gateway answered 401 with no way to add a header. Pairs parse from
+  newlines, semicolons or a single run-together line, and reach both the Messages POST
+  and the `/v1/models` GET behind the auth check. The headers are scoped to the host of
+  `MN_ANTHROPIC_BASE_URL` and never sent to `api.anthropic.com`, so gateway credentials
+  cannot leak to another operator if the base URL is cleared or the provider switched.
+
 ## [2.16.0] — 2026-08-07
 
 ### Added
