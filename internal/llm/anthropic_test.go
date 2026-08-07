@@ -1,8 +1,11 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -237,5 +240,122 @@ func TestThinkingBlockPreservesEmptySignature(t *testing.T) {
 	raw2 := mustMarshal(t, ContentBlock{Type: BlockThinking, Thinking: "reasoning", Signature: "s2"})
 	if !strings.Contains(raw2, `"thinking":"reasoning"`) || !strings.Contains(raw2, `"signature":"s2"`) {
 		t.Errorf("non-empty thinking block malformed: %s", raw2)
+	}
+}
+
+// TestAnthropicCustomHeaders: MN_ANTHROPIC_CUSTOM_HEADERS reaches the wire for a
+// custom endpoint (gateway auth in front of the Messages API), applies to the
+// model-list request too, and is never sent to public Anthropic — those values
+// are gateway credentials, so clearing the base URL must not leak them upstream.
+func TestAnthropicCustomHeaders(t *testing.T) {
+	const hdrs = "Authorization: Basic Zmxvb2RnYXRlOnMzY3JldA== ngrok-skip-browser-warning: 1"
+
+	gw := &Client{cfg: &config.Config{
+		LLMProvider:            "anthropic",
+		AnthropicBaseURL:       "https://tunnel.example.dev",
+		AnthropicAPIKey:        "k",
+		AnthropicCustomHeaders: hdrs,
+	}}
+	req, err := gw.newAnthropicRequest(context.Background(), "https://tunnel.example.dev/v1/messages", []byte("{}"))
+	if err != nil {
+		t.Fatalf("newAnthropicRequest: %v", err)
+	}
+	if got := req.Header.Get("Authorization"); got != "Basic Zmxvb2RnYXRlOnMzY3JldA==" {
+		t.Errorf("Authorization = %q, want the gateway's Basic credentials", got)
+	}
+	if got := req.Header.Get("ngrok-skip-browser-warning"); got != "1" {
+		t.Errorf("ngrok-skip-browser-warning = %q, want 1", got)
+	}
+	// The defaults must survive alongside them.
+	if got := req.Header.Get("x-api-key"); got != "k" {
+		t.Errorf("x-api-key = %q, want the configured key", got)
+	}
+	if got := req.Header.Get("anthropic-version"); got != anthropicVersion {
+		t.Errorf("anthropic-version = %q", got)
+	}
+
+	// Public Anthropic: same config minus the override → no custom headers.
+	pub := &Client{cfg: &config.Config{
+		LLMProvider:            "anthropic",
+		AnthropicBaseURL:       "https://api.anthropic.com",
+		AnthropicAPIKey:        "k",
+		AnthropicCustomHeaders: hdrs,
+	}}
+	pubReq, err := pub.newAnthropicRequest(context.Background(), "https://api.anthropic.com/v1/messages", []byte("{}"))
+	if err != nil {
+		t.Fatalf("newAnthropicRequest: %v", err)
+	}
+	if got := pubReq.Header.Get("Authorization"); got != "" {
+		t.Errorf("Authorization = %q, want no gateway credentials sent to public Anthropic", got)
+	}
+	// Same when the base URL is empty (falls back to public Anthropic).
+	pub.cfg.AnthropicBaseURL = ""
+	bareReq, err := pub.newAnthropicRequest(context.Background(), "https://api.anthropic.com/v1/messages", []byte("{}"))
+	if err != nil {
+		t.Fatalf("newAnthropicRequest: %v", err)
+	}
+	if got := bareReq.Header.Get("Authorization"); got != "" {
+		t.Errorf("Authorization = %q on the default endpoint, want none", got)
+	}
+
+	// A trailing slash on the override must not change the host match.
+	gw.cfg.AnthropicBaseURL = "https://tunnel.example.dev/"
+	if !gw.customHeaderHost("tunnel.example.dev") {
+		t.Error("a trailing slash should still match the configured host")
+	}
+}
+
+// The model list goes to the same gateway, so it needs the same headers or
+// /models (and the auth check that calls it) 401s.
+func TestAnthropicCustomHeadersOnModelList(t *testing.T) {
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"anthropic.claude-opus-5","display_name":"Opus"}]}`))
+	}))
+	defer srv.Close()
+
+	c := &Client{cfg: &config.Config{
+		LLMProvider:            "anthropic",
+		AnthropicBaseURL:       srv.URL,
+		AnthropicAPIKey:        "k",
+		AnthropicCustomHeaders: "X-Gateway-Token: abc123",
+	}, http: srv.Client()}
+	if _, err := c.listAnthropicModels(context.Background()); err != nil {
+		t.Fatalf("listAnthropicModels: %v", err)
+	}
+	if v := got.Get("X-Gateway-Token"); v != "abc123" {
+		t.Errorf("X-Gateway-Token = %q, want abc123", v)
+	}
+}
+
+// Several Anthropic-wire endpoints can be configured at once. The custom headers
+// belong to MN_ANTHROPIC_BASE_URL's host only — switching to sqe-anthropic must
+// not hand that gateway credentials meant for a different one.
+func TestAnthropicCustomHeadersNotSentToOtherHosts(t *testing.T) {
+	c := &Client{cfg: &config.Config{
+		LLMProvider:            "sqe-anthropic",
+		SQEAnthropicBaseURL:    "http://gw.local:9000",
+		SQEAnthropicAPIKey:     "sqe-key",
+		AnthropicBaseURL:       "https://tunnel.example.dev",
+		AnthropicCustomHeaders: "Authorization: Basic c2VjcmV0",
+	}}
+	req, err := c.newAnthropicRequest(context.Background(), "http://gw.local:9000/v1/messages", []byte("{}"))
+	if err != nil {
+		t.Fatalf("newAnthropicRequest: %v", err)
+	}
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Errorf("Authorization = %q, want none: the SQE gateway is a different host", got)
+	}
+
+	// Pointed back at the host they were configured for, they are sent again.
+	c.cfg.LLMProvider = "anthropic"
+	req2, err := c.newAnthropicRequest(context.Background(), "https://tunnel.example.dev/v1/messages", []byte("{}"))
+	if err != nil {
+		t.Fatalf("newAnthropicRequest: %v", err)
+	}
+	if got := req2.Header.Get("Authorization"); got != "Basic c2VjcmV0" {
+		t.Errorf("Authorization = %q, want the configured credentials", got)
 	}
 }

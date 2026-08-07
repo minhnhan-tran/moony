@@ -32,6 +32,15 @@ type Config struct {
 	// AnthropicBaseURL overrides the native Anthropic Messages API base URL
 	// (default https://api.anthropic.com). Set via MN_ANTHROPIC_BASE_URL.
 	AnthropicBaseURL string
+	// AnthropicCustomHeaders are extra HTTP headers for Anthropic-wire requests,
+	// for gateways that need their own auth in front of the Messages API (HTTP
+	// Basic, a proxy token, ngrok's skip-warning header, ...). Set via
+	// MN_ANTHROPIC_CUSTOM_HEADERS (falls back to ANTHROPIC_CUSTOM_HEADERS) as
+	// "Name: value" pairs separated by newlines, semicolons, or nothing at all;
+	// see ParseCustomHeaders. They are only sent to a CUSTOM base URL -- never to
+	// api.anthropic.com -- so gateway credentials cannot leak upstream if the base
+	// URL is cleared.
+	AnthropicCustomHeaders string
 	// SQEAnthropicAPIKey authenticates the SQE Anthropic backend (Claude via the
 	// SQE LAN gateway). Set via MN_SQE_ANTHROPIC_API_KEY; falls back to
 	// AnthropicAPIKey when unset.
@@ -1765,6 +1774,7 @@ func Load() *Config {
 	if v := strings.TrimSpace(firstEnv("MN_ANTHROPIC_BASE_URL")); v != "" {
 		c.AnthropicBaseURL = v
 	}
+	c.AnthropicCustomHeaders = strings.TrimSpace(firstEnv("MN_ANTHROPIC_CUSTOM_HEADERS", "ANTHROPIC_CUSTOM_HEADERS"))
 	// SQE Anthropic (Claude via the SQE LAN gateway): its own key/base URL, but the
 	// key falls back to the Anthropic key so "same as Anthropic, different gateway"
 	// works with a single credential. Read after AnthropicAPIKey for the fallback.

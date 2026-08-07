@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -24,6 +25,13 @@ import (
 // same one those helpers were written for.
 
 const anthropicVersion = "2023-06-01"
+
+// Public Anthropic: the fallback when no override is configured, and the one
+// endpoint custom headers are never sent to.
+const (
+	defaultAnthropicBaseURL = "https://api.anthropic.com"
+	defaultAnthropicHost    = "api.anthropic.com"
+)
 
 // usesAnthropic reports whether the configured backend speaks the native
 // Anthropic Messages API — the public Anthropic backend or SQE Anthropic (the
@@ -47,7 +55,7 @@ func (c *Client) anthropicBaseURL() string {
 			return strings.TrimRight(b, "/")
 		}
 	}
-	return "https://api.anthropic.com"
+	return defaultAnthropicBaseURL
 }
 
 func (c *Client) anthropicKey() string {
@@ -354,7 +362,46 @@ func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte
 	req.Header.Set("User-Agent", userAgent())
 	req.Header.Set("x-api-key", c.anthropicKey())
 	req.Header.Set("anthropic-version", anthropicVersion)
+	c.applyAnthropicCustomHeaders(req)
 	return req, nil
+}
+
+// applyAnthropicCustomHeaders attaches MN_ANTHROPIC_CUSTOM_HEADERS, for gateways
+// that put their own auth in front of the Messages API. Applied last, so an
+// operator can also override a default (say a stricter Accept) on purpose.
+//
+// They are deliberately NOT sent to public Anthropic: these values are usually
+// gateway credentials, and clearing MN_ANTHROPIC_BASE_URL would otherwise ship
+// them straight to api.anthropic.com.
+func (c *Client) applyAnthropicCustomHeaders(req *http.Request) {
+	if c.cfg == nil || req == nil || req.URL == nil || strings.TrimSpace(c.cfg.AnthropicCustomHeaders) == "" {
+		return
+	}
+	if !c.customHeaderHost(req.URL.Host) {
+		return
+	}
+	for _, h := range config.ParseCustomHeaders(c.cfg.AnthropicCustomHeaders) {
+		req.Header.Set(h.Name, h.Value)
+	}
+}
+
+// customHeaderHost reports whether host is the endpoint the custom headers were
+// configured for: the host of MN_ANTHROPIC_BASE_URL, and never public Anthropic.
+//
+// Matching on host rather than "is an override set" matters when several
+// Anthropic-wire endpoints are configured at once -- switching to sqe-anthropic
+// (its own gateway, its own auth) must not hand that gateway the credentials
+// meant for the MN_ANTHROPIC_BASE_URL one.
+func (c *Client) customHeaderHost(host string) bool {
+	base := strings.TrimSpace(c.cfg.AnthropicBaseURL)
+	if base == "" || host == "" {
+		return false
+	}
+	u, err := url.Parse(base)
+	if err != nil || u.Host == "" || strings.EqualFold(u.Host, defaultAnthropicHost) {
+		return false
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 // checkAnthropicAuth verifies the API key works by listing models.
@@ -384,6 +431,7 @@ func (c *Client) listAnthropicModels(ctx context.Context) ([]config.ModelInfo, e
 	req.Header.Set("x-api-key", c.anthropicKey())
 	req.Header.Set("anthropic-version", anthropicVersion)
 	req.Header.Set("User-Agent", userAgent())
+	c.applyAnthropicCustomHeaders(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err

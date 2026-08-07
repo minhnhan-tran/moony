@@ -59,6 +59,8 @@ Most of these are also editable at runtime from the web UI's **Persona** panel (
 | `MN_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
 | `MN_OPENAI_API_KEY` | _(unset)_ | OpenAI API key for the `openai` provider (falls back to `OPENAI_API_KEY`) |
 | `MN_ANTHROPIC_API_KEY` | _(unset)_ | Anthropic API key for the `anthropic` provider (falls back to `ANTHROPIC_API_KEY`) |
+| `MN_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Messages API base URL — point it at a self-hosted gateway, proxy or tunnel |
+| `MN_ANTHROPIC_CUSTOM_HEADERS` | _(unset)_ | extra headers for Anthropic-wire requests, e.g. `Authorization: Basic …` (falls back to `ANTHROPIC_CUSTOM_HEADERS`); only sent when `MN_ANTHROPIC_BASE_URL` is set |
 | `MN_OPENROUTER_API_KEY` | _(unset)_ | OpenRouter API key for the `openrouter` provider (falls back to `OPENROUTER_API_KEY`) |
 | `MN_GEMINI_API_KEY` | _(unset)_ | Google Gemini API key for the `gemini` provider (falls back to `GEMINI_API_KEY`) |
 | `MN_DEEPSEEK_API_KEY` | _(unset)_ | DeepSeek API key for the `deepseek` provider (falls back to `DEEPSEEK_API_KEY`) |
@@ -207,6 +209,7 @@ The agent supports twenty-nine backends, selected with `/provider` (or `MN_PROVI
 - **Ollama** (default) — a local or remote **[Ollama](https://ollama.com)** server, no API key. Set `MN_OLLAMA_HOST` (`http://localhost:11434` by default; a bare `host:port` gets `/v1` appended) and optionally `MN_OLLAMA_TOKEN`. Runs locally, so there's no account, quota, or billing — the in-app cost counter reads `$0`.
 - **OpenAI** — `api.openai.com`, `MN_OPENAI_API_KEY` (or `OPENAI_API_KEY`). Reasoning-model families (o1/o3/o4/gpt-5) get `reasoning_effort` from `/reasoning`.
 - **Anthropic** — the native Claude Messages API at `api.anthropic.com`, `MN_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`). `/reasoning` maps to Anthropic's extended-thinking token budget, and prompt caching is on by default (`MN_PROMPT_CACHE=0` to disable).
+  Point `MN_ANTHROPIC_BASE_URL` at any Messages-API-compatible gateway (LiteLLM, a Vertex/Bedrock shim, an ngrok tunnel) to use it instead. When that gateway wants its own auth in front of the API, put it in `MN_ANTHROPIC_CUSTOM_HEADERS` as `Name: value` pairs — separated by newlines, semicolons, or nothing at all, so a pasted `Authorization: Basic dXNlcjpwdw== ngrok-skip-browser-warning: 1` parses as two headers. They are applied after the built-ins (so an operator can override one on purpose) and are **never** sent to `api.anthropic.com`, so gateway credentials can't leak upstream if the base URL is cleared. Gateways that authenticate you themselves still need `MN_ANTHROPIC_API_KEY` set to some non-empty value.
 - **OpenRouter** — `openrouter.ai`, `MN_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`); one key reaches hundreds of models via `vendor/model` slugs (e.g. `anthropic/claude-sonnet-4.5`).
 - **Google Gemini** — Google's OpenAI-compatible endpoint, `MN_GEMINI_API_KEY` (or `GEMINI_API_KEY`).
 - **DeepSeek** — `api.deepseek.com`, `MN_DEEPSEEK_API_KEY`; `/reasoning` engages on `deepseek-reasoner`.
