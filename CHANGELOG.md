@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.14.1] — 2026-08-07
+
+### Fixed
+
+- Credential env vars the Persona panel discovers from MCP servers, skills and
+  sub-agents are now saved to `~/.config/moony/.env` like provider keys, instead of
+  being applied with `os.Setenv` only — the panel used to accept a token, report
+  "Saved", and lose it on the next restart. A typed provider field still wins if the
+  same name appears on both a provider card and a discovered field, and a blank value
+  keeps the stored one rather than deleting it.
+
 ## [2.14.0] — 2026-08-06
 
 ### Added
