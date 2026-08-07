@@ -5,6 +5,21 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.17.2] — 2026-08-07
+
+### Fixed
+
+- The jumping-Claude loader no longer freezes mid-jump while a reopened session's
+  history streams into the transcript. It was an `<img>` of an animated SVG, which
+  Blink re-rasterizes on the main thread every frame; it is now an inline `<template>`
+  clone whose transforms animate on the compositor (and honour `prefers-reduced-motion`).
+- History replay no longer thrashes layout. Each replayed turn toggled `pair-active` on
+  every pair (a `display:none/flex` switch, so two box trees rebuilt per turn) and then
+  forced ~3 synchronous layouts re-measuring the pager, scroll button and scroll
+  position, on a transcript that grows every turn. Pair switching is now O(1) and the
+  measuring happens once at the history/live boundary, so a burst of N replayed events
+  costs one layout instead of 3N — most noticeable on "load earlier history".
+
 ## [2.17.1] — 2026-08-07
 
 ### Fixed
