@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.14.2] — 2026-08-07
+
+### Changed
+
+- The background-jobs button (and the Jobs tab in the manage panel) uses a terminal
+  glyph instead of a lightning bolt. Adding it also required extending the vendored
+  Material Symbols subset with `terminal` (U+EB8E) — a codepoint that is mapped but
+  absent from the subset font renders a blank box just as silently as an unmapped
+  name. The regeneration command is now recorded beside the `@font-face`.
+
 ## [2.14.1] — 2026-08-07
 
 ### Fixed
