@@ -5,6 +5,20 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.16.0] — 2026-08-07
+
+### Added
+
+- **Meta Model API** as a provider (`/provider meta`), serving Meta's Muse Spark
+  coding models over its OpenAI-compatible wire — the models behind Muse Code.
+  Default model `muse-spark-1.2`, with its real prices and 1M-token context window,
+  and `/effort` enabled since every tier reasons before answering. Authenticate with
+  `MN_META_API_KEY`, or Meta's own `MODEL_API_KEY` / `META_API_KEY`; override the
+  endpoint with `MN_META_BASE_URL`. The cheaper `muse-spark-1.2-contributor` tier is
+  selectable with `/model` but never the default — it is rate-limited by a rolling
+  token window and opts prompts into training. Muse Spark has no open weights, so
+  local runtimes (Ollama, LM Studio) correctly refuse to claim it.
+
 ## [2.15.1] — 2026-08-07
 
 ### Fixed
