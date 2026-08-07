@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.15.0] — 2026-08-07
+
+### Added
+
+- The Persona panel can add and remove **arbitrary environment variables**. Previously it
+  only edited vars discovered from MCP servers, skills and sub-agents, and those names had
+  to look like credentials — so a provider needing something like `FOO_BASE_URL` had no
+  route in. Hand-typed names are validated for shape instead, and refused if they would
+  hijack or break the connector (`PATH`, `HOME`, the `LD_*`/`DYLD_*` loader hooks,
+  `MN_ENV_FILE`, …), since the panel is reachable by anyone who can reach the session.
+  Added vars are saved to `~/.config/moony/.env` and come back as removable fields.
+  Removals stage until Save, and names owned by a provider card can't be removed there.
+
 ## [2.14.2] — 2026-08-07
 
 ### Changed
