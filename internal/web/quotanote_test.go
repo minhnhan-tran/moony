@@ -76,3 +76,31 @@ func readWebSource(t *testing.T, name string) string {
 	}
 	return string(b)
 }
+
+// status.provider is the wire FAMILY (ProviderLabel(cfg.Provider)), so an SQE Anthropic
+// session reports itself as "Anthropic". The quota popover names the provider to the
+// user, so it must read llmProvider — otherwise it blames the wrong backend AND claims it
+// has no usage endpoint, when SQE Anthropic is the one provider that does report quota.
+func TestQuotaInfoRowsUsesLLMProvider(t *testing.T) {
+	js := mustReadStatic(t, "app-core.js")
+	start := strings.Index(js, "function quotaInfoRows")
+	if start < 0 {
+		t.Fatal("quotaInfoRows not found in app-core.js")
+	}
+	end := strings.Index(js[start:], "\nfunction ")
+	if end < 0 {
+		end = len(js) - start
+	}
+	body := js[start : start+end]
+
+	if !strings.Contains(body, "s.llmProvider") {
+		t.Error("quotaInfoRows must name the provider via s.llmProvider")
+	}
+	// s.provider would be the wire family. Allow the word inside comments, but not as a
+	// property read on the status object.
+	for _, bad := range []string{"providerLabel(s.provider)", "s.provider ?", "s.provider)"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("quotaInfoRows reads the wire-family label (%q); use s.llmProvider", bad)
+		}
+	}
+}

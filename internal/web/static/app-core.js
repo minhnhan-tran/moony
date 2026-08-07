@@ -2406,9 +2406,14 @@ function quotaInfoRows(s) {
     rows.push({ label: `${fmtUSD(s.costUSD)}~`, desc: "estimated from this session's token usage" });
     // Name the provider: "no usage endpoint" is confusing when the same UI shows a real
     // reading on other backends, so say WHICH one can't report.
+    //
+    // Use llmProvider, NOT provider: the latter is the wire FAMILY (status.go sends
+    // ProviderLabel(cfg.Provider)), so an SQE Anthropic session reports itself as
+    // "Anthropic" — naming the wrong backend, and claiming it has no usage endpoint
+    // when SQE Anthropic is in fact the one provider that does report real quota.
     rows.push({
       label: "No quota reading",
-      desc: (s.provider ? providerLabel(s.provider) + " exposes" : "this provider exposes") +
+      desc: (s.llmProvider ? providerLabel(s.llmProvider) + " exposes" : "this provider exposes") +
             " no usage endpoint for an inference key",
     });
     return rows;

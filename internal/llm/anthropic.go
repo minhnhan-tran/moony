@@ -54,10 +54,50 @@ func (c *Client) anthropicKey() string {
 	if c.cfg == nil {
 		return ""
 	}
-	if provider.Normalize(c.cfg.LLMProvider) == provider.SQEAnthropic {
-		return strings.TrimSpace(c.cfg.SQEAnthropicAPIKey)
+	if c.onSQEAnthropic() {
+		// Fall back to the plain Anthropic key, which is what the config field and the
+		// Persona card both promise. Load() already does this at startup, but a key
+		// entered later (Persona panel) only sets AnthropicAPIKey — so without the
+		// fallback here the promise silently stops holding after startup.
+		if k := strings.TrimSpace(c.cfg.SQEAnthropicAPIKey); k != "" {
+			return k
+		}
+		return strings.TrimSpace(c.cfg.AnthropicAPIKey)
 	}
 	return strings.TrimSpace(c.cfg.AnthropicAPIKey)
+}
+
+// onSQEAnthropic reports whether the session runs on the SQE gateway rather than
+// api.anthropic.com. Both speak the Anthropic wire and share this whole file, so
+// anything user-visible has to distinguish them explicitly.
+func (c *Client) onSQEAnthropic() bool {
+	return c.cfg != nil && provider.Normalize(c.cfg.LLMProvider) == provider.SQEAnthropic
+}
+
+// anthropicLabel names the provider actually in use, for messages. Saying
+// "Anthropic" on an SQE session sends the user to the wrong dashboard.
+func (c *Client) anthropicLabel() string {
+	if c.cfg == nil {
+		return provider.Label(provider.Anthropic)
+	}
+	return provider.Label(provider.Normalize(c.cfg.LLMProvider))
+}
+
+// anthropicKeyEnvHint names the variables anthropicKey() actually reads, in
+// precedence order. Telling an SQE user to set MN_ANTHROPIC_API_KEY is not merely
+// imprecise: it names a variable that is second in line, so the advice appears not
+// to work if MN_SQE_ANTHROPIC_API_KEY is set to something invalid.
+func (c *Client) anthropicKeyEnvHint() string {
+	if c.onSQEAnthropic() {
+		return "MN_SQE_ANTHROPIC_API_KEY (or MN_ANTHROPIC_API_KEY)"
+	}
+	return "MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)"
+}
+
+// anthropicNoKeyErr is the one place the missing-key message is built, so the three
+// call sites can't drift apart again.
+func (c *Client) anthropicNoKeyErr() error {
+	return fmt.Errorf("%s API key not set — set %s", c.anthropicLabel(), c.anthropicKeyEnvHint())
 }
 
 // resolveAnthropicModel picks the model id: a per-call ctx override, then the
@@ -159,7 +199,7 @@ func anthropicEffort(model, level string) string {
 // once — the model still reasons each turn; only the replay is dropped.
 func (c *Client) streamAnthropic(ctx context.Context, system string, messages []Message, tools []Tool, h Handler) (*Response, error) {
 	if c.anthropicKey() == "" {
-		return nil, fmt.Errorf("Anthropic API key not set — set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return nil, c.anthropicNoKeyErr()
 	}
 	base := c.anthropicBaseURL()
 	strip := anthropicStripThinkingEnv() || anthropicStripsThinkingReplay(base)
@@ -320,10 +360,12 @@ func (c *Client) newAnthropicRequest(ctx context.Context, url string, raw []byte
 // checkAnthropicAuth verifies the API key works by listing models.
 func (c *Client) checkAnthropicAuth(ctx context.Context) error {
 	if c.anthropicKey() == "" {
-		return fmt.Errorf("Anthropic API key not set — set MN_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY)")
+		return c.anthropicNoKeyErr()
 	}
 	if _, err := c.listAnthropicModels(ctx); err != nil {
-		return fmt.Errorf("cannot reach the Anthropic API: %w", err)
+		// Name the endpoint: on SQE this is a LAN gateway, and "cannot reach the
+		// Anthropic API" would send the user to check their internet and api status.
+		return fmt.Errorf("cannot reach %s at %s: %w", c.anthropicLabel(), c.anthropicBaseURL(), err)
 	}
 	return nil
 }
@@ -332,7 +374,7 @@ func (c *Client) checkAnthropicAuth(ctx context.Context) error {
 // (GET {base}/v1/models).
 func (c *Client) listAnthropicModels(ctx context.Context) ([]config.ModelInfo, error) {
 	if c.anthropicKey() == "" {
-		return nil, fmt.Errorf("Anthropic API key not set")
+		return nil, c.anthropicNoKeyErr()
 	}
 	url := c.anthropicBaseURL() + "/v1/models?limit=1000"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

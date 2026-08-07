@@ -46,8 +46,11 @@ func (s *Server) statusEvent(sess *sessionpkg.Session, live *session) wireEvent 
 	branch, dirty, _ := tools.GitInfo(workingDir)
 	ahead, behind, upstream, _ := tools.GitAheadBehind(workingDir)
 	st := &statusWire{
-		Version:        config.Version,
-		Model:          shortModel(model),
+		Version: config.Version,
+		Model:   shortModel(model),
+		// Provider is the wire FAMILY (Anthropic-wire vs OpenAI-wire), not the backend: an
+		// SQE Anthropic session reports "Anthropic" here. Anything naming the provider to
+		// the user wants LLMProvider, just below.
 		Provider:       config.ProviderLabel(cfg.Provider),
 		LLMProvider:    provider.Normalize(cfg.LLMProvider),
 		Reasoning:      reasoning,
