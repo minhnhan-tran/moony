@@ -4361,7 +4361,7 @@ const CONFIG_TABS = [
   { key: "quickactions", label: "Quick actions", icon: "bolt.fill", render: () => renderQuickActionsPanel() },
   { key: "taskboard", label: "Task Board", icon: "square.grid.2x2", render: () => renderTaskBoard() },
   { key: "codebasemap", label: "Codebase map", icon: "map.fill", render: () => renderCodebaseMapPanel() },
-  { key: "jobs", label: "Jobs", icon: "bolt.horizontal.circle", render: () => renderJobsPanel() },
+  { key: "jobs", label: "Jobs", icon: "terminal", render: () => renderJobsPanel() },
   { key: "doctor", label: "Doctor", icon: "stethoscope", render: () => renderDoctorPanel() },
 ];
 

@@ -127,7 +127,17 @@ body.app-body,
 }
 
 /* Material Symbols icon font, vendored locally (subset to just the glyphs the
-   UI uses; served from the embedded static dir — no external CDN). */
+   UI uses; served from the embedded static dir — no external CDN). Adding an icon
+   takes THREE steps, and skipping the last one ships a blank box: map the SF name in
+   SF_TO_MATERIAL, add the Material name + codepoint to MATERIAL_CP (both in
+   app-state.js), then re-subset this file so the glyph actually exists —
+     curl -sSL -o ms.ttf "https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf"
+     python -m fontTools.subset ms.ttf --flavor=woff2 --layout-features= \
+       --unicodes=<every codepoint in MATERIAL_CP, as U+XXXX> \
+       --output-file=internal/web/static/fonts/material-symbols.woff2
+   Codepoints come from that repo's matching .codepoints file. --layout-features= is
+   safe because app-icon addresses glyphs by codepoint, not by ligature name, and the
+   variable axes (FILL/GRAD/opsz/wght) must survive for `font-weight: 100 700`. */
 @font-face {
   font-family: "Material Symbols Rounded";
   font-style: normal;
