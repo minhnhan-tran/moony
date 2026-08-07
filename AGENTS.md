@@ -16,6 +16,7 @@
 ### Notes
 
 - PlanStore.Set fires the plan_write notify (applyDraftPlan → forces Status=draft); host-side mirror writes of plan status (retire/complete/resume-restore in internal/agent/plan.go & agent.go) must use the silent PlanStore.Sync instead, or an approved/done plan reverts to draft and blocks mutating tools on later turns.
+- AWS Agent Toolkit is set up on this machine: AWS CLI v2 at ~/AppData/Local/Programs/Amazon/AWSCLIV2 (default region ap-southeast-1), uv/uvx at ~/.local/bin, aws-mcp (uvx mcp-proxy-for-aws) in ~/.claude.json which moony auto-discovers, and 18 AWS skills in ~/.claude/skills.
 
 ### Conventions
 

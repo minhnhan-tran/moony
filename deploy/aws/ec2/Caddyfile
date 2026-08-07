@@ -1,0 +1,33 @@
+# Caddy in front of the relay's browser port.
+#
+# SITE_ADDRESS is either a hostname (Caddy then gets and renews a Let's Encrypt
+# certificate by itself, which is the whole reason Caddy is here rather than nginx) or
+# ":80" for a plain-HTTP box with no DNS name yet.
+
+{
+	email {$ACME_EMAIL}
+	# The relay streams tokens; an admin API that buffers would defeat that.
+	servers {
+		timeouts {
+			read_body 10s
+			# No read/write header or idle timeout: SSE responses and the browser's
+			# event stream stay open for the length of a turn, which can be minutes.
+		}
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	reverse_proxy relay:8770 {
+		# The point of the whole deployment: tokens must reach the browser as they are
+		# produced. Without this Caddy buffers the SSE stream and the UI goes quiet
+		# until the turn ends.
+		flush_interval -1
+
+		# Let the relay see who the request was really for, so redirects and the OIDC
+		# callback URL come out right behind TLS termination.
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}

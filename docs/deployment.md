@@ -82,6 +82,27 @@ Three things worth understanding before you adapt these.
 
 **SSE needs generous proxy timeouts.** A turn can legitimately stream for many minutes. The Ingress sets `proxy-read-timeout: 3600` and `proxy-buffering: off`; with a default 60-second timeout, long turns die mid-stream, and with buffering on, tokens arrive in clumps instead of live.
 
+## AWS (single EC2 instance)
+
+`deploy/aws/ec2/` deploys the relay to one EC2 instance for about $15/month: Caddy
+terminates TLS in front of port 8770 and the connector tunnel is published straight on
+an Elastic IP.
+
+```sh
+deploy/aws/ec2/deploy.sh --vpc vpc-... --subnet subnet-... \
+  --domain relay.example.com --email you@example.com --env-parameter /moony/relay-env
+```
+
+It packages the working tree with `git archive`, uploads it to a private S3 bucket, and
+creates a CloudFormation stack that builds and runs it on the box, so the repo can stay
+private and no deploy key is needed. See [../deploy/aws/ec2/README.md](../deploy/aws/ec2/README.md).
+
+The reason it is one instance rather than a load-balanced service: the relay needs an
+L7 listener for the browser (8770) *and* an L4 one for the tunnel (8771), which on AWS
+means an ALB plus an NLB, roughly triple the cost of the compute they front. Use the
+Kubernetes manifests above on EKS when you need more than one box; `service.yaml`
+already carries the NLB annotations.
+
 ## Authentication
 
 Set `MN_AUTH=on` and the relay requires the full OIDC set below, performing discovery against the issuer at startup. A missing variable or an unreachable issuer is **fatal by design** — it fails closed rather than starting half-secured, so a typo can't quietly leave the gate open.

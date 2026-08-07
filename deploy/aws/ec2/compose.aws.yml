@@ -1,0 +1,74 @@
+# moony relay on one EC2 instance: Caddy for TLS in front, the raw tunnel published
+# directly. Driven by deploy/aws/ec2/cloudformation.yaml, which writes the two env
+# files this compose reads (/etc/moony/relay.env and /etc/moony/compose.env).
+#
+# Run by hand on the box with:
+#   cd /opt/moony/src && docker compose --env-file /etc/moony/compose.env \
+#     -f deploy/aws/ec2/compose.aws.yml up -d --build
+
+services:
+  relay:
+    build:
+      # The repo root: this file lives three levels down.
+      context: ../../..
+      args:
+        WITH_DOWNLOADS: "${WITH_DOWNLOADS:-0}"
+    image: moony-relay:local
+    container_name: moony-relay
+    restart: unless-stopped
+    # 8770 is NOT published: Caddy reaches it over the compose network, so the
+    # unencrypted UI port is never exposed on the instance. 8771 is, because a raw TCP
+    # tunnel cannot go through an HTTP proxy.
+    ports:
+      - "8771:8771"
+    env_file:
+      - /etc/moony/relay.env
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/relay", "-healthcheck=127.0.0.1:8770"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: moony-caddy
+    restart: unless-stopped
+    depends_on:
+      - relay
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # A hostname turns on automatic HTTPS; ":80" serves plain HTTP for local testing.
+      SITE_ADDRESS: "${SITE_ADDRESS:-:80}"
+      ACME_EMAIL: "${ACME_EMAIL:-}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Losing this volume means re-issuing certs,
+      # and Let's Encrypt rate-limits that, so it is a named volume rather than tmpfs.
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

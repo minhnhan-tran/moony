@@ -26,3 +26,7 @@
 relay.log
 /moony.exe
 /relay.exe
+
+# Local MCP server config and scratch config dumps.
+/.mcp.json
+/config_ref.json

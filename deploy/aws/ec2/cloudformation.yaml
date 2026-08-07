@@ -1,0 +1,269 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  moony relay on a single EC2 instance: Caddy terminates TLS in front of the browser
+  UI, and the raw TCP connector tunnel is published directly. Stateless, one box, no
+  load balancers.
+
+# Why one instance and no load balancers
+#
+# The relay listens twice: 8770 speaks HTTP (and long-lived SSE), 8771 is a raw TCP
+# tunnel that connectors dial out to. Fronting those properly on AWS normally costs an
+# ALB plus an NLB, which is roughly triple the price of the compute they front. On a
+# single box Caddy handles TLS for the browser side and the tunnel is simply published
+# on the instance's Elastic IP, so the whole thing is about the price of the instance.
+#
+# The trade is that this is a pet: one AZ, no rolling deploys, reboot means downtime.
+# That is the right trade for a relay that holds no state and serves a small team.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to launch into (the default VPC is fine).
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: PUBLIC subnet in that VPC. The instance needs a public IP for the tunnel and for ACME.
+
+  DomainName:
+    Type: String
+    Default: ""
+    Description: >-
+      DNS name for the browser UI, e.g. relay.example.com. Point it at the Elastic IP
+      output BEFORE the stack finishes and Caddy will get a certificate automatically.
+      Leave empty to serve plain HTTP on port 80 (development only).
+  AcmeEmail:
+    Type: String
+    Default: ""
+    Description: Contact address for Let's Encrypt. Optional but recommended when DomainName is set.
+
+  SourceBucket:
+    Type: String
+    Description: S3 bucket holding the source tarball that deploy.sh uploaded.
+  SourceKey:
+    Type: String
+    Description: S3 key of that tarball, e.g. moony/relay-src-abc1234.tar.gz.
+
+  EnvParameterName:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional SSM Parameter Store name (SecureString) whose value is the relay env
+      file: MN_AUTH=on plus the OIDC settings. Left empty, the relay runs with NO
+      authentication and anyone who reaches it can drive your connector's machine.
+
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    Description: t4g.small (2 vCPU, 2 GiB, arm64) is enough to build and run the relay.
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-al2023-latest/al2023-ami-kernel-6.1-arm64
+    Description: Amazon Linux 2023. Switch to the x86_64 alias if you pick an x86 instance type.
+
+  WebCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Who may reach the browser UI (ports 80 and 443). ACME needs 80 open to the world.
+  TunnelCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Who may reach the connector tunnel (port 8771). Narrow this to your office or home IP when you can.
+
+  WithDownloads:
+    Type: String
+    AllowedValues: ["0", "1"]
+    Default: "0"
+    Description: >-
+      Build the CLI binaries the relay serves at /download and /install.sh. Off by
+      default: it is four cross-compiles and slow on a small instance.
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+  HasEnvParameter: !Not [!Equals [!Ref EnvParameterName, ""]]
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "moony relay: browser UI and connector tunnel. No SSH, use SSM Session Manager."
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: HTTP, used for the ACME challenge and for the redirect to HTTPS
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref WebCidr
+        - Description: Browser UI over HTTPS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref WebCidr
+        - Description: Connector tunnel, raw TCP
+          IpProtocol: tcp
+          FromPort: 8771
+          ToPort: 8771
+          CidrIp: !Ref TunnelCidr
+      Tags:
+        - Key: Name
+          Value: moony-relay
+
+  # No SSH key: shell access is SSM Session Manager, which needs no open port and
+  # leaves an audit trail.
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: read-source-tarball
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${SourceBucket}/${SourceKey}
+        - !If
+          - HasEnvParameter
+          - PolicyName: read-relay-env
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                # Scoped to the one parameter, and decrypt is limited to SSM's use of
+                # the key, so the role cannot read other secrets on the account.
+                - Effect: Allow
+                  Action: ssm:GetParameter
+                  Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${EnvParameterName}
+                - Effect: Allow
+                  Action: kms:Decrypt
+                  Resource: "*"
+                  Condition:
+                    StringEquals:
+                      kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+          - !Ref AWS::NoValue
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # Allocated separately from the instance so the tunnel address survives a replace:
+  # it is baked into every connector's config and into MN_RELAY_TUNNEL.
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: moony-relay
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!Ref SecurityGroup]
+      MetadataOptions:
+        HttpTokens: required # IMDSv2 only
+        HttpPutResponseHopLimit: 1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: moony-relay
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euxo pipefail
+            exec > >(tee /var/log/moony-bootstrap.log) 2>&1
+
+            dnf -y update
+            dnf -y install docker tar gzip
+
+            # Compose v2 as a CLI plugin. AL2023 ships Docker but not the plugin.
+            install -d /usr/libexec/docker/cli-plugins
+            curl -fsSL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-$(uname -m)" \
+              -o /usr/libexec/docker/cli-plugins/docker-compose
+            chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+            systemctl enable --now docker
+
+            # The Go build peaks above what a 2 GiB box has free. Swap is cheaper than
+            # a bigger instance for something that only matters during a build.
+            if [ ! -f /swapfile ]; then
+              fallocate -l 2G /swapfile
+              chmod 600 /swapfile
+              mkswap /swapfile
+              swapon /swapfile
+              echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            fi
+
+            install -d -m 0755 /opt/moony/src
+            aws s3 cp "s3://${SourceBucket}/${SourceKey}" /opt/moony/src.tar.gz
+            tar xzf /opt/moony/src.tar.gz -C /opt/moony/src
+
+            install -d -m 0700 /etc/moony
+            : > /etc/moony/relay.env
+            chmod 600 /etc/moony/relay.env
+            ${EnvFetch}
+
+            # Always authoritative, whatever the parameter said: connectors must dial
+            # the PUBLIC address, and getting this wrong is the classic failure mode.
+            sed -i '/^MN_RELAY_TUNNEL=/d' /etc/moony/relay.env
+            echo "MN_RELAY_TUNNEL=${TunnelHost}:8771" >> /etc/moony/relay.env
+
+            cat > /etc/moony/compose.env <<EOF
+            SITE_ADDRESS=${SiteAddress}
+            ACME_EMAIL=${AcmeEmail}
+            WITH_DOWNLOADS=${WithDownloads}
+            EOF
+
+            cd /opt/moony/src
+            docker compose --env-file /etc/moony/compose.env \
+              -f deploy/aws/ec2/compose.aws.yml up -d --build
+
+            echo "moony relay bootstrap complete"
+          - TunnelHost: !Ref ElasticIp
+            SiteAddress: !If [HasDomain, !Ref DomainName, ":80"]
+            EnvFetch: !If
+              - HasEnvParameter
+              # Written straight to a 0600 file: the value never reaches the console,
+              # the log, or the process table.
+              - !Sub >-
+                aws ssm get-parameter --name "${EnvParameterName}" --with-decryption
+                --query Parameter.Value --output text > /etc/moony/relay.env
+              - 'echo "# no EnvParameterName given: the relay runs WITHOUT authentication" >> /etc/moony/relay.env'
+
+  ElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ElasticIp.AllocationId
+      InstanceId: !Ref Instance
+
+Outputs:
+  PublicIp:
+    Description: Elastic IP. Point your DNS record here.
+    Value: !Ref ElasticIp
+  WebUrl:
+    Description: Browser UI.
+    Value: !If [HasDomain, !Sub "https://${DomainName}", !Sub "http://${ElasticIp}"]
+  TunnelAddress:
+    Description: What connectors dial (MN_RELAY_TUNNEL).
+    Value: !Sub "${ElasticIp}:8771"
+  ConnectorCommand:
+    Description: Run this on the machine the agent should work on.
+    Value: !Sub "moony -relay=${ElasticIp}:8771"
+  ShellCommand:
+    Description: Shell onto the box without SSH.
+    Value: !Sub "aws ssm start-session --target ${Instance}"
