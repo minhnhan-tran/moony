@@ -766,6 +766,16 @@ func (c *Config) SetModel(model string) {
 	c.ReasoningLevel = c.GetReasoningFor(model)
 }
 
+// SetLLMProvider switches the backend provider and re-derives the wire route
+// with it. Assigning LLMProvider on its own leaves Provider describing the
+// PREVIOUS backend's API family, which is what the status bar and the quota
+// panel read -- so the UI ends up naming one provider while requests are shaped
+// for another. Always change the two together.
+func (c *Config) SetLLMProvider(id string) {
+	c.LLMProvider = provider.Normalize(id)
+	c.Provider = wireRouteFor(c.LLMProvider)
+}
+
 // AuxDefaultModel is the model tool-less auxiliary calls run on by default — the
 // goal judge, session titling, checkpoint distillation, history compaction,
 // profile refresh, self-review, and "btw" notes. Those calls want a quick

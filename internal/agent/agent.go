@@ -507,12 +507,30 @@ func applySessionLLMSelection(cfg *config.Config, sess *session.Session) {
 	if cfg == nil || sess == nil {
 		return
 	}
-	if p := strings.TrimSpace(sess.Provider); p != "" && !cfg.ProviderExplicit {
-		cfg.LLMProvider = provider.Normalize(p)
+	sessModel := strings.TrimSpace(sess.Model)
+
+	// Provider and model are restored as a PAIR. Each half is skipped when it was
+	// pinned explicitly at startup (MN_PROVIDER / MN_MODEL / the flags), and
+	// restoring one half without the other used to leave an impossible combination
+	// behind: reopening with MN_PROVIDER=ollama kept ollama but still adopted the
+	// session's "anthropic.claude-opus-5", so the UI showed the session's model
+	// while requests went to localhost:11434 asking for a Claude id. Each half is
+	// therefore restored only while it stays servable by the other.
+	//
+	// Note the emptiness check happens on the RAW value: provider.Normalize("")
+	// answers with the default provider, which would overwrite the config's own
+	// for a pre-Provider session that never recorded one.
+	if raw := strings.TrimSpace(sess.Provider); raw != "" && !cfg.ProviderExplicit {
+		p := provider.Normalize(raw)
+		if !cfg.ModelExplicit || llm.ModelServableBy(cfg.Model, p) {
+			cfg.SetLLMProvider(p) // keeps the wire route in step with the provider
+		}
 	}
-	if m := strings.TrimSpace(sess.Model); m != "" && !cfg.ModelExplicit {
-		cfg.SetModel(m)
+	if sessModel != "" && !cfg.ModelExplicit && llm.ModelServableBy(sessModel, cfg.LLMProvider) {
+		cfg.SetModel(sessModel)
 	}
+	// Clamped against whichever model actually ended up active, so a restored
+	// level can't outrun a model that doesn't reason.
 	if r := strings.TrimSpace(sess.Reasoning); r != "" && !cfg.ReasoningExplicit {
 		cfg.ReasoningLevel = config.NormalizeReasoningFor(cfg.Model, r)
 	}

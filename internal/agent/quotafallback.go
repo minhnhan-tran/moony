@@ -292,12 +292,7 @@ func (a *Agent) applyQuotaPolicy(q QuotaSnapshot) string {
 		st.resetAt = NextDailyReset(a.cfg.QuotaResetAt, time.Now())
 	}
 
-	a.cfg.LLMProvider = next
-	if provider.UsesAnthropicWire(next) {
-		a.cfg.Provider = config.ProviderAnthropic
-	} else {
-		a.cfg.Provider = config.ProviderOpenAI
-	}
+	a.cfg.SetLLMProvider(next)
 	a.cfg.SetModel(model)
 	if target.Reasoning != "" {
 		a.cfg.SetReasoningFor(model, target.Reasoning)
@@ -377,12 +372,7 @@ func (st *quotaFallbackState) restoreIfResetLocked(cfg *config.Config) string {
 		return "" // already home
 	}
 
-	cfg.LLMProvider = provider.Normalize(back)
-	if provider.UsesAnthropicWire(cfg.LLMProvider) {
-		cfg.Provider = config.ProviderAnthropic
-	} else {
-		cfg.Provider = config.ProviderOpenAI
-	}
+	cfg.SetLLMProvider(back)
 	if model != "" {
 		cfg.SetModel(model)
 	}

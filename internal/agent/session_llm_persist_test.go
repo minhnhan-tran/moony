@@ -120,3 +120,75 @@ func TestResumeRestoresLLMSelection(t *testing.T) {
 		t.Errorf("cfg.ReasoningLevel after Resume = %q, want high", cfg.ReasoningLevel)
 	}
 }
+
+// A session's provider and model are restored as a pair. When only one half can
+// be restored -- the other was pinned at startup with MN_PROVIDER / MN_MODEL --
+// taking the restorable half alone would aim the agent at one backend while
+// carrying another's model id. The UI reads the restored half and looks right,
+// so the mismatch only shows up as traffic to the wrong endpoint.
+func TestReopenKeepsProviderAndModelCoherent(t *testing.T) {
+	tests := []struct {
+		name         string
+		cfg          config.Config
+		sess         session.Session
+		wantProvider string
+		wantModel    string
+	}{
+		{
+			// The reported bug: MN_PROVIDER=ollama, reopen an Anthropic session.
+			// Restoring its model would post claude ids to localhost:11434.
+			name:         "pinned provider rejects a foreign session model",
+			cfg:          config.Config{LLMProvider: "ollama", Model: "llama3.1:8b", ProviderExplicit: true},
+			sess:         session.Session{Provider: "anthropic", Model: "claude-sonnet-4-5"},
+			wantProvider: "ollama",
+			wantModel:    "llama3.1:8b",
+		},
+		{
+			// The mirror image: MN_MODEL pins a local model, the session wants a
+			// hosted provider that cannot serve it.
+			name:         "pinned model rejects a foreign session provider",
+			cfg:          config.Config{LLMProvider: "ollama", Model: "llama3.1:8b", ModelExplicit: true},
+			sess:         session.Session{Provider: "anthropic", Model: "claude-sonnet-4-5"},
+			wantProvider: "ollama",
+			wantModel:    "llama3.1:8b",
+		},
+		{
+			// Nothing pinned: the pair restores as before.
+			name:         "unpinned restores both",
+			cfg:          config.Config{LLMProvider: "ollama", Model: "llama3.1:8b"},
+			sess:         session.Session{Provider: "anthropic", Model: "claude-sonnet-4-5"},
+			wantProvider: "anthropic",
+			wantModel:    "claude-sonnet-4-5",
+		},
+		{
+			// A pinned provider that CAN serve the session's model still restores it.
+			name:         "pinned provider keeps a model it can serve",
+			cfg:          config.Config{LLMProvider: "anthropic", Model: "claude-sonnet-4-5", ProviderExplicit: true},
+			sess:         session.Session{Provider: "anthropic", Model: "claude-opus-4-1"},
+			wantProvider: "anthropic",
+			wantModel:    "claude-opus-4-1",
+		},
+		{
+			// Gateway ids (a provider prefix on the model) must not be misread as
+			// a foreign family and dropped.
+			name:         "gateway-style model id restores",
+			cfg:          config.Config{LLMProvider: "ollama", Model: "llama3.1:8b"},
+			sess:         session.Session{Provider: "anthropic", Model: "anthropic.claude-opus-5"},
+			wantProvider: "anthropic",
+			wantModel:    "anthropic.claude-opus-5",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := tc.cfg
+			applySessionLLMSelection(&cfg, &tc.sess)
+			if cfg.LLMProvider != tc.wantProvider {
+				t.Errorf("provider = %q, want %q", cfg.LLMProvider, tc.wantProvider)
+			}
+			if cfg.Model != tc.wantModel {
+				t.Errorf("model = %q, want %q", cfg.Model, tc.wantModel)
+			}
+		})
+	}
+}
