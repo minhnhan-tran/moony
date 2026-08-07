@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.0] — 2026-08-07
+
+### Added
+
+- `deploy/aws/ec2/`: a single-instance AWS recipe for the relay. Caddy terminates TLS
+  in front of the browser port and the connector tunnel is published on an Elastic IP,
+  so no ALB and no NLB are needed (~$15/month instead of ~$45). `deploy.sh` ships the
+  working tree through a private S3 bucket, so a private repo needs no deploy key: the
+  instance reads the tarball with its own IAM role. Auth settings come from an SSM
+  SecureString read at boot, and shell access is SSM Session Manager rather than SSH.
+- `docs/deployment.md` gains an AWS section covering when to prefer this over the
+  Kubernetes manifests.
+
 ## [2.17.2] — 2026-08-07
 
 ### Fixed
