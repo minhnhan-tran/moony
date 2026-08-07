@@ -53,7 +53,7 @@ Most of these are also editable at runtime from the web UI's **Persona** panel (
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `MN_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, `cerebras`, `perplexity`, `cohere`, `deepinfra`, `lmstudio`, `llamacpp`, `azure`, `vertex`, `bedrock`, or `copilot`. Overrides the saved `/provider` choice for the run |
+| `MN_PROVIDER` | `ollama` | backend provider: `ollama` (default), `openai`, `anthropic`, `openrouter`, `gemini`, `deepseek`, `groq`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `zai`, `dashscope`, `nvidia`, `huggingface`, `venice`, `omniroute`, `cerebras`, `perplexity`, `cohere`, `deepinfra`, `meta`, `lmstudio`, `llamacpp`, `azure`, `vertex`, `bedrock`, or `copilot`. Overrides the saved `/provider` choice for the run |
 | `MN_MODEL` | provider default | model id (e.g. `llama3.1:8b`, `gpt-4o`, `claude-sonnet-4-5`, or a `vendor/model` OpenRouter slug) |
 | `MN_OLLAMA_HOST` | `http://localhost:11434` | Ollama server base URL (a bare host:port is accepted; `/v1` is appended automatically) |
 | `MN_OLLAMA_TOKEN` | _(unset)_ | optional bearer token for a remote/protected Ollama server |
@@ -77,6 +77,8 @@ Most of these are also editable at runtime from the web UI's **Persona** panel (
 | `MN_PERPLEXITY_API_KEY` | _(unset)_ | Perplexity API key for the `perplexity` provider (falls back to `PERPLEXITY_API_KEY` / `PPLX_API_KEY`) |
 | `MN_COHERE_API_KEY` | _(unset)_ | Cohere API key for the `cohere` provider (falls back to `CO_API_KEY` / `COHERE_API_KEY`) |
 | `MN_DEEPINFRA_API_KEY` | _(unset)_ | DeepInfra API key for the `deepinfra` provider (falls back to `DEEPINFRA_API_KEY` / `DEEPINFRA_TOKEN`) |
+| `MN_META_API_KEY` | _(unset)_ | Meta Model API key for the `meta` provider (falls back to Meta's own `MODEL_API_KEY` / `META_API_KEY`) |
+| `MN_META_BASE_URL` | `https://api.meta.ai/v1` | Meta Model API base URL |
 | `MN_LMSTUDIO_BASE_URL` | `http://localhost:1234/v1` | LM Studio server URL for the `lmstudio` provider (falls back to `LM_STUDIO_BASE_URL`); keyless — optional `MN_LMSTUDIO_API_KEY` if you've enabled auth |
 | `MN_LLAMACPP_BASE_URL` | `http://localhost:8080/v1` | llama.cpp (`llama-server`) URL for the `llamacpp` provider (falls back to `LLAMA_CPP_BASE_URL`); keyless |
 | `MN_AZURE_API_KEY` | _(unset)_ | Azure OpenAI key for the `azure` provider (falls back to `AZURE_OPENAI_API_KEY` / `AZURE_API_KEY`) |
@@ -224,6 +226,7 @@ The agent supports twenty-nine backends, selected with `/provider` (or `MN_PROVI
 - **Perplexity (Sonar)** — `api.perplexity.ai`, `MN_PERPLEXITY_API_KEY` (or `PERPLEXITY_API_KEY` / `PPLX_API_KEY`); web-grounded answers with citations. `/reasoning` engages on the `sonar-reasoning` models.
 - **Cohere** — `api.cohere.ai` (OpenAI-compatible `/compatibility/v1`), `MN_COHERE_API_KEY` (or `CO_API_KEY` / `COHERE_API_KEY`); Command models with strong RAG/tool use.
 - **DeepInfra** — `api.deepinfra.com` (OpenAI-compatible), `MN_DEEPINFRA_API_KEY` (or `DEEPINFRA_API_KEY` / `DEEPINFRA_TOKEN`); a large, cheap catalog of hosted open models (Llama, DeepSeek, Qwen, Mixtral, …). Default model `meta-llama/Llama-3.3-70B-Instruct`.
+- **Meta Model API** — `api.meta.ai/v1` (OpenAI-compatible), `MN_META_API_KEY` (or Meta's own `MODEL_API_KEY` / `META_API_KEY`; keys look like `LLM|<id>|<secret>`, from [dev.meta.ai](https://dev.meta.ai/)); Meta's Muse Spark coding models — reasoning-first, 1M-token context, prompt caching and tool calling. Default model `muse-spark-1.2`; `muse-spark-1.2-contributor` is much cheaper but rate-limited by a rolling token window and opts prompts into training.
 - **LM Studio** — a **local, keyless** OpenAI-compatible server (default `http://localhost:1234/v1`, override with `MN_LMSTUDIO_BASE_URL`). Like Ollama, it needs no API key and serves whichever model you've loaded in the LM Studio app, so there's no fixed default — use `/models` to list and `/model <id>` to pick. Set `MN_LMSTUDIO_API_KEY` only if you've enabled auth on the server.
 - **llama.cpp** — a **local, keyless** OpenAI-compatible server (`llama-server`, default `http://localhost:8080/v1`, override with `MN_LLAMACPP_BASE_URL`); serves the single model it was launched with (`/model` / `/models` reflect that).
 - **Azure OpenAI** — OpenAI models on your Azure resource. Needs `MN_AZURE_API_KEY` (or `AZURE_OPENAI_API_KEY`) **and** `MN_AZURE_BASE_URL` (your resource endpoint, e.g. `https://my-res.openai.azure.com`; or `AZURE_OPENAI_ENDPOINT`). Uses the `api-key` header, deployment-scoped paths, and an `api-version` query param (`MN_AZURE_API_VERSION`, default `2024-10-21`). `/model` is your **deployment name** (there's no universal default).

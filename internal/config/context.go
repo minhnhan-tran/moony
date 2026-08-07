@@ -33,6 +33,11 @@ var modelContextWindows = map[string]int{
 	// Google Gemini — ~1M tokens.
 	"gemini-3.1-pro-preview": 1_048_576,
 	"gemini-2.5-pro":         1_048_576,
+
+	// Meta Muse Spark — 1M tokens.
+	"muse-spark-1.2":             1_048_576,
+	"muse-spark-1.1":             1_048_576,
+	"muse-spark-1.2-contributor": 1_048_576,
 }
 
 // ContextWindow returns the input-token capacity for a model id, stripping the

@@ -59,7 +59,7 @@ func isRemoteProvider(id string) bool {
 		provider.Groq, provider.XAI, provider.Mistral, provider.Together, provider.Fireworks,
 		provider.Moonshot, provider.ZAI, provider.DashScope, provider.NVIDIA, provider.HuggingFace,
 		provider.Venice, provider.OmniRoute, provider.Cerebras, provider.Perplexity, provider.Cohere,
-		provider.Azure, provider.Vertex, provider.DeepInfra, provider.LMStudio, provider.LlamaCpp:
+		provider.Azure, provider.Vertex, provider.DeepInfra, provider.Meta, provider.LMStudio, provider.LlamaCpp:
 		return true
 	}
 	return false
@@ -106,6 +106,8 @@ func (c *Client) remoteBackendFor(id string) remoteBackend {
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.CohereBaseURL, "https://api.cohere.ai/compatibility/v1"), apiKey: strings.TrimSpace(c.cfg.CohereAPIKey), keyEnv: "MN_COHERE_API_KEY"}
 	case provider.DeepInfra:
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.DeepInfraBaseURL, "https://api.deepinfra.com/v1/openai"), apiKey: strings.TrimSpace(c.cfg.DeepInfraAPIKey), keyEnv: "MN_DEEPINFRA_API_KEY"}
+	case provider.Meta:
+		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.MetaBaseURL, "https://api.meta.ai/v1"), apiKey: strings.TrimSpace(c.cfg.MetaAPIKey), keyEnv: "MN_META_API_KEY"}
 	case provider.LMStudio:
 		return remoteBackend{id: id, baseURL: firstNonEmpty(c.cfg.LMStudioBaseURL, "http://localhost:1234/v1"), apiKey: strings.TrimSpace(c.cfg.LMStudioAPIKey), keyEnv: "MN_LMSTUDIO_API_KEY", noKeyOK: true}
 	case provider.LlamaCpp:

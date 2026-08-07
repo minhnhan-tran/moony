@@ -7,8 +7,8 @@ import (
 
 func TestListDefaultOllamaFirst(t *testing.T) {
 	l := List()
-	if len(l) != 29 {
-		t.Fatalf("expected 29 providers, got %d", len(l))
+	if len(l) != 30 {
+		t.Fatalf("expected 30 providers, got %d", len(l))
 	}
 	if Default != Ollama {
 		t.Fatalf("default provider should be ollama, got %q", Default)
@@ -16,7 +16,7 @@ func TestListDefaultOllamaFirst(t *testing.T) {
 	if l[0].ID != Ollama {
 		t.Fatalf("expected ollama first, got %q", l[0].ID)
 	}
-	for _, id := range []string{Ollama, OpenAI, Anthropic, SQEAnthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks, Moonshot, ZAI, DashScope, NVIDIA, HuggingFace, Venice, OmniRoute, Cerebras, Perplexity, Cohere, DeepInfra, LMStudio, LlamaCpp, Azure, Vertex, Bedrock, Copilot} {
+	for _, id := range []string{Ollama, OpenAI, Anthropic, SQEAnthropic, OpenRouter, Gemini, DeepSeek, Groq, XAI, Mistral, Together, Fireworks, Moonshot, ZAI, DashScope, NVIDIA, HuggingFace, Venice, OmniRoute, Cerebras, Perplexity, Cohere, DeepInfra, Meta, LMStudio, LlamaCpp, Azure, Vertex, Bedrock, Copilot} {
 		if _, ok := Lookup(id); !ok {
 			t.Errorf("provider %q should be registered", id)
 		}

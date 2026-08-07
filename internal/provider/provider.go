@@ -42,6 +42,7 @@ const (
 	Perplexity  = "perplexity"
 	Cohere      = "cohere"
 	DeepInfra   = "deepinfra"
+	Meta        = "meta"
 
 	// LMStudio and LlamaCpp are LOCAL OpenAI-compatible servers (like Ollama):
 	// no API key, no cost. LM Studio's server defaults to :1234 and llama.cpp's
@@ -108,6 +109,10 @@ const (
 	PerplexityDefaultModel = "sonar-pro"
 	CohereDefaultModel     = "command-a-03-2025"
 	DeepInfraDefaultModel  = "meta-llama/Llama-3.3-70B-Instruct"
+	// MetaDefaultModel is the standard Muse Spark tier. The "-contributor" tier
+	// is cheaper but rate-limited by a rolling token window and opts prompts into
+	// training, so it is never the default -- pick it explicitly with /model.
+	MetaDefaultModel = "muse-spark-1.2"
 	// LMStudioDefaultModel and LlamaCppDefaultModel are empty: these local servers
 	// serve whatever model you've loaded, so there's no safe universal default —
 	// the loaded model (or /model) decides.
@@ -151,6 +156,7 @@ var list = []Provider{
 	{ID: Perplexity, Label: "Perplexity", Desc: "api.perplexity.ai (Sonar) — web-grounded answers with citations — needs MN_PERPLEXITY_API_KEY"},
 	{ID: Cohere, Label: "Cohere", Desc: "api.cohere.ai (Command, OpenAI-compatible) — strong RAG/tool-use — needs MN_COHERE_API_KEY"},
 	{ID: DeepInfra, Label: "DeepInfra", Desc: "api.deepinfra.com — large catalog of hosted open models, cheap — needs MN_DEEPINFRA_API_KEY"},
+	{ID: Meta, Label: "Meta Model API", Desc: "api.meta.ai — Meta's Muse Spark coding models (OpenAI-compatible) — needs MN_META_API_KEY"},
 	{ID: LMStudio, Label: "LM Studio", Desc: "local LM Studio server (default http://localhost:1234/v1) — no API key; serves the model you've loaded"},
 	{ID: LlamaCpp, Label: "llama.cpp", Desc: "local llama.cpp server / llama-server (default http://localhost:8080/v1) — no API key; serves the model you've loaded"},
 	{ID: Azure, Label: "Azure OpenAI", Desc: "Azure OpenAI Service — OpenAI models on your resource — needs MN_AZURE_API_KEY + MN_AZURE_BASE_URL (your endpoint); /model = deployment name"},
@@ -250,6 +256,7 @@ var defaultModels = map[string]string{
 	Perplexity:   PerplexityDefaultModel,
 	Cohere:       CohereDefaultModel,
 	DeepInfra:    DeepInfraDefaultModel,
+	Meta:         MetaDefaultModel,
 	LMStudio:     LMStudioDefaultModel,
 	LlamaCpp:     LlamaCppDefaultModel,
 	Azure:        AzureDefaultModel,

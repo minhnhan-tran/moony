@@ -67,6 +67,12 @@ var modelPrices = map[string]ModelPrice{
 	// Google Gemini (via Vertex pricing)
 	"gemini-3.1-pro-preview": {InputUSDPer1M: 1.25, OutputUSDPer1M: 5},
 	"gemini-2.5-pro":         {InputUSDPer1M: 1.25, OutputUSDPer1M: 10},
+	// Meta Muse Spark (Meta Model API). Cache reads are priced explicitly
+	// (0.12x of input), well below the standard 0.1x-derived guess. The
+	// "-contributor" tier is far cheaper because prompts may train future models.
+	"muse-spark-1.2":             {InputUSDPer1M: 1.25, OutputUSDPer1M: 4.25, CacheReadUSDPer1M: 0.15},
+	"muse-spark-1.1":             {InputUSDPer1M: 1.25, OutputUSDPer1M: 4.25, CacheReadUSDPer1M: 0.15},
+	"muse-spark-1.2-contributor": {InputUSDPer1M: 0.10, OutputUSDPer1M: 0.20, CacheReadUSDPer1M: 0.002},
 }
 
 // runtimePrices holds provider-supplied prices fetched at startup. Reads can

@@ -57,7 +57,7 @@ Written in Go, in the spirit of [OpenCode](https://github.com/sst/opencode) and 
 
 **Local:** Ollama · LM Studio · llama.cpp
 
-**Hosted:** OpenAI · Anthropic (Claude) · Google Gemini · OpenRouter · DeepSeek · Groq · xAI (Grok) · Mistral · Together.ai · Fireworks.ai · Moonshot (Kimi) · Z.AI (GLM) · DashScope (Qwen) · NVIDIA NIM · Hugging Face · Venice · OmniRoute · Cerebras · Perplexity · Cohere · DeepInfra · GitHub Copilot
+**Hosted:** OpenAI · Anthropic (Claude) · Google Gemini · OpenRouter · DeepSeek · Groq · xAI (Grok) · Mistral · Together.ai · Fireworks.ai · Moonshot (Kimi) · Z.AI (GLM) · DashScope (Qwen) · NVIDIA NIM · Hugging Face · Venice · OmniRoute · Cerebras · Perplexity · Cohere · DeepInfra · Meta Model API (Muse Spark) · GitHub Copilot
 
 **Cloud:** Azure OpenAI · Google Vertex AI · AWS Bedrock (SigV4-signed via the AWS SDK)
 

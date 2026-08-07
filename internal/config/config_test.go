@@ -760,6 +760,53 @@ func TestOmniRouteProvider(t *testing.T) {
 	}
 }
 
+// TestMetaProvider covers the Meta Model API wiring: OpenAI-compatible wire, the
+// api.meta.ai default base URL, the Muse Spark default model, Meta's own
+// MODEL_API_KEY as a key fallback, and MN_META_BASE_URL as an override.
+func TestMetaProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("MN_PROVIDER", "meta")
+	t.Setenv("MODEL_API_KEY", "LLM|1|from-meta-env") // provider-native name, no MN_ prefix
+	c := Load()
+	if c.LLMProvider != provider.Meta {
+		t.Errorf("LLMProvider = %q, want %q", c.LLMProvider, provider.Meta)
+	}
+	if c.Provider != ProviderOpenAI {
+		t.Errorf("wire = %q, want OpenAI-compatible", c.Provider)
+	}
+	if c.MetaBaseURL != "https://api.meta.ai/v1" {
+		t.Errorf("Meta base URL = %q", c.MetaBaseURL)
+	}
+	if c.MetaAPIKey != "LLM|1|from-meta-env" {
+		t.Errorf("Meta key = %q, want the MODEL_API_KEY fallback", c.MetaAPIKey)
+	}
+	if c.Model != provider.MetaDefaultModel {
+		t.Errorf("model = %q, want %q", c.Model, provider.MetaDefaultModel)
+	}
+	// Muse Spark reasons on every tier, so /effort must be live for it.
+	if !ReasoningActive(provider.Meta, c.Model, "medium") {
+		t.Error("reasoning should be active for Muse Spark")
+	}
+	// A 1M window and real prices, so budget math and cost display are not guesses.
+	if got := ContextWindow("muse-spark-1.2"); got != 1_048_576 {
+		t.Errorf("context window = %d, want 1048576", got)
+	}
+	if got := CostUSD("muse-spark-1.2", 1_000_000, 1_000_000); got != 5.5 {
+		t.Errorf("cost for 1M in + 1M out = %v, want 5.5", got)
+	}
+
+	t.Setenv("MN_META_API_KEY", "LLM|2|explicit")
+	t.Setenv("MN_META_BASE_URL", "https://proxy.internal/v1")
+	c2 := Load()
+	if c2.MetaAPIKey != "LLM|2|explicit" {
+		t.Errorf("MN_META_API_KEY should win: %q", c2.MetaAPIKey)
+	}
+	if c2.MetaBaseURL != "https://proxy.internal/v1" {
+		t.Errorf("Meta base URL override = %q", c2.MetaBaseURL)
+	}
+}
+
 // TestBatchContextEnvOverride covers the MN_BATCH_CONTEXT toggle: on by
 // default, disabled when set to a falsey value.
 func TestBatchContextEnvOverride(t *testing.T) {

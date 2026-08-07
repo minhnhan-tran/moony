@@ -2023,6 +2023,7 @@ const PROVIDER_OPTIONS = [
   { id: "perplexity", label: "Perplexity", desc: "api.perplexity.ai (Sonar) — web-grounded answers with citations" },
   { id: "cohere", label: "Cohere", desc: "api.cohere.ai (Command, OpenAI-compatible)" },
   { id: "deepinfra", label: "DeepInfra", desc: "api.deepinfra.com — large catalog of hosted open models, cheap" },
+  { id: "meta", label: "Meta Model API", desc: "api.meta.ai — Meta's Muse Spark coding models, 1M context" },
   { id: "lmstudio", label: "LM Studio", desc: "local LM Studio server (default http://localhost:1234/v1) — no API key" },
   { id: "llamacpp", label: "llama.cpp", desc: "local llama.cpp / llama-server (default http://localhost:8080/v1) — no API key" },
   { id: "azure", label: "Azure OpenAI", desc: "OpenAI models on your Azure resource — needs MN_AZURE_API_KEY + MN_AZURE_BASE_URL" },

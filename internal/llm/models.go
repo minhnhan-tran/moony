@@ -42,6 +42,8 @@ func ModelServableBy(model, llmProvider string) bool {
 		return fam == "gpt"
 	case provider.Gemini:
 		return fam == "gemini" || fam == "open" // Gemini API also serves Gemma
+	case provider.Meta:
+		return fam == "muse" || fam == "open" // Model API serves Muse Spark, and Meta's own Llamas
 	default:
 		// Aggregators/gateways (OpenRouter, Groq, Together, …) can serve many
 		// families; don't guess.
@@ -60,6 +62,10 @@ func modelFamily(m string) string {
 		return "gpt"
 	case strings.Contains(m, "gemini"):
 		return "gemini"
+	case strings.HasPrefix(m, "muse-"):
+		// Meta's Muse Spark coding models: hosted only (Meta Model API, OpenRouter),
+		// no open weights, so local runtimes must not claim to serve them.
+		return "muse"
 	case strings.Contains(m, "llama") || strings.Contains(m, "gemma") ||
 		strings.Contains(m, "qwen") || strings.Contains(m, "mistral") ||
 		strings.Contains(m, "deepseek") || strings.Contains(m, "phi"):

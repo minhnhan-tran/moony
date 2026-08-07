@@ -923,6 +923,7 @@ function providerLabel(id) {
     case "perplexity": return "Perplexity";
     case "cohere": return "Cohere";
     case "deepinfra": return "DeepInfra";
+    case "meta": return "Meta Model API";
     case "lmstudio": return "LM Studio";
     case "llamacpp": return "llama.cpp";
     case "azure": return "Azure OpenAI";

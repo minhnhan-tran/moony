@@ -194,6 +194,52 @@ func TestDeepInfraBackend(t *testing.T) {
 	}
 }
 
+// TestMetaBackend checks Meta Model API's base URL, key and env mapping, plus the
+// empty-config fallback (the Muse Spark models are only reachable over that host).
+func TestMetaBackend(t *testing.T) {
+	cfg := config.Config{MetaAPIKey: "LLM|123|secret", MetaBaseURL: "https://api.meta.ai/v1"}
+	rb := (&Client{cfg: &cfg}).remoteBackendFor(provider.Meta)
+	if rb.baseURL != "https://api.meta.ai/v1" {
+		t.Errorf("baseURL = %q", rb.baseURL)
+	}
+	if rb.apiKey != "LLM|123|secret" {
+		t.Errorf("apiKey = %q", rb.apiKey)
+	}
+	if rb.keyEnv != "MN_META_API_KEY" {
+		t.Errorf("keyEnv = %q", rb.keyEnv)
+	}
+	if rb.noKeyOK {
+		t.Error("Meta Model API requires a key; noKeyOK should be false")
+	}
+	if got := rb.chatURL("muse-spark-1.2"); got != "https://api.meta.ai/v1/chat/completions" {
+		t.Errorf("chat URL = %q", got)
+	}
+	// A config with no MetaBaseURL (e.g. an older config file) must still resolve.
+	bare := (&Client{cfg: &config.Config{}}).remoteBackendFor(provider.Meta)
+	if bare.baseURL != "https://api.meta.ai/v1" {
+		t.Errorf("fallback baseURL = %q", bare.baseURL)
+	}
+}
+
+// Muse Spark has no open weights, so local runtimes must not claim to serve it,
+// while the Meta Model API and aggregators must.
+func TestMuseSparkServableBy(t *testing.T) {
+	for _, id := range []string{provider.Meta, provider.OpenRouter} {
+		if !ModelServableBy("muse-spark-1.2", id) {
+			t.Errorf("%s should serve muse-spark-1.2", id)
+		}
+	}
+	for _, id := range []string{provider.Ollama, provider.LMStudio} {
+		if ModelServableBy("muse-spark-1.2", id) {
+			t.Errorf("%s must not claim to serve muse-spark-1.2", id)
+		}
+	}
+	// Meta also hosts its own open models.
+	if !ModelServableBy("llama-4-scout", provider.Meta) {
+		t.Error("meta should serve llama models too")
+	}
+}
+
 // TestLocalKeylessBackends: LM Studio and llama.cpp are keyless local servers.
 func TestLocalKeylessBackends(t *testing.T) {
 	cases := []struct {

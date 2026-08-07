@@ -156,6 +156,14 @@ type Config struct {
 	// (default https://api.deepinfra.com/v1/openai). Set via
 	// MN_DEEPINFRA_BASE_URL.
 	DeepInfraBaseURL string
+	// MetaAPIKey authenticates Meta Model API (api.meta.ai), which serves the
+	// Muse Spark coding models over an OpenAI-compatible wire. Keys look like
+	// "LLM|<id>|<secret>" and come from https://dev.meta.ai/. Set via
+	// MN_META_API_KEY (falls back to Meta's own MODEL_API_KEY / META_API_KEY).
+	MetaAPIKey string
+	// MetaBaseURL overrides the Meta Model API base URL (default
+	// https://api.meta.ai/v1). Set via MN_META_BASE_URL.
+	MetaBaseURL string
 	// LMStudioBaseURL overrides the local LM Studio server base URL (default
 	// http://localhost:1234/v1). Set via MN_LMSTUDIO_BASE_URL (falls back to
 	// LM_STUDIO_BASE_URL). LM Studio is keyless; an optional token can be set
@@ -1430,6 +1438,8 @@ func ReasoningActive(llmProvider, model, level string) bool {
 		return strings.Contains(strings.ToLower(model), "reasoning")
 	case provider.OpenRouter, provider.Gemini, provider.Vertex, provider.Together, provider.Fireworks, provider.Copilot:
 		return true
+	case provider.Meta:
+		return true // every Muse Spark tier reasons before answering; /effort maps to its effort levels
 	default: // ollama, anthropic, bedrock, cohere, deepinfra, lmstudio, llamacpp
 		return ModelSupportsThinking(model)
 	}
@@ -1639,6 +1649,7 @@ func Load() *Config {
 		PerplexityBaseURL:   "https://api.perplexity.ai",
 		CohereBaseURL:       "https://api.cohere.ai/compatibility/v1",
 		DeepInfraBaseURL:    "https://api.deepinfra.com/v1/openai",
+		MetaBaseURL:         "https://api.meta.ai/v1",
 		LMStudioBaseURL:     "http://localhost:1234/v1",
 		LlamaCppBaseURL:     "http://localhost:8080/v1",
 		AzureAPIVersion:     defaultAzureAPIVersion,
@@ -1839,6 +1850,10 @@ func Load() *Config {
 	c.DeepInfraAPIKey = strings.TrimSpace(firstEnv("MN_DEEPINFRA_API_KEY", "DEEPINFRA_API_KEY", "DEEPINFRA_TOKEN"))
 	if v := strings.TrimSpace(firstEnv("MN_DEEPINFRA_BASE_URL")); v != "" {
 		c.DeepInfraBaseURL = v
+	}
+	c.MetaAPIKey = strings.TrimSpace(firstEnv("MN_META_API_KEY", "MODEL_API_KEY", "META_API_KEY"))
+	if v := strings.TrimSpace(firstEnv("MN_META_BASE_URL")); v != "" {
+		c.MetaBaseURL = v
 	}
 	c.LMStudioAPIKey = strings.TrimSpace(firstEnv("MN_LMSTUDIO_API_KEY", "LM_STUDIO_API_KEY"))
 	if v := strings.TrimSpace(firstEnv("MN_LMSTUDIO_BASE_URL", "LM_STUDIO_BASE_URL")); v != "" {
