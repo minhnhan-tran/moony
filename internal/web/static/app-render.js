@@ -521,7 +521,16 @@ function appendMsg(node) { (answerHost || transcript).appendChild(node); }
 
 // scrollBottom keeps the latest answer pinned to its newest output, but only
 // while the user is already at the bottom — so scrolling up to read isn't yanked.
-function scrollBottom() { const h = answerHost || transcript; if (stickBottom) h.scrollTop = h.scrollHeight; }
+//
+// Reading scrollHeight right after appending forces a synchronous layout, so
+// during a history replay (every remembered message calls this) it is deferred:
+// flushReplayLayout does one scroll at the history/live boundary instead of N.
+function scrollBottom() {
+  if (!stickBottom) return;
+  if (!historyLoaded) { scrollFlushPending = true; return; }
+  const h = answerHost || transcript;
+  h.scrollTop = h.scrollHeight;
+}
 
 // --- tool-call grouping -----------------------------------------------------
 // Consecutive tool calls collapse into one "N tool calls" disclosure; any

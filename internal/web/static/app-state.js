@@ -35,6 +35,9 @@ let workerGroup = null;                  // current run of delegated-worker prog
 // of which pair is being viewed); `activePairIdx` is the pair the pager shows.
 let pairs = [];
 let activePairIdx = -1;
+// Layout work setActivePair/scrollBottom skipped during a history replay, paid off
+// once at the history/live boundary (flushReplayLayout) instead of per turn.
+let pagerFlushPending = false, scrollFlushPending = false;
 let answerHost = null;
 let turnStartMs = 0, turnActive = false; // turn timing for the per-answer meta footer
 let lastTurnCost = 0;                    // this turn's answering cost (from turn_done), for the footer

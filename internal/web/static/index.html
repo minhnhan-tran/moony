@@ -344,6 +344,32 @@
     </div>
   </div>
 
+<!-- Jumping-Claude loader art, inline rather than <img src=".../claude-jumping.svg">.
+     An SVG referenced by <img> is rasterized as an image, so keyframes inside it
+     re-paint on the main thread every frame and freeze whenever JS is busy — the
+     one thing a loader must not do. As real DOM nodes the transforms animate on
+     the compositor instead (see .jump-art in app.css, which also owns the
+     keyframes). Class names are ja-* prefixed: an inline SVG shares the page's
+     stylesheet, so the original's bare .shadow/.left-arm would leak site-wide.
+     showConnecting() clones this. -->
+<template id="jumpArtTpl">
+  <svg class="jump-art" viewBox="0 0 100 90" width="140" height="126" aria-hidden="true" focusable="false">
+    <ellipse class="ja-shadow" cx="50" cy="82" rx="22" ry="5" fill="#000"/>
+    <g class="ja-body">
+      <rect class="ja-ear-l" x="22" y="10" width="8" height="14" fill="#E07C4C"/>
+      <rect class="ja-ear-r" x="70" y="10" width="8" height="14" fill="#E07C4C"/>
+      <rect x="18" y="24" width="64" height="4" fill="#E07C4C"/>
+      <rect x="14" y="28" width="72" height="32" fill="#E07C4C"/>
+      <rect x="30" y="34" width="8" height="10" fill="#000000"/>
+      <rect x="62" y="34" width="8" height="10" fill="#000000"/>
+      <rect class="ja-arm-l" x="2" y="36" width="12" height="8" fill="#E07C4C"/>
+      <rect class="ja-arm-r" x="86" y="36" width="12" height="8" fill="#E07C4C"/>
+      <rect x="24" y="60" width="12" height="14" fill="#E07C4C"/>
+      <rect x="64" y="60" width="12" height="14" fill="#E07C4C"/>
+    </g>
+  </svg>
+</template>
+
 <!-- app.js was split into ordered classic scripts that share one global scope;
      they MUST load in this order (state → render → core → manage). defer keeps
      execution order and waits for the DOM. -->

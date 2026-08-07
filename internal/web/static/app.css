@@ -1480,6 +1480,54 @@ body.sidebar-resizing .app-sidebar { transition: none; } /* no lag while draggin
 .conn-loader { display: flex; flex-direction: column; align-items: center; gap: .6rem; animation: empty-fade .4s ease both; }
 .conn-art { width: 96px; height: auto; }
 .conn-label { font-size: .9rem; color: rgb(var(--c-faint)); }
+
+/* Jumping-Claude loader art (the #jumpArtTpl clone). These keyframes used to live
+   inside claude-jumping.svg, which the page loaded through <img> — and an SVG
+   drawn as an image is re-rasterized on the MAIN thread for every frame, so the
+   mascot froze exactly when it mattered: while a session's history was being
+   replayed into the transcript. Inline, transform/opacity animations on these
+   nodes run on the compositor, so a busy main thread no longer stalls them.
+   will-change promotes each animated part up front instead of mid-animation.
+   transform-box: fill-box makes each element pivot about its OWN box; without it
+   browsers rotate/scale around the SVG viewport origin and the pose breaks. */
+.jump-art .ja-body, .jump-art .ja-shadow,
+.jump-art .ja-arm-l, .jump-art .ja-arm-r,
+.jump-art .ja-ear-l, .jump-art .ja-ear-r {
+  transform-box: fill-box;
+  will-change: transform;
+}
+.jump-art .ja-body { animation: ja-jump .5s ease-in-out infinite; transform-origin: center bottom; }
+.jump-art .ja-shadow { animation: ja-shadow .5s ease-in-out infinite; transform-origin: center center; opacity: .25; will-change: transform, opacity; }
+.jump-art .ja-arm-l { animation: ja-wave-l .5s ease-in-out infinite; transform-origin: right center; }
+.jump-art .ja-arm-r { animation: ja-wave-r .5s ease-in-out infinite; transform-origin: left center; }
+.jump-art .ja-ear-l { animation: ja-ear .5s ease-in-out infinite; transform-origin: center bottom; }
+.jump-art .ja-ear-r { animation: ja-ear .5s ease-in-out infinite .1s; transform-origin: center bottom; }
+
+@keyframes ja-jump {
+  0%, 100% { transform: translateY(0) scaleY(1) scaleX(1); }
+  30% { transform: translateY(-16px) scaleY(1.1) scaleX(.95); }
+  50% { transform: translateY(-18px) scaleY(1.05) scaleX(.98); }
+  80% { transform: translateY(-5px) scaleY(.95) scaleX(1.05); }
+}
+@keyframes ja-shadow {
+  0%, 100% { transform: scaleX(1); opacity: .25; }
+  50% { transform: scaleX(.4); opacity: .08; }
+}
+@keyframes ja-wave-l { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-25deg); } }
+@keyframes ja-wave-r { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(25deg); } }
+@keyframes ja-ear {
+  0%, 100% { transform: scaleY(1); }
+  40% { transform: scaleY(1.2); }
+  60% { transform: scaleY(.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jump-art .ja-body, .jump-art .ja-shadow, .jump-art .ja-arm-l,
+  .jump-art .ja-arm-r, .jump-art .ja-ear-l, .jump-art .ja-ear-r {
+    animation: none;
+    will-change: auto;
+  }
+}
 /* Small jumping Claude before a sidebar "Loading…" row. */
 .tree-loading { display: inline-flex; align-items: center; gap: .4rem; }
 .tree-loading-art { width: 18px; height: 18px; flex: 0 0 auto; }

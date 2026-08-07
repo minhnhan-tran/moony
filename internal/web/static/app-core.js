@@ -754,11 +754,30 @@ function offlineNote(text, padLeftRem) {
 // showConnecting puts a centered jumping-Claude loader in the transcript while a
 // newly-selected session connects. The SSE replays history on connect, so the
 // first event in clears it (dismissConnecting, called from handle()).
+//
+// The art is cloned from the #jumpArtTpl inline SVG rather than loaded as an
+// <img>: inside an image the mascot's keyframes repaint on the main thread, so
+// the very work this loader covers (tearing down the old transcript, replaying
+// the new session) used to freeze it mid-jump.
 function showConnecting() {
   const d = el("div", "conn-loader"); d.id = "connLoader";
-  const art = el("img", "conn-art"); art.src = "/static/icon/claude-jumping.svg"; art.alt = "";
-  d.append(art, el("div", "conn-label", "Connecting…"));
+  d.append(jumpArt("conn-art"), el("div", "conn-label", "Connecting…"));
   transcript.appendChild(d);
+}
+
+// jumpArt clones the loader mascot, falling back to the standalone SVG file if
+// the template is missing (an older cached index.html).
+function jumpArt(cls) {
+  const tpl = document.getElementById("jumpArtTpl");
+  const svg = tpl && tpl.content.firstElementChild
+    ? tpl.content.firstElementChild.cloneNode(true)
+    : null;
+  if (!svg) {
+    const img = el("img", cls); img.src = "/static/icon/claude-jumping.svg"; img.alt = "";
+    return img;
+  }
+  svg.classList.add(cls);
+  return svg;
 }
 
 // dismissConnecting removes the connecting loader once content starts arriving.
@@ -1294,6 +1313,7 @@ function handle(ev) {
     }
     case "history_end": {
       historyLoaded = true; // past this marker every event is live, not replayed history
+      flushReplayLayout();  // one pager/scroll measure for the whole replay, not one per turn
       break;
     }
     case "thinking": {
@@ -3757,10 +3777,36 @@ function startPair(questionMsg) {
 // back to read history never redirects a live answer.
 function setActivePair(idx) {
   if (idx < 0 || idx >= pairs.length) return;
+  // Touch only the two pairs that change. `.pair` is display:none/flex (app.css),
+  // so a toggle tears one box tree down and builds another up — doing that for
+  // every pair on every new pair made reopening a long session O(pairs²).
+  const prev = pairs[activePairIdx];
+  if (prev && activePairIdx !== idx) prev.root.classList.remove("pair-active");
   activePairIdx = idx;
-  for (let i = 0; i < pairs.length; i++) pairs[i].root.classList.toggle("pair-active", i === idx);
+  pairs[idx].root.classList.add("pair-active");
+
+  // Replay appends one pair per remembered question, and both calls below force a
+  // synchronous layout (getBoundingClientRect in syncFloatingPills, scrollHeight
+  // in updateScrollBtn) on a transcript that grows with each one. Nobody can see
+  // the pager mid-replay, so defer the measuring to the history_end flush and
+  // keep the main thread free for the loader's animation.
+  if (!historyLoaded) { pagerFlushPending = true; return; }
   renderPager();
   updateScrollBtn();
+}
+
+// flushReplayLayout pays, once, for the pager/scroll bookkeeping that setActivePair
+// and scrollBottom skipped while history was replaying.
+function flushReplayLayout() {
+  if (pagerFlushPending) {
+    pagerFlushPending = false;
+    renderPager();
+    updateScrollBtn();
+  }
+  if (scrollFlushPending) {
+    scrollFlushPending = false;
+    scrollBottom();
+  }
 }
 
 // renderPager shows the "< n/total >" nav (#pagerNav) once there are ≥2
@@ -3883,6 +3929,7 @@ function openPagerMenu() {
 // resetPairs clears pager state when the transcript is wiped (session switch/reset).
 function resetPairs() {
   pairs = []; activePairIdx = -1; answerHost = null;
+  pagerFlushPending = false; scrollFlushPending = false; // nothing left to flush for the old transcript
   if (scrollBtn) scrollBtn.hidden = true;
   renderPager(); // also re-syncs #pager's own visibility
 }
