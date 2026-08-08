@@ -1,0 +1,12 @@
+# Line endings.
+#
+# core.autocrlf is on for this repo on Windows, and `git archive` honours it: the
+# deploy tarball arrived with CRLF, which made `set -euo pipefail\r` an "invalid
+# option name" on the instance and would do the same to any shebang. Anything a Linux
+# box or a container executes is therefore pinned to LF, wherever it is checked out or
+# exported from.
+*.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
