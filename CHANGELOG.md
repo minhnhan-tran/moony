@@ -5,6 +5,49 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.5] — 2026-08-08
+
+### Fixed
+
+- **Prepaid providers could never trigger a quota fallback.** The providers that report
+  credit *remaining* rather than money spent (DeepSeek, Moonshot, Z.AI, DeepInfra, Venice)
+  leave spend and budget at zero, so every threshold test in `quotaBreached` was skipped:
+  a user whose credit ran dry got a run of failing turns instead of a hop to the fallback
+  model. `QuotaSnapshot` now carries the balance, and exhausted credit (`<= 0`) always
+  breaches. `MN_QUOTA_BUDGET_USD` acts as a **reserve floor** here ("hop while at least
+  this much is left") — deliberately the opposite sense to the spend case, because the
+  underlying number is the opposite quantity. `MN_QUOTA_BUDGET_PCT` stays inapplicable:
+  a percentage needs a cap to divide by, and these providers report none, so inventing a
+  denominator would fire fallbacks at a threshold nobody chose.
+- **A per-turn spend cap could not fire on an unpriced model.** `MN_MAX_TURN_COST_USD` and
+  its warn threshold were fed by `Usage.CostUSD`, which prices a model absent from the
+  table at $0 — so on most non-flagship models the cap silently never tripped and a
+  runaway turn ran on to the step ceiling instead. The guard rails now use a separate
+  `GuardCostUSD` accumulator that charges unknown models at the conservative fallback
+  rate, while the *displayed* cost is unchanged so the UI still never shows an invented
+  figure. Sub-agent cost folds into the parent's cap through the same guard figure;
+  otherwise delegating to an unpriced model bypassed the parent's cap entirely.
+- **An MCP server could hang forever on its own stderr.** `drainStderr` returned
+  immediately when no logger was configured, leaving the child's stderr pipe unread — once
+  the pipe buffer filled, the subprocess blocked on its next write. It now always drains,
+  and keeps draining past a single line larger than the 1 MB scanner limit, which stopped
+  the drain the same way.
+- **Data race on the MCP manager.** `Reload()` replaced its connection, prompt, server and
+  failure lists wholesale while the Doctor panel, the MCP market and the command palette
+  read them from their own HTTP handler goroutines (confirmed under `-race`). The four
+  lists are now mutex-guarded, with `ConnectAll` deliberately left outside the lock so a
+  slow or hanging server can't block every reader for its whole timeout. Reloads are also
+  serialized against each other: two concurrent `/mcp` reloads each spawned a full set of
+  subprocesses, one of which was then orphaned and never closed.
+- The TUI status bar no longer shows prepaid credit as though it were spend: a
+  balance-only provider read `$0.00 24h` (its spend field is legitimately zero) where the
+  real story is how much is left, and now reads `$4.66 left`. The discriminator is whether
+  a balance was *reported*, not whether spend is non-zero — a spend-based provider at the
+  start of its period genuinely has `$0.00` spent against a real cap and must still show
+  `$0.00/$100`.
+- `formatUSD(0)` rendered `$0.0000` because zero fell into the sub-cent branch, so
+  exhausted credit displayed as `$0.0000 left`. Zero now formats as `$0.00`.
+
 ## [2.20.4] — 2026-08-08
 
 ### Fixed
