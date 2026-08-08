@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.4] — 2026-08-08
+
+### Fixed
+
+- `deploy/aws/ec2`: the security group applied `--web-cidr` to port 80, which would have
+  made Let's Encrypt issuance fail, since validation arrives over port 80 from addresses
+  that cannot be predicted. Port 80 is now world-open when a domain is configured (it
+  serves only the challenge and a redirect) while `--web-cidr` still restricts the UI on
+  443; without a domain, port 80 is the UI and stays restricted.
+
 ## [2.18.3] — 2026-08-08
 
 ### Fixed
