@@ -5,6 +5,41 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.21.1] — 2026-08-08
+
+### Fixed
+
+- **Starting a background job from the web UI hung forever under the default approval
+  policy.** Two reasonable decisions combined into a dead end: `POST /jobs` blocked the
+  HTTP request while waiting for approval, and the approval bar sat *behind* the manage
+  modal (`#manageOverlay` is `position:fixed; z-index:50`). So clicking **Add job** left
+  the browser waiting on a request that could only be released by answering a prompt the
+  modal was covering — and the modal closes only via its X button. Confirmed by both a Go
+  test (the request never returned) and a browser hit-test (`elementFromPoint` over the
+  approval bar returned `manageOverlay`). Only `auto` and `danger-skip` escaped it, which
+  is why it looked broken by default but fine for anyone who had changed the policy.
+  - `POST /jobs` no longer blocks. When no approval is needed it still answers inline with
+    the job id; when approval IS needed it returns `202 {pending, ticket}` at once and
+    finishes in the background, reporting `started` / `denied` / `failed` over SSE as a new
+    `job_start` event. The gate runs on its own context, since the request's context is
+    already cancelled by the time it would be consulted.
+  - The approval bar now sits above the manage modal, so the prompt is reachable. The
+    modal's close behaviour is unchanged (X button only).
+  - An unanswered prompt now times out after two minutes instead of pinning the session's
+    approval channel — which previously blocked every later job start with a 409 — and
+    leaking the goroutine for the life of the process.
+  - The typed command is kept in the box until the job actually starts, so a denial or
+    timeout no longer silently discards it.
+- Fixed a nil-pointer dereference in `Registry.lookup` (`internal/tools/tool.go`) reachable
+  from an approval check on an agent with no tool registry.
+
+### Added
+
+- The jobs strip's rows regained a **restart** control for finished jobs (re-runs the same
+  command, exactly as the manage panel does). It was omitted in 2.21.0 on the mistaken
+  belief that moony had no restart path; it does. Notably it routes through the same
+  approval gate, so it would have deadlocked in the same way before this release.
+
 ## [2.21.0] — 2026-08-08
 
 ### Added
