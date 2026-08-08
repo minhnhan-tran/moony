@@ -52,9 +52,15 @@ Then:
 3. Open the `WebUrl` output. Caddy will have issued a certificate once DNS resolves.
 4. On your machine: `moony -relay=<PublicIp>:8771` (the `ConnectorCommand` output).
 
-Re-run the same command to update: a fresh tarball key replaces the instance and
-rebuilds. The Elastic IP is kept, so `MN_RELAY_TUNNEL` and every connector config stay
-valid.
+Re-run the same command to update, including to add or change `--domain` and
+`--env-parameter` on a running stack. Only committed work ships: the tarball is
+`git archive HEAD`, and the script warns when the tree is dirty.
+
+After the stack update, `deploy.sh` runs `apply.sh` on the instance over SSM. That step
+is not cosmetic: CloudFormation updates an instance's user-data in place (stop, modify,
+start) and cloud-init only runs user-data once per instance, so without it a changed
+`--domain` would alter the security group and nothing else, leaving Caddy on plain HTTP.
+`apply.sh` is idempotent and holds a lock, so running it twice is harmless.
 
 ## Turn on authentication before you use it
 
