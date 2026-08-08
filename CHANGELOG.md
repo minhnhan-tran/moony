@@ -5,6 +5,23 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.3] — 2026-08-08
+
+### Fixed
+
+- `deploy/aws/ec2`: the AL2023 AMI is published under
+  `/aws/service/ami-amazon-linux-latest`, not `ami-al2023-latest`, so CloudFormation
+  could not resolve the image and the stack never started.
+- Caddy rejects `email` with an empty argument, so deploying without `--email` left the
+  proxy crash-looping in front of a healthy relay. The address now comes from a file the
+  instance always writes and the global options block imports.
+- Under git-bash, arguments that look like absolute Unix paths are rewritten before the
+  native `aws.exe` sees them, which turned an SSM parameter name into a path inside the
+  Git install. That one override is now excluded from conversion.
+
+Verified end to end on a live stack: relay healthy, Caddy serving the SPA, `/api/relay`
+advertising the Elastic IP, and the tunnel port accepting TCP.
+
 ## [2.18.2] — 2026-08-08
 
 ### Changed
