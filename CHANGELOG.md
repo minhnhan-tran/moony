@@ -5,6 +5,26 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.0] — 2026-08-08
+
+### Added
+
+- A **Deploy to AWS** quick action in the composer's preset menu: it asks for
+  `moony deploy aws --status`, deploys, reports the WebUrl and connector command, and
+  warns when no `--env-parameter` is set, since that relay has no authentication.
+
+### Fixed
+
+- The built-in quick actions were unreachable. `EnsureGlobalDefaults` was never called
+  outside tests, nothing else creates the file, and `List()` returns nothing when
+  neither scope has one, so a fresh install showed an empty menu until someone found
+  the panel's reset button. It is now called from `BuildServer` beside the permission
+  and domain defaults.
+- Quick-action files now record which built-ins have already been offered, so a newly
+  shipped preset reaches an existing installation exactly once and a preset the user
+  deleted stays deleted. `Store.save` carries that record through edits; dropping it
+  would have made the next start re-add a just-deleted built-in.
+
 ## [2.19.0] — 2026-08-08
 
 ### Added
