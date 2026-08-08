@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.1] — 2026-08-08
+
+### Changed
+
+- Tests pin that a fresh install seeds every built-in quick action, and that an existing
+  but emptied list gains only the built-in it has never been offered. The first-run path
+  writes all defaults before the legacy-migration branch, so neither case can regress
+  into offering a new user only the newest preset.
+
 ## [2.20.0] — 2026-08-08
 
 ### Added
