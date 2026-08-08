@@ -89,8 +89,8 @@ terminates TLS in front of port 8770 and the connector tunnel is published strai
 an Elastic IP.
 
 ```sh
-deploy/aws/ec2/deploy.sh --vpc vpc-... --subnet subnet-... \
-  --domain relay.example.com --email you@example.com --env-parameter /moony/relay-env
+deploy/aws/ec2/deploy.sh --domain relay.example.com --email you@example.com \
+  --env-parameter /moony/relay-env
 ```
 
 It packages the working tree with `git archive`, uploads it to a private S3 bucket, and

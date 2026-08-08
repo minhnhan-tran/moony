@@ -26,16 +26,18 @@ deploy, a reboot is downtime. Fine for a relay that stores nothing. If you outgr
 
 ## Deploy
 
-Prerequisites: AWS CLI signed in (`aws login`), a VPC and a **public** subnet (the
-default VPC has both), and a DNS name you can point at an IP.
+Prerequisites: AWS CLI signed in (`aws login`), an **activated** account, and a DNS name
+you can point at an IP. The VPC and subnet default to the account's default VPC and its
+first public subnet, so there is usually nothing to look up.
 
 ```sh
-deploy/aws/ec2/deploy.sh \
-  --vpc vpc-0123456789abcdef0 \
-  --subnet subnet-0123456789abcdef0 \
-  --domain relay.example.com \
-  --email you@example.com
+deploy/aws/ec2/deploy.sh --domain relay.example.com --email you@example.com
 ```
+
+The script preflights and says what is wrong instead of letting CloudFormation fail:
+not signed in, root credentials in use, or the one that looks like a permissions problem
+and is not - an account whose sign-up was never finished, where STS and IAM answer
+normally while every regional service returns `OptInRequired`.
 
 The script packages the working tree with `git archive`, uploads it to a private S3
 bucket, and creates the CloudFormation stack. The repo can stay private: the instance
@@ -74,8 +76,7 @@ MN_AUTH_ADMINS=you@example.com
 EOF
 )"
 
-deploy/aws/ec2/deploy.sh --vpc ... --subnet ... --domain relay.example.com \
-  --env-parameter /moony/relay-env
+deploy/aws/ec2/deploy.sh --domain relay.example.com --env-parameter /moony/relay-env
 ```
 
 `MN_RELAY_TUNNEL` is set by the instance itself from the Elastic IP, so leave it out of
@@ -100,6 +101,7 @@ restricts who can *use* the UI over 443.
 | `--instance-type` | `t4g.small` | arm64. For x86 also change `AmiId` to the `x86_64` SSM alias. |
 | `--with-downloads` | off | Cross-builds the CLI binaries served at `/download` and `/install.sh`. Slow on a small box. |
 | `--tunnel-cidr` / `--web-cidr` | `0.0.0.0/0` | Lock these down. |
+| `--vpc` / `--subnet` | default VPC, first public subnet | Only needed when there is no default VPC, or several to choose from. |
 | `--delete` | | Tears the stack down. The S3 bucket is left behind. |
 
 ## Operating it
