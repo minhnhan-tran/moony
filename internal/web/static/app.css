@@ -745,6 +745,13 @@ body.agent-awaiting .app-statusbar::after {
   border-top: 2px solid rgb(var(--c-warn) / .6);
   box-shadow: inset 0 1px 0 rgb(var(--c-warn) / .28);
   animation: msg-in .2s ease-out both;
+  /* Must sit ABOVE the manage modal (#manageOverlay is position:fixed; z-index:50).
+     Starting a background job from that modal raises an approval prompt, and the prompt
+     used to render underneath the overlay — unreachable, with the modal closable only via
+     its X button, so the job could never be approved. position:relative is required for
+     z-index to take effect on a statically-positioned element. */
+  position: relative;
+  z-index: 60;
 }
 .app-approval-head { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .55rem; }
 .app-approval-badge {

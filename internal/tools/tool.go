@@ -677,6 +677,11 @@ func (r *Registry) Get(name string) Tool {
 // through this so none of them touches the maps unguarded (they are mutated at
 // runtime by MCP reloads / skill toggles).
 func (r *Registry) lookup(name string) (Tool, bool, string) {
+	// A nil registry is a programming error, but reporting "unknown tool" beats panicking
+	// deep inside an approval check on a request path.
+	if r == nil {
+		return nil, false, ""
+	}
 	r.toolsMu.RLock()
 	defer r.toolsMu.RUnlock()
 	t, ok := r.tools[name]

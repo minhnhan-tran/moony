@@ -1911,6 +1911,23 @@ async function renderJobsPanel() {
   form.append(row);
   body.append(form);
 
+  // Tickets for job starts awaiting approval: ticket -> command. The outcome arrives on
+  // the session's SSE stream, which every tab sees, so the ticket is how this tab
+  // recognises its own request instead of reacting to another's.
+  const setJobHint = (text) => {
+    let h = document.getElementById("jobStartHint");
+    if (!h) {
+      h = el("div", "jobs-hint text-faint");
+      h.id = "jobStartHint";
+      form.appendChild(h);
+    }
+    h.textContent = text || "";
+    h.style.display = text ? "" : "none";
+  };
+  // Exposed so the SSE handler can report the outcome even though it lives in app-core.js.
+  window.__jobStartHint = setJobHint;
+  window.__jobStartInput = cmdI;
+
   const doStart = async () => {
     const command = cmdI.value.trim();
     if (!command) { alertBox("Enter a command to run."); return; }
@@ -1923,6 +1940,17 @@ async function renderJobsPanel() {
       const out = await r.json().catch(() => ({}));
       // A denial is a normal outcome (the user said no), not an error dialog.
       if (out && out.denied) { alertBox("The job was not approved."); return; }
+      // 202 + pending: the start needs approval, and the answer arrives later over SSE as
+      // a job_start event. The request deliberately does NOT wait for it — it used to,
+      // which deadlocked: the prompt is rendered by this very UI, so a pending fetch meant
+      // the user could never answer and the click hung forever.
+      if (out && out.pending) {
+        pendingJobTickets.set(out.ticket, command);
+        // Keep the command in the box until it actually starts, so a denied or timed-out
+        // approval doesn't silently lose what was typed.
+        setJobHint(`Waiting for approval to run “${command}” — confirm it in the approval bar below.`);
+        return;
+      }
       cmdI.value = "";
       renderJobsPanel();
     } catch (_) {

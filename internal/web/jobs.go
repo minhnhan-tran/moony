@@ -1,11 +1,13 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pysty1995/moony/internal/agent"
@@ -219,21 +221,93 @@ func (s *Server) handleJobStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "a turn is in progress — wait for it to finish before starting a job", http.StatusConflict)
 		return
 	}
-	defer sess.releaseJobPrompt()
 
-	id, err := sess.agent.StartBackgroundJobApproved(r.Context(), sess.emit, body.Command, body.TTY)
-	if err != nil {
-		if errors.Is(err, agent.ErrJobDenied) {
-			// Not a server error: the user said no.
-			writeJSON(w, map[string]any{"ok": false, "denied": true})
+	// When no prompt is needed (auto / danger-skip, non-destructive command) answer
+	// synchronously: the caller gets the job id in the response and nothing can block.
+	if !sess.agent.BackgroundJobNeedsApproval(body.Command, body.TTY) {
+		defer sess.releaseJobPrompt()
+		id, err := sess.agent.StartBackgroundJobApproved(r.Context(), sess.emit, body.Command, body.TTY)
+		if err != nil {
+			if errors.Is(err, agent.ErrJobDenied) {
+				writeJSON(w, map[string]any{"ok": false, "denied": true})
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sess.publishEvent(wireEvent{Type: "jobs_changed"})
+		writeJSON(w, map[string]any{"ok": true, "id": id})
 		return
 	}
-	sess.publishEvent(wireEvent{Type: "jobs_changed"})
-	writeJSON(w, map[string]any{"ok": true, "id": id})
+
+	// An approval IS needed, so this must not be answered inline. Blocking the request
+	// here deadlocks the browser: the prompt is rendered by the very UI whose fetch is
+	// still pending, so the user cannot answer it and the request hangs forever. Reply
+	// 202 immediately and finish the work in the background, reporting the outcome over
+	// SSE as a "job_start" event keyed by ticket.
+	ticket := newJobTicket()
+	go s.startJobApproved(sess, ticket, body.Command, body.TTY)
+
+	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, map[string]any{"ok": true, "pending": true, "ticket": ticket})
 }
+
+// jobApprovalTimeout bounds how long a background start waits for an answer.
+//
+// A backstop, not the primary mechanism: without it an unanswered prompt pins the
+// session's approval channel (blocking every later job start with a 409) and leaks the
+// goroutine for the life of the process. Generous enough for someone to read the prompt
+// and decide.
+const jobApprovalTimeout = 2 * time.Minute
+
+// startJobApproved runs the approval gate and starts the job, publishing the outcome.
+//
+// Runs on its own goroutine with its own context: the HTTP request that triggered it has
+// already been answered, so r.Context() would be cancelled immediately and would abort
+// the prompt before the user ever saw it.
+func (s *Server) startJobApproved(sess *session, ticket, command string, tty bool) {
+	defer sess.releaseJobPrompt()
+
+	ctx, cancel := context.WithTimeout(context.Background(), jobApprovalTimeout)
+	defer cancel()
+
+	id, err := sess.agent.StartBackgroundJobApproved(ctx, sess.emit, command, tty)
+	switch {
+	case err == nil:
+		sess.publishEvent(wireEvent{Type: "jobs_changed"})
+		sess.publishEvent(wireEvent{
+			Type: "job_start", Ticket: ticket, Outcome: "started", JobID: id, Command: command,
+		})
+	case errors.Is(err, agent.ErrJobDenied):
+		// The user said no: a normal outcome, not a failure.
+		sess.publishEvent(wireEvent{
+			Type: "job_start", Ticket: ticket, Outcome: "denied", Command: command,
+		})
+	case errors.Is(err, context.DeadlineExceeded):
+		sess.publishEvent(wireEvent{
+			Type: "job_start", Ticket: ticket, Outcome: "failed", Command: command,
+			Text: "timed out waiting for approval — start the job again if you still want it",
+		})
+	default:
+		sess.publishEvent(wireEvent{
+			Type: "job_start", Ticket: ticket, Outcome: "failed", Command: command, Text: err.Error(),
+		})
+	}
+}
+
+// newJobTicket returns an id correlating a 202 response with its later job_start event.
+// Every SSE viewer of the session sees the event, so the ticket is what lets the tab that
+// asked recognise its own outcome instead of reacting to someone else's.
+func newJobTicket() string {
+	// Deliberately avoids crypto/rand here: jobs_test.go structurally forbids any
+	// consuming-read call in this file, because such a call on a job would silently
+	// swallow bytes the model has not seen. A ticket is not a secret — it only has to be
+	// unique — so the clock plus a counter is enough, and keeps that guard exact.
+	n := atomic.AddUint64(&jobTicketSeq, 1)
+	return "jt-" + strconv.FormatInt(time.Now().UnixNano(), 36) + "-" + strconv.FormatUint(n, 36)
+}
+
+var jobTicketSeq uint64
 
 // handleJobInput types into a running TTY job: answering a prompt, or driving a shell
 // the user started themselves.

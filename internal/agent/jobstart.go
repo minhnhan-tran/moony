@@ -84,6 +84,36 @@ func (a *Agent) ApprovalPolicyName() string {
 	return config.NormalizeApprovalPolicy(a.cfg.ApprovalPolicy)
 }
 
+// BackgroundJobNeedsApproval reports whether starting this command would raise an
+// approval prompt, WITHOUT raising one.
+//
+// It exists so a surface can decide how to respond before committing: an HTTP handler
+// can answer synchronously when no prompt is needed, and hand the work to a background
+// goroutine (replying 202) only when it would otherwise block on a human. Mirrors the
+// conditions in gateBackgroundJob exactly — if that logic changes, this must follow, and
+// TestJobApprovalPredicateMatchesGate pins them together.
+func (a *Agent) BackgroundJobNeedsApproval(command string, tty bool) bool {
+	if a == nil {
+		return false
+	}
+	input, err := json.Marshal(map[string]any{"command": command, "background": true})
+	if err != nil {
+		// Can't classify it, so assume the cautious answer.
+		return true
+	}
+	if a.ApprovalPolicyName() == config.ApprovalSafe {
+		return true
+	}
+	// hardApproval is policy- and registry-independent (it is what forces a prompt for
+	// things like `git push` even under auto/danger-skip), so it is checked FIRST and
+	// unconditionally. needsApproval consults the tool registry, so it is only safe to
+	// call when one exists.
+	if hardApproval("bash", input) {
+		return true
+	}
+	return a.tools != nil && a.needsApproval("bash", input)
+}
+
 // gateBackgroundJob applies every check a UI-started background job must pass before
 // anything runs: the destructive-command refusal, the approval policy, and the prompt.
 func (a *Agent) gateBackgroundJob(ctx context.Context, emit func(Event), command string, tty bool) error {

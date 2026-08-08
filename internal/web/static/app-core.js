@@ -1598,6 +1598,33 @@ function handle(ev) {
       if (typeof refreshJobsBadge === "function") refreshJobsBadge();
       break;
     }
+    // Outcome of a job start that needed approval.
+    case "job_start": {
+      const cmd = pendingJobTickets.get(ev.ticket);
+      // Not our ticket: another tab started it, so stay quiet rather than reporting on
+      // something this user did not ask for.
+      if (ev.ticket && cmd === undefined) break;
+      pendingJobTickets.delete(ev.ticket);
+      // The manage panel's hint is only present while that panel is open. A start from the
+      // jobs strip can outlive it, so fall back to a transcript note — otherwise a denial
+      // or timeout would vanish with nothing shown at all.
+      const panelOpen = !!document.getElementById("jobStartHint");
+      const hint = panelOpen ? window.__jobStartHint : null;
+      const input = panelOpen ? window.__jobStartInput : null;
+      const label = cmd || ev.command || "the job";
+      if (ev.outcome === "started") {
+        if (hint) hint("");
+        if (input) input.value = ""; // only now is it safe to clear what was typed
+        if (panelOpen && typeof renderJobsPanel === "function") renderJobsPanel();
+      } else if (ev.outcome === "denied") {
+        const msg = `“${label}” was not approved.`;
+        if (hint) hint(msg); else flash(msg);
+      } else {
+        const msg = ev.text || `Could not start “${label}”.`;
+        if (hint) hint(msg); else flash(msg);
+      }
+      break;
+    }
     // Live job list for the strip under the status bar. Also refreshes the header pill so
     // the two can never disagree about how many jobs are running.
     case "jobs": {
@@ -3235,6 +3262,12 @@ function renderAttachStrip() {
 // per job, because the panel and the bash_output tool each consume the job's output with
 // their own cursor and a shared one would let whoever polled first steal the other's
 // bytes. Class names are namespaced .jobstrip-* since the modal already owns .job-*.
+// Job starts that are waiting on an approval answer: ticket -> command. Populated by the
+// manage panel's start button, consumed by the "job_start" SSE case below. The outcome
+// cannot come back on the POST, because holding that request open until the user answers
+// is what deadlocked the UI (the prompt is drawn by the same page).
+const pendingJobTickets = new Map();
+
 let stripJobs = [];          // last list from the "jobs" SSE event
 let stripExpanded = null;    // id of the row whose log is open, or null
 const stripTails = new Map(); // id -> { cursor, text }
@@ -3359,15 +3392,36 @@ function stripRow(j) {
   const rt = el("span", "jobstrip-time", stripRuntime(j));
   line.appendChild(rt);
 
-  // Stop only. The reference UI also offers restart, but moony has no restart endpoint
-  // (see the routes in internal/web/server.go), so that button would 404 — a visibly
-  // broken control is worse than an absent one. Finished rows carry no action.
+  // Running: stop it. Finished: run the same command again. There is no dedicated restart
+  // endpoint — restarting is a fresh POST /jobs with the same command, which is exactly
+  // what the manage panel does.
   const actions = el("span", "jobstrip-actions");
   if (j.running) {
     actions.appendChild(stripIconBtn("stop.fill", "Stop this job", async () => {
       try {
         await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/kill`), { method: "POST" });
       } catch (_) {}
+    }));
+  } else if (j.command) {
+    actions.appendChild(stripIconBtn("arrow.clockwise", "Run this command again", async () => {
+      try {
+        const r = await fetch(api(`/api/sessions/${current}/jobs`), {
+          method: "POST", body: JSON.stringify({ command: j.command, tty: !!j.tty }),
+        });
+        const out = await r.json().catch(() => ({}));
+        // A restart goes through the same approval gate as any other start, so it can come
+        // back pending. Register the ticket so the outcome is reported rather than lost.
+        if (r.status === 202 && out && out.ticket) {
+          pendingJobTickets.set(out.ticket, j.command);
+          flash(`Waiting for approval to re-run “${j.command}” — confirm it in the approval bar.`);
+        } else if (out && out.denied) {
+          flash("The job was not approved.");
+        } else if (!r.ok) {
+          flash("Could not restart the job.");
+        }
+      } catch (_) {
+        flash("Could not restart the job.");
+      }
     }));
   }
   line.appendChild(actions);

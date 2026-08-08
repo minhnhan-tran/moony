@@ -54,7 +54,17 @@ type wireEvent struct {
 	// plain slice: an empty list is the meaningful update that clears the jobs strip when
 	// the last job is reaped, and `omitempty` on a bare slice would drop exactly that,
 	// leaving a stale row on screen forever.
-	Jobs     *[]jobWire        `json:"jobs,omitempty"`
+	Jobs *[]jobWire `json:"jobs,omitempty"`
+	// Ticket/Outcome/JobID carry the result of a background job START that had to wait for
+	// approval (a "job_start" event). The POST returns 202 with the ticket, and the
+	// outcome (started|denied|failed) arrives here — the request cannot deliver it,
+	// because blocking it until the user answers is what deadlocked the UI.
+	Ticket  string `json:"ticket,omitempty"`
+	Outcome string `json:"outcome,omitempty"`
+	JobID   string `json:"jobId,omitempty"`
+	// Command echoes the command that was requested, so a surface can name it in the
+	// resulting toast without having to remember every in-flight ticket.
+	Command  string            `json:"command,omitempty"`
 	Plan     *planWire         `json:"plan,omitempty"`
 	Question *questionWire     `json:"question,omitempty"`
 	Status   *statusWire       `json:"status,omitempty"`
