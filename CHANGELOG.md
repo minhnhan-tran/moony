@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.3] — 2026-08-08
+
+### Fixed
+
+- The pager's question dropdown no longer shows tofu boxes (□) around each entry. Rows were
+  built from the whole rendered question node, so the private-use codepoints behind its
+  `<app-icon>`s (the author avatar, plus Copy and Ask-again in the footer) landed in a label
+  styled with the UI font, which has no glyphs for them — along with a stray "you" run into
+  the first word and the message timestamp. Rows now use the question text alone.
+
 ## [2.20.2] — 2026-08-08
 
 ### Fixed
