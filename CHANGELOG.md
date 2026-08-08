@@ -5,6 +5,25 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.5] — 2026-08-08
+
+### Fixed
+
+- `deploy/aws/ec2`: adding `--domain` to a running stack changed the security group and
+  nothing else. CloudFormation updates an instance's user-data in place (stop, modify,
+  start) and cloud-init runs user-data once per instance, so nothing
+  configuration-dependent in it was ever re-read. Deploy-time settings now live in
+  `apply.sh`, which is idempotent and is run both on first boot and by `deploy.sh` over
+  SSM after each stack update.
+- `git archive` honours `core.autocrlf`, so the deploy tarball shipped CRLF and the
+  instance rejected `apply.sh` with `set: pipefail: invalid option name`. A
+  `.gitattributes` now pins shell scripts, Dockerfile, Caddyfile and YAML to LF.
+- `deploy.sh` warns when the working tree is dirty, since only `HEAD` is packaged.
+
+Verified on the live stack: `https://<host>` serving with a Let's Encrypt certificate,
+HTTP redirecting to it, `/api/relay` advertising the Elastic IP, and the tunnel port
+open.
+
 ## [2.18.4] — 2026-08-08
 
 ### Fixed
