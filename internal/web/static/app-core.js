@@ -1300,7 +1300,7 @@ function handle(ev) {
         m.appendChild(renderAttachments(ev.attachments));
       }
       m.appendChild(userMetaFooter(ev.text || "", ev.time ? new Date(ev.time) : new Date()));
-      startPair(m); // the question becomes this pair's pinned header; its answer follows in the scroll body
+      startPair(m, ev.text); // the question becomes this pair's pinned header; its answer follows in the scroll body
       break;
     }
     case "stream_reset": {
@@ -3758,7 +3758,7 @@ else if (phoneMQ.addListener) phoneMQ.addListener(syncInputPlaceholder); // Safa
 // --- Paged transcript: one Q&A pair shown at a time -------------------------
 // startPair opens a new pair (pinned question header + scrollable answer body),
 // makes its body the append target for the answer, and jumps the view to it.
-function startPair(questionMsg) {
+function startPair(questionMsg, text) {
   const root = el("div", "pair");
   const q = el("div", "pair-q");
   q.appendChild(questionMsg);
@@ -3766,7 +3766,9 @@ function startPair(questionMsg) {
   answer.addEventListener("scroll", () => onAnswerScroll(answer));
   root.appendChild(q); root.appendChild(answer);
   transcript.appendChild(root);
-  pairs.push({ root, answer, q });
+  // Keep the raw prompt: the pager menu needs the question as plain text, and the
+  // rendered node also holds the author label, the timestamp and icon glyphs.
+  pairs.push({ root, answer, q, text: (text || "").replace(/\s+/g, " ").trim() });
   answerHost = answer;   // new answer content appends here, even if the user pages away
   stickBottom = true;
   setActivePair(pairs.length - 1); // show the newest pair
@@ -3902,6 +3904,22 @@ if (jobsBtn) {
   startJobsBadgePoll();
 }
 
+// pairQuestionText is a pair's question as a plain one-line string, for the pager
+// menu and its tooltip.
+//
+// Reading p.q.textContent splices in everything else the message node carries: the
+// "you" author label, the timestamp, and — the visible bug — the private-use
+// codepoints behind every <app-icon> (person.crop.circle on the label, Copy and
+// Ask-again in the footer). Those have glyphs only in the icon font, so in the
+// menu's UI font they rendered as tofu boxes around the question. Prefer the
+// rendered question body; fall back to the raw prompt startPair captured.
+function pairQuestionText(p) {
+  if (!p) return "(empty)";
+  const body = p.q && p.q.querySelector(".user-body");
+  const rendered = body ? body.textContent || "" : "";
+  return (rendered || p.text || "").replace(/\s+/g, " ").trim() || "(empty)";
+}
+
 // openPagerMenu lists every question in the turn (newest last) in the shared
 // header dropdown; picking one jumps straight to that pair, like the prev/next
 // buttons but without the clicks. Mirrors openHdrMenu's item styling/role, but
@@ -3917,7 +3935,7 @@ function openPagerMenu() {
     item.type = "button";
     item.setAttribute("role", "menuitemradio");
     item.setAttribute("aria-checked", isCurrent ? "true" : "false");
-    const text = ((p.q && p.q.textContent) || "").trim().replace(/\s+/g, " ") || "(empty)";
+    const text = pairQuestionText(p);
     // The index is its own token and the question is clamped to two lines by CSS
     // (.hdr-menu-item.is-pager): slicing the text here stopped it mid-word and
     // still let the menu size itself to the longest question.
