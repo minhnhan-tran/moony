@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.2] — 2026-08-08
+
+### Changed
+
+- `deploy/aws/ec2/deploy.sh` preflights before touching CloudFormation: it reports not
+  being signed in, warns on account root credentials, and recognises an account whose
+  sign-up was never finished (STS and IAM answer while every regional service returns
+  `OptInRequired`, which reads as a permissions problem and is not one).
+- The VPC and subnet are now discovered from the account's default VPC and its first
+  public subnet, so deploying is one command plus a domain.
+
 ## [2.18.1] — 2026-08-08
 
 ### Added
