@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.4] — 2026-08-08
+
+### Fixed
+
+- A setting changed with `/context` (and `/approval`, `/sandbox`) no longer disappears when
+  another session is opened or loaded. Slash commands edit the running session's own copy of
+  the config, while the agent factory clones the server-wide config (`c := *cfg`) for each
+  session it opens, so an unmirrored setting applied to that one session only. The value
+  still reached the prefs file and so came back after a restart, which made it look like
+  loading a session dropped it. `/model`, `/reasoning`, `/verify`, `/selfreview` and
+  `/provider` already mirrored; the three that did not now do, `/context auto` included, so
+  clearing an override propagates too.
+
 ## [2.20.3] — 2026-08-08
 
 ### Fixed
