@@ -5,6 +5,42 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.19.0] — 2026-08-08
+
+### Added
+
+- `moony deploy aws` puts the relay on a single EC2 instance from the binary itself:
+  preflight, default VPC and subnet discovery, a private source bucket, the
+  CloudFormation stack, and reconfiguring the instance over SSM afterwards.
+  `--status` prints the stack's state, `--print-template` dumps the template and
+  `--delete` tears it down. The template, compose file, Caddyfile and `apply.sh` are
+  embedded (`internal/awsdeploy/assets`), so they travel with the binary and cannot
+  drift from the code that drives them.
+- **Config → Deploy** does the same from the browser: stack status, a form for the
+  domain, ACME contact, SSM auth parameter, firewall CIDRs and instance type, plus
+  live output. One deploy at a time, detached from the request so navigating away
+  cannot abandon a half-created stack, and deploying with no authentication
+  configured asks first.
+
+### Changed
+
+- AWS is reached through the `aws` CLI rather than the SDK, so profiles, SSO and
+  `aws login` keep working and no credential resolution lives in moony. Doing it from
+  Go also drops the shell workarounds the old script needed: JSON is encoded properly
+  instead of hand-escaped or base64-wrapped, and temp paths stay native so MSYS cannot
+  rewrite them.
+- `deploy/aws/ec2/deploy.sh` is gone; `deploy/aws/README.md` is now the operator guide.
+
+### Fixed
+
+- Values interpolated into the remote script are single-quoted rather than `%q`-quoted:
+  `%q` leaves `$` alone, so a value like `$(...)` would have been expanded by bash on
+  the instance.
+- The compose project name is pinned to `moony`. Compose otherwise derives it from the
+  parent directory, so moving the file stranded the previous deployment's containers
+  while colliding with their fixed names; `apply.sh` now also reclaims a container left
+  by an older project.
+
 ## [2.18.5] — 2026-08-08
 
 ### Fixed
