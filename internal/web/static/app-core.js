@@ -4377,7 +4377,7 @@ function renderTabStrip() {
 // stopConfigPolls halts every background poll a Config tab may have started
 // (install progress, MCP server status) — called before switching tabs and on
 // close, so a backgrounded tab can't keep re-rendering a body it no longer owns.
-function stopConfigPolls() { stopLspPoll(); stopMcpPoll(); stopMarketPoll(); stopJobsPolling(); }
+function stopConfigPolls() { stopLspPoll(); stopMcpPoll(); stopMarketPoll(); stopJobsPolling(); stopDeployPolling(); }
 
 // selectTab switches the active tab within the currently-open group: stop the
 // outgoing tab's polls, re-render the strip, then render the new tab's content.
@@ -4415,6 +4415,7 @@ const CONFIG_TABS = [
   { key: "taskboard", label: "Task Board", icon: "square.grid.2x2", render: () => renderTaskBoard() },
   { key: "codebasemap", label: "Codebase map", icon: "map.fill", render: () => renderCodebaseMapPanel() },
   { key: "jobs", label: "Jobs", icon: "terminal", render: () => renderJobsPanel() },
+  { key: "deploy", label: "Deploy", icon: "cloud", render: () => renderDeployPanel() },
   { key: "doctor", label: "Doctor", icon: "stethoscope", render: () => renderDoctorPanel() },
 ];
 

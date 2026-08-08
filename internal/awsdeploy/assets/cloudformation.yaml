@@ -226,7 +226,7 @@ Resources:
             ACME_EMAIL="${AcmeEmail}" \
             WITH_DOWNLOADS="${WithDownloads}" \
             ENV_PARAMETER="${EnvParameterName}" \
-              bash /opt/moony/src/deploy/aws/ec2/apply.sh
+              bash /opt/moony/src/internal/awsdeploy/assets/apply.sh
 
             echo "moony relay bootstrap complete"
           - TunnelHost: !Ref ElasticIp

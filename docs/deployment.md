@@ -84,18 +84,20 @@ Three things worth understanding before you adapt these.
 
 ## AWS (single EC2 instance)
 
-`deploy/aws/ec2/` deploys the relay to one EC2 instance for about $15/month: Caddy
+`moony deploy aws` puts the relay on one EC2 instance for about $15/month: Caddy
 terminates TLS in front of port 8770 and the connector tunnel is published straight on
-an Elastic IP.
+an Elastic IP. The same thing is available from the browser in **Config → Deploy**.
 
 ```sh
-deploy/aws/ec2/deploy.sh --domain relay.example.com --email you@example.com \
-  --env-parameter /moony/relay-env
+moony deploy aws --domain relay.example.com --email you@example.com   --env-parameter /moony/relay-env
 ```
 
-It packages the working tree with `git archive`, uploads it to a private S3 bucket, and
-creates a CloudFormation stack that builds and runs it on the box, so the repo can stay
-private and no deploy key is needed. See [../deploy/aws/ec2/README.md](../deploy/aws/ec2/README.md).
+The CloudFormation template and the scripts the instance runs are embedded in the binary
+(`internal/awsdeploy/`), and AWS is reached through the `aws` CLI, so profiles, SSO and
+`aws login` work as they do in a terminal. The source is shipped as `git archive HEAD`
+through a private S3 bucket, so the repo can stay private and no deploy key is needed.
+`moony deploy aws --status` prints the stack's state; `--delete` tears it down. See
+[../deploy/aws/README.md](../deploy/aws/README.md).
 
 The reason it is one instance rather than a load-balanced service: the relay needs an
 L7 listener for the browser (8770) *and* an L4 one for the tunnel (8771), which on AWS

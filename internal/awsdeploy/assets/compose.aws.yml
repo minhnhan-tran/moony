@@ -1,10 +1,10 @@
 # moony relay on one EC2 instance: Caddy for TLS in front, the raw tunnel published
-# directly. Driven by deploy/aws/ec2/cloudformation.yaml, which writes the two env
+# directly. Driven by internal/awsdeploy/assets/cloudformation.yaml, which writes the two env
 # files this compose reads (/etc/moony/relay.env and /etc/moony/compose.env).
 #
 # Run by hand on the box with:
 #   cd /opt/moony/src && docker compose --env-file /etc/moony/compose.env \
-#     -f deploy/aws/ec2/compose.aws.yml up -d --build
+#     -f internal/awsdeploy/assets/compose.aws.yml up -d --build
 
 services:
   relay:

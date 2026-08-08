@@ -88,6 +88,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "session-key" {
 		os.Exit(runSessionKeyCmd(os.Args[2:]))
 	}
+	// `deploy` puts the relay on infrastructure you own; see internal/awsdeploy.
+	if len(os.Args) > 1 && os.Args[1] == "deploy" {
+		os.Exit(runDeployCmd(os.Args[2:]))
+	}
 
 	var (
 		modelFlag     = flag.String("model", "", "model identifier for the active provider (e.g. llama3.1:8b, gpt-4o, claude-sonnet-4-5)")

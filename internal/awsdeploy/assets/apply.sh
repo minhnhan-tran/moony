@@ -66,8 +66,8 @@ chmod 644 /etc/moony/caddy-acme.conf
 
 cd "$root"
 docker compose --env-file /etc/moony/compose.env \
-	-f deploy/aws/ec2/compose.aws.yml up -d --build
+	-f internal/awsdeploy/assets/compose.aws.yml up -d --build
 
 docker compose --env-file /etc/moony/compose.env \
-	-f deploy/aws/ec2/compose.aws.yml ps
+	-f internal/awsdeploy/assets/compose.aws.yml ps
 echo "moony-apply: converged on SITE_ADDRESS=${SITE_ADDRESS}"

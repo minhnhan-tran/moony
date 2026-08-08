@@ -35,6 +35,7 @@ import (
 
 	"github.com/pysty1995/moony/internal/agent"
 	"github.com/pysty1995/moony/internal/attach"
+	"github.com/pysty1995/moony/internal/awsdeploy"
 	"github.com/pysty1995/moony/internal/bridge"
 	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/llm"
@@ -90,6 +91,15 @@ type Server struct {
 	// metrics holds the process-wide HTTP/session counters exported by /metrics
 	// and summarized by /healthz. Created lazily in Handler().
 	metrics *metrics
+
+	// deploy is the single in-flight AWS deployment started from the Deploy panel,
+	// and its retained output. One at a time: two deploys of one stack would fight
+	// over the same CloudFormation change set.
+	deploy deployJob
+
+	// deployFn, when set, replaces the real deployer. Tests use it so the panel can
+	// be exercised without an AWS account.
+	deployFn func(awsdeploy.Options, *deployJob) deployTarget
 }
 
 // SetLogf redirects the server's operational log lines. Pass nil to silence them.
@@ -266,6 +276,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/projects/open", s.handleOpenDir)
 	mux.HandleFunc("GET /api/fs", s.handleListDir)
 	mux.HandleFunc("GET /api/encryption", s.handleEncryption)
+	mux.HandleFunc("GET /api/deploy/aws", s.handleDeployStatus)
+	mux.HandleFunc("POST /api/deploy/aws", s.handleDeployRun)
+	mux.HandleFunc("GET /api/deploy/aws/log", s.handleDeployLog)
+	mux.HandleFunc("POST /api/deploy/aws/cancel", s.handleDeployCancel)
 	// Quick actions: user-editable preset prompts behind the composer's split
 	// button (project-scoped .sqe/quickactions.json, global fallback).
 	// Cross-session transcript search (a "where did we discuss X" jump).

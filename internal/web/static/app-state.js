@@ -140,6 +140,8 @@ const SF_TO_MATERIAL = {
   "square.and.pencil": "edit_square", "square.fill": "square", "star.fill": "star",
   "stop.circle.fill": "stop", "stop.fill": "stop", "sun.max.fill": "light_mode", "tag.fill": "label",
   "target": "my_location", "terminal": "terminal", "terminal.fill": "terminal",
+  // The Deploy panel: MATERIAL_CP already carries the "cloud" glyph.
+  "cloud": "cloud",
   "text.cursor": "edit", "timer": "timer", "trash": "delete", "trash.fill": "delete",
   "tray.full": "inbox", "trophy.fill": "emoji_events", "video.fill": "videocam",
   "wand.and.stars": "auto_awesome", "wifi": "wifi", "wrench.and.screwdriver": "handyman", "wrench.and.screwdriver.fill": "handyman", "wrench.fill": "build",

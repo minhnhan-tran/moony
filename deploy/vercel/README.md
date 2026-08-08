@@ -5,7 +5,7 @@ own a Vercel-managed domain and want the UI served from it. Vercel is then a rev
 proxy, and the relay still runs somewhere that can hold sockets.
 
 If you don't have that constraint, point DNS straight at the relay. Caddy already
-terminates TLS in `deploy/aws/ec2/`, and a proxy in front adds a hop, a timeout risk,
+terminates TLS in the `moony deploy aws` stack, and a proxy in front adds a hop, a timeout risk,
 and a second bill for nothing.
 
 ## Why the relay itself can't be deployed here
@@ -26,7 +26,7 @@ browser ──▶ app.vercel.app ──rewrite──▶ relay.example.com:443 �
 laptop  ─────────────────────────────▶ relay.example.com:8771   (never touches Vercel)
 ```
 
-1. Deploy the relay first: `deploy/aws/ec2/` (~$15/mo), Fly.io, Railway, or any VM.
+1. Deploy the relay first: `moony deploy aws` (~$15/mo), Fly.io, Railway, or any VM.
    It needs a public hostname with TLS and its tunnel port reachable.
 2. Copy `vercel.json` to the root of the Vercel project and replace `RELAY_HOST` with
    that hostname. There is nothing to build: the project is only rewrites.

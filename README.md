@@ -76,6 +76,7 @@ Mix them freely: run cheap models for file reads and a strong one for reasoning,
 | **Web UI + relay** | The same agent in a browser, served through a relay your terminal dials out to. Adds a Task Board that runs prompts in parallel with Apply/Discard diff review, a background-jobs panel, quick actions, cross-machine transcript search, and a file viewer. |
 | **Extensible** | MCP servers, Agent Skills, custom sub-agents, lifecycle hooks, and Bubble Tea plugins. |
 | **Automation** | Headless single-prompt runs with JSON output, scheduled prompts, multi-step workflows, and an always-on daemon that can keep itself updated. |
+| **Self-hosting** | `moony deploy aws` puts the relay on one EC2 instance (~$15/month, TLS included) from an embedded CloudFormation template, or do it from the browser in Config → Deploy. |
 | **LSP + debugging** | Real diagnostics from your language server, and DAP breakpoints for stepping through a failure. |
 
 ## Quick start

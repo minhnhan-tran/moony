@@ -1,5 +1,10 @@
 # moony relay on a single EC2 instance
 
+Run by `moony deploy aws`, or from the browser in **Config → Deploy**. The
+CloudFormation template and the files the instance runs are embedded in the binary
+(`internal/awsdeploy/assets/`), so they travel with it; this page is the operator's
+guide.
+
 The cheapest way to put the web UI on AWS: one instance, Caddy for TLS, no load
 balancers. About **$15/month** in `ap-southeast-1` (t4g.small ~$12, 20 GB gp3 ~$1.60,
 public IPv4 ~$3.60, minus whatever the free tier covers).
@@ -31,10 +36,10 @@ you can point at an IP. The VPC and subnet default to the account's default VPC 
 first public subnet, so there is usually nothing to look up.
 
 ```sh
-deploy/aws/ec2/deploy.sh --domain relay.example.com --email you@example.com
+moony deploy aws --domain relay.example.com --email you@example.com
 ```
 
-The script preflights and says what is wrong instead of letting CloudFormation fail:
+The command preflights and says what is wrong instead of letting CloudFormation fail:
 not signed in, root credentials in use, or the one that looks like a permissions problem
 and is not - an account whose sign-up was never finished, where STS and IAM answer
 normally while every regional service returns `OptInRequired`.
@@ -54,9 +59,9 @@ Then:
 
 Re-run the same command to update, including to add or change `--domain` and
 `--env-parameter` on a running stack. Only committed work ships: the tarball is
-`git archive HEAD`, and the script warns when the tree is dirty.
+`git archive HEAD`, and it warns when the tree is dirty.
 
-After the stack update, `deploy.sh` runs `apply.sh` on the instance over SSM. That step
+After the stack update, the command runs `apply.sh` on the instance over SSM. That step
 is not cosmetic: CloudFormation updates an instance's user-data in place (stop, modify,
 start) and cloud-init only runs user-data once per instance, so without it a changed
 `--domain` would alter the security group and nothing else, leaving Caddy on plain HTTP.
@@ -82,7 +87,7 @@ MN_AUTH_ADMINS=you@example.com
 EOF
 )"
 
-deploy/aws/ec2/deploy.sh --domain relay.example.com --env-parameter /moony/relay-env
+moony deploy aws --domain relay.example.com --env-parameter /moony/relay-env
 ```
 
 `MN_RELAY_TUNNEL` is set by the instance itself from the Elastic IP, so leave it out of
@@ -92,7 +97,7 @@ the parameter; anything you put there is overwritten. The full variable list is 
 Narrow the firewall while you are at it:
 
 ```sh
-deploy/aws/ec2/deploy.sh ... --tunnel-cidr 203.0.113.4/32 --web-cidr 203.0.113.4/32
+moony deploy aws --domain relay.example.com --tunnel-cidr 203.0.113.4/32 --web-cidr 203.0.113.4/32
 ```
 
 Port 80 is opened to the world **only when you pass `--domain`**, because Let's Encrypt
@@ -111,6 +116,8 @@ Without a domain, port 80 is the UI itself and `--web-cidr` applies to it.
 | `--tunnel-cidr` / `--web-cidr` | `0.0.0.0/0` | Lock these down. |
 | `--vpc` / `--subnet` | default VPC, first public subnet | Only needed when there is no default VPC, or several to choose from. |
 | `--delete` | | Tears the stack down. The S3 bucket is left behind. |
+| `--status` | | Prints the stack status and outputs, then exits. |
+| `--print-template` | | Dumps the embedded CloudFormation template. |
 
 ## Operating it
 
@@ -118,7 +125,7 @@ Without a domain, port 80 is the UI itself and `--web-cidr` applies to it.
 aws ssm start-session --target <InstanceId>      # no SSH key, no open port 22
 sudo tail -f /var/log/moony-bootstrap.log        # first boot
 cd /opt/moony/src && sudo docker compose --env-file /etc/moony/compose.env \
-  -f deploy/aws/ec2/compose.aws.yml logs -f      # running logs
+  -f internal/awsdeploy/assets/compose.aws.yml logs -f      # running logs
 ```
 
 The relay is stateless. Nothing on the box needs backing up except the Caddy volume

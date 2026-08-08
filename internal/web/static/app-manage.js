@@ -2240,3 +2240,171 @@ function fmtBytes(n) {
   if (n < 1024 * 1024) return (n / 1024).toFixed(1).replace(/\.0$/, "") + " KB";
   return (n / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
 }
+
+// ─── Deploy panel (AWS) ──────────────────────────────────────────────────────
+//
+// Puts this connector's relay on a single EC2 instance without leaving the browser.
+// The work runs detached on the connector (a deploy takes minutes and must survive a
+// page navigation), so this polls /api/deploy/aws/log by offset rather than holding a
+// stream open — the same shape the jobs panel uses.
+
+let deployPollTimer = null;
+let deployLogOffset = 0;
+
+function stopDeployPolling() {
+  if (deployPollTimer) { clearInterval(deployPollTimer); deployPollTimer = null; }
+}
+
+async function renderDeployPanel() {
+  const body = manageBody;
+  stopDeployPolling();
+  body.innerHTML = "";
+  body.append(el("p", "access-intro",
+    "Deploy the relay to one EC2 instance: Caddy terminates TLS in front of the browser UI and the connector tunnel is published on an Elastic IP — no load balancers, about $15/month. Uses the AWS CLI on this machine, so whatever `aws login` gave you is what deploys. Re-running is also the update path."));
+
+  const statusBox = el("div", "access-intro");
+  statusBox.style.whiteSpace = "pre-wrap";
+  statusBox.textContent = "checking…";
+  body.append(statusBox);
+
+  // Form. Defaults match the CLI's, and the two CIDRs default to the world because a
+  // relay nobody can reach is useless — the warning below says what that means.
+  const fields = {
+    domain: manageInput("relay.example.com (enables HTTPS)"),
+    email: manageInput("you@example.com (Let's Encrypt contact)"),
+    envParameter: manageInput("/moony/relay-env (SSM SecureString with MN_AUTH…)"),
+    webCidr: manageInput("0.0.0.0/0"),
+    tunnelCidr: manageInput("0.0.0.0/0"),
+    instanceType: manageInput("t4g.small"),
+  };
+  const grid = el("div", "schedule-form");
+  for (const [key, input] of Object.entries(fields)) {
+    const label = el("label", "persona-toggle");
+    label.style.display = "flex";
+    label.append(el("span", "persona-label", key.replace(/([A-Z])/g, " $1").toLowerCase()), input);
+    input.style.flex = "1 1 auto";
+    const row = el("div", "schedule-form-row");
+    row.append(label);
+    grid.append(row);
+  }
+  body.append(grid);
+
+  const runBtn = el("button", "b-yes inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Deploy");
+  runBtn.prepend(sym("arrow.up.circle"));
+  const delBtn = el("button", "b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Delete stack");
+  const cancelBtn = el("button", "b-no inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 self-start", "Stop watching");
+  cancelBtn.hidden = true;
+  const btnRow = el("div", "schedule-form-row");
+  btnRow.append(runBtn, delBtn, cancelBtn);
+  body.append(btnRow);
+
+  const logBox = el("pre", "job-log");
+  logBox.style.maxHeight = "300px";
+  logBox.style.overflow = "auto";
+  logBox.hidden = true;
+  body.append(logBox);
+
+  const appendLog = (text) => {
+    if (!text) return;
+    logBox.hidden = false;
+    const atBottom = logBox.scrollTop + logBox.clientHeight >= logBox.scrollHeight - 8;
+    logBox.textContent += text;
+    if (atBottom) logBox.scrollTop = logBox.scrollHeight;
+  };
+
+  const setRunning = (running) => {
+    runBtn.disabled = running;
+    delBtn.disabled = running;
+    cancelBtn.hidden = !running;
+  };
+
+  const poll = async () => {
+    try {
+      const r = await fetch(api(`/api/deploy/aws/log?offset=${deployLogOffset}`));
+      if (!r.ok) return;
+      const j = await r.json();
+      deployLogOffset = j.offset || 0;
+      appendLog(j.data);
+      setRunning(!!j.running);
+      if (!j.running) {
+        stopDeployPolling();
+        statusBox.textContent = j.failure ? "failed: " + j.failure : "idle — reload the panel for the stack's new state";
+        if (!j.failure) refreshStatus();
+      }
+    } catch (_) { /* transient: the connector may be busy */ }
+  };
+
+  const startPolling = () => {
+    stopDeployPolling();
+    setRunning(true);
+    deployPollTimer = setInterval(poll, 2000);
+  };
+
+  const refreshStatus = async () => {
+    try {
+      const r = await fetch(api("/api/deploy/aws"));
+      const j = await r.json();
+      if (!j.cli) {
+        statusBox.textContent = j.hint || "the AWS CLI is not installed on this machine";
+        runBtn.disabled = true; delBtn.disabled = true;
+        return;
+      }
+      const st = j.status || {};
+      const out = st.outputs || {};
+      const lines = [];
+      lines.push(`region ${st.region || "?"}${st.account ? "  account " + st.account : ""}`);
+      lines.push(st.stackStatus ? `stack ${st.stack}: ${st.stackStatus}` : `stack ${st.stack || "moony-relay"}: not deployed`);
+      if (out.WebUrl) lines.push(`web    ${out.WebUrl}`);
+      if (out.TunnelAddress) lines.push(`tunnel ${out.TunnelAddress}`);
+      if (out.ConnectorCommand) lines.push(`run    ${out.ConnectorCommand}`);
+      if (j.error) lines.push(`error  ${j.error}`);
+      statusBox.textContent = lines.join("\n");
+      if (j.running) { deployLogOffset = 0; logBox.textContent = ""; startPolling(); }
+      else setRunning(false);
+    } catch (e) {
+      statusBox.textContent = "could not read the deployment status: " + e;
+    }
+  };
+
+  const body_ = () => ({
+    domain: fields.domain.value.trim(),
+    email: fields.email.value.trim(),
+    envParameter: fields.envParameter.value.trim(),
+    webCidr: fields.webCidr.value.trim(),
+    tunnelCidr: fields.tunnelCidr.value.trim(),
+    instanceType: fields.instanceType.value.trim(),
+  });
+
+  const run = async (action) => {
+    const req = { action, ...body_() };
+    if (action === "deploy" && !req.envParameter) {
+      const ok = await confirmBox(
+        "No SSM parameter given, so the relay will run with NO authentication: anyone who can reach it gets a shell on this machine. Deploy anyway?",
+        { yes: "Deploy without auth", no: "Cancel" });
+      if (!ok) return;
+    }
+    if (action === "delete") {
+      const ok = await confirmBox("Delete the CloudFormation stack? The instance and its Elastic IP go away; the source bucket is left behind.",
+        { yes: "Delete", no: "Keep it" });
+      if (!ok) return;
+    }
+    deployLogOffset = 0;
+    logBox.textContent = "";
+    try {
+      const r = await fetch(api("/api/deploy/aws"), { method: "POST", body: JSON.stringify(req) });
+      if (!r.ok) { alertBox("Could not start: " + (await r.text())); return; }
+      startPolling();
+    } catch (e) { alertBox("Could not start: " + e); }
+  };
+
+  runBtn.onclick = () => run("deploy");
+  delBtn.onclick = () => run("delete");
+  cancelBtn.onclick = async () => {
+    await fetch(api("/api/deploy/aws/cancel"), { method: "POST" }).catch(() => {});
+    stopDeployPolling();
+    setRunning(false);
+    appendLog("\n(stopped watching; the stack keeps converging on its own)\n");
+  };
+
+  await refreshStatus();
+}
