@@ -75,8 +75,12 @@ type session struct {
 	// quotaBalance is prepaid credit REMAINING, for providers that report that rather
 	// than an amount spent. Separate from quotaSpend because the two mean opposite
 	// things; quotaBalanceSet distinguishes a real $0.00 from "not reported".
-	quotaBalance         float64
-	quotaBalanceSet      bool
+	quotaBalance    float64
+	quotaBalanceSet bool
+	// jobViewers counts live SSE viewers; jobWatchStop stops the poll goroutine when the
+	// last one leaves, so an idle session does no work.
+	jobViewers           int
+	jobWatchStop         chan struct{}
 	quotaName            string // label for the quota source: a provider project name, or "personal"
 	quotaTokens          int    // tokens used in the quota period (24h), when fetched
 	quotaTokensMax       int    // per-day token cap, when the provider budget carries one (often 0)
@@ -381,6 +385,71 @@ func (s *session) clearHistory() {
 	s.mu.Lock()
 	s.history = nil
 	s.mu.Unlock()
+}
+
+// ─── background-job watcher ─────────────────────────────────────────────────
+
+// startJobWatch begins publishing "jobs" events for this session, reference-counted
+// against the number of live SSE viewers.
+//
+// Polling (rather than hooking the job store) keeps the tools package free of any web
+// dependency, and a job's byte count changes continuously anyway, so there is no single
+// event to hook. The refcount means an idle session with no viewer polls nothing at all;
+// releaseJobWatch stops the goroutine when the last viewer disconnects.
+func (s *session) startJobWatch() {
+	s.mu.Lock()
+	s.jobViewers++
+	if s.jobViewers > 1 || s.jobWatchStop != nil {
+		s.mu.Unlock()
+		return
+	}
+	stop := make(chan struct{})
+	s.jobWatchStop = stop
+	s.mu.Unlock()
+	go s.watchJobs(stop)
+}
+
+// releaseJobWatch drops one viewer and stops the watcher when none remain.
+func (s *session) releaseJobWatch() {
+	s.mu.Lock()
+	if s.jobViewers > 0 {
+		s.jobViewers--
+	}
+	var stop chan struct{}
+	if s.jobViewers == 0 && s.jobWatchStop != nil {
+		stop, s.jobWatchStop = s.jobWatchStop, nil
+	}
+	s.mu.Unlock()
+	if stop != nil {
+		close(stop)
+	}
+}
+
+// watchJobs publishes the job list whenever it changes, until stop is closed.
+func (s *session) watchJobs(stop <-chan struct{}) {
+	t := time.NewTicker(jobWatchInterval)
+	defer t.Stop()
+
+	// Empty digest = "nothing published yet". The first tick therefore publishes only if
+	// jobs actually exist, so a session that never runs one stays silent.
+	last := ""
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			list := sessionJobWires(s)
+			digest := jobsDigest(list)
+			if digest == last {
+				continue
+			}
+			last = digest
+			// Publish even when the list is empty: that transition is what clears the
+			// strip after the last job is reaped.
+			jobs := list
+			s.publishTransient(wireEvent{Type: "jobs", Jobs: &jobs})
+		}
+	}
 }
 
 func (s *session) mcpManager() *mcp.Manager {

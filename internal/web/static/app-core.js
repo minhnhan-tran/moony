@@ -1138,6 +1138,7 @@ function clearView() {
   planEl.classList.add("hidden"); planEl.innerHTML = ""; planExpanded = false; currentPlan = null; draftPlanEl = null; draftPlanExpanded = false; lastTodos = [];
   pendingAttachments = []; renderAttachStrip();
   queuedMsgs = []; queueCapable = false; renderQueueStrip(); // drop the previous session's queue; the new one replays its own
+  resetJobsStrip(); // jobs are per-session: one session's rows (and log text) must never show under another
   updateVersionWarning(currentTermVersion()); // re-evaluate (hide stale banner / reset the Upgrade button)
   // Reset the composer to its idle/askable default. The single global `state` is
   // otherwise sticky across a session switch, so leaving a busy session would
@@ -1594,6 +1595,14 @@ function handle(ev) {
     // A job was started or killed through the panel (here or in another tab):
     // re-count immediately instead of waiting out the poll.
     case "jobs_changed": {
+      if (typeof refreshJobsBadge === "function") refreshJobsBadge();
+      break;
+    }
+    // Live job list for the strip under the status bar. Also refreshes the header pill so
+    // the two can never disagree about how many jobs are running.
+    case "jobs": {
+      stripJobs = Array.isArray(ev.jobs) ? ev.jobs : [];
+      renderJobsStrip();
       if (typeof refreshJobsBadge === "function") refreshJobsBadge();
       break;
     }
@@ -3218,6 +3227,203 @@ function renderAttachStrip() {
 // renderQueueStrip shows the pending busy-time message queue above the composer:
 // a count header plus one row per item with a × to remove it. The server owns
 // the queue; this just reflects the latest "queue" event.
+// --- Background jobs strip -------------------------------------------------
+// A live row per background job, pinned under the status bar so a dev server or watch
+// script stays visible without opening the manage modal.
+//
+// Deliberately independent of the manage modal's job panel: it keeps its OWN tail cursor
+// per job, because the panel and the bash_output tool each consume the job's output with
+// their own cursor and a shared one would let whoever polled first steal the other's
+// bytes. Class names are namespaced .jobstrip-* since the modal already owns .job-*.
+let stripJobs = [];          // last list from the "jobs" SSE event
+let stripExpanded = null;    // id of the row whose log is open, or null
+const stripTails = new Map(); // id -> { cursor, text }
+let stripTailTimer = null;
+
+// Reset every bit of strip state. Called on session switch: one session's jobs (and
+// especially its log text) must never appear under another.
+function resetJobsStrip() {
+  stripJobs = [];
+  stripExpanded = null;
+  stripTails.clear();
+  stopStripTail();
+  if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
+  renderJobsStrip();
+}
+
+function stopStripTail() {
+  if (stripTailTimer) { clearInterval(stripTailTimer); stripTailTimer = null; }
+}
+
+// The runtime clock ticks locally. The server only republishes when the list CHANGES, so
+// a quiet long-running job (no output, no state change) would otherwise show a frozen
+// runtime. Only the time cells are rewritten, so this never disturbs an open log pane or
+// the row's focus.
+let stripClockTimer = null;
+function syncStripClock() {
+  const needed = stripJobs.some((j) => j.running);
+  if (!needed) {
+    if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
+    return;
+  }
+  if (stripClockTimer) return;
+  stripClockTimer = setInterval(() => {
+    if (!jobsStrip || jobsStrip.classList.contains("hidden")) return;
+    const cells = jobsStrip.querySelectorAll(".jobstrip-time");
+    stripJobs.forEach((j, i) => {
+      if (cells[i]) cells[i].textContent = stripRuntime(j);
+    });
+  }, 1000);
+}
+
+// Human runtime for a job, counted from its start timestamp.
+function stripRuntime(j) {
+  const started = Date.parse(j.started || "");
+  if (!Number.isFinite(started)) return "";
+  const secs = Math.max(0, Math.round((Date.now() - started) / 1000));
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60), s = secs % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+// State label + colour class. A job that exited non-zero reads "failed" rather than
+// "done", so a broken dev server isn't reported as a success.
+function stripState(j) {
+  if (j.running) return { label: "running", cls: "is-running" };
+  const st = (j.state || "").toLowerCase();
+  if (st === "killed") return { label: "killed", cls: "is-killed" };
+  if (j.err || (typeof j.exit === "number" && j.exit !== 0)) {
+    return { label: "failed", cls: "is-failed" };
+  }
+  return { label: st || "done", cls: "is-done" };
+}
+
+function renderJobsStrip() {
+  if (!jobsStrip) return;
+  const list = Array.isArray(stripJobs) ? stripJobs : [];
+
+  if (!list.length) {
+    jobsStrip.classList.add("hidden");
+    jobsStrip.innerHTML = "";
+    stopStripTail();
+    if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
+    return;
+  }
+  // An expanded row whose job has disappeared must not keep polling a dead id.
+  if (stripExpanded && !list.some((j) => j.id === stripExpanded)) stripExpanded = null;
+
+  jobsStrip.classList.remove("hidden");
+  jobsStrip.innerHTML = "";
+
+  const running = list.filter((j) => j.running).length;
+  const head = el("div", "jobstrip-head");
+  head.appendChild(sym("terminal"));
+  head.appendChild(el("span", "jobstrip-head-text",
+    `Background job: ${list.length}${running ? ` (${running} running)` : ""}`));
+  jobsStrip.appendChild(head);
+
+  for (const j of list) jobsStrip.appendChild(stripRow(j));
+  syncStripTail();
+  syncStripClock();
+}
+
+function stripRow(j) {
+  const open = stripExpanded === j.id;
+  const row = el("div", "jobstrip-row" + (open ? " is-open" : ""));
+
+  const line = el("div", "jobstrip-line");
+
+  const chev = el("button", "jobstrip-chev", "");
+  chev.type = "button";
+  chev.setAttribute("aria-label", open ? "Hide output" : "Show output");
+  chev.setAttribute("aria-expanded", open ? "true" : "false");
+  chev.appendChild(sym(open ? "chevron.down" : "chevron.right"));
+  chev.onclick = () => {
+    // Collapsing drops the cached tail so re-opening replays from the top rather than
+    // resuming mid-stream at a cursor the user can no longer see the context for.
+    if (stripExpanded === j.id) { stripExpanded = null; stripTails.delete(j.id); }
+    else stripExpanded = j.id;
+    renderJobsStrip();
+  };
+  line.appendChild(chev);
+
+  const st = stripState(j);
+  line.appendChild(el("span", `jobstrip-state ${st.cls}`, st.label));
+
+  const cmd = el("span", "jobstrip-cmd", j.command || "(no command)");
+  cmd.title = j.command || "";
+  line.appendChild(cmd);
+
+  const rt = el("span", "jobstrip-time", stripRuntime(j));
+  line.appendChild(rt);
+
+  // Stop only. The reference UI also offers restart, but moony has no restart endpoint
+  // (see the routes in internal/web/server.go), so that button would 404 — a visibly
+  // broken control is worse than an absent one. Finished rows carry no action.
+  const actions = el("span", "jobstrip-actions");
+  if (j.running) {
+    actions.appendChild(stripIconBtn("stop.fill", "Stop this job", async () => {
+      try {
+        await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}/kill`), { method: "POST" });
+      } catch (_) {}
+    }));
+  }
+  line.appendChild(actions);
+  row.appendChild(line);
+
+  if (open) {
+    const pre = el("pre", "jobstrip-log");
+    pre.textContent = (stripTails.get(j.id) || {}).text || "";
+    row.appendChild(pre);
+  }
+  return row;
+}
+
+function stripIconBtn(icon, title, onClick) {
+  const b = el("button", "jobstrip-btn", "");
+  b.type = "button";
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  b.appendChild(sym(icon));
+  b.onclick = async (e) => { e.stopPropagation(); b.disabled = true; try { await onClick(); } finally { b.disabled = false; } };
+  return b;
+}
+
+// Poll the open row's output. Only one row can be expanded, so at most one poll runs.
+function syncStripTail() {
+  if (!stripExpanded) { stopStripTail(); return; }
+  if (stripTailTimer) return;
+  const tick = async () => {
+    const id = stripExpanded;
+    if (!id) { stopStripTail(); return; }
+    const prev = stripTails.get(id) || { cursor: 0, text: "" };
+    try {
+      const r = await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(id)}/tail?cursor=${prev.cursor}`));
+      if (!r.ok) return;
+      const d = await r.json();
+      // The row may have been collapsed or replaced while the request was in flight;
+      // dropping the response avoids writing one job's output into another's pane.
+      if (stripExpanded !== id) return;
+      const chunk = d.output || "";
+      if (!chunk && d.cursor === prev.cursor) return;
+      const text = (prev.text + chunk).slice(-20000); // bound the pane's memory
+      stripTails.set(id, { cursor: d.cursor ?? prev.cursor, text });
+      const pre = jobsStrip && jobsStrip.querySelector(".jobstrip-row.is-open .jobstrip-log");
+      if (pre) {
+        // Preserve the reading position unless the user is already at the bottom, so a
+        // chatty job doesn't yank the view away mid-scroll.
+        const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
+        pre.textContent = text;
+        if (atBottom) pre.scrollTop = pre.scrollHeight;
+      }
+    } catch (_) {}
+  };
+  tick();
+  stripTailTimer = setInterval(tick, 1000);
+}
+
 function renderQueueStrip() {
   if (!queueStrip) return;
   queueStrip.innerHTML = "";

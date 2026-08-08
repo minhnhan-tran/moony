@@ -226,6 +226,13 @@
       <span id="stats" class="inline-flex items-center gap-3 shrink-0 font-mono text-[11px]"></span>
     </div>
 
+    <!-- Live background-job strip: sits directly under the status bar so long-running
+         jobs (dev servers, watch scripts, builds) stay visible without opening the
+         manage modal. Populated by renderJobsStrip() from the "jobs" SSE event; hidden
+         while there are none. Classes are namespaced .jobstrip-* because the manage
+         modal's job panel already owns the .job-* names. -->
+    <div id="jobsStrip" class="hidden shrink-0"></div>
+
     <div id="approval" class="app-approval hidden shrink-0 px-4 py-3">
       <!-- Header: an amber icon chip, an eyebrow + the tool/summary line (.q,
            filled by the "approval" handler), and a +N −N diff badge on the right. -->

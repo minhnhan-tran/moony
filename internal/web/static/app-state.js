@@ -323,6 +323,7 @@ const pager = $("#pager"), pagerNav = $("#pagerNav"), pagerPrev = $("#pagerPrev"
 const jobsBtn = $("#jobsBtn"), jobsBtnCount = $("#jobsBtnCount"), jobsPill = $("#jobsPill");
 const imageInput = $("#imageInput"), docInput = $("#docInput"), attachBtn = $("#attachBtn"), attachMenu = $("#attachMenu"), attachStrip = $("#attachStrip");
 const queueStrip = $("#queueStrip");
+const jobsStrip = $("#jobsStrip");
 const quickActions = $("#quickActions"), quickActionBtn = $("#quickActionBtn"), quickActionCaret = $("#quickActionCaret"), quickActionMenu = $("#quickActionMenu");
 // queueCapable: the current session supports queuing messages while busy (set
 // from the "state" event's canQueue flag — web-native sessions only, not the

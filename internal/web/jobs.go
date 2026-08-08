@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pysty1995/moony/internal/agent"
 )
@@ -54,10 +55,38 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	store := sess.agent.Registry().Jobs()
 	out := jobsResponse{Jobs: []jobWire{}, Policy: sess.agent.ApprovalPolicyName()}
+	out.Jobs = sessionJobWires(sess)
+	writeJSON(w, out)
+}
+
+// jobWatchInterval is how often a session with at least one SSE viewer re-checks its job
+// list. 1s keeps the runtime clock and byte count feeling live without meaningful cost:
+// the digest check below means an unchanged list publishes nothing.
+const jobWatchInterval = time.Second
+
+// sessionJobWires snapshots a session's jobs in wire form. Shared by the REST list and
+// the SSE watcher so the strip and the panel can never disagree about a job's state.
+//
+// Always returns a non-nil slice: the JSON must be [] rather than null, and an EMPTY list
+// is a meaningful update (it is what clears the strip when the last job is reaped).
+func sessionJobWires(sess *session) []jobWire {
+	out := []jobWire{}
+	if sess == nil || sess.agent == nil {
+		return out
+	}
+	reg := sess.agent.Registry()
+	if reg == nil {
+		return out
+	}
+	store := reg.Jobs()
+	if store == nil {
+		// Hub-routed session or a live mirror: jobs live on another machine, so there is
+		// nothing local to report. Not an error, just an empty list.
+		return out
+	}
 	for _, j := range store.Jobs() {
-		out.Jobs = append(out.Jobs, jobWire{
+		out = append(out, jobWire{
 			ID:        j.ID,
 			Command:   j.Command,
 			Started:   j.Started.Format("2006-01-02T15:04:05Z07:00"),
@@ -69,7 +98,29 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 			TTY:       j.TTY,
 		})
 	}
-	writeJSON(w, out)
+	return out
+}
+
+// jobsDigest is a cheap change key for the watcher: republish only when something a
+// viewer can actually see has changed.
+//
+// OutputLen is included so a job that is producing output but not changing state still
+// refreshes (the strip shows a live byte count); Cursor is not, because the browser's
+// tail cursor is per-viewer and must not drive a broadcast.
+func jobsDigest(list []jobWire) string {
+	if len(list) == 0 {
+		return ""
+	}
+	b := make([]byte, 0, len(list)*32)
+	for _, j := range list {
+		b = append(b, j.ID...)
+		b = append(b, ':')
+		b = append(b, j.State...)
+		b = append(b, ':')
+		b = strconv.AppendInt(b, int64(j.OutputLen), 10)
+		b = append(b, ';')
+	}
+	return string(b)
 }
 
 // handleJobTail returns one job's output after ?cursor=N.

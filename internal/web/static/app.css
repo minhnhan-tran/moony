@@ -2043,6 +2043,96 @@ body.wf-active .app-topbar { z-index: 40; }
 .tool-video { max-width: 420px; max-height: 320px; border-radius: var(--r-md); border: 1px solid rgb(var(--c-edge)); background: #000; display: block; }
 #inputArea.drop-active { outline: 2px dashed rgb(var(--c-brand)); outline-offset: 3px; border-radius: var(--r-lg); }
 
+/* ---- Background-jobs strip: a live row per background job, pinned under the status
+        bar so a dev server / watch script / long build stays visible without opening
+        the manage modal.
+
+        Namespaced .jobstrip-* on purpose: the manage modal's job panel already owns
+        .job-row / .job-cmd / .job-log / .job-state, and reusing those names here would
+        silently restyle that panel. All colours come from the shared theme tokens so
+        the strip tracks light/dark like everything else. ---- */
+#jobsStrip {
+  border-top: 1px solid rgb(var(--c-edge) / .6);
+  padding: .375rem .75rem .5rem;
+  display: flex; flex-direction: column; gap: .25rem;
+}
+#jobsStrip.hidden { display: none; }
+.jobstrip-head {
+  display: flex; align-items: center; gap: .375rem;
+  font-size: 11px; font-weight: 600;
+  color: rgb(var(--c-ink) / .8);
+}
+.jobstrip-head app-icon { font-size: 13px; opacity: .7; }
+.jobstrip-row {
+  background: rgb(var(--c-raised) / .5);
+  border: 1px solid rgb(var(--c-edge) / .7);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.jobstrip-line {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .25rem .5rem;
+  font-size: 11px;
+  min-width: 0;
+}
+.jobstrip-chev {
+  width: 18px; height: 18px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-sm);
+  color: rgb(var(--c-faint));
+  cursor: pointer;
+}
+.jobstrip-chev:hover { background: rgb(var(--c-edge) / .5); color: rgb(var(--c-ink)); }
+.jobstrip-chev app-icon { font-size: 14px; }
+/* State pill. Colour-coded so a failed job is obvious at a glance rather than reading
+   as just another finished one. */
+.jobstrip-state {
+  flex: none;
+  padding: .0625rem .375rem;
+  border-radius: var(--r-sm);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: .01em;
+}
+.jobstrip-state.is-running { background: rgb(var(--c-ok) / .16); color: rgb(var(--c-ok)); }
+.jobstrip-state.is-done    { background: rgb(var(--c-edge) / .7); color: rgb(var(--c-faint)); }
+.jobstrip-state.is-failed  { background: rgb(var(--c-danger) / .16); color: rgb(var(--c-danger)); }
+.jobstrip-state.is-killed  { background: rgb(var(--c-warn) / .16); color: rgb(var(--c-warn)); }
+/* The command takes the slack and ellipsises: a long command line must not push the
+   runtime and stop button off the row. */
+.jobstrip-cmd {
+  flex: 1 1 auto; min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgb(var(--c-ink) / .9);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.jobstrip-time {
+  flex: none;
+  color: rgb(var(--c-faint));
+  font-variant-numeric: tabular-nums; /* stops the row twitching as the clock ticks */
+}
+.jobstrip-actions { flex: none; display: inline-flex; align-items: center; gap: .25rem; }
+.jobstrip-btn {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-full);
+  color: rgb(var(--c-faint));
+  cursor: pointer;
+}
+.jobstrip-btn:hover { background: rgb(var(--c-edge) / .6); color: rgb(var(--c-ink)); }
+.jobstrip-btn:disabled { opacity: .5; cursor: default; }
+.jobstrip-btn app-icon { font-size: 14px; }
+.jobstrip-log {
+  margin: 0;
+  border-top: 1px solid rgb(var(--c-edge) / .6);
+  padding: .375rem .5rem;
+  max-height: 11rem; overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; line-height: 1.45;
+  color: rgb(var(--c-ink) / .85);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
 /* ---- Queued-message strip: pending messages typed while the agent is busy,
         shown above the composer (mirrors the terminal's busy-time queue). ---- */
 #queueStrip { border-top: 1px solid rgb(var(--c-edge) / .6); }
@@ -3206,7 +3296,7 @@ html.light .diff-hunk { color: #0550ae; }
   width: 100%; box-sizing: border-box; resize: vertical;
   border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-md);
   background: rgb(var(--c-base)); color: rgb(var(--c-ink));
-  padding: .5rem; font-size: 12px; font-family: var(--font-mono, ui-monospace, monospace);
+  padding: .5rem; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .cm-pin-ta:focus { outline: none; border-color: rgb(var(--c-brand)); box-shadow: var(--ring); }
 .cm-pin-bar { display: flex; align-items: center; gap: .5rem; }

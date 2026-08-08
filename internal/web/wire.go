@@ -48,8 +48,13 @@ type wireEvent struct {
 	CanQueue bool `json:"canQueue,omitempty"`
 	// Queue carries the session's pending queued-message texts (FIFO) on a
 	// "queue" event, so every viewer sees what's pending and the count.
-	Queue    []string          `json:"queue,omitempty"`
-	Todos    []todoWire        `json:"todos,omitempty"`
+	Queue []string   `json:"queue,omitempty"`
+	Todos []todoWire `json:"todos,omitempty"`
+	// Jobs carries the background-job list on a "jobs" event. A POINTER to a slice, not a
+	// plain slice: an empty list is the meaningful update that clears the jobs strip when
+	// the last job is reaped, and `omitempty` on a bare slice would drop exactly that,
+	// leaving a stale row on screen forever.
+	Jobs     *[]jobWire        `json:"jobs,omitempty"`
 	Plan     *planWire         `json:"plan,omitempty"`
 	Question *questionWire     `json:"question,omitempty"`
 	Status   *statusWire       `json:"status,omitempty"`

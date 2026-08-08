@@ -715,6 +715,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	id, ch, history := sess.subscribe()
 	defer sess.unsubscribe(id)
 
+	// Publish background-job updates only while someone is watching this session.
+	sess.startJobWatch()
+	defer sess.releaseJobWatch()
+
 	// Cap the initial replay to the most recent turns so a large persisted
 	// transcript doesn't stream + render in full on connect; earlier turns load on
 	// demand from /history. "?turns=N" overrides (0 or "all" = replay everything,
@@ -741,6 +745,15 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 	writeSSE(w, wireEvent{Type: "history_end"}) // marks the history/live boundary (client renders replayed thinking blocks collapsed)
 	flusher.Flush()
+
+	// Seed the jobs strip with the CURRENT list. The watcher only publishes on change, so
+	// without this a viewer who connects while a job is already running sees nothing until
+	// that job's state or output next changes — which for a quiet long-running job could
+	// be never.
+	if jobs := sessionJobWires(sess); len(jobs) > 0 {
+		writeSSE(w, wireEvent{Type: "jobs", Jobs: &jobs})
+		flusher.Flush()
+	}
 
 	ka := time.NewTicker(sseKeepalive)
 	defer ka.Stop()
