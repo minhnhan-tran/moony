@@ -91,7 +91,11 @@ Resources:
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: !Ref WebCidr
+          # With a domain, Let's Encrypt validates over port 80 from addresses that
+          # cannot be predicted, so it has to be world-open or issuance fails. What is
+          # exposed there is only the challenge and a redirect to HTTPS. Without a
+          # domain, port 80 IS the UI, so it gets the same restriction as 443.
+          CidrIp: !If [HasDomain, 0.0.0.0/0, !Ref WebCidr]
         - Description: Browser UI over HTTPS
           IpProtocol: tcp
           FromPort: 443

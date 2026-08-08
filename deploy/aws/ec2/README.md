@@ -89,8 +89,10 @@ Narrow the firewall while you are at it:
 deploy/aws/ec2/deploy.sh ... --tunnel-cidr 203.0.113.4/32 --web-cidr 203.0.113.4/32
 ```
 
-Port 80 has to stay open to the world for the ACME challenge, so `--web-cidr` only
-restricts who can *use* the UI over 443.
+Port 80 is opened to the world **only when you pass `--domain`**, because Let's Encrypt
+validates from addresses that cannot be predicted; all it serves there is the challenge
+and a redirect to HTTPS, and `--web-cidr` still controls who can use the UI over 443.
+Without a domain, port 80 is the UI itself and `--web-cidr` applies to it.
 
 ## Options
 
