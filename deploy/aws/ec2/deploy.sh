@@ -185,6 +185,11 @@ tmp="$(mktemp -t moony-src-XXXXXX.tar.gz)"
 trap 'rm -f "$tmp"' EXIT
 
 echo "packaging $rev"
+# HEAD, not the working tree: a deploy is reproducible from a commit. Uncommitted work
+# is silently absent otherwise, which is a confusing way to find out.
+if ! git -C "$root" diff-index --quiet HEAD -- 2>/dev/null; then
+	echo "warning: uncommitted changes are NOT deployed; only $rev is" >&2
+fi
 git -C "$root" archive --format=tar.gz -o "$tmp" HEAD
 aws s3 cp "$tmp" "s3://$BUCKET/$key" --region "$REGION" >/dev/null
 
@@ -215,11 +220,108 @@ aws cloudformation deploy \
 aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
 	--query 'Stacks[0].Outputs[].[OutputKey,OutputValue]' --output table
 
+output() {
+	aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
+		--query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
+}
+instance="$(output InstanceId)"
+tunnel_host="$(output PublicIp)"
+
+# Converge the box. CloudFormation updates an instance's user-data in place - stop,
+# modify, start - and cloud-init only runs user-data once per instance, so on an
+# existing stack a changed --domain or --env-parameter would alter the security group
+# and nothing else. apply.sh is therefore run here too, and is idempotent.
+# Native path for arguments the AWS CLI has to open itself: under git-bash a Unix path
+# reaches aws.exe unusable.
+native_path() {
+	if command -v cygpath >/dev/null; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+
+converge() {
+	local script b64 params cid status=""
+
+	script="$(
+		cat <<EOF
+set -eux
+aws s3 cp "s3://${BUCKET}/${key}" /opt/moony/src.tar.gz
+rm -rf /opt/moony/src
+install -d -m 0755 /opt/moony/src
+tar xzf /opt/moony/src.tar.gz -C /opt/moony/src
+TUNNEL_HOST="${tunnel_host}" \
+SITE_ADDRESS="${DOMAIN:-:80}" \
+ACME_EMAIL="${EMAIL}" \
+WITH_DOWNLOADS="${WITH_DOWNLOADS}" \
+ENV_PARAMETER="${ENV_PARAM}" \
+  bash /opt/moony/src/deploy/aws/ec2/apply.sh
+EOF
+	)"
+
+	# Sent base64-encoded so nothing needs escaping on the way through JSON and two
+	# shells. The alternatives are worse: shorthand `commands=...` splits on commas, and
+	# escaping quotes and backslashes by hand needs either jq (absent on a default
+	# Windows or Amazon Linux box) or sed backslash-doubling, which MSYS's sed gets
+	# wrong.
+	b64="$(printf '%s' "$script" | base64 -w0 2>/dev/null || printf '%s' "$script" | base64 | tr -d '\n')"
+
+	params="$(mktemp -t moony-ssm-XXXXXX.json)"
+	printf '{"commands":["echo %s | base64 -d | bash"]}' "$b64" > "$params"
+
+	cid="$(aws ssm send-command --region "$REGION" --instance-ids "$instance" \
+		--document-name AWS-RunShellScript \
+		--parameters "file://$(native_path "$params")" \
+		--query Command.CommandId --output text)"
+	rm -f "$params"
+
+	echo "converging on $instance (command $cid); this rebuilds the relay if the source changed"
+	for _ in $(seq 1 60); do
+		sleep 10
+		status="$(aws ssm get-command-invocation --region "$REGION" --command-id "$cid" \
+			--instance-id "$instance" --query Status --output text 2>/dev/null || echo Pending)"
+		case "$status" in
+		Success | Failed | Cancelled | TimedOut) break ;;
+		esac
+	done
+	aws ssm get-command-invocation --region "$REGION" --command-id "$cid" \
+		--instance-id "$instance" --query 'StandardOutputContent' --output text | tail -6
+	[ "$status" = "Success" ] || {
+		aws ssm get-command-invocation --region "$REGION" --command-id "$cid" \
+			--instance-id "$instance" --query 'StandardErrorContent' --output text | tail -20
+		die "convergence failed on $instance (status $status)"
+	}
+}
+
+# A freshly created instance is not registered with SSM for a minute or two, and its
+# own user-data is doing the same work anyway, so this waits rather than failing.
+managed=0
+for _ in $(seq 1 24); do
+	if [ "$(aws ssm describe-instance-information --region "$REGION" \
+		--filters "Key=InstanceIds,Values=$instance" \
+		--query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null)" = "Online" ]; then
+		managed=1
+		break
+	fi
+	sleep 10
+done
+
+if [ "$managed" = "1" ]; then
+	converge
+else
+	echo "warning: $instance is not SSM-managed yet; skipping convergence" >&2
+	cat <<EOF
+
+Run this once the instance is reachable, or the configuration above will not be applied
+to an existing box:
+
+  aws ssm start-session --target $instance --region $REGION
+  sudo TUNNEL_HOST=$tunnel_host SITE_ADDRESS=${DOMAIN:-:80} ACME_EMAIL=$EMAIL \
+    bash /opt/moony/src/deploy/aws/ec2/apply.sh
+EOF
+fi
+
 cat <<EOF
 
-The instance still has to install Docker and build the relay, which takes a few
-minutes after the stack reports CREATE_COMPLETE. Watch it with:
+Watch the first boot with:
 
-  aws ssm start-session --target <InstanceId> --region $REGION
+  aws ssm start-session --target $instance --region $REGION
   sudo tail -f /var/log/moony-bootstrap.log
 EOF

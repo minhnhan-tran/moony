@@ -217,45 +217,20 @@ Resources:
             aws s3 cp "s3://${SourceBucket}/${SourceKey}" /opt/moony/src.tar.gz
             tar xzf /opt/moony/src.tar.gz -C /opt/moony/src
 
-            install -d -m 0700 /etc/moony
-            : > /etc/moony/relay.env
-            chmod 600 /etc/moony/relay.env
-            ${EnvFetch}
-
-            # Always authoritative, whatever the parameter said: connectors must dial
-            # the PUBLIC address, and getting this wrong is the classic failure mode.
-            sed -i '/^MN_RELAY_TUNNEL=/d' /etc/moony/relay.env
-            echo "MN_RELAY_TUNNEL=${TunnelHost}:8771" >> /etc/moony/relay.env
-
-            cat > /etc/moony/compose.env <<EOF
-            SITE_ADDRESS=${SiteAddress}
-            WITH_DOWNLOADS=${WithDownloads}
-            EOF
-
-            # Caddy's global options import this. An empty ACME_EMAIL cannot be passed
-            # as a directive argument, so the choice is made here instead.
-            if [ -n "${AcmeEmail}" ]; then
-              echo "email ${AcmeEmail}" > /etc/moony/caddy-acme.conf
-            else
-              echo "# no ACME contact address configured" > /etc/moony/caddy-acme.conf
-            fi
-            chmod 644 /etc/moony/caddy-acme.conf
-
-            cd /opt/moony/src
-            docker compose --env-file /etc/moony/compose.env \
-              -f deploy/aws/ec2/compose.aws.yml up -d --build
+            # Everything configuration-dependent lives in apply.sh, which deploy.sh
+            # also runs over SSM after each stack update. CloudFormation updates
+            # user-data in place and cloud-init never re-runs it, so this script alone
+            # would silently ignore a later --domain or --env-parameter.
+            TUNNEL_HOST="${TunnelHost}" \
+            SITE_ADDRESS="${SiteAddress}" \
+            ACME_EMAIL="${AcmeEmail}" \
+            WITH_DOWNLOADS="${WithDownloads}" \
+            ENV_PARAMETER="${EnvParameterName}" \
+              bash /opt/moony/src/deploy/aws/ec2/apply.sh
 
             echo "moony relay bootstrap complete"
           - TunnelHost: !Ref ElasticIp
             SiteAddress: !If [HasDomain, !Ref DomainName, ":80"]
-            EnvFetch: !If
-              - HasEnvParameter
-              # Written straight to a 0600 file: the value never reaches the console,
-              # the log, or the process table.
-              - !Sub >-
-                aws ssm get-parameter --name "${EnvParameterName}" --with-decryption
-                --query Parameter.Value --output text > /etc/moony/relay.env
-              - 'echo "# no EnvParameterName given: the relay runs WITHOUT authentication" >> /etc/moony/relay.env'
 
   ElasticIpAssociation:
     Type: AWS::EC2::EIPAssociation
@@ -273,6 +248,9 @@ Outputs:
   TunnelAddress:
     Description: What connectors dial (MN_RELAY_TUNNEL).
     Value: !Sub "${ElasticIp}:8771"
+  InstanceId:
+    Description: The instance, for SSM commands and for deploy.sh to converge after an update.
+    Value: !Ref Instance
   ConnectorCommand:
     Description: Run this on the machine the agent should work on.
     Value: !Sub "moony -relay=${ElasticIp}:8771"
