@@ -253,6 +253,7 @@ func (s *Server) runCommand(sess *session, text string) {
 			info("Approval policy: " + config.NormalizeApprovalPolicy(cfg.ApprovalPolicy))
 		} else {
 			cfg.ApprovalPolicy = config.NormalizeApprovalPolicy(strings.ToLower(arg))
+			s.mirrorSetting(func(c *config.Config) { c.ApprovalPolicy = cfg.ApprovalPolicy })
 			saveCfg(cfg, info, "Approval policy set to "+cfg.ApprovalPolicy)
 		}
 	case "/sandbox":
@@ -260,6 +261,7 @@ func (s *Server) runCommand(sess *session, text string) {
 			info("Bash sandbox: " + config.SandboxLabel(cfg.SandboxMode))
 		} else {
 			cfg.SandboxMode = config.NormalizeSandboxMode(arg)
+			s.mirrorSetting(func(c *config.Config) { c.SandboxMode = cfg.SandboxMode })
 			sess.agent.SetSandbox(cfg.SandboxMode != config.SandboxOff, cfg.SandboxNetwork)
 			saveCfg(cfg, info, "Bash sandbox set to "+config.SandboxLabel(cfg.SandboxMode))
 		}
@@ -278,6 +280,7 @@ func (s *Server) runCommand(sess *session, text string) {
 			sess.publishEvent(wireEvent{Type: "context", Context: &contextWire{Segments: contextSegmentsWire(bd.Segments), Total: bd.Total, Window: eff}})
 		case arg == "auto" || arg == "default" || arg == "off" || arg == "0":
 			cfg.ContextWindow = 0
+			s.mirrorSetting(func(c *config.Config) { c.ContextWindow = 0 })
 			saveCfg(cfg, info, fmt.Sprintf("Context window: auto (%d for %s).", config.ContextWindow(cfg.Model), shortModel(cfg.Model)))
 		default:
 			n, err := config.ParseTokenCount(arg)
@@ -286,6 +289,7 @@ func (s *Server) runCommand(sess *session, text string) {
 				return
 			}
 			cfg.ContextWindow = n
+			s.mirrorSetting(func(c *config.Config) { c.ContextWindow = n })
 			saveCfg(cfg, info, fmt.Sprintf("Context window set to %d tokens — the ctx%% meter now uses this. /context auto to revert.", n))
 		}
 	case "/plan":
@@ -673,6 +677,21 @@ func webHelpText() string {
 	}
 	b.WriteString("\nType / in the input to autocomplete. Custom commands live in .sqe/commands/<name>.md.")
 	return b.String()
+}
+
+// mirrorSetting applies a setting change to s.cfg, the server-wide config that
+// internal/app clones for every session it opens (c := *cfg in the agent factory).
+//
+// A slash command edits the running session's own copy, so without this the change
+// reaches that session and the prefs file but not the template: opening or loading
+// another session starts from the unchanged template and the setting looks lost,
+// only to reappear after a restart (when prefs are read back). Commands that alter
+// a persisted preference must mirror it.
+func (s *Server) mirrorSetting(apply func(*config.Config)) {
+	if s == nil || s.cfg == nil {
+		return
+	}
+	apply(s.cfg)
 }
 
 func saveCfg(cfg *config.Config, info func(string), msg string) {

@@ -2442,3 +2442,45 @@ func TestHandleEncryption(t *testing.T) {
 		t.Errorf("off mode should report encrypted=false")
 	}
 }
+
+// A setting changed with a slash command has to reach the server-wide config every
+// later session is cloned from, not just the session that ran the command. /context,
+// /approval and /sandbox wrote only the session's copy, so an override vanished the
+// moment another session was opened or loaded — while still sitting in the prefs
+// file, which is what made it look like session loading dropped the setting.
+func TestSlashSettingsSurviveOpeningAnotherSession(t *testing.T) {
+	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalPrompt, false)
+	first := openLive(t, srv, key)
+
+	srv.runCommand(first, "/context 1m")
+	srv.runCommand(first, "/approval auto")
+	srv.runCommand(first, "/sandbox on")
+
+	if got := first.agent.Config().ContextWindow; got != 1_000_000 {
+		t.Fatalf("ContextWindow in the session that ran /context = %d, want 1000000", got)
+	}
+
+	// A different session, opened afterwards in the same process.
+	second := openLive(t, srv, key)
+	if second == first {
+		t.Fatal("expected a second, distinct session")
+	}
+	got := second.agent.Config()
+	if got.ContextWindow != 1_000_000 {
+		t.Errorf("ContextWindow in a session opened later = %d, want 1000000 (the override was dropped)", got.ContextWindow)
+	}
+	if got.ApprovalPolicy != config.ApprovalAuto {
+		t.Errorf("ApprovalPolicy in a session opened later = %q, want %q", got.ApprovalPolicy, config.ApprovalAuto)
+	}
+	if got.SandboxMode != config.SandboxWorkdir {
+		t.Errorf("SandboxMode in a session opened later = %q, want %q", got.SandboxMode, config.SandboxWorkdir)
+	}
+
+	// /context auto must propagate the same way, or clearing an override would only
+	// clear it for the current session.
+	srv.runCommand(second, "/context auto")
+	third := openLive(t, srv, key)
+	if got := third.agent.Config().ContextWindow; got != 0 {
+		t.Errorf("ContextWindow after /context auto = %d, want 0 in a session opened later", got)
+	}
+}
