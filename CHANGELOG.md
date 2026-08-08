@@ -5,6 +5,35 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.21.0] — 2026-08-08
+
+### Added
+
+- **A live background-jobs strip under the status bar.** Background jobs were only visible
+  by opening the manage modal, so a dev server, watch script or long build ran unseen. A
+  strip now sits directly below the status bar showing `Background job: N (M running)` with
+  one row per job: a colour-coded state pill, the command in monospace (ellipsised so a
+  long command line can't push the controls off the row), a ticking runtime, a stop button
+  while it runs, and a chevron that expands a scrolling live log tail. It hides itself
+  entirely when there are no jobs.
+  - The backend previously had no way to push job updates, so a `jobs` SSE event was added
+    alongside the existing REST endpoints. It is digest-gated (republishes only when a
+    job's state or output length actually changes) and reference-counted against live SSE
+    viewers, so a session nobody is watching polls nothing at all.
+  - A job that exited non-zero reads **failed**, not "done", so a crashed dev server isn't
+    reported as a success.
+
+### Notes
+
+- The strip's classes are namespaced `.jobstrip-*` because the manage modal's job panel
+  already owns `.job-row` / `.job-cmd` / `.job-log` / `.job-state`; reusing those names
+  would have silently restyled that panel. Its log tail also keeps its own cursor, since
+  the modal panel and the `bash_output` tool each consume a job's output with their own
+  cursor and a shared one would let whichever polled first steal the other's bytes.
+- The reference implementation this was ported from also offers a per-row restart button.
+  It is omitted here because moony has no restart endpoint, and a control that 404s is
+  worse than an absent one.
+
 ## [2.20.5] — 2026-08-08
 
 ### Fixed
