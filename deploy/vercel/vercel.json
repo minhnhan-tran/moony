@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/download/:path*",
+      "destination": "https://RELAY_HOST/download/:path*"
+    },
+    {
+      "source": "/install.sh",
+      "destination": "https://RELAY_HOST/install.sh"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://RELAY_HOST/:path*"
+    }
+  ]
+}

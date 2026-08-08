@@ -103,6 +103,17 @@ means an ALB plus an NLB, roughly triple the cost of the compute they front. Use
 Kubernetes manifests above on EKS when you need more than one box; `service.yaml`
 already carries the NLB annotations.
 
+## Vercel and other serverless hosts
+
+The relay cannot run on Vercel, Netlify, Cloudflare Pages, or Lambda. It needs a raw TCP
+listener for connectors to dial into (length-prefixed JSON frames over a `net.Conn`, not
+HTTP) and one long-lived process holding the connector registry and every open SSE
+stream. Serverless platforms offer neither.
+
+Vercel can only sit in front as a reverse proxy, with the relay running on a VM: see
+[../deploy/vercel/README.md](../deploy/vercel/README.md). Worth it only if you must
+serve the UI from a domain Vercel already manages.
+
 ## Authentication
 
 Set `MN_AUTH=on` and the relay requires the full OIDC set below, performing discovery against the issuer at startup. A missing variable or an unreachable issuer is **fatal by design** — it fails closed rather than starting half-secured, so a typo can't quietly leave the gate open.
