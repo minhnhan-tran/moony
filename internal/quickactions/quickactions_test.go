@@ -513,4 +513,35 @@ func TestFirstRunSeedsTheMenu(t *testing.T) {
 	if prompts(got)[len(got)-1] != Defaults()[len(Defaults())-1].Prompt {
 		t.Errorf("seeded list does not match Defaults(): %v", prompts(got))
 	}
+
+	// Named explicitly: a fresh install must not take the legacy-migration path, which
+	// records the original presets as already offered and would leave a new user with
+	// only the newest one.
+	joined := strings.Join(prompts(got), " | ")
+	for _, want := range []string{"rio build", "rio unsigned build", "moony deploy aws"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("a fresh install is missing the %q preset: %v", want, prompts(got))
+		}
+	}
+}
+
+// An existing file with an empty list means "I deleted them all", so seeding must not
+// refill it - only the one built-in this user has never been offered may be appended.
+func TestEmptiedListStaysEmptiedApartFromNewBuiltIns(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if err := writeRawGlobal(t, `{"actions":[]}`); err != nil {
+		t.Fatal(err)
+	}
+
+	EnsureGlobalDefaults()
+	got := prompts(s.ListScope(Global))
+	if len(got) != 1 || !strings.Contains(got[0], "moony deploy aws") {
+		t.Fatalf("emptied list gained %v; want only the never-offered built-in", got)
+	}
+
+	EnsureGlobalDefaults()
+	if again := prompts(s.ListScope(Global)); len(again) != 1 {
+		t.Fatalf("a second run added more: %v", again)
+	}
 }
