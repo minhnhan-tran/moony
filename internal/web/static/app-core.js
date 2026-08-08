@@ -3913,12 +3913,17 @@ function openPagerMenu() {
   hdrMenuEl.dataset.kind = "pager";
   pairs.forEach((p, i) => {
     const isCurrent = i === activePairIdx;
-    const item = el("button", "hdr-menu-item" + (isCurrent ? " is-current" : ""));
+    const item = el("button", "hdr-menu-item is-pager" + (isCurrent ? " is-current" : ""));
     item.type = "button";
     item.setAttribute("role", "menuitemradio");
     item.setAttribute("aria-checked", isCurrent ? "true" : "false");
     const text = ((p.q && p.q.textContent) || "").trim().replace(/\s+/g, " ") || "(empty)";
-    item.appendChild(el("span", "hdr-menu-label", (i + 1) + ". " + text.slice(0, 80)));
+    // The index is its own token and the question is clamped to two lines by CSS
+    // (.hdr-menu-item.is-pager): slicing the text here stopped it mid-word and
+    // still let the menu size itself to the longest question.
+    item.appendChild(el("span", "hdr-menu-num", String(i + 1)));
+    item.appendChild(el("span", "hdr-menu-label", text));
+    item.title = text;
     item.onclick = (e) => { e.stopPropagation(); closeHdrMenu(); pagerPos.setAttribute("aria-expanded", "false"); if (!isCurrent) setActivePair(i); };
     hdrMenuEl.appendChild(item);
   });

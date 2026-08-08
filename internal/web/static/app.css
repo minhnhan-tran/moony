@@ -1324,9 +1324,10 @@ body.sidebar-resizing .app-sidebar { transition: none; } /* no lag while draggin
   .msg .md, .msg .md p, .msg .md li { overflow-wrap: anywhere; }
   .turn-meta, .user-meta { flex-wrap: wrap; }
 
-  /* The shared header/composer picker (approval, reasoning): give it real width
-     and room from the screen edge on a phone. */
-  .hdr-menu { min-width: 12rem; max-width: calc(100vw - 1.5rem); }
+  /* No .hdr-menu sizing override here: this block precedes the base .hdr-menu rule
+     and has the same specificity, so anything set here loses on source order (the
+     old min-width/max-width pair sat dead for exactly that reason). The base rule
+     carries the phone cap itself, as max-width: min(28rem, calc(100vw - 1.5rem)). */
 
   /* Manage/Plugins/Skills/etc. overlay modal: near-fullscreen on a phone for
      usability (its size is set inline in index.html, so override with !important).
@@ -2348,7 +2349,17 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
    reasoning level). Positioned in JS under the clicked token; toggled via .hidden. */
 .hdr-menu {
   position: fixed; z-index: 90;
-  min-width: 184px;
+  /* 196px, not 184: with box-sizing below this is now the OUTER width, so the
+     value has to include the .3rem padding + 1px borders to leave the picker
+     menus rendering exactly as wide as they did before. */
+  min-width: 196px;
+  /* Cap the width, or the menu sizes to its longest label's max-content width:
+     the pager's question list (openPagerMenu) stretched the same menu to ~2.6x
+     the width it has when opened from a header pill. border-box so this cap (and
+     the phone one, calc(100vw - 1.5rem)) bounds the OUTER width — otherwise the
+     padding and border push the menu ~12px past it, into the screen edge. */
+  box-sizing: border-box;
+  max-width: min(28rem, calc(100vw - 1.5rem));
   overflow-y: auto; /* a tall picker (e.g. the provider list) scrolls within a capped height set by placeHdrMenu */
   background: rgb(var(--c-surface));
   border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-lg);
@@ -2373,6 +2384,23 @@ html.light .composer.has-agent { --agent-color: var(--agent-base, hsl(var(--agen
 .hdr-menu-item.is-info:hover { background: transparent; }
 .hdr-menu-label { font-weight: 600; font-size: .82rem; }
 .hdr-menu-desc { font-size: .72rem; color: rgb(var(--c-faint)); }
+
+/* Pager rows (openPagerMenu) list the turn's questions rather than a fixed set of
+   options, so they lay the index out BESIDE the text instead of stacking
+   label/desc, and clamp to two lines with a real ellipsis — a question is
+   arbitrarily long, and hard-slicing it in JS just stopped mid-word. The full
+   text stays on the row's title. The index apes .pager-pos's monospace token. */
+.hdr-menu-item.is-pager { flex-direction: row; align-items: baseline; gap: .4rem; }
+.hdr-menu-num {
+  flex: 0 0 auto;
+  font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgb(var(--c-faint));
+}
+.hdr-menu-item.is-pager .hdr-menu-label {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+.hdr-menu-item.is-pager.is-current .hdr-menu-num { color: rgb(var(--c-brand)); }
 
 .attach-menu {
   position: absolute; left: .3rem; bottom: calc(100% + .45rem);
