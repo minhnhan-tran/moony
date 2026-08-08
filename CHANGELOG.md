@@ -5,6 +5,19 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.20.2] — 2026-08-08
+
+### Fixed
+
+- The picker dropdown shared by the header pills and the transcript pager no longer
+  stretches when opened from the pager's "n/total" control. Its only `max-width` lived in
+  the phone media query, so on desktop it sized to its longest label — an ~85-character
+  question measured 508px against the 196px the same menu has from a header pill. The cap
+  now lives on the base rule and is `border-box`, so it bounds the visible width.
+- Pager rows list the turn's questions properly: the index is its own faint token rather
+  than part of the bold label, and the question is clamped to two lines with a real
+  ellipsis (full text on hover) instead of being cut mid-word at 80 characters in JS.
+
 ## [2.20.1] — 2026-08-08
 
 ### Changed
