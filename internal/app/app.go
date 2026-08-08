@@ -15,6 +15,7 @@ import (
 	"github.com/pysty1995/moony/internal/lsp"
 	"github.com/pysty1995/moony/internal/manage"
 	"github.com/pysty1995/moony/internal/permissions"
+	"github.com/pysty1995/moony/internal/quickactions"
 	"github.com/pysty1995/moony/internal/session"
 	"github.com/pysty1995/moony/internal/skills"
 	"github.com/pysty1995/moony/internal/subagents"
@@ -33,6 +34,11 @@ func BuildServer(cfg *config.Config) (*web.Server, *session.Store, error) {
 	// as the terminal. Idempotent; never overwrites existing files.
 	permissions.EnsureGlobalDefaults()
 	domains.EnsureDefaults()
+	// Same first-run treatment for the composer's quick actions, and the one place
+	// a newly shipped built-in reaches an existing installation. Without this call
+	// the built-ins were unreachable: nothing else creates the file, so the menu
+	// stayed empty until someone used the panel's reset button.
+	quickactions.EnsureGlobalDefaults()
 
 	store, err := session.NewStore()
 	if err != nil {

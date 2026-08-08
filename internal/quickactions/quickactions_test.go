@@ -404,3 +404,113 @@ func TestOverridesSurviveUpdate(t *testing.T) {
 		t.Errorf("clearing the model should stick, got %q", got)
 	}
 }
+
+// A built-in added after a user's file already exists has to reach them, exactly once,
+// without touching what they already have. Before Seeded existed there was no way to
+// do that: the file existing meant seeding was skipped forever.
+func TestEnsureGlobalDefaultsDeliversNewBuiltInsOnce(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+
+	// A file as it looked before the AWS preset shipped: the two original built-ins
+	// and no seeded record.
+	if err := writeRawGlobal(t, `{"actions":[
+		{"prompt":"rio build","label":"Rio build","icon":"checkmark.seal"},
+		{"prompt":"rio unsigned build","label":"Rio unsigned build","icon":"hammer"},
+		{"prompt":"my own thing","label":"Mine","icon":"star"}
+	]}`); err != nil {
+		t.Fatal(err)
+	}
+
+	EnsureGlobalDefaults()
+	got := prompts(s.ListScope(Global))
+
+	// The user's own action stays, in place, and the new built-in is appended.
+	if len(got) != 4 || got[2] != "my own thing" {
+		t.Fatalf("existing actions were disturbed: %v", got)
+	}
+	var deploy string
+	for _, d := range Defaults() {
+		if strings.Contains(d.Prompt, "moony deploy aws") {
+			deploy = d.Prompt
+		}
+	}
+	if deploy == "" {
+		t.Fatal("no AWS deploy preset in Defaults()")
+	}
+	if got[3] != deploy {
+		t.Fatalf("the new built-in was not appended: %v", got)
+	}
+
+	// Idempotent: running again changes nothing.
+	EnsureGlobalDefaults()
+	if again := prompts(s.ListScope(Global)); strings.Join(again, ",") != strings.Join(got, ",") {
+		t.Fatalf("second run changed the list: %v -> %v", got, again)
+	}
+
+	// And once removed, it stays removed.
+	if err := s.Remove(deploy, Global); err != nil {
+		t.Fatal(err)
+	}
+	before := prompts(s.ListScope(Global))
+	EnsureGlobalDefaults()
+	if after := prompts(s.ListScope(Global)); strings.Join(after, ",") != strings.Join(before, ",") {
+		t.Fatalf("a removed built-in came back: %v -> %v", before, after)
+	}
+}
+
+// The AWS preset is what the composer's button sends, so it has to be a usable prompt
+// and carry an icon the UI can render (TestQuickActionIconsAreMapped guards the map).
+func TestAWSDeployPresetIsWellFormed(t *testing.T) {
+	var a Action
+	for _, d := range Defaults() {
+		if strings.Contains(d.Prompt, "moony deploy aws") {
+			a = d
+		}
+	}
+	if a.Prompt == "" {
+		t.Fatal("no AWS deploy preset in Defaults()")
+	}
+	if a.Label == "" || a.Icon == "" || a.Sub == "" {
+		t.Fatalf("preset is missing display fields: %+v", a)
+	}
+	if len(a.Prompt) > maxPromptLen {
+		t.Fatalf("prompt is %d bytes, over the %d limit", len(a.Prompt), maxPromptLen)
+	}
+	// It must mention the safety point: a relay with no --env-parameter has no auth.
+	if !strings.Contains(a.Prompt, "--env-parameter") {
+		t.Error("the preset does not mention the authentication caveat")
+	}
+}
+
+// writeRawGlobal writes a global quickactions file verbatim, for migration tests.
+func writeRawGlobal(t *testing.T, body string) error {
+	t.Helper()
+	path := globalPath()
+	if path == "" {
+		t.Skip("no global config path in this environment")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(body), 0o644)
+}
+
+// The built-ins are only reachable because BuildServer calls EnsureGlobalDefaults:
+// nothing else creates the file, and List() returns an empty slice when neither scope
+// has one. This pins that a fresh installation gets a populated menu.
+func TestFirstRunSeedsTheMenu(t *testing.T) {
+	dir := isolate(t)
+	s := Load(dir)
+	if got := s.List(); len(got) != 0 {
+		t.Fatalf("a fresh environment should start empty, got %d", len(got))
+	}
+	EnsureGlobalDefaults()
+	got := s.List()
+	if len(got) != len(Defaults()) {
+		t.Fatalf("first run seeded %d actions, want %d", len(got), len(Defaults()))
+	}
+	if prompts(got)[len(got)-1] != Defaults()[len(Defaults())-1].Prompt {
+		t.Errorf("seeded list does not match Defaults(): %v", prompts(got))
+	}
+}

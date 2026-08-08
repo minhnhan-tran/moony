@@ -22,6 +22,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"fmt"
@@ -81,7 +82,19 @@ type Action struct {
 // add fields later without breaking older files.
 type file struct {
 	Actions []Action `json:"actions"`
+	// Seeded records which built-in prompts have already been offered to this
+	// user. It is what lets a new built-in reach an existing installation exactly
+	// once: without it the choice would be between never shipping another default
+	// (the file already exists, so seeding is skipped) and re-adding one the user
+	// deliberately deleted on every start.
+	Seeded []string `json:"seeded,omitempty"`
 }
+
+// legacySeeded is the set of built-in prompts that shipped before the Seeded
+// field existed. Files without Seeded are assumed to have been offered exactly
+// these, so a user who removed one does not get it back, while built-ins added
+// afterwards are still delivered once.
+var legacySeeded = []string{"rio build", "rio unsigned build"}
 
 // Defaults are the built-in presets seeded into the global scope on first run,
 // so the button is useful before anyone configures anything.
@@ -89,6 +102,14 @@ func Defaults() []Action {
 	return []Action{
 		{Prompt: "rio build", Label: "Rio build", Sub: "Signed — sign, commit, push, unsign", Icon: "checkmark.seal"},
 		{Prompt: "rio unsigned build", Label: "Rio unsigned build", Sub: "Unsigned — no ac-sign toggle", Icon: "hammer"},
+		{
+			Prompt: "Deploy the relay to AWS with `moony deploy aws`. Show me `moony deploy aws --status` " +
+				"first, then deploy, and finish by reporting the WebUrl and the connector command. " +
+				"Warn me if no --env-parameter is set, because that relay has no authentication.",
+			Label: "Deploy to AWS",
+			Sub:   "Relay on one EC2 instance, TLS included",
+			Icon:  "cloud",
+		},
 	}
 }
 
@@ -101,18 +122,85 @@ type Store struct {
 // made outside the process (or by another session) are picked up.
 func Load(workingDir string) *Store { return &Store{workingDir: workingDir} }
 
-// EnsureGlobalDefaults seeds the global file with the built-in presets the first
-// time the agent runs. It never overwrites an existing file, so user edits (and
-// a deliberately emptied list) are preserved. Best effort.
+// EnsureGlobalDefaults seeds the global file with the built-in presets, and
+// afterwards appends any built-in this user has never been offered.
+//
+// It never edits or reorders what is already there: a built-in added later is
+// appended once and recorded in Seeded, so deleting it makes it stay gone. That
+// is the whole reason Seeded exists — an existing file used to mean no later
+// default could ever reach the menu. Best effort; a broken file is left alone.
 func EnsureGlobalDefaults() {
 	path := globalPath()
 	if path == "" {
 		return
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return // exists, or stat failed for another reason — leave it alone
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		_ = write(path, file{Actions: Defaults(), Seeded: defaultPrompts()})
+		return
 	}
-	_ = write(path, file{Actions: Defaults()})
+
+	f := read(path)
+	seeded := map[string]bool{}
+	for _, p := range f.Seeded {
+		seeded[p] = true
+	}
+	present := map[string]bool{}
+	for _, a := range f.Actions {
+		present[a.Prompt] = true
+	}
+
+	changed := false
+	// A file written before Seeded existed cannot distinguish "deleted this built-in"
+	// from "never offered it", so the built-ins that existed back then, plus whatever
+	// the file holds, are recorded as already offered. That record has to be written
+	// in full: recording only the newly added prompt would leave the next run
+	// believing the originals were never offered, and re-append them.
+	if f.Seeded == nil {
+		for _, p := range append(append([]string{}, legacySeeded...), keysOf(present)...) {
+			if !seeded[p] {
+				seeded[p] = true
+				f.Seeded = append(f.Seeded, p)
+			}
+		}
+		changed = true
+	}
+
+	for _, d := range Defaults() {
+		if seeded[d.Prompt] {
+			continue
+		}
+		// Never a duplicate, even if the user added the same prompt by hand.
+		if !present[d.Prompt] && len(f.Actions) < maxActions {
+			f.Actions = append(f.Actions, d)
+			present[d.Prompt] = true
+		}
+		f.Seeded = append(f.Seeded, d.Prompt)
+		seeded[d.Prompt] = true
+		changed = true
+	}
+	if changed {
+		_ = write(path, f)
+	}
+}
+
+// keysOf returns the set's members in a stable order, so the persisted record does
+// not churn between runs.
+func keysOf(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// defaultPrompts lists the built-in prompts, for recording in Seeded.
+func defaultPrompts() []string {
+	out := make([]string, 0, len(Defaults()))
+	for _, a := range Defaults() {
+		out = append(out, a.Prompt)
+	}
+	return out
 }
 
 // List returns the effective actions: the project list when it has any,
@@ -240,7 +328,10 @@ func (s *Store) save(list []Action, scope Scope) error {
 	if path == "" {
 		return os.ErrInvalid
 	}
-	return write(path, file{Actions: list})
+	// Seeded is carried over: it is bookkeeping about which built-ins this user has
+	// been offered, not content. Dropping it on an edit would make the next start
+	// re-add a built-in the user had just deleted.
+	return write(path, file{Actions: list, Seeded: read(path).Seeded})
 }
 
 func (s *Store) pathFor(scope Scope) string {
