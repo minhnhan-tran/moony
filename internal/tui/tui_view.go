@@ -546,7 +546,7 @@ func (m Model) statusView() string {
 	}
 	// Prefer the authoritative quota from the gateway when known; fall back to the
 	// in-session estimate while the first fetch is in flight or if it failed.
-	if q := formatQuotaShort(m.quotaFetched, m.quotaSpend, m.quotaBudget); q != "" {
+	if q := formatQuotaShort(m.quotaFetched, m.quotaSpend, m.quotaBudget, m.quotaBalance, m.quotaBalanceSet); q != "" {
 		right += statusDimStyle.Render("   ") + statusTextStyle.Render(q)
 	} else if m.totalCostUSD > 0 {
 		right += statusDimStyle.Render("   ") + statusTextStyle.Render(fmt.Sprintf("$%s~", formatUSD(m.totalCostUSD)))

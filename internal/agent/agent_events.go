@@ -110,6 +110,12 @@ type TurnDone struct {
 	Usage     llm.Usage
 	TurnUsage llm.Usage
 	CostUSD   float64
+	// GuardCostUSD is CostUSD with unpriced models charged at the conservative fallback
+	// rate instead of $0. Only for SPEND-CAP arithmetic — a parent folding a sub-agent's
+	// cost into its own per-turn cap must use this, or a sub-agent on an unpriced model
+	// contributes $0 and the cap silently under-counts. Never display it: for an unknown
+	// model it is an estimate, not a real charge.
+	GuardCostUSD float64
 	// Model is the turn's actual serving model (the last round's turnModel), which
 	// an AdaptiveModel/CheapReads downshift can make differ from the session's
 	// configured model — so the live footer labels the cost against what really ran.

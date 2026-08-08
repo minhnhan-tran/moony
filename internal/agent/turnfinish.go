@@ -25,14 +25,16 @@ import (
 // three.
 func (a *Agent) finishTurn(
 	emit func(Event), turnStart time.Time, respUsage, turnUsage llm.Usage,
-	turnCostUSD float64, rounds int, turnModel, turnReasoning string,
+	turnCostUSD, turnGuardCostUSD float64, rounds int, turnModel, turnReasoning string,
 	taskAcct *taskMetaAcct, board *messageBoard,
 ) float64 {
 	finalCostUSD := turnCostUSD + a.auxCostUSD()
+	finalGuardCostUSD := turnGuardCostUSD + a.auxCostUSD()
 	a.recordTurnMeta(turnStart, turnUsage, finalCostUSD, rounds, turnModel, turnReasoning)
 	a.recordTaskMetas(taskAcct)
 	a.recordBoardMessages(board)
-	emit(TurnDone{Usage: respUsage, TurnUsage: turnUsage, CostUSD: finalCostUSD, Model: turnModel, Reasoning: turnReasoning})
+	emit(TurnDone{Usage: respUsage, TurnUsage: turnUsage, CostUSD: finalCostUSD,
+		GuardCostUSD: finalGuardCostUSD, Model: turnModel, Reasoning: turnReasoning})
 
 	a.warnBudget(emit, finalCostUSD)
 	elapsed := time.Since(turnStart)

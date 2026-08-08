@@ -383,8 +383,12 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	stream := parentEmit != nil && taskStreamEnabled()
 	var finalText strings.Builder
 	var (
-		subCalls      int     // sub-agent tool calls observed
-		subCost       float64 // summed across the sub-agent's turn(s)
+		subCalls int     // sub-agent tool calls observed
+		subCost  float64 // summed across the sub-agent's turn(s)
+		// subGuardCost mirrors subCost but prices a model missing from the price table at
+		// the conservative fallback rate, so the parent's per-turn spend cap cannot be
+		// defeated by delegating to an unpriced model (which contributes $0 to subCost).
+		subGuardCost  float64
 		subIn, subOut int
 		subCacheRead  int
 	)
@@ -422,6 +426,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 			// footer covers the whole delegation (auto-continue can emit more
 			// than one TurnDone).
 			subCost += e.CostUSD
+			subGuardCost += e.GuardCostUSD
 			subIn += e.TurnUsage.InputTokens
 			subOut += e.TurnUsage.OutputTokens
 			subCacheRead += e.TurnUsage.CacheReadInputTokens
@@ -457,7 +462,7 @@ func (t *taskTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	// so it shows up correctly in the session totals and the parent's per-turn
 	// footer, instead of being re-priced at the parent's (often pricier) model
 	// or vanishing into the sub-agent's isolated loop.
-	subUsageFrom(ctx).addTokens(subIn, subOut, subCacheRead, subCost)
+	subUsageFrom(ctx).addTokens(subIn, subOut, subCacheRead, subCost, subGuardCost)
 	// emitMeta surfaces a per-delegation turn-meta footer (duration · cost ·
 	// model · calls) under this task's card, mirroring the parent's per-turn
 	// footer. Gated on stream so SC_TASK_STREAM=0 silences it alongside the
@@ -785,6 +790,9 @@ type subUsageAcct struct {
 	out       int
 	cacheRead int
 	costUSD   float64
+	// guardCostUSD is costUSD with unpriced models charged at the conservative fallback
+	// rate, for the parent's spend-cap arithmetic only (never displayed).
+	guardCostUSD float64
 }
 
 // addTokens records one finished sub-agent's token usage and its REAL cost
@@ -795,7 +803,7 @@ type subUsageAcct struct {
 // the parent's total as what it actually cost, not what it would have cost on
 // the parent's (often pricier) session model. Takes plain values so task.go
 // needn't import the llm package just for this.
-func (s *subUsageAcct) addTokens(in, out, cacheRead int, costUSD float64) {
+func (s *subUsageAcct) addTokens(in, out, cacheRead int, costUSD, guardCostUSD float64) {
 	if s == nil {
 		return
 	}
@@ -804,17 +812,18 @@ func (s *subUsageAcct) addTokens(in, out, cacheRead int, costUSD float64) {
 	s.out += out
 	s.cacheRead += cacheRead
 	s.costUSD += costUSD
+	s.guardCostUSD += guardCostUSD
 	s.mu.Unlock()
 }
 
 // totals returns the accumulated sub-agent token usage and real cost so far.
-func (s *subUsageAcct) totals() (in, out, cacheRead int, costUSD float64) {
+func (s *subUsageAcct) totals() (in, out, cacheRead int, costUSD, guardCostUSD float64) {
 	if s == nil {
-		return 0, 0, 0, 0
+		return 0, 0, 0, 0, 0
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.in, s.out, s.cacheRead, s.costUSD
+	return s.in, s.out, s.cacheRead, s.costUSD, s.guardCostUSD
 }
 
 type subUsageKey struct{}

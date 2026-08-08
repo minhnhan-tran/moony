@@ -68,17 +68,33 @@ func TestFormatUsageNil(t *testing.T) {
 }
 
 func TestFormatQuotaShort(t *testing.T) {
-	if got := formatQuotaShort(false, 12, 100); got != "" {
+	if got := formatQuotaShort(false, 12, 100, 0, false); got != "" {
 		t.Errorf("not-fetched should produce empty string, got %q", got)
 	}
-	if got := formatQuotaShort(true, 12.34, 100); got != "$12.34/$100" {
+	if got := formatQuotaShort(true, 12.34, 100, 0, false); got != "$12.34/$100" {
 		t.Errorf("with budget = %q, want $12.34/$100", got)
 	}
-	if got := formatQuotaShort(true, 5, 0); got != "$5.00 24h" {
+	if got := formatQuotaShort(true, 5, 0, 0, false); got != "$5.00 24h" {
 		t.Errorf("no budget = %q, want $5.00 24h", got)
 	}
-	if got := formatQuotaShort(true, 0, 100); got != "$0.0000/$100" {
-		t.Errorf("zero spend = %q", got)
+	// A spend-based provider at the start of its period: spend really is 0, but the cap
+	// is real and must still be shown rather than being mistaken for a balance reading.
+	// $0.00, not the old "$0.0000" rounding artefact.
+	if got := formatQuotaShort(true, 0, 100, 0, false); got != "$0.00/$100" {
+		t.Errorf("zero spend = %q, want $0.00/$100", got)
+	}
+	// Prepaid credit is labelled "left", never as spend.
+	if got := formatQuotaShort(true, 0, 0, 4.66, true); got != "$4.66 left" {
+		t.Errorf("balance = %q, want $4.66 left", got)
+	}
+	// $0.00 remaining is a real (and urgent) reading, not a missing one.
+	if got := formatQuotaShort(true, 0, 0, 0, true); got != "$0.00 left" {
+		t.Errorf("exhausted balance = %q, want $0.00 left", got)
+	}
+	// A prepaid provider that also reports a cap: credit left is the meaningful figure,
+	// not a spend of $0 against that cap.
+	if got := formatQuotaShort(true, 0, 50, 12.5, true); got != "$12.50 left" {
+		t.Errorf("balance with cap = %q, want $12.50 left", got)
 	}
 }
 

@@ -291,6 +291,18 @@ func (u Usage) CostUSD(model string) float64 {
 	return config.CostUSDFull(model, u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens)
 }
 
+// GuardCostUSD is CostUSD for SPEND-CAP arithmetic, pricing an unknown model at the
+// conservative fallback rate instead of $0.
+//
+// Use this for anything that must STOP work (per-turn hard stop, warn threshold); use
+// CostUSD for anything DISPLAYED. The difference matters: CostUSD returns 0 for a model
+// missing from the price table, so a cap fed by it silently never fires and a runaway
+// turn on an unpriced model runs to the step ceiling. Over-counting an unrecognized
+// model is the safe direction for a cap, but would be a fabricated number in the UI.
+func (u Usage) GuardCostUSD(model string) float64 {
+	return config.CostUSDFullFallback(model, u.InputTokens, u.OutputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens)
+}
+
 // Response is the fully-assembled result of a single model turn.
 type Response struct {
 	// Blocks are the assembled content blocks (text + tool_use).

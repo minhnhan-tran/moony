@@ -138,6 +138,13 @@ type QuotaSnapshot struct {
 	// HardLimit is set when the provider itself refused the request with a
 	// daily-quota error, which outranks any budget arithmetic.
 	HardLimit bool
+	// Balance is prepaid credit REMAINING, for the providers that report that rather
+	// than an amount spent. It is the opposite quantity to Spend, so it drives its own
+	// threshold test (balanceBreached) instead of being mixed into the spend arithmetic.
+	// BalanceSet distinguishes a real "$0.00 left" — which must trigger a fallback —
+	// from "this provider reported no balance", where 0 means nothing at all.
+	Balance    float64
+	BalanceSet bool
 }
 
 // quotaBreached reports whether spend has reached either configured threshold.
@@ -155,6 +162,31 @@ func quotaBreached(spend, providerBudget, budgetUSD, budgetPct float64) bool {
 		}
 	}
 	return false
+}
+
+// balanceBreached decides a fallback from REMAINING prepaid credit, for the providers
+// that report a balance instead of an amount spent (DeepSeek, Moonshot, Z.AI, DeepInfra,
+// Venice).
+//
+// Without this, those providers could never trigger a fallback at all: their readings
+// leave Spend and Budget at 0, so every test in quotaBreached above is skipped and a user
+// whose credit ran dry just gets failing turns instead of a hop to the fallback model.
+//
+// The two thresholds are deliberately asymmetric:
+//   - Exhausted credit (<= 0) always breaches. There is nothing left to spend, so the
+//     next request would fail regardless of how the user configured thresholds.
+//   - MN_QUOTA_BUDGET_USD is read here as "hop while at least this much is still left",
+//     i.e. a reserve floor. That is the opposite sense to the spend case (where it caps
+//     money used), because the underlying number is itself the opposite quantity.
+//
+// MN_QUOTA_BUDGET_PCT is intentionally ignored: a percentage needs a cap to divide by,
+// and these providers report no cap. Inventing a denominator would fire fallbacks at a
+// threshold the user never chose.
+func balanceBreached(balance, budgetUSD float64) bool {
+	if balance <= 0 {
+		return true
+	}
+	return budgetUSD > 0 && balance <= budgetUSD
 }
 
 // nextFallbackProvider returns the first usable provider AFTER current in chain.
@@ -256,7 +288,13 @@ func (a *Agent) applyQuotaPolicy(q QuotaSnapshot) string {
 		return msg
 	}
 
-	if !q.HardLimit && !quotaBreached(q.Spend, q.Budget, a.cfg.QuotaBudgetUSD, a.cfg.QuotaBudgetPct) {
+	// A balance-only reading is checked against its own threshold: its numbers leave
+	// Spend/Budget at 0, so the spend tests below would silently never fire.
+	breached := quotaBreached(q.Spend, q.Budget, a.cfg.QuotaBudgetUSD, a.cfg.QuotaBudgetPct)
+	if q.BalanceSet && balanceBreached(q.Balance, a.cfg.QuotaBudgetUSD) {
+		breached = true
+	}
+	if !q.HardLimit && !breached {
 		return ""
 	}
 	// Only act on numbers describing the provider actually in use: a late reply

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pysty1995/moony/internal/tools"
@@ -158,6 +159,21 @@ type ServerFailure struct {
 // Servers() lists the connected servers with their capability counts, and
 // Failures() lists the servers that failed to start.
 type Manager struct {
+	// reloadMu serializes Reload() against itself. mu alone is not enough: it is
+	// released across the slow ConnectAll, so two overlapping reloads (the /mcp web
+	// handler is per-request, so two browser clients can trigger it at once) would each
+	// spawn a full set of subprocesses and one set would then be overwritten by the
+	// other's swap — orphaned, unreferenced, and never closed. Held for the whole
+	// reload, so it must be taken BEFORE mu and never while mu is held.
+	reloadMu sync.Mutex
+	// mu guards the four slices below. Reload() replaces all of them wholesale while
+	// other goroutines are reading: a /mcp reload runs on one HTTP handler goroutine
+	// while the Doctor panel (internal/web/doctor.go), the MCP market
+	// (internal/web/mcp_market.go) and the command palette
+	// (internal/web/commands_handlers.go) call Connected/Failure/Servers from their own
+	// handler goroutines. Without this lock that is a genuine data race on the slice
+	// headers, not merely a stale read.
+	mu       sync.RWMutex
 	conns    []connected
 	prompts  []PromptDef
 	servers  []ServerInfo
@@ -179,7 +195,11 @@ func toolAdapterName(server, tool string) string { return fmt.Sprintf("mcp.%s.%s
 func resourceReaderName(server string) string    { return fmt.Sprintf("mcp.%s.read_resource", server) }
 
 // Prompts returns every server-supplied prompt template. Order is stable.
-func (m *Manager) Prompts() []PromptDef { return m.prompts }
+func (m *Manager) Prompts() []PromptDef {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.prompts
+}
 
 // CatalogTool is one connected MCP tool, with its registry-qualified name
 // (mcp.<server>.<tool>) and description — for callers that want to list/choose
@@ -192,6 +212,8 @@ type CatalogTool struct {
 // ToolCatalog returns every connected server's tools as registry-qualified
 // entries, in connection order.
 func (m *Manager) ToolCatalog() []CatalogTool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	var out []CatalogTool
 	for _, c := range m.conns {
 		for _, td := range c.tools {
@@ -204,14 +226,24 @@ func (m *Manager) ToolCatalog() []CatalogTool {
 // Servers returns a summary of every connected MCP server (name + capability
 // counts), in connection order. Empty when no servers are configured or all
 // failed to start.
-func (m *Manager) Servers() []ServerInfo { return m.servers }
+func (m *Manager) Servers() []ServerInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.servers
+}
 
 // Failures returns the servers that were attempted but failed to connect or
 // list their tools, with the error for each.
-func (m *Manager) Failures() []ServerFailure { return m.failures }
+func (m *Manager) Failures() []ServerFailure {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.failures
+}
 
 // Connected reports whether the named server connected, returning its info.
 func (m *Manager) Connected(name string) (ServerInfo, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, s := range m.servers {
 		if s.Name == name {
 			return s, true
@@ -222,6 +254,8 @@ func (m *Manager) Connected(name string) (ServerInfo, bool) {
 
 // Failure returns the recorded connection error for the named server, if any.
 func (m *Manager) Failure(name string) (string, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, f := range m.failures {
 		if f.Name == name {
 			return f.Err, true
@@ -302,8 +336,11 @@ func ConnectAll(ctx context.Context, cfgs []Config, logger func(string)) *Manage
 // RegisterTools registers every connected server's tool (and resource-reader)
 // adapters on registry, remembering it so Reload can re-register there.
 func (m *Manager) RegisterTools(registry *tools.Registry) {
+	m.mu.Lock()
 	m.reg = registry
-	for _, c := range m.conns {
+	conns := m.conns
+	m.mu.Unlock()
+	for _, c := range conns {
 		for _, td := range c.tools {
 			registry.Register(&adapter{client: c.client, serverName: c.name, toolName: td.Name, descriptor: td})
 		}
@@ -315,16 +352,21 @@ func (m *Manager) RegisterTools(registry *tools.Registry) {
 
 // detach unregisters this manager's tools from the registry it was registered
 // into (no-op if it was never registered).
+// detach unregisters this manager's tools from the registry. It takes the read lock
+// itself, so callers must NOT hold m.mu.
 func (m *Manager) detach() {
-	if m.reg == nil {
+	m.mu.RLock()
+	reg, conns := m.reg, m.conns
+	m.mu.RUnlock()
+	if reg == nil {
 		return
 	}
-	for _, c := range m.conns {
+	for _, c := range conns {
 		for _, td := range c.tools {
-			m.reg.Unregister(toolAdapterName(c.name, td.Name))
+			reg.Unregister(toolAdapterName(c.name, td.Name))
 		}
 		if len(c.resources) > 0 {
-			m.reg.Unregister(resourceReaderName(c.name))
+			reg.Unregister(resourceReaderName(c.name))
 		}
 	}
 }
@@ -333,23 +375,40 @@ func (m *Manager) detach() {
 // registry. Use after MCP config/enable changes so they take effect without a
 // restart. Caller should ensure no turn is running.
 func (m *Manager) Reload(ctx context.Context, cfgs []Config, logger func(string)) {
+	// Serialize whole reloads: see the reloadMu comment on Manager. Without this, two
+	// concurrent reloads leak a full set of MCP subprocesses.
+	m.reloadMu.Lock()
+	defer m.reloadMu.Unlock()
+	m.mu.RLock()
 	reg := m.reg
+	m.mu.RUnlock()
 	m.detach()
 	m.Close()
+	// ConnectAll spawns subprocesses and does network handshakes, so it must run WITHOUT
+	// the lock held — otherwise a slow or hanging MCP server would block every reader
+	// (Doctor panel, MCP market, command palette) for its whole timeout.
 	fresh := ConnectAll(ctx, cfgs, logger)
+	m.mu.Lock()
 	m.conns = fresh.conns
 	m.prompts = fresh.prompts
 	m.servers = fresh.servers
 	m.failures = fresh.failures
+	m.mu.Unlock()
 	if reg != nil {
 		m.RegisterTools(reg)
 	}
 }
 
 // Close shuts down every connected server. Safe to call multiple times.
+// Close shuts down every connected server. Safe to call concurrently with readers: the
+// connection list is swapped out under the lock, then the clients are closed outside it
+// (closing waits on a child process, which must not block Doctor/market readers).
 func (m *Manager) Close() {
-	for _, c := range m.conns {
+	m.mu.Lock()
+	conns := m.conns
+	m.conns = nil
+	m.mu.Unlock()
+	for _, c := range conns {
 		_ = c.client.Close()
 	}
-	m.conns = nil
 }

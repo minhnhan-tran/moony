@@ -1449,6 +1449,10 @@ func (s *Server) fetchQuota(sess *sessionpkg.Session, live *session) {
 			Spend:    resp.Usage.Spend,
 			Budget:   resp.Quota.Budget.Spend,
 			ResetAt:  agent.ParseQuotaResetTime(resp.Quota.Budget.ResetTime),
+			// Prepaid providers report credit left instead of money spent; without
+			// these two the policy sees 0/0 and can never fire for them.
+			Balance:    resp.Balance,
+			BalanceSet: resp.BalanceSet,
 		}); note != "" {
 			s.recordQuotaNote(sess, live, note)
 		}

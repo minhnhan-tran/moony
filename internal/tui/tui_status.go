@@ -52,9 +52,23 @@ func (m *Model) applyUsage(r *llm.UsageResponse) {
 
 // formatQuotaShort renders a compact "$spend/$budget" or "$spend 24h" suitable
 // for the status bar. Returns "" when no quota has been fetched yet.
-func formatQuotaShort(fetched bool, spend, budget float64) string {
+// formatQuotaShort renders the compact status-bar figure.
+//
+// balanceSet marks a reading that is prepaid credit REMAINING rather than money spent.
+// Without that distinction a prepaid provider rendered as "$0.00 24h" — its spend field
+// is legitimately 0 — which reads as "nothing used" while the real story is how much is
+// left. The suffix is what tells the two apart at a glance.
+func formatQuotaShort(fetched bool, spend, budget, balance float64, balanceSet bool) string {
 	if !fetched {
 		return ""
+	}
+	// balanceSet is checked FIRST and is the only correct discriminator. Keying off
+	// "spend > 0" instead would break two real cases: a spend-based provider at the
+	// start of its period (spend 0 against a genuine cap, which must still show
+	// "$0.00/$100"), and a prepaid provider that also reports a cap (DeepInfra), where
+	// the meaningful figure is the credit left, not a spend of 0 against that cap.
+	if balanceSet {
+		return fmt.Sprintf("$%s left", formatUSD(balance))
 	}
 	if budget > 0 {
 		return fmt.Sprintf("$%s/$%s", formatUSD(spend), formatUSD(budget))

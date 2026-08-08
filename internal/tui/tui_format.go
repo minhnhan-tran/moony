@@ -204,6 +204,11 @@ func mouseWheelDelta() int {
 
 func formatUSD(v float64) string {
 	switch {
+	// Exactly zero: the 4-decimal branch below would render "$0.0000", which looks like
+	// a rounding artefact rather than a real figure — and "$0.0000 left" is precisely
+	// the reading a user with exhausted prepaid credit needs to see clearly.
+	case v == 0:
+		return "0.00"
 	case v < 0.01:
 		return fmt.Sprintf("%.4f", v)
 	case v < 100:

@@ -1028,6 +1028,16 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 	// Incremented per round below, plus streamAux's aux calls (auxCostUSD) and
 	// any delegated sub-agents' own cost (foldSubUsage) at turn end.
 	var turnCostUSD float64
+	// turnGuardCostUSD mirrors turnCostUSD but prices a model missing from the price
+	// table at the conservative fallback rate instead of $0. It exists ONLY to drive the
+	// runaway-cost guard rails (warn threshold + hard stop).
+	//
+	// turnCostUSD cannot serve that purpose: it comes from CostUSD -> CostUSDFull, which
+	// returns 0 for an unpriced model, so MN_MAX_TURN_COST_USD silently never fired on
+	// any model absent from the table (most non-flagship ones) and a runaway turn ran on
+	// to the step ceiling. The two are kept separate so the UI keeps reporting real,
+	// non-invented figures while the cap still has something to bite on.
+	var turnGuardCostUSD float64
 	// subAcct collects the token usage of any sub-agents delegated this turn (the
 	// `task` tool, threaded via ctx). foldSubUsage merges it into turnUsage at
 	// turn end so a delegation's tokens count toward the session totals and the
@@ -1072,11 +1082,15 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			return
 		}
 		subFolded = true
-		in, out, cacheRead, cost := subAcct.totals()
+		in, out, cacheRead, cost, guardCost := subAcct.totals()
 		turnUsage.InputTokens += in
 		turnUsage.OutputTokens += out
 		turnUsage.CacheReadInputTokens += cacheRead
 		turnCostUSD += cost // real cost at each sub-agent's own model, not re-priced at a.cfg.Model
+		// Use the sub-agent's GUARD figure here, not its display cost: a sub-agent running
+		// an unpriced model reports $0 in cost, which would let delegation quietly bypass
+		// the parent's per-turn spend cap.
+		turnGuardCostUSD += guardCost
 	}
 	if a.snapshots != nil {
 		a.snapshots.startTurn()
@@ -1571,6 +1585,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// tokens at a.cfg.Model at the end. Without this, a downshifted round's
 		// cheaper tokens were overstated at the pricier session-model rate.
 		turnCostUSD += resp.Usage.CostUSD(turnModel) + resp.RetryUsage.CostUSD(turnModel)
+		turnGuardCostUSD += resp.Usage.GuardCostUSD(turnModel) + resp.RetryUsage.GuardCostUSD(turnModel)
 		// Cache-hit telemetry: sum the cached-input portion across calls so the
 		// per-turn footer can show how much of the re-sent context was served
 		// from the prompt cache (the key signal for why a long turn is or isn't
@@ -1594,7 +1609,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			emit(Info{Text: fmt.Sprintf("Heads up: this turn has made %d model calls (it will keep going up to %d). Interrupt to stop, or lower the cap with MN_MAX_STEPS / MN_AUTO_CONTINUE.", rounds, ceiling)})
 		}
 		if warnCost > 0 && !warnedCost {
-			if cost := turnCostUSD + a.auxCostUSD(); cost >= warnCost {
+			if cost := turnGuardCostUSD + a.auxCostUSD(); cost >= warnCost {
 				warnedCost = true
 				emit(Info{Text: fmt.Sprintf("Heads up: this turn has cost ~$%.2f so far (%d calls). Interrupt to stop, switch to a cheaper model with /model, or lower /reasoning.", cost, rounds)})
 			}
@@ -1603,10 +1618,10 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		// Hard runaway stop (opt-in): end the turn cleanly once it crosses the
 		// configured hard call/cost limit, instead of only warning and running on
 		// to the step ceiling. The session can be resumed with "continue".
-		if reason := a.turnHardStopReason(maxCalls, maxCost, rounds, turnCostUSD+a.auxCostUSD()); reason != "" {
+		if reason := a.turnHardStopReason(maxCalls, maxCost, rounds, turnGuardCostUSD+a.auxCostUSD()); reason != "" {
 			emit(Info{Text: reason})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
-			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, turnGuardCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1618,7 +1633,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 		if a.goalBudgetExceeded() {
 			emit(Info{Text: fmt.Sprintf("Goal token budget reached (%d/%d) — stopping. Raise it with /goal budget <n>, remove it with /goal budget off, or send a message to keep going.", a.goalTokensUsed, a.goalBudgetTokens)})
 			foldSubUsage() // include delegated sub-agents' tokens in this turn's totals + footer
-			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, turnGuardCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			a.maybeAutoTitle(ctx, emit)
 			a.maybeCheckpoint(ctx, emit)
@@ -1746,7 +1761,7 @@ func (a *Agent) RunWith(ctx context.Context, userInput string, attachments []llm
 			// task left in_progress here stays displayed as unfinished even though
 			// the work is done. Advisory nudge only — never auto-completed.
 			a.maybeWarnStaleTodos(emit)
-			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
+			a.finishTurn(emit, turnStart, resp.Usage, turnUsage, turnCostUSD, turnGuardCostUSD, rounds, turnModel, turnReasoning, taskAcct, board)
 			a.persist()
 			// An approved plan whose mirrored todos are all resolved is finished:
 			// mark it done so its "carry it out" context stops being re-injected.

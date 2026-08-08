@@ -282,13 +282,29 @@ func (t *httpSSETransport) readLoop(logger func(string)) {
 
 // drainStderr is shared between transports that have a child stderr.
 func drainStderr(r io.Reader, logger func(string)) {
-	if logger == nil {
+	if r == nil {
 		return
 	}
+	// No logger: discard everything with io.Copy. This still drains (see below) but has
+	// no line-length ceiling, so it cannot be stopped by one huge stderr write.
+	if logger == nil {
+		_, _ = io.Copy(io.Discard, r)
+		return
+	}
+	// Drain UNCONDITIONALLY, even with no logger. Returning early here would leave the
+	// child's stderr pipe unread, and once its OS buffer filled the subprocess would
+	// block forever on its next write — hanging the MCP server rather than losing a log
+	// line. ConnectAll happens to normalize a nil logger today, so this is a latent trap
+	// rather than a live bug, but the cost of not falling into it is one nil check.
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 8*1024), 1024*1024)
 	for scanner.Scan() {
 		logger("stderr: " + scanner.Text())
+	}
+	// A single line over the 1 MB cap ends the scan with ErrTooLong. Keep draining so the
+	// child can't block on a full pipe; the oversized output itself is not worth logging.
+	if scanner.Err() != nil {
+		_, _ = io.Copy(io.Discard, r)
 	}
 }
 
