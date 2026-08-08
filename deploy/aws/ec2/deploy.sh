@@ -161,7 +161,7 @@ fi
 [ -n "$BUCKET" ] || BUCKET="moony-deploy-${ACCOUNT}-${REGION}"
 
 # Private, versioned-off, encrypted bucket for a tarball nobody else should read.
-if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+if ! aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
 	echo "creating s3://$BUCKET"
 	if [ "$REGION" = "us-east-1" ]; then
 		aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" >/dev/null
@@ -189,6 +189,11 @@ git -C "$root" archive --format=tar.gz -o "$tmp" HEAD
 aws s3 cp "$tmp" "s3://$BUCKET/$key" --region "$REGION" >/dev/null
 
 echo "deploying stack $STACK"
+case "$(uname -s)" in
+MINGW* | MSYS* | CYGWIN*)
+	export MSYS2_ARG_CONV_EXCL="EnvParameterName=;${MSYS2_ARG_CONV_EXCL:-}"
+	;;
+esac
 aws cloudformation deploy \
 	--region "$REGION" \
 	--stack-name "$STACK" \

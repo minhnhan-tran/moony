@@ -53,9 +53,11 @@ services:
     environment:
       # A hostname turns on automatic HTTPS; ":80" serves plain HTTP for local testing.
       SITE_ADDRESS: "${SITE_ADDRESS:-:80}"
-      ACME_EMAIL: "${ACME_EMAIL:-}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Written by the instance at boot: either an `email ...` line or a comment. See
+      # the note in the Caddyfile.
+      - /etc/moony/caddy-acme.conf:/etc/caddy/acme.conf:ro
       # Certificates and ACME account keys. Losing this volume means re-issuing certs,
       # and Let's Encrypt rate-limits that, so it is a named volume rather than tmpfs.
       - caddy_data:/data

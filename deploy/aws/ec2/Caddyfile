@@ -5,7 +5,11 @@
 # ":80" for a plain-HTTP box with no DNS name yet.
 
 {
-	email {$ACME_EMAIL}
+	# The ACME contact address, if one was configured. An imported file rather than
+	# `email {$ACME_EMAIL}`: an empty environment variable makes that directive a parse
+	# error, and the email is optional, so the deploy would break for anyone who did not
+	# pass one. The instance always writes this file, empty or not.
+	import /etc/caddy/acme.conf
 	# The relay streams tokens; an admin API that buffers would defeat that.
 	servers {
 		timeouts {
