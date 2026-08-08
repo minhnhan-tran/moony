@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.18.1] — 2026-08-08
+
+### Added
+
+- `deploy/vercel/`: rewrite config and notes for putting Vercel in front of a relay that
+  runs on a VM. The relay cannot be hosted on Vercel at all (it needs a raw TCP listener
+  for connectors and a long-lived process holding the connector registry and open SSE
+  streams), so the docs spell out what the proxy does and does not buy.
+
 ## [2.18.0] — 2026-08-07
 
 ### Added
