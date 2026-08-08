@@ -6,6 +6,11 @@
 #   cd /opt/moony/src && docker compose --env-file /etc/moony/compose.env \
 #     -f internal/awsdeploy/assets/compose.aws.yml up -d --build
 
+# Pinned, because compose otherwise names the project after the directory holding this
+# file: moving the file would strand the previous deployment's containers, network and
+# volumes while colliding with their fixed container_name.
+name: moony
+
 services:
   relay:
     build:

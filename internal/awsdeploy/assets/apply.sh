@@ -64,6 +64,17 @@ else
 fi
 chmod 644 /etc/moony/caddy-acme.conf
 
+# A box runs exactly one relay, and the container names are fixed. Containers left by an
+# older compose project (the project name used to follow the directory this file lives
+# in) would make `up` fail on the name instead of replacing them.
+for name in moony-relay moony-caddy; do
+	owner="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "$name" 2>/dev/null || true)"
+	if [ -n "$owner" ] && [ "$owner" != "moony" ]; then
+		echo "moony-apply: removing $name left by compose project '$owner'"
+		docker rm -f "$name" >/dev/null
+	fi
+done
+
 cd "$root"
 docker compose --env-file /etc/moony/compose.env \
 	-f internal/awsdeploy/assets/compose.aws.yml up -d --build

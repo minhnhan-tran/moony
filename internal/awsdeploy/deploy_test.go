@@ -54,6 +54,17 @@ func TestTemplateAgreesWithTheCode(t *testing.T) {
 	if !strings.Contains(string(mustAsset("apply.sh")), AssetDir+"/compose.aws.yml") {
 		t.Errorf("apply.sh does not reference %s/compose.aws.yml", AssetDir)
 	}
+
+	// Compose names the project after the directory holding the file unless told
+	// otherwise. Moving this file once already stranded a deployment's containers while
+	// colliding with their fixed names, so the project name stays pinned.
+	compose := string(mustAsset("compose.aws.yml"))
+	if !hasLine(compose, "name: moony") {
+		t.Error("compose.aws.yml does not pin the project name; a moved file would break `up`")
+	}
+	if !strings.Contains(compose, "container_name: moony-relay") {
+		t.Error("the relay container name changed; apply.sh reclaims it by name")
+	}
 }
 
 func TestClassify(t *testing.T) {
@@ -275,6 +286,16 @@ func TestScriptIsNotBase64Wrapped(t *testing.T) {
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(b))); err == nil {
 		t.Error("the payload looks like base64 rather than JSON")
 	}
+}
+
+// hasLine reports whether s has a line equal to want, ignoring surrounding blanks.
+func hasLine(s, want string) bool {
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimRight(line, "\r") == want {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(hay []string, needle string) bool {
