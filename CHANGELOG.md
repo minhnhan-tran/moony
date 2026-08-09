@@ -5,6 +5,39 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.21.2] — 2026-08-09
+
+### Fixed
+
+- **"Always allow" did not persist for any bash command containing a shell operator.**
+  Clicking *always* wrote the rule to `.sqe/permissions.json` correctly — and then the rule
+  was ignored on reload, so the same command prompted again forever. `checkBash` only
+  granted a persisted allow through prefix coverage of *vetted* segments, and `bashSegments`
+  marks any command containing `>`, a backtick, `$(` or `&` as unvettable, which skipped the
+  allow path entirely. A rule generated from such a command could therefore never match
+  itself back. Affected `&&`, `|`, `;`, `>`, `&`, `$()` and backticks; simple commands like
+  `npm run dev` were unaffected, which is why the feature looked like it worked. The
+  agent's in-memory `alwaysAllow` map masked it within a session, so it only became visible
+  after a restart or on a resumed session — hence "not persisted".
+  - `checkBash` now grants an allow on an exact whole-command match, evaluated *after* every
+    deny check so deny still wins. It compares the entire command, so approving
+    `make build` does not bless `make build && rm -rf ~`.
+  - The conservative prefix path is unchanged: a user-authored prefix rule such as `bash:git `
+    still refuses unvettable commands, so a smuggled second command cannot ride it.
+- **Allow prefixes over-matched (pre-existing, reachable from the same feature).** They were
+  compared with a bare `strings.HasPrefix`, so the rule `make build` also covered
+  `make buildx` and `make build --evil` — approving one command silently blessed different
+  ones sharing its opening characters. Allow matching now requires the match to end on a
+  token boundary. Deny matching deliberately keeps loose prefix semantics, since
+  over-matching a deny fails safe while over-matching an allow is an escalation.
+  - Existing prefix rules keep working: a path rule (`bash:cat /tmp`), a flag rule
+    (`bash:git --git-dir`, including the `--flag=value` spelling) and a rule ending at a
+    quote (`bash:git commit -m '`) all still match what they matched before.
+  - Quotes are not treated as a boundary in the remainder of a command: bash collapses
+    `make build'x'` into `make buildx`, so accepting one there would have been a bypass.
+- Fixed a nil-pointer dereference in `Registry.lookup` (`internal/tools/tool.go`) reachable
+  from an approval check on an agent with no tool registry.
+
 ## [2.21.1] — 2026-08-08
 
 ### Fixed
