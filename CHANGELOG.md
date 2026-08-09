@@ -5,6 +5,29 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.27.0] — 2026-08-09
+
+### Changed
+
+- **The codebase map is now in the Session memory modal.** That modal is now tabbed —
+  **Memory / Notes / Codebase map** — grouping the three things the agent carries into a
+  turn as project knowledge: the AGENTS.md memory bullets, the `@notes` backlog, and the
+  map it consults before exploring.
+  - The map panel itself already existed and was fully functional (view the rendered
+    `CODEBASE_MAP.md`, edit the hand-authored pinned notes, refresh the generated structure
+    section) — it was just filed under **Config**, where it sat next to MCP/LSP/Domains and
+    was easy to miss. It has moved rather than been duplicated: both tabs shared one
+    renderer, and keeping two entry points would mean two divergent copies of the same
+    panel state.
+  - Project notes are reachable from here too, instead of only from the project row in the
+    tree.
+
+  Matches the upstream layout, where the map is a tab of the memory modal and appears
+  nowhere else. Covered by tests that pin the tab keys, assert every tab renderer and
+  helper actually exists (none of this is compiled, so a rename would otherwise break the
+  modal silently), check the panel calls the GET/POST/PUT routes the server registers, and
+  fail if the map is ever re-added to Config.
+
 ## [2.26.0] — 2026-08-09
 
 ### Added
