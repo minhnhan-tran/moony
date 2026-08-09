@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/pysty1995/moony/internal/config"
 )
@@ -40,7 +39,13 @@ func MarkConnectorActive() func() {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return func() {}
 	}
-	_ = os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o644)
+	// Record the name too, exactly as TryHoldConnector does. A pid-only lock makes
+	// pidIsOurs fall back to guessing from the live process name, which wrongly
+	// rejects legitimately renamed holders (`go run .` builds "main", debuggers
+	// build "__debug_binNNNN"); the recorded name is authoritative. This mattered
+	// less while the Windows name lookup was missing and every holder simply
+	// fail-safed to "held".
+	_ = os.WriteFile(path, []byte(lockPayload()), 0o644)
 	return releaseConnectorFunc(path)
 }
 
@@ -166,11 +171,9 @@ func lockHeldByOther(path string) bool {
 	if err != nil || pid <= 0 || pid == os.Getpid() {
 		return false
 	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	if proc.Signal(syscall.Signal(0)) != nil {
+	// Liveness is platform-split (proclive_windows.go / proclive_unix.go): the
+	// POSIX Signal(0) probe reports every process as dead on Windows.
+	if !processAlive(pid) {
 		return false // no such live process
 	}
 	return pidIsOurs(pid, strings.TrimSpace(wantName))

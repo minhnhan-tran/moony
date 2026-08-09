@@ -27,6 +27,11 @@ func processName(pid int) (string, bool) {
 // lookupProcessName resolves a pid to its executable name, preferring procfs on
 // Linux because `ps -o comm=` truncates there (see psProcessName).
 func lookupProcessName(pid int) (string, bool) {
+	if runtime.GOOS == "windows" {
+		// There is no procfs and no ps here; the Win32 query is the only source
+		// (procname_windows.go).
+		return platformProcessName(pid)
+	}
 	if runtime.GOOS == "linux" {
 		if name, ok := procfsProcessName(pid); ok {
 			return name, true

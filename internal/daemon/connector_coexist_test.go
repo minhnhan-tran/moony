@@ -20,13 +20,27 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
+// TestHoldSlotHelper is not a test: it is the long-lived child that
+// liveForeignProcess re-execs to stand in for "the other terminal". This file used
+// to spawn `sleep`, which does not exist on Windows, so every coexistence test here
+// was silently Unix-only — and Windows is exactly where the liveness probe was
+// broken.
+func TestHoldSlotHelper(t *testing.T) {
+	if os.Getenv("MOONY_HOLD_SLOT_HELPER") != "1" {
+		t.Skip("helper process, not a test")
+	}
+	time.Sleep(60 * time.Second)
+}
+
 // liveForeignProcess starts a real process to stand in for "the other terminal" and
-// returns its pid.
+// returns its pid. It re-execs the test binary so it works on every OS.
 func liveForeignProcess(t *testing.T) int {
 	t.Helper()
-	cmd := exec.Command("sleep", "30")
+	cmd := exec.Command(os.Args[0], "-test.run=TestHoldSlotHelper", "-test.timeout=120s")
+	cmd.Env = append(os.Environ(), "MOONY_HOLD_SLOT_HELPER=1")
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

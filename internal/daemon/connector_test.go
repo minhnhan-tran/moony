@@ -48,13 +48,21 @@ func TestConnectorLock(t *testing.T) {
 	}
 
 	// MarkConnectorActive writes our own pid, which never counts as "another"
-	// holder (so the daemon doesn't yield to itself), and writes the file.
+	// holder (so the daemon doesn't yield to itself), and writes the file. The
+	// payload carries the executable name on a second line, like TryHoldConnector's:
+	// pidIsOurs uses it to tell a genuine holder from a recycled pid instead of
+	// having to guess from the running process's name.
 	release := MarkConnectorActive()
 	if connectorHeldByOther() {
 		t.Error("our own pid must not count as another connector holder")
 	}
-	if data, _ := os.ReadFile(path); strings.TrimSpace(string(data)) != strconv.Itoa(os.Getpid()) {
-		t.Errorf("lock = %q, want our pid %d", strings.TrimSpace(string(data)), os.Getpid())
+	data, _ := os.ReadFile(path)
+	gotPid, gotName, _ := strings.Cut(strings.TrimSpace(string(data)), "\n")
+	if gotPid != strconv.Itoa(os.Getpid()) {
+		t.Errorf("lock pid = %q, want our pid %d", gotPid, os.Getpid())
+	}
+	if strings.TrimSpace(gotName) != selfExecName() {
+		t.Errorf("lock name = %q, want this executable %q", gotName, selfExecName())
 	}
 	// Release removes our lock.
 	release()
