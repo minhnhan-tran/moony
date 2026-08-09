@@ -67,6 +67,12 @@ type job struct {
 	writeMu sync.Mutex
 
 	cancel context.CancelFunc
+	// finished is closed by the watcher goroutine after the job's final state has been
+	// recorded AND persisted. KillAll waits on it, so a caller that kills its jobs can
+	// rely on no further writes to the project's state dir afterwards — without it a
+	// late save() recreates .moony/jobs.json under a directory the caller has already
+	// started removing.
+	finished chan struct{}
 }
 
 // jobOpts are the per-job knobs the bash tool and the jobs panel expose.
@@ -261,10 +267,14 @@ func (s *JobStore) KillAll() {
 	// store lock would deadlock.
 	s.mu.Lock()
 	cancels := make([]func(), 0, len(s.jobs))
+	waits := make([]chan struct{}, 0, len(s.jobs))
 	for _, j := range s.jobs {
 		j.mu.Lock()
 		if j.state == jobRunning && j.cancel != nil {
 			cancels = append(cancels, j.cancel)
+			if j.finished != nil {
+				waits = append(waits, j.finished)
+			}
 		}
 		j.mu.Unlock()
 	}
@@ -272,6 +282,18 @@ func (s *JobStore) KillAll() {
 
 	for _, cancel := range cancels {
 		cancel()
+	}
+
+	// Wait for each watcher to record and persist its final state. Bounded, because a
+	// wedged adapter or an unkillable process must not hang shutdown; the point is that
+	// in the normal case no save() lands after KillAll returns.
+	deadline := time.After(2 * time.Second)
+	for _, done := range waits {
+		select {
+		case <-done:
+		case <-deadline:
+			return
+		}
 	}
 }
 
@@ -415,12 +437,13 @@ func (j *job) stageInput(data string, enter bool, check func(string) error) erro
 func (s *JobStore) start(set sandboxSetting, roots []string, command string, opts jobOpts) *job {
 	jctx, cancel := context.WithCancel(context.Background())
 	j := &job{
-		id:      s.newID(),
-		command: command,
-		started: time.Now(),
-		state:   jobRunning,
-		cancel:  cancel,
-		store:   s,
+		id:       s.newID(),
+		command:  command,
+		started:  time.Now(),
+		state:    jobRunning,
+		cancel:   cancel,
+		store:    s,
+		finished: make(chan struct{}),
 	}
 
 	name, args := sandboxCommand(set, roots, "sh", "-c", command)
@@ -452,6 +475,9 @@ func (s *JobStore) start(set sandboxSetting, roots []string, command string, opt
 	if err := cmd.Start(); err != nil {
 		j.setState(jobFailed, -1, fmt.Sprintf("failed to start: %v", err))
 		cancel()
+		// No watcher goroutine will run for this job, so close the signal here or a
+		// later KillAll would block on it until its timeout.
+		close(j.finished)
 		return j
 	}
 
@@ -471,6 +497,7 @@ func (s *JobStore) start(set sandboxSetting, roots []string, command string, opt
 			j.setState(jobFailed, exit, err.Error())
 		}
 		cancel()
+		close(j.finished) // after the final setState, so its save() has completed
 	}()
 
 	return j
