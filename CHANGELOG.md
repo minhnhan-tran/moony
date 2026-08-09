@@ -5,6 +5,45 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.22.0] — 2026-08-09
+
+### Changed
+
+- **The per-project config directory is now `.moony` instead of `.sqe`** — the other half of
+  the `sqe-code-agent` → `moony` rename, which had moved the global dir to `~/.config/moony`
+  (with migrations) but left every project's `.sqe/` behind. Covers `permissions.json`,
+  `mcp.json`, `lsp.json`, `hooks.json`, `format.json`, `manage.json`, `workers.json`,
+  `quickactions.json`, `agents/`, `commands/`, `rag/` and `worktrees/`. The name now lives in
+  one constant (`config.ProjectDir`) instead of 153 scattered literals.
+- Worktree branches created by the agent are now prefixed `moony/`, `moony-task/` and
+  `moony-board/` (was `sqe/`, `sqe-task/`, `sqe-board/`). Existing worktrees keep working:
+  `merge` and `remove` fall back to the legacy branch name when only it exists, and stale
+  task worktrees clean up branches under both prefixes.
+- The agent ignore file is now `.moonyignore`. Unlike the directory, **`.sqeignore` is still
+  honoured indefinitely** — it is hand-authored and committed to users' own repositories, so
+  there is nothing for us to migrate and silently ignoring it would break existing checkouts.
+
+### Added
+
+- Automatic per-project migration at startup: `./.sqe` is renamed to `./.moony`, once, with a
+  note on stderr. Reads fall back to the legacy directory when only it exists, so an
+  un-migrated checkout (or one shared with an older build) keeps working.
+  - **git worktrees are repaired after the move.** git records ABSOLUTE worktree paths, so
+    renaming the directory leaves any worktree registered at the old path and marked
+    `prunable` — a later `git worktree prune` would drop it. The migration runs
+    `git worktree repair` with the new paths (bare `repair` does not find them).
+  - **If both `.sqe/` and `.moony/` exist, nothing is merged.** The legacy directory is left
+    untouched and a warning names both, because unioning two `permissions.json` allow-lists
+    would grant rules the user never approved.
+  - Migration is atomic and concurrency-safe: when `os.Rename` fails (e.g. across devices)
+    the copy fallback stages into a temp directory and renames it into place, so a partial
+    copy can never shadow the intact legacy config, and eight processes racing in one project
+    produce exactly one migration. Symlinks are recreated rather than dereferenced.
+  - Projects opened through the web relay migrate too — the relay creates sessions for
+    arbitrary working directories that the process's own startup never visits.
+  - With `-C <dir>`, the migration targets that project rather than the process's start
+    directory.
+
 ## [2.21.3] — 2026-08-09
 
 ### Fixed
