@@ -5,6 +5,46 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.24.0] — 2026-08-09
+
+### Added
+
+- **`dap_start` — launch a debug adapter as a child process.** Previously debugging
+  required starting the adapter by hand in another terminal (`dlv dap --listen=…`) and
+  attaching with `dap_connect`; there was no way to have moony start one. `dap_start` does
+  it in a single call, including the mandatory DAP initialize handshake. This was the one
+  genuinely missing capability found when auditing moony's tools against the upstream it
+  was forked from — the other apparent gaps were renames (upstream's `dap_step{in,out,over}`
+  is moony's `dap_step_in`/`dap_step_out`/`dap_next`, `dap_set_breakpoint` is
+  `dap_set_breakpoints`, `dap_stop` is `dap_disconnect`) or Apple-internal tools that are
+  intentionally absent.
+  - Both adapter styles work, detected from the command itself: stdio adapters (`dlv dap`,
+    `python -m debugpy.adapter`) and socket adapters started with an explicit listen flag
+    (`dlv dap --listen=127.0.0.1:4711`, `--port 5678`).
+  - The adapter is owned by the session: closing it terminates the process, so a debugging
+    run cannot leak a daemon. Verified by a test that counts adapter processes.
+  - Failures explain themselves. A stdio adapter's stdout is the protocol channel, so when
+    the command is not an adapter the useful error is otherwise swallowed by the parser;
+    the output is teed and attached, turning a bare `EOF` into
+    `... (adapter output: not a dap adapter)`.
+  - Gated by approval like `bash`, since it runs an arbitrary command.
+  - `MN_DAP_COMMAND` starts an adapter automatically at startup. `MN_DAP_ADDR` still wins
+    when both are set, so pointing at a running adapter never silently spawns a second.
+- `dap.Spawn` and `Agent.StartDAP`, the programmatic counterparts of `dap.Dial` /
+  `AttachDAP`. The DAP session transport was generalised from `net.Conn` to plain io
+  streams so one implementation serves both TCP and subprocess stdio.
+
+### Fixed
+
+- **A flaky test failure that was a real shutdown bug.** `JobStore.KillAll` cancelled each
+  job's context but returned without waiting for the watcher goroutine, which records and
+  *persists* the job's final state. The late write recreated `<project>/.moony/jobs.json`
+  after a caller had begun deleting the directory — surfacing as an intermittent
+  `TempDir RemoveAll cleanup: ... directory not empty` in an unrelated test (~2 runs in 3).
+  `KillAll` now waits (bounded at 2s) for each watcher to finish persisting, so no state
+  write can land after it returns. A job that fails to start closes its signal immediately,
+  since no watcher will ever run for it.
+
 ## [2.23.0] — 2026-08-09
 
 ### Added
