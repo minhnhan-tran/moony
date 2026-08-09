@@ -5,6 +5,28 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.22.1] — 2026-08-09
+
+### Changed
+
+- The background-jobs strip now shows **one row per background job**. A command's finished
+  runs collapse into its newest run with a `+N` badge instead of leaving a dead row behind
+  for every restart; every *running* run still keeps its own row, since folding one away
+  would hide the only control that can stop it. Rows order by the number in the job id, so
+  `bg_2` no longer sorts after `bg_10`.
+
+### Fixed
+
+- The strip's runtime clock wrote `cell[i]` from `stripJobs[i]`, which only held while rows
+  and jobs were 1:1. Cells carry their job id and are looked up by it, so one job's runtime
+  cannot appear on another's row.
+- The Deploy button's `sym("arrow.up.circle")` was missing from `SF_TO_MATERIAL` and drew
+  the fallback "help" glyph, which reads as a broken button. Mapped to `arrow_upward`
+  (`arrow_circle_up` is not in the vendored font subset), and every `sym()` call site is now
+  checked against the icon map — the one place icon names went untested.
+- Tests pin the strip's per-row Stop button (present and wired to the kill route all along),
+  the never-fold-a-running-job rule, and the id-keyed clock.
+
 ## [2.22.0] — 2026-08-09
 
 ### Changed
