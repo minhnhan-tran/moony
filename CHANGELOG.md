@@ -5,6 +5,41 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.23.0] — 2026-08-09
+
+### Added
+
+- Background jobs are now **project scoped and persisted**. Every session of a project
+  lists, tails and can stop the same jobs, so a dev server started in one session is
+  reachable from all of them, and it outlives the session that started it. The history is
+  kept in `<project>/.moony/jobs.json` and restored on first use, so re-loading a session
+  still shows what ran and what it printed.
+
+### Changed
+
+- A job that was running when the agent process exited is restored as *stopped by the
+  restart*, not as a live row: background jobs are children of the agent and do not
+  survive it, so offering a Stop button for a dead pid would be a lie. Its output tail
+  and its restart button are still there.
+- `Registry.Close` kills only the jobs that registry started. The store is shared now, so
+  a finishing sub-agent (which gets its own registry) must not stop the user's jobs. A new
+  process-exit reaper covers both the interactive and daemon paths, since nothing else
+  owns these children — previously the daemon leaked them on eviction.
+- The in-memory store is trimmed to the newest 50 runs, keeping every running one, because
+  it now lives as long as the process rather than dying with a session.
+- Job lists sort by the number in the job id, so `bg_2` no longer comes after `bg_10`.
+
+### Fixed
+
+- Evicting a session used to drop the only reference to its job store while the child
+  process kept running: the job became both invisible and unkillable until the agent
+  exited.
+- `KillAll` runs cancels after releasing the store lock — ending a job now persists the
+  history, which re-enters the store.
+- `.moony/` is gitignored and the history file is written `0600`: a job's output tail can
+  contain whatever a command printed. Concurrent saves use a unique temp file, and a save
+  will not re-create a project directory that has been deleted.
+
 ## [2.22.1] — 2026-08-09
 
 ### Changed
