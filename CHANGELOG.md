@@ -5,6 +5,36 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.24.1] — 2026-08-09
+
+### Fixed
+
+- **A stale connector lock could leave a machine with no connector at all.** Only one
+  instance per machine dials the relay; the others read `connector.lock` and stand by.
+  `lockHeldByOther` accepted *any* live pid recorded there, but a pid is a small integer the
+  OS recycles (`kern.maxproc` is 12k on macOS). So after an instance exited without
+  releasing the lock — a crash, `SIGKILL`, or a laptop that slept and woke — an unrelated
+  process could inherit its number, and from then on every terminal saw a "live holder",
+  stood by forever, and the machine had no connector until the lock was deleted by hand.
+  Confirmed against the real function: a lock pointing at a plain `sleep` process reported
+  the slot as held.
+  - The holder's identity is now checked as well as its liveness: the pid must belong to a
+    process whose executable actually looks like this binary. Matching is done on the base
+    name and case-insensitively, so it survives running from `./bin`, `~/.local/bin` or a
+    Homebrew prefix.
+  - Unknown identity fails **safe**, staying "held". If the lookup itself fails, guessing
+    "free" would let two instances dial the relay and evict each other in a reconnect loop,
+    which is worse than a delayed takeover. Only a definite answer frees the slot.
+  - New `internal/daemon/procname.go` resolves a pid to its executable name, reading
+    `/proc/<pid>/comm` first on Linux and falling back to `ps`, with the lookup indirected
+    through a variable so tests can simulate a recycled pid, a vanished process, or a
+    platform where the lookup is unavailable.
+
+  Ported from the upstream this project was forked from, which had already fixed it; the
+  Linux `comm` truncation helper is reworked here because `moony` is shorter than the
+  15-character clamp and the original's constant slice expression does not compile for a
+  short name.
+
 ## [2.24.0] — 2026-08-09
 
 ### Added
