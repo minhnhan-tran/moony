@@ -31,6 +31,17 @@ type job struct {
 	id      string
 	command string
 	started time.Time
+	// ended is when the job left the running state. Kept so the persisted history can
+	// be aged out (and so a finished job's runtime is a fact rather than "now minus
+	// started").
+	ended time.Time
+	// store is the project store this job belongs to, so a state change can persist the
+	// history without the caller having to remember to. nil for a detached job.
+	store *JobStore
+	// restored marks a job read back from jobs.json rather than started here. Its
+	// process died with the run that spawned it: there is nothing to stop, tail live or
+	// type into, only a record to read and a command to re-run.
+	restored bool
 
 	mu   sync.Mutex
 	buf  bytes.Buffer // combined stdout/stderr, grows as the process writes
@@ -138,29 +149,77 @@ func (j *job) status() jobState {
 
 func (j *job) setState(s jobState, exit int, errMsg string) {
 	j.mu.Lock()
-	defer j.mu.Unlock()
 	j.state = s
 	j.exit = exit
 	if errMsg != "" {
 		j.errMsg = errMsg
 	}
+	if s != jobRunning && j.ended.IsZero() {
+		j.ended = time.Now()
+	}
+	store := j.store
+	j.mu.Unlock()
+
+	// Persist outside j.mu: save() snapshots every job in the store and takes each
+	// job's lock in turn, so holding this one would deadlock against itself.
+	store.save()
 }
 
-// JobStore is a concurrency-safe registry of background bash jobs, owned by a
-// tool Registry. Jobs are kept after they finish so the model can still read
-// their final output; KillAll is called on shutdown to reap any survivors.
+// JobStore is a concurrency-safe registry of background bash jobs, shared by every
+// tool Registry working in the same project (see jobscope.go): a job belongs to the
+// project, not to the session that started it. Jobs are kept after they finish so the
+// model can still read their final output, the history is persisted to jobs.json, and
+// KillAllProjectJobs reaps survivors when the process exits.
 type JobStore struct {
 	mu   sync.Mutex
 	jobs map[string]*job
 	next int
+	// root is the project working dir, and thus where the history file lives. Empty
+	// for a detached store (no project, no persistence).
+	root string
+	// saveMu serialises history writes. Separate from mu: a save snapshots under mu,
+	// releases it, then does file I/O that must not be interleaved with another save.
+	saveMu sync.Mutex
 }
 
 func newJobStore() *JobStore { return &JobStore{jobs: map[string]*job{}} }
 
 func (s *JobStore) add(j *job) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Set here as well as in the start paths, so a job added by any future caller can
+	// still persist its own state changes.
+	j.store = s
 	s.jobs[j.id] = j
+	s.trimLocked()
+	s.mu.Unlock()
+	s.save()
+}
+
+// trimLocked forgets the oldest FINISHED jobs once the store is over the cap. The store
+// used to die with its registry; it now lives as long as the process and is shared by
+// every session of the project, so without this a long-lived daemon accumulates every
+// job it ever ran — each holding its output buffer. Running jobs are never dropped: the
+// store is the only thing that can stop them.
+func (s *JobStore) trimLocked() {
+	if len(s.jobs) <= maxPersistedJobs {
+		return
+	}
+	finished := make([]*job, 0, len(s.jobs))
+	for _, j := range s.jobs {
+		j.mu.Lock()
+		done := j.state != jobRunning
+		j.mu.Unlock()
+		if done {
+			finished = append(finished, j)
+		}
+	}
+	sort.Slice(finished, func(i, k int) bool { return jobSeqOf(finished[i].id) < jobSeqOf(finished[k].id) })
+	for _, j := range finished {
+		if len(s.jobs) <= maxPersistedJobs {
+			return
+		}
+		delete(s.jobs, j.id)
+	}
 }
 
 func (s *JobStore) get(id string) (*job, bool) {
@@ -177,7 +236,9 @@ func (s *JobStore) newID() string {
 	return "bg_" + strconv.Itoa(s.next)
 }
 
-// list returns jobs sorted by id for stable display.
+// list returns jobs in start order for stable display. Sorted by the NUMBER in the id:
+// a string sort puts bg_10 before bg_2, which is visible as soon as ten jobs have run —
+// and a project's history now spans sessions, so that happens routinely.
 func (s *JobStore) list() []*job {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,7 +246,7 @@ func (s *JobStore) list() []*job {
 	for _, j := range s.jobs {
 		out = append(out, j)
 	}
-	sort.Slice(out, func(i, k int) bool { return out[i].id < out[k].id })
+	sort.Slice(out, func(i, k int) bool { return jobSeqOf(out[i].id) < jobSeqOf(out[k].id) })
 	return out
 }
 
@@ -194,16 +255,23 @@ func (s *JobStore) KillAll() {
 	if s == nil {
 		return
 	}
+	// Collect first, cancel after releasing the store lock. A cancel can end the job
+	// synchronously (the TTY path stops the pty and sets the state, which persists the
+	// history and so re-enters this store), and it takes j.mu; running it under the
+	// store lock would deadlock.
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	cancels := make([]func(), 0, len(s.jobs))
 	for _, j := range s.jobs {
 		j.mu.Lock()
-		running := j.state == jobRunning
-		cancel := j.cancel
-		j.mu.Unlock()
-		if running && cancel != nil {
-			cancel()
+		if j.state == jobRunning && j.cancel != nil {
+			cancels = append(cancels, j.cancel)
 		}
+		j.mu.Unlock()
+	}
+	s.mu.Unlock()
+
+	for _, cancel := range cancels {
+		cancel()
 	}
 }
 
@@ -232,6 +300,12 @@ func (s *JobStore) SendInput(id, data string, enter bool, check func(line string
 	}
 	if len(data) > maxJobInputBytes {
 		return fmt.Errorf("input too long (%d bytes, max %d)", len(data), maxJobInputBytes)
+	}
+	// A job read back from the history has no process and no pty: its run ended with the
+	// agent that spawned it. Checked explicitly rather than inferred from its state, so a
+	// restored row can never be typed into however the states are reshuffled later.
+	if j.isRestored() {
+		return fmt.Errorf("job %s ended when the agent restarted; run it again to interact with it", id)
 	}
 	j.mu.Lock()
 	running, tty, w := j.state == jobRunning, j.tty, j.stdin
@@ -346,6 +420,7 @@ func (s *JobStore) start(set sandboxSetting, roots []string, command string, opt
 		started: time.Now(),
 		state:   jobRunning,
 		cancel:  cancel,
+		store:   s,
 	}
 
 	name, args := sandboxCommand(set, roots, "sh", "-c", command)

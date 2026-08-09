@@ -2484,3 +2484,90 @@ func TestSlashSettingsSurviveOpeningAnotherSession(t *testing.T) {
 		t.Errorf("ContextWindow after /context auto = %d, want 0 in a session opened later", got)
 	}
 }
+
+// A background job belongs to the project, so a second session of the same project sees
+// it, can tail it and can stop it. Before this, each session's agent built its own job
+// store: a dev server started in one session was invisible everywhere else, and once
+// that session was evicted nothing could stop it any more.
+func TestBackgroundJobsAreVisibleAcrossSessionsOfAProject(t *testing.T) {
+	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
+	first := openLive(t, srv, key)
+	second := openLive(t, srv, key)
+	if first == second {
+		t.Fatal("expected two distinct sessions")
+	}
+
+	// Register a job through the first session's registry, exactly as the bash tool does.
+	id := first.agent.Registry().StartBackgroundJob("sleep 30", false)
+	if id == "" {
+		t.Fatal("could not start a background job")
+	}
+	// The second session must list the same job...
+	wires := sessionJobWires(second)
+	found := false
+	for _, w := range wires {
+		if w.ID == id {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("session two does not see job %s started in session one: %+v", id, wires)
+	}
+	// ...and be able to stop it, which is the part that matters: a job you cannot see
+	// is a job you cannot kill.
+	if !second.agent.Registry().Jobs().KillJob(id) {
+		t.Error("session two could not stop the job")
+	}
+	waitForJobToEnd(t, second, id)
+}
+
+// waitForJobToEnd blocks until a killed job has actually been reaped. Its reaper writes
+// the project's job history as it exits, so a test that returns first races its own
+// t.TempDir() cleanup on Windows ("directory is not empty").
+func waitForJobToEnd(t *testing.T, sess *session, id string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		running := false
+		for _, w := range sessionJobWires(sess) {
+			if w.ID == id && w.Running {
+				running = true
+			}
+		}
+		if !running {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Logf("job %s was still running after 10s", id)
+}
+
+// Re-opening a session must not lose its jobs. The store is per project and outlives the
+// session, so evicting and re-opening keeps the same jobs, not an empty list.
+func TestBackgroundJobsSurviveReopeningASession(t *testing.T) {
+	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
+	sess := openLive(t, srv, key)
+	id := sess.agent.Registry().StartBackgroundJob("sleep 30", false)
+	if id == "" {
+		t.Fatal("could not start a background job")
+	}
+	sessID := sess.id
+
+	srv.evictStoreBacked(sessID)
+	again := srv.openSession(sessID)
+	if again == nil {
+		t.Fatal("could not re-open the session")
+	}
+	found := false
+	for _, w := range sessionJobWires(again) {
+		if w.ID == id {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("job %s was lost when the session was re-opened", id)
+	}
+
+	again.agent.Registry().Jobs().KillJob(id)
+	waitForJobToEnd(t, again, id)
+}

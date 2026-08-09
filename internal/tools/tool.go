@@ -104,6 +104,10 @@ type Registry struct {
 	// jobs tracks background bash commands (the bash `background` flag plus the
 	// bash_output/bash_kill tools). KillAll reaps survivors on shutdown.
 	jobs *JobStore
+	// ownedJobs are the ids this registry started, guarded by jobsMu. The store is
+	// shared per project, so Close needs to know which jobs are its own.
+	ownedJobs map[string]bool
+	jobsMu    sync.Mutex
 	// closers are teardown funcs (e.g. the browser tool's Chrome) run by Close
 	// on shutdown, alongside reaping background jobs.
 	closeMu sync.Mutex
@@ -405,10 +409,12 @@ func (r *Registry) sandboxConfig() sandboxSetting {
 // NewRegistry creates a registry rooted at workingDir.
 func NewRegistry(workingDir string) *Registry {
 	return &Registry{
-		root:      workingDir,
-		tools:     map[string]Tool{},
-		ignore:    LoadIgnore(workingDir),
-		jobs:      newJobStore(),
+		root:   workingDir,
+		tools:  map[string]Tool{},
+		ignore: LoadIgnore(workingDir),
+		// Shared with every other registry in this project: see jobscope.go.
+		jobs:      JobStoreFor(workingDir),
+		ownedJobs: map[string]bool{},
 		tempRoots: tempDirs(),
 		dapHolder: &dap.SessionHolder{},
 
@@ -445,9 +451,14 @@ func (r *Registry) AddCloser(f func()) { r.addCloser(f) }
 // pre-populate it from MN_DAP_ADDR before any tool call is made.
 func (r *Registry) DAPHolder() *dap.SessionHolder { return r.dapHolder }
 
-// Close reaps everything this registry started: registered closers (e.g. a
-// headless browser) and any background bash jobs. Hosts should defer it on
-// shutdown. Safe to call on a registry that started nothing.
+// Close reaps everything this registry started: registered closers (e.g. a headless
+// browser) and the background jobs IT started. Hosts should defer it on shutdown. Safe
+// to call on a registry that started nothing.
+//
+// Only its own jobs, deliberately. The job store is shared by every session of the
+// project, so killing the whole store here would stop another session's dev server —
+// and a sub-agent, which gets its own registry, would stop the user's jobs when it
+// finished. The process-wide reaper is KillAllProjectJobs.
 func (r *Registry) Close() {
 	r.closeMu.Lock()
 	cs := r.closers
@@ -456,7 +467,31 @@ func (r *Registry) Close() {
 	for _, f := range cs {
 		f()
 	}
-	r.jobs.KillAll()
+
+	r.jobsMu.Lock()
+	ids := make([]string, 0, len(r.ownedJobs))
+	for id := range r.ownedJobs {
+		ids = append(ids, id)
+	}
+	r.ownedJobs = map[string]bool{}
+	r.jobsMu.Unlock()
+
+	for _, id := range ids {
+		r.jobs.KillJob(id)
+	}
+}
+
+// noteOwnedJob records that this registry started a job, so Close kills it.
+func (r *Registry) noteOwnedJob(id string) {
+	if r == nil || id == "" {
+		return
+	}
+	r.jobsMu.Lock()
+	if r.ownedJobs == nil {
+		r.ownedJobs = map[string]bool{}
+	}
+	r.ownedJobs[id] = true
+	r.jobsMu.Unlock()
 }
 
 // Root returns the registry's working-directory root (the path-sandbox boundary).

@@ -90,6 +90,9 @@ func TestJobsStripClockIsKeyedByJobID(t *testing.T) {
 // against one function instead of the whole 5k-line asset.
 func jobstripFunc(t *testing.T, src, name string) string {
 	t.Helper()
+	// The working tree's line endings depend on core.autocrlf, so normalise before
+	// looking for a function body rather than trusting how git checked the file out.
+	src = strings.ReplaceAll(src, "\r\n", "\n")
 	start := strings.Index(src, "\nfunction "+name+"(")
 	if start < 0 {
 		t.Fatalf("function %s() not found in app-core.js", name)

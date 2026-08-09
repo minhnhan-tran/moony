@@ -2,6 +2,9 @@
 /dist/
 /.idea
 /.sqe/
+# Per-project agent state (job history with command lines and output, permissions).
+# Never commit: a tail can contain tokens a command printed.
+/.moony/
 /server
 /relay
 /connector

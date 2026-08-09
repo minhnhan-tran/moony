@@ -196,6 +196,12 @@ func main() {
 	// Reap everything the registry started on exit — background bash jobs
 	// (bash background:true) and a headless browser — so nothing outlives the
 	// session.
+	//
+	// Registry.Close only kills the jobs THIS registry started; job stores are shared
+	// per project now, and sub-agents get their own registries. KillAllProjectJobs is
+	// the backstop that reaps every project's survivors, since a background job is a
+	// child of this process and nothing else would clean it up.
+	defer tools.KillAllProjectJobs()
 	defer registry.Close()
 
 	hookSet, err := hooks.New(cfg.WorkingDir, func(msg string) {
@@ -310,6 +316,7 @@ func main() {
 	if isHeadless {
 		cleanup := func() {
 			registry.Close()
+			tools.KillAllProjectJobs()
 			workerMgr.CloseAll()
 			mgr.Close()
 			if lspMgr != nil {
@@ -561,6 +568,11 @@ func daemonRun(args []string) int {
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	// The daemon hosts web sessions that start background jobs, and nothing closes their
+	// registries when a session is evicted, so this is the only reaper on this path:
+	// without it every `bash(background:true)` a session ran outlives the daemon.
+	defer tools.KillAllProjectJobs()
+
 	if err := daemon.Serve(ctx, cfg, logger.Printf); err != nil && ctx.Err() == nil {
 		logger.Printf("daemon exited: %v", err)
 		return 1

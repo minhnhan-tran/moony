@@ -148,6 +148,9 @@ func (s *JobStore) KillJob(id string) bool {
 	if !ok {
 		return false
 	}
+	if j.isRestored() {
+		return false // nothing to stop: the process died with the run that started it
+	}
 	j.mu.Lock()
 	running := j.state == jobRunning
 	cancel := j.cancel
@@ -173,6 +176,7 @@ func (r *Registry) StartBackgroundJob(command string, tty bool) string {
 	if j == nil {
 		return ""
 	}
+	r.noteOwnedJob(j.id)
 	return j.id
 }
 

@@ -74,6 +74,7 @@ func (t *bashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	// Background mode: launch detached and return a job id immediately.
 	if in.Background {
 		j := t.r.jobs.start(t.r.sandboxConfig(), t.r.allRoots(), in.Command, jobOpts{tty: in.TTY})
+		t.r.noteOwnedJob(j.id)
 		_, state, _, errMsg := j.snapshot()
 		if state == jobFailed && errMsg != "" {
 			return "", fmt.Errorf("%s", errMsg)
