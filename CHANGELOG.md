@@ -5,6 +5,21 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.21.3] — 2026-08-09
+
+### Fixed
+
+- **Crash in the permission matcher on an empty bash rule.** `coveredByPrefix` (added in
+  2.21.2) indexed `prefix[len(prefix)-1]` without checking for an empty prefix, so a rule of
+  exactly `bash:` panicked with `index out of range [-1]` inside a permission check — and
+  `Add` accepted such a rule, so it was reachable, not merely theoretical. Beyond the crash,
+  an empty allow prefix would have matched *every* command, silently turning one malformed
+  line in `permissions.json` into a blanket allow. Fixed at both layers: `normalizeRule`
+  now rejects `bash:` with no command (a rule about the tool as a whole is written as plain
+  `bash`), and `coveredByPrefix` refuses an empty prefix regardless of where it came from,
+  so a hand-edited file cannot crash or over-allow. The deny path deliberately keeps plain
+  prefix matching, where an empty prefix over-denies and therefore fails safe.
+
 ## [2.21.2] — 2026-08-09
 
 ### Fixed
