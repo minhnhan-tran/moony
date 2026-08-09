@@ -10,11 +10,12 @@ import (
 	"github.com/pysty1995/moony/internal/dap"
 )
 
-// RegisterDAP registers all 14 DAP tools onto r. holder is the shared session
-// reference populated by dap_connect (or Agent.AttachDAP at startup).
+// RegisterDAP registers all 15 DAP tools onto r. holder is the shared session
+// reference populated by dap_start / dap_connect (or Agent.AttachDAP at startup).
 // Tools that need an active session error clearly when holder is empty.
 func (r *Registry) RegisterDAP(holder *dap.SessionHolder) {
 	for _, t := range []Tool{
+		&dapStartTool{r: r, holder: holder},
 		&dapConnectTool{r: r, holder: holder},
 		&dapDisconnectTool{holder: holder},
 		&dapLaunchTool{holder: holder},
@@ -37,7 +38,7 @@ func (r *Registry) RegisterDAP(holder *dap.SessionHolder) {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 func dapNotConnected() error {
-	return fmt.Errorf("not connected to a DAP adapter — call dap_connect first")
+	return fmt.Errorf("not connected to a DAP adapter — call dap_start (to launch one) or dap_connect (to attach to a running one) first")
 }
 
 // stepResult formats the result of a step/continue that ended in a stopped event.
@@ -50,6 +51,73 @@ func stepResult(sess *dap.Session, threadID int, reason string) string {
 		sb.WriteString(out)
 	}
 	return sb.String()
+}
+
+// ─── 0. dap_start ────────────────────────────────────────────────────────────
+
+type dapStartTool struct {
+	r      *Registry
+	holder *dap.SessionHolder
+}
+
+func (t *dapStartTool) Name() string { return "dap_start" }
+func (t *dapStartTool) Description() string {
+	return "Start a debug adapter as a child process and connect to it, sending the mandatory " +
+		"initialize handshake. Use this when no adapter is running yet — it removes the need to " +
+		"launch one by hand in another terminal (dap_connect attaches to an already-running one). " +
+		"Both adapter styles work: stdio adapters (e.g. \"dlv dap\", \"python -m debugpy.adapter\") " +
+		"and socket adapters started with an explicit listen flag (e.g. \"dlv dap --listen=127.0.0.1:4711\"), " +
+		"which is detected from the command. The adapter is terminated when the session closes. " +
+		"Set MN_DAP_COMMAND to start one automatically at startup."
+}
+func (t *dapStartTool) Schema() json.RawMessage {
+	return schema(`{"type":"object","properties":{
+		"command":{"type":"string","description":"Shell command that starts the adapter, e.g. \"dlv dap\" or \"python -m debugpy.adapter\"."},
+		"dir":{"type":"string","description":"Working directory for the adapter (defaults to the workspace root)."},
+		"env":{"type":"array","items":{"type":"string"},"description":"Extra environment variables as \"KEY=VALUE\" strings."}
+	},"required":["command"]}`)
+}
+
+// Mutates: starting an adapter runs an arbitrary command, so it goes through the
+// approval system exactly like bash would. dap_connect only opens a socket and is
+// therefore not mutating.
+func (t *dapStartTool) Mutates() bool { return true }
+
+func (t *dapStartTool) Execute(ctx context.Context, input json.RawMessage) (string, error) {
+	var in struct {
+		Command string   `json:"command"`
+		Dir     string   `json:"dir"`
+		Env     []string `json:"env"`
+	}
+	if err := decode(input, &in); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(in.Command) == "" {
+		return "", fmt.Errorf("command is required")
+	}
+	dir := strings.TrimSpace(in.Dir)
+	if dir == "" {
+		dir = t.r.Root()
+	} else {
+		abs, err := t.r.resolve(dir)
+		if err != nil {
+			return "", err
+		}
+		dir = abs
+	}
+
+	// Replace any existing session, so repeated starts do not leak adapters.
+	if old, err := t.holder.Get(); err == nil && old != nil {
+		_ = old.Close()
+	}
+
+	sess, err := dap.Spawn(ctx, dap.SpawnOptions{Command: in.Command, Dir: dir, Env: in.Env})
+	if err != nil {
+		return "", err
+	}
+	t.holder.Set(sess)
+	t.r.addCloser(func() { _ = sess.Close() })
+	return fmt.Sprintf("Started debug adapter %q and initialized successfully.", in.Command), nil
 }
 
 // ─── 1. dap_connect ──────────────────────────────────────────────────────────

@@ -196,8 +196,11 @@ type outputBody struct {
 // Session is a live connection to a DAP adapter. All exported methods are safe
 // for concurrent use from multiple tool goroutines.
 type Session struct {
-	conn net.Conn
-	rd   *bufio.Reader
+	// Transport. Generalised from net.Conn so a session can run either over TCP
+	// (an already-listening adapter) or over an adapter subprocess's stdio.
+	w      io.Writer
+	closer func() error
+	rd     *bufio.Reader
 
 	mu      sync.Mutex             // serialises writes + pending map
 	nextSeq int                    // next outgoing sequence number
@@ -216,6 +219,18 @@ type Session struct {
 	seq  atomic.Int64  // monotonic counter; used only in tests that don't dial
 }
 
+// newSession wires a reader/writer pair into an uninitialised Session.
+func newSession(r io.Reader, w io.Writer, closer func() error) *Session {
+	return &Session{
+		w:       w,
+		closer:  closer,
+		rd:      bufio.NewReader(r),
+		nextSeq: 1,
+		pending: make(map[int]chan *Response),
+		done:    make(chan struct{}),
+	}
+}
+
 // Dial opens a TCP connection to addr, sends the mandatory DAP initialize
 // request, and starts a background goroutine to read adapter messages.
 // The returned session is ready for launch/attach calls.
@@ -224,16 +239,19 @@ func Dial(addr string) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dap: connect %s: %w", addr, err)
 	}
-	s := &Session{
-		conn:    conn,
-		rd:      bufio.NewReader(conn),
-		nextSeq: 1,
-		pending: make(map[int]chan *Response),
-		done:    make(chan struct{}),
+	s := newSession(conn, conn, func() error { return conn.Close() })
+	if err := s.handshake(); err != nil {
+		return nil, err
 	}
+	return s, nil
+}
+
+// handshake starts the read loop and performs the mandatory DAP initialize
+// exchange. On any failure the transport is closed, so a caller never has to
+// clean up a half-open session.
+func (s *Session) handshake() error {
 	go s.readLoop()
 
-	// The DAP spec requires an initialize handshake before any other command.
 	resp, err := s.Send("initialize", InitializeArgs{
 		ClientID:        "moony",
 		AdapterID:       "moony",
@@ -242,14 +260,14 @@ func Dial(addr string) (*Session, error) {
 		PathFormat:      "path",
 	}, 10*time.Second)
 	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("dap: initialize: %w", err)
+		_ = s.closer()
+		return fmt.Errorf("dap: initialize: %w", err)
 	}
 	if !resp.Success {
-		conn.Close()
-		return nil, fmt.Errorf("dap: initialize failed: %s", resp.Message)
+		_ = s.closer()
+		return fmt.Errorf("dap: initialize failed: %s", resp.Message)
 	}
-	return s, nil
+	return nil
 }
 
 // Send delivers a request to the adapter and waits for the matching response.
@@ -384,7 +402,10 @@ func (s *Session) Close() error {
 	default:
 		_, _ = s.Send("disconnect", map[string]any{"terminateDebuggee": true}, 3*time.Second)
 	}
-	return s.conn.Close()
+	if s.closer == nil {
+		return nil
+	}
+	return s.closer()
 }
 
 // ─── readLoop ────────────────────────────────────────────────────────────────
@@ -495,10 +516,10 @@ func (s *Session) writeMessage(v any) error {
 		return err
 	}
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, err := io.WriteString(s.conn, header); err != nil {
+	if _, err := io.WriteString(s.w, header); err != nil {
 		return err
 	}
-	_, err = s.conn.Write(body)
+	_, err = s.w.Write(body)
 	return err
 }
 

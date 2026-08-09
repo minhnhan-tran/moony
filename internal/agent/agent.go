@@ -635,6 +635,19 @@ func (a *Agent) AttachDAP(addr string) error {
 	return nil
 }
 
+// StartDAP launches a debug adapter as a child process and attaches to it, the
+// spawn counterpart of AttachDAP. Used for MN_DAP_COMMAND so a debugging setup
+// needs no separately-started adapter.
+func (a *Agent) StartDAP(ctx context.Context, command string) error {
+	sess, err := dap.Spawn(ctx, dap.SpawnOptions{Command: command, Dir: a.cfg.WorkingDir})
+	if err != nil {
+		return err
+	}
+	a.tools.DAPHolder().Set(sess)
+	a.tools.AddCloser(func() { _ = sess.Close() })
+	return nil
+}
+
 // AttachFormatter wires a code-formatter manager. After each successful
 // write_file/edit_file/multi_edit/apply_patch the changed files are formatted
 // in place (before LSP diagnostics run) so changes land already formatted.

@@ -273,6 +273,13 @@ func main() {
 		if err := ag.AttachDAP(dapAddr); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: DAP auto-connect to %s failed: %v\n", dapAddr, err)
 		}
+	} else if dapCmd := strings.TrimSpace(os.Getenv("MN_DAP_COMMAND")); dapCmd != "" {
+		// Auto-START an adapter when MN_DAP_COMMAND is set and no address was given.
+		// MN_DAP_ADDR wins: if the user pointed us at a running adapter, spawning a
+		// second one would be surprising.
+		if err := ag.StartDAP(context.Background(), dapCmd); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: DAP auto-start of %q failed: %v\n", dapCmd, err)
+		}
 	}
 	defer mgr.Close()
 	defer func() {
