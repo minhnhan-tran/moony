@@ -3512,3 +3512,103 @@ html.light .diff-hunk { color: #0550ae; }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
 }
 .job-input-field:focus { outline: none; border-color: rgb(var(--c-brand)); }
+
+/* ---- Project Notes checklist (Project Memory & Notes → Notes tab) -----------
+   Notes are a backlog the agent consumes via @notes, so they render as a todo
+   list rather than a blob of text: progress header, one row per item, quick add,
+   and a raw-markdown escape hatch. Track/fill are shared with the transcript
+   Tasks bar (.todos-track/.todos-fill) so progress looks the same everywhere. */
+.notes-head { display: flex; align-items: center; gap: .6rem;
+}
+.notes-count { font-size: 12px; color: rgb(var(--c-faint)); white-space: nowrap;
+}
+.notes-track { max-width: 12rem;
+}
+.notes-raw-toggle {
+  margin-left: auto; flex: 0 0 auto; font-size: 11px; color: rgb(var(--c-faint));
+  background: none; border: 0; padding: .15rem .25rem; cursor: pointer; text-decoration: underline;
+}
+.notes-raw-toggle:hover { color: rgb(var(--c-ink));
+}
+.notes-list { display: flex; flex-direction: column; gap: .15rem;
+}
+.notes-empty { font-size: 12px; color: rgb(var(--c-faint)); padding: .5rem .1rem;
+}
+.notes-row {
+  display: flex; align-items: flex-start; gap: .55rem;
+  padding: .3rem .35rem; border-radius: var(--r-sm);
+}
+.notes-row:hover { background: rgb(var(--c-edge) / .35);
+}
+/* Row actions stay out of the way until the row is touched. */
+.notes-row .notes-acts { opacity: 0; transition: opacity .12s ease;
+}
+.notes-row:hover .notes-acts, .notes-row:focus-within .notes-acts { opacity: 1;
+}
+.notes-check {
+  flex: 0 0 auto; width: 15px; height: 15px; margin-top: .1rem; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid rgb(var(--c-edge)); border-radius: var(--r-xs);
+  background: transparent; color: rgb(var(--c-base)); cursor: pointer;
+  font-size: 10px; transition: background .12s ease, border-color .12s ease;
+}
+.notes-check:hover { border-color: rgb(var(--c-brand));
+}
+.notes-row.is-done .notes-check { background: rgb(var(--c-ok)); border-color: rgb(var(--c-ok));
+}
+.notes-text {
+  flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.45;
+  color: rgb(var(--c-ink)); outline: none; word-break: break-word;
+  border-radius: var(--r-xs); padding: 0 .15rem;
+}
+.notes-text:focus { background: rgb(var(--c-base)); box-shadow: 0 0 0 1px rgb(var(--c-brand) / .5);
+}
+.notes-row.is-done .notes-text { color: rgb(var(--c-faint)); text-decoration: line-through;
+}
+.notes-acts { display: flex; align-items: center; gap: .1rem; flex: 0 0 auto;
+}
+.notes-act {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--r-xs);
+  background: none; color: rgb(var(--c-faint)); cursor: pointer; font-size: 11px;
+}
+.notes-act:hover { background: rgb(var(--c-edge)); color: rgb(var(--c-ink));
+}
+.notes-act:disabled { opacity: .25; cursor: default;
+}
+.notes-act:disabled:hover { background: none; color: rgb(var(--c-faint));
+}
+.notes-add { display: flex; align-items: center; gap: .4rem;
+}
+.notes-add-input {
+  flex: 1 1 auto; min-width: 0; font-size: 13px; color: rgb(var(--c-ink));
+  background: rgb(var(--c-base)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-sm); padding: .35rem .5rem; outline: none;
+}
+.notes-add-input:focus { border-color: rgb(var(--c-brand));
+}
+.notes-add-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: .3rem;
+  font-size: 12px; color: rgb(var(--c-ink-soft)); cursor: pointer;
+  background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
+  border-radius: var(--r-sm); padding: .35rem .6rem;
+}
+.notes-add-btn:hover { background: rgb(var(--c-edge)); color: rgb(var(--c-ink));
+}
+.notes-raw-ta {
+  width: 100%; min-height: 220px; resize: vertical; outline: none;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.5;
+  color: rgb(var(--c-ink)); background: rgb(var(--c-base));
+  border: 1px solid rgb(var(--c-edge)); border-radius: var(--r-sm); padding: .6rem;
+}
+.notes-footer { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; min-height: 1.1rem;
+}
+.notes-saved { font-size: 12px; color: rgb(var(--c-faint));
+}
+
+/* Open-item badge on the project tree's Notes action. */
+.notes-badge {
+  margin-left: .3rem; padding: 0 .3rem; min-width: 1.1rem; text-align: center;
+  font-size: 10px; line-height: 1.5; border-radius: var(--r-pill);
+  background: rgb(var(--c-brand) / .18); color: rgb(var(--c-brand));
+}

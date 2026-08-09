@@ -243,6 +243,9 @@ type projectInfo struct {
 	Dir      string `json:"dir"`
 	Name     string `json:"name"`
 	Sessions int    `json:"sessions"`
+	// Notes is the user's free-form scratchpad for this project, sent with the
+	// list so the tree can badge projects that have one without a request per row.
+	Notes string `json:"notes,omitempty"`
 }
 
 // laptopWire describes a machine in the laptop tree. The standalone server is a
@@ -274,6 +277,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/projects/{key}/sessions", s.handleCreateProjectSession)
 	mux.HandleFunc("DELETE /api/projects/{key}/sessions", s.handleClearProjectSessions)
 	mux.HandleFunc("POST /api/projects/open", s.handleOpenDir)
+	mux.HandleFunc("POST /api/projects/{key}/notes", s.handleSaveProjectNotes)
 	mux.HandleFunc("GET /api/fs", s.handleListDir)
 	mux.HandleFunc("GET /api/encryption", s.handleEncryption)
 	mux.HandleFunc("GET /api/deploy/aws", s.handleDeployStatus)
@@ -601,6 +605,14 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		counts[sess.WorkingDir]++
 	}
 
+	// Read the notes store once for the whole list rather than per project. A
+	// failure here is not fatal: the tree is still useful without notes, so fall
+	// back to an empty map instead of failing the request.
+	notes, err := config.LoadProjectNotes()
+	if err != nil {
+		notes = nil
+	}
+
 	out := make([]projectInfo, 0, len(order)+1)
 	seen := map[string]bool{}
 	add := func(dir string) {
@@ -608,7 +620,15 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		seen[dir] = true
-		out = append(out, projectInfo{Key: projectKey(dir), Dir: dir, Name: filepath.Base(dir), Sessions: counts[dir]})
+		// Notes are keyed by canonical (absolute, cleaned) directory; look them up
+		// that way so a project listed by a relative path still shows its notes.
+		n := notes[dir]
+		if n == "" {
+			if abs, err := filepath.Abs(dir); err == nil {
+				n = notes[filepath.Clean(abs)]
+			}
+		}
+		out = append(out, projectInfo{Key: projectKey(dir), Dir: dir, Name: filepath.Base(dir), Sessions: counts[dir], Notes: n})
 	}
 	add(s.launchDir) // current project first
 	for _, dir := range order {
@@ -1300,6 +1320,34 @@ func (s *Server) nextSessionAfter(id string) string {
 // handleClearProjectSessions deletes every saved session in a project. Sessions
 // with a turn in progress are skipped (they can't be safely deleted mid-turn);
 // the JSON response reports how many were deleted versus skipped.
+// handleSaveProjectNotes replaces the notes for one project. The body is
+// {"notes": "..."}; an empty string removes the entry rather than storing a blank,
+// so a cleared scratchpad leaves no residue in the store and no @notes badge.
+func (s *Server) handleSaveProjectNotes(w http.ResponseWriter, r *http.Request) {
+	dir, err := decodeProjectKey(r.PathValue("key"))
+	if err != nil || dir == "" {
+		http.Error(w, "bad project key", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Notes string `json:"notes"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxProjectNotesBytes)).Decode(&body); err != nil {
+		http.Error(w, "bad request body", http.StatusBadRequest)
+		return
+	}
+	notes := strings.TrimSpace(body.Notes)
+	if err := config.SetProjectNotes(dir, notes); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "notes": notes})
+}
+
+// maxProjectNotesBytes caps a notes payload. Notes are hand-written prose, so this
+// is generous; the point is only to stop an unbounded body being buffered.
+const maxProjectNotesBytes = 1 << 20 // 1 MiB
+
 func (s *Server) handleClearProjectSessions(w http.ResponseWriter, r *http.Request) {
 	dir, err := decodeProjectKey(r.PathValue("key"))
 	if err != nil {

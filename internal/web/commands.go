@@ -136,6 +136,12 @@ func (s *Server) mentionCatalog(sess *session) []mentionWire {
 	// it spawns parallel sub-agents to investigate, then synthesizes. Listed for
 	// discoverability in the browser's @-mention dropdown.
 	out = append(out, mentionWire{Name: "ultrathink", Kind: "deep", Desc: "Deep dive — spawn parallel sub-agents, then synthesize"})
+	// "@notes" inlines this project's saved notes and tells the agent to
+	// plan → build → verify every item in them. Only offered when the project
+	// actually has notes, so the dropdown never suggests an empty backlog.
+	if strings.TrimSpace(config.ProjectNotesFor(wd)) != "" {
+		out = append(out, mentionWire{Name: "notes", Kind: "notes", Desc: "Plan, build & verify every item in this project's notes"})
+	}
 	return out
 }
 

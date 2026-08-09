@@ -658,6 +658,20 @@ function renderProjectInto(box, lap, p) {
   // here" starts one in the project, or browse elsewhere on the machine.
   add.onclick = (e) => { e.stopPropagation(); openFolderPicker(lap.host, p.dir); };
   actions.appendChild(add);
+  // Notes: a per-project checklist that @notes hands to the agent as a backlog.
+  // Badged with the open-item count so pending work is visible from the tree.
+  const notes = el("div", "tree-action tree-action-notes");
+  notes.title = "Project notes — a checklist the agent can work through with @notes";
+  notes.appendChild(sym("doc.text", "shrink-0"));
+  notes.appendChild(el("span", "", "Notes"));
+  const openCount = countOpenNotesItems(p.notes);
+  if (openCount) {
+    const nb = el("span", "notes-badge", String(openCount));
+    nb.title = openCount + " item" + (openCount === 1 ? "" : "s") + " still open";
+    notes.appendChild(nb);
+  }
+  notes.onclick = (e) => { e.stopPropagation(); openProjectNotes(lap.host, p); };
+  actions.appendChild(notes);
   if (sessions && sessions.length) {
     const clear = el("div", "tree-action tree-action-clear ml-auto");
     clear.title = "Delete all sessions in this project";
@@ -5821,4 +5835,291 @@ function hideLoadEarlier() {
   if (!loadEarlierEl) return;
   loadEarlierEl.hidden = true;
   loadEarlierEl.innerHTML = "";
+}
+
+
+// countOpenNotesItems returns how many checklist items in a notes string are still
+// unchecked, for the tree badge. Tolerates undefined/empty notes.
+function countOpenNotesItems(notes) {
+  if (!notes) return 0;
+  return parseNotesItems(notes).items.filter((it) => !it.done).length;
+}
+
+// openProjectNotes opens the notes checklist for one project in the manage modal.
+async function openProjectNotes(host, p) {
+  setPanel("Project Notes — " + p.name, "doc.text");
+  renderProjectNotesInto(manageBody, host, p);
+}
+
+// Project notes are stored as one plain string (see internal/config/project_notes.go)
+// and inlined verbatim by @notes, which tells the agent to treat them as a backlog
+// of work items. The checklist UI therefore keeps that string as the source of
+// truth and just encodes each item as a markdown task-list line — no schema
+// change, and the notes stay readable/editable as text.
+const NOTES_ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s?(.*)$/;
+const NOTES_BULLET_RE = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/;
+
+// parseNotesItems splits a notes string into checklist items plus a trailing
+// free-text block. Existing notes written before this UI upgrade losslessly:
+// a plain bullet or bare line becomes an unchecked item. Anything that isn't a
+// single-line item (headings, indented/wrapped prose, blank-line-separated
+// paragraphs) is kept verbatim in `trailer` rather than being reshaped into
+// items, so no user text is silently destroyed or reordered.
+function parseNotesItems(text) {
+  const items = [];
+  let pending = []; // block lines seen since the last item, awaiting an owner
+  const lines = String(text == null ? "" : text).split("\n");
+  let sawItem = false;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    if (!line.trim()) {
+      // Keep blank lines only where they separate prose we're already holding,
+      // so "## Section\n\n- [ ] b" keeps its spacing.
+      if (pending.length) pending.push(line);
+      continue;
+    }
+    // Headings, quotes and indented continuations are prose, never items.
+    const isBlock = /^\s{2,}\S/.test(line) || /^#{1,6}\s/.test(line) || /^\s*>/.test(line);
+    let m;
+    if (!isBlock && (m = line.match(NOTES_ITEM_RE))) {
+      items.push({ text: m[2].trim(), done: m[1].toLowerCase() === "x", before: pending });
+      pending = [];
+      sawItem = true;
+    } else if (!isBlock && (m = line.match(NOTES_BULLET_RE))) {
+      items.push({ text: m[1].trim(), done: false, before: pending });
+      pending = [];
+      sawItem = true;
+    } else if (!isBlock && !sawItem && !pending.length) {
+      // A bare line before any structure: legacy notes were plain lines, so
+      // upgrade it to an unchecked item rather than leaving it as dead prose.
+      items.push({ text: line.trim(), done: false, before: [] });
+      sawItem = true;
+    } else {
+      pending.push(line);
+    }
+  }
+  while (pending.length && !pending[pending.length - 1].trim()) pending.pop();
+  return { items, trailer: pending.join("\n") };
+}
+
+
+// serializeNotesItems renders items back to markdown task lines, re-appending any
+// preserved free-text trailer.
+function serializeNotesItems(items, trailer) {
+  const out = [];
+  for (const it of items || []) {
+    if (!it || !String(it.text).trim()) continue;
+    // Emit any prose that preceded this item first, so headings and quotes stay
+    // where the user put them instead of being swept to the end of the file.
+    for (const b of it.before || []) out.push(b);
+    out.push(`- [${it.done ? "x" : " "}] ${String(it.text).trim()}`);
+  }
+  const body = out.join("\n").replace(/\s+$/, "");
+  const tail = (trailer || "").replace(/\s+$/, "");
+  if (!tail) return body;
+  return body ? body + "\n\n" + tail : tail;
+}
+
+
+// renderProjectNotesInto builds the project-notes editor into the given
+// container: a todo-style checklist (progress, per-item toggle/edit/reorder/
+// delete, quick add) over the notes string, plus a raw-markdown escape hatch.
+// Shared by the standalone notes panel and the combined Project Memory & Notes
+// panel.
+function renderProjectNotesInto(host_el, host, p) {
+  const container = el("div", "notes-pane flex flex-col gap-3 p-4 text-[13px] text-ink");
+
+  let parsed = parseNotesItems(p.notes || "");
+  let items = parsed.items;
+  let trailer = parsed.trailer;
+  let rawMode = false;
+  let saveTimer = null;
+
+  const intro = el("p", "text-faint", "Track this project's work as a checklist. @notes hands these items to the agent as a backlog, so ticking one off keeps it from being picked up again. Stored in your global moony config, keeping your repository clean.");
+  container.appendChild(intro);
+
+  // Progress header — mirrors the transcript's Tasks bar.
+  const head = el("div", "notes-head");
+  const count = el("span", "notes-count");
+  const track = el("div", "todos-track notes-track");
+  const fill = el("div", "todos-fill");
+  track.appendChild(fill);
+  const rawBtn = el("button", "notes-raw-toggle", "Raw markdown");
+  rawBtn.type = "button";
+  rawBtn.title = "Edit the notes as plain markdown";
+  head.append(count, track, rawBtn);
+  container.appendChild(head);
+
+  const list = el("div", "notes-list");
+  container.appendChild(list);
+
+  // Quick add.
+  const addRow = el("div", "notes-add");
+  const addInput = el("input", "notes-add-input");
+  addInput.type = "text";
+  addInput.placeholder = "Add an item…";
+  const addBtn = el("button", "notes-add-btn");
+  addBtn.type = "button";
+  addBtn.appendChild(sym("plus", "shrink-0"));
+  addBtn.appendChild(el("span", "", "Add"));
+  addRow.append(addInput, addBtn);
+  container.appendChild(addRow);
+
+  // Raw-markdown escape hatch: also the only way to reach a preserved free-text
+  // trailer (headings/prose the checklist deliberately doesn't reshape).
+  const rawWrap = el("div", "notes-raw hidden");
+  const rawTA = el("textarea", "notes-raw-ta");
+  rawTA.spellcheck = false;
+  rawWrap.appendChild(rawTA);
+  container.appendChild(rawWrap);
+
+  const footer = el("div", "notes-footer");
+  const errorMsg = el("span", "text-red-500 text-[12px] hidden");
+  const savedMsg = el("span", "notes-saved hidden", "Saved");
+  footer.append(errorMsg, savedMsg);
+  container.appendChild(footer);
+
+  function notesText() {
+    return rawMode ? rawTA.value : serializeNotesItems(items, trailer);
+  }
+
+  // saveSeq orders overlapping saves: a slow earlier request must not clobber the
+  // newer text with a stale "p.notes" or a spurious error after the user typed on.
+  let saveSeq = 0;
+  async function save() {
+    errorMsg.classList.add("hidden");
+    const body = notesText();
+    const seq = ++saveSeq;
+    try {
+      const url = laptopBase(host) + `/api/projects/${p.key}/notes`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: body })
+      });
+      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+      if (seq !== saveSeq) return; // superseded by a newer save
+      p.notes = body;
+      await refreshProjects(host);
+      renderLaptopTree();
+      if (typeof lastStatus !== "undefined" && lastStatus) renderComposerMeta(lastStatus);
+      savedMsg.classList.remove("hidden");
+      clearTimeout(save._t);
+      save._t = setTimeout(() => savedMsg.classList.add("hidden"), 1200);
+    } catch (err) {
+      if (seq !== saveSeq) return; // a newer save is in flight; its result wins
+      errorMsg.textContent = "Failed to save: " + err.message;
+      errorMsg.classList.remove("hidden");
+    }
+  }
+
+  // Debounced so typing in an item doesn't POST per keystroke.
+  function queueSave(delay) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, delay == null ? 500 : delay);
+  }
+
+  function renderProgress() {
+    const total = items.length;
+    const done = items.filter((it) => it.done).length;
+    count.textContent = total ? `${done}/${total} done` : "No items yet";
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    fill.style.width = pct + "%";
+    track.classList.toggle("hidden", !total);
+  }
+
+  function renderList() {
+    list.innerHTML = "";
+    if (!items.length) {
+      list.appendChild(el("div", "notes-empty", "Nothing yet — add the first item below."));
+    }
+    items.forEach((it, i) => list.appendChild(renderRow(it, i)));
+    renderProgress();
+  }
+
+  function renderRow(it, i) {
+    const row = el("div", "notes-row" + (it.done ? " is-done" : ""));
+
+    const cb = el("button", "notes-check");
+    cb.type = "button";
+    cb.setAttribute("role", "checkbox");
+    cb.setAttribute("aria-checked", it.done ? "true" : "false");
+    cb.title = it.done ? "Mark as not done" : "Mark as done";
+    if (it.done) cb.appendChild(sym("checkmark", "shrink-0"));
+    cb.onclick = () => { it.done = !it.done; renderList(); queueSave(0); };
+
+    // Inline-editable text (contenteditable keeps the row compact and avoids an
+    // edit/view mode toggle for what is usually a one-line item).
+    const txt = el("div", "notes-text");
+    txt.contentEditable = "true";
+    txt.spellcheck = false;
+    txt.textContent = it.text;
+    txt.onblur = () => {
+      const v = txt.textContent.trim();
+      if (v === it.text) return;
+      if (!v) { items.splice(i, 1); renderList(); queueSave(0); return; }
+      it.text = v;
+      queueSave(0);
+    };
+    txt.oninput = () => queueSave();
+    txt.onkeydown = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); txt.blur(); addInput.focus(); }
+      if (e.key === "Escape") { txt.textContent = it.text; txt.blur(); }
+    };
+
+    const acts = el("div", "notes-acts");
+    const mk = (icon, title, fn, disabled) => {
+      const b = el("button", "notes-act", "");
+      b.type = "button"; b.title = title;
+      const s = sym(icon, "shrink-0"); if (s) b.appendChild(s);
+      if (disabled) b.disabled = true; else b.onclick = fn;
+      return b;
+    };
+    acts.append(
+      mk("arrow.up", "Move up", () => { const t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; renderList(); queueSave(0); }, i === 0),
+      mk("arrow.down", "Move down", () => { const t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; renderList(); queueSave(0); }, i === items.length - 1),
+      mk("trash", "Delete", () => { items.splice(i, 1); renderList(); queueSave(0); })
+    );
+
+    row.append(cb, txt, acts);
+    return row;
+  }
+
+  function addItem() {
+    const v = addInput.value.trim();
+    if (!v) return;
+    items.push({ text: v, done: false });
+    addInput.value = "";
+    renderList();
+    queueSave(0);
+  }
+  addBtn.onclick = addItem;
+  addInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } };
+
+  rawBtn.onclick = () => {
+    if (!rawMode) {
+      rawTA.value = serializeNotesItems(items, trailer);
+      rawMode = true;
+      rawWrap.classList.remove("hidden");
+      list.classList.add("hidden"); addRow.classList.add("hidden"); track.classList.add("hidden");
+      count.textContent = "Editing raw markdown";
+      rawBtn.textContent = "Checklist";
+      setTimeout(() => rawTA.focus(), 50);
+    } else {
+      // Re-parse so edits made as text flow back into the checklist.
+      const re = parseNotesItems(rawTA.value);
+      items = re.items; trailer = re.trailer;
+      rawMode = false;
+      rawWrap.classList.add("hidden");
+      list.classList.remove("hidden"); addRow.classList.remove("hidden");
+      rawBtn.textContent = "Raw markdown";
+      renderList();
+      queueSave(0);
+    }
+  };
+  rawTA.oninput = () => queueSave();
+
+  renderList();
+  host_el.appendChild(container);
+  setTimeout(() => addInput.focus(), 100);
 }

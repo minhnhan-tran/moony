@@ -17,12 +17,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/pysty1995/moony/internal/attach"
+	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/manage"
 	"github.com/pysty1995/moony/internal/subagents"
 )
@@ -70,7 +72,54 @@ func (a *Agent) expandTurnMentions(userInput string) string {
 		}
 	}
 	// Inline @file contents, then append the dispatch directive after them.
-	return a.expandFileMentions(userInput) + directive
+	// @notes is expanded last so its backlog instruction is the final word in the
+	// turn, and so a "@notes" string inside an inlined file can't trigger it.
+	return a.expandNotesMention(a.expandFileMentions(userInput)+directive, wd)
+}
+
+// notesMentionRe matches a bare "@notes" token (boundaried like other mentions),
+// e.g. "@notes", "please do @notes." — but not "@notesX" or a path "@notes/x".
+var notesMentionRe = regexp.MustCompile(`(^|[\s(\[])@notes([^\w/\\]|$)`)
+
+// expandNotesMention detects a @notes token and, when present, inlines the
+// project's stored notes (from the "Project memory & notes" panel) and appends a
+// directive telling the agent to plan → build → verify every item in them. This
+// turns the notes doc into an actionable backlog the agent works through end to
+// end. When there are no notes for this project it appends a short hint instead of
+// a directive, so the agent tells the user the notes are empty rather than
+// inventing work. Returns text unchanged when there's no @notes token.
+func (a *Agent) expandNotesMention(text, wd string) string {
+	if !notesMentionRe.MatchString(text) {
+		return text
+	}
+	notes := strings.TrimSpace(config.ProjectNotesFor(wd))
+	if notes == "" {
+		return text + "\n\n--- @notes ---\nThis project has no saved notes yet (the \"Project memory & notes\" panel is empty). Tell the user there's nothing in @notes to work through, and ask what they'd like added."
+	}
+	return notesDirective(text, notes)
+}
+
+// notesEndDelimiter closes the inlined notes block.
+const notesEndDelimiter = "--- end project notes ---"
+
+// notesDirective inlines the project notes and appends the plan → build → verify
+// instruction. Split out (pure text→text) so it's unit-testable without touching
+// the on-disk notes store.
+func notesDirective(text, notes string) string {
+	var b strings.Builder
+	b.WriteString(text)
+	b.WriteString("\n\n--- project notes (from @notes; the project's saved notes, inlined below) ---\n")
+	// Notes are usually hand-written, but they're also a natural place to paste text
+	// from elsewhere. Defang any literal end-delimiter so pasted content can't close
+	// the block early and have the rest read as top-level instructions.
+	b.WriteString(strings.ReplaceAll(notes, notesEndDelimiter, "--- end project notes (escaped) ---"))
+	b.WriteString("\n" + notesEndDelimiter + "\n\n")
+	b.WriteString("The user referenced @notes: treat the project notes above as a backlog of work items and carry ALL of them out, end to end. Specifically:\n")
+	b.WriteString("1. PLAN — enter plan mode and use `plan_write` to turn every actionable item in the notes into an ordered, concrete step (skip pure reference/info notes that aren't tasks). Call `exit_plan` to get approval before editing.\n")
+	b.WriteString("2. BUILD — once approved, implement each item, keeping a `todo_write` checklist (one entry per item) updated in real time.\n")
+	b.WriteString("3. VERIFY — after each item, build/test/vet the touched code (per this project's conventions) and only mark it complete when it passes; fix any failures before moving on.\n")
+	b.WriteString("Work through the list until every item is done or explicitly cancelled.")
+	return b.String()
 }
 
 // mentionStartBoundary reports whether the byte before an '@' lets it begin a
