@@ -86,7 +86,8 @@ func TestTryHoldConnector(t *testing.T) {
 	// empty window is what let a second instance starting at the same time read
 	// the lock, treat it as stale, delete it, and also claim, so both dialed the
 	// relay and flapped.
-	if data, err := os.ReadFile(path); err != nil || strings.TrimSpace(string(data)) != strconv.Itoa(os.Getpid()) {
+	// The lock records "pid\nexecutable"; the pid is the first line.
+	if data, err := os.ReadFile(path); err != nil || lockPid(string(data)) != strconv.Itoa(os.Getpid()) {
 		t.Errorf("claimed lock = %q (err %v), want our pid %d (never empty)", strings.TrimSpace(string(data)), err, os.Getpid())
 	}
 	rel()
@@ -124,7 +125,7 @@ func TestTryHoldConnector(t *testing.T) {
 	if !ok {
 		t.Error("claim should reclaim an empty lock")
 	}
-	if data, _ := os.ReadFile(path); strings.TrimSpace(string(data)) != strconv.Itoa(os.Getpid()) {
+	if data, _ := os.ReadFile(path); lockPid(string(data)) != strconv.Itoa(os.Getpid()) {
 		t.Errorf("after reclaiming an empty lock, lock = %q, want our pid", strings.TrimSpace(string(data)))
 	}
 	rel3()
@@ -192,4 +193,10 @@ func TestConnectorStatusPublishRead(t *testing.T) {
 			t.Errorf("ConnectorStatus = %q, want %q", got, want)
 		}
 	}
+}
+
+// lockPid returns the pid line of a lock file's contents.
+func lockPid(data string) string {
+	pid, _, _ := strings.Cut(strings.TrimSpace(data), "\n")
+	return strings.TrimSpace(pid)
 }

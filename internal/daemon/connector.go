@@ -78,7 +78,7 @@ func TryHoldConnector() (release func(), ok bool) {
 	// the staging file (only the final os.Link arbitrates the winner).
 	tmp := path + "." + strconv.Itoa(os.Getpid()) + ".tmp"
 	for attempt := 0; attempt < 2; attempt++ {
-		if err := os.WriteFile(tmp, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		if err := os.WriteFile(tmp, []byte(lockPayload()), 0o644); err != nil {
 			return func() {}, true // can't stage the lock — don't block connecting
 		}
 		err := os.Link(tmp, path) // atomic: fails if the lock already exists
@@ -102,7 +102,11 @@ func TryHoldConnector() (release func(), ok bool) {
 func releaseConnectorFunc(path string) func() {
 	return func() {
 		if data, err := os.ReadFile(path); err == nil {
-			if pid, _ := strconv.Atoi(strings.TrimSpace(string(data))); pid == os.Getpid() {
+			// The lock is "pid\nexecutable"; compare only the pid line, or we'd
+			// never recognise our own lock and would leave it behind on exit —
+			// stranding the slot for every later terminal.
+			pidText, _, _ := strings.Cut(strings.TrimSpace(string(data)), "\n")
+			if pid, _ := strconv.Atoi(strings.TrimSpace(pidText)); pid == os.Getpid() {
 				_ = os.Remove(path)
 			}
 		}
@@ -157,7 +161,8 @@ func lockHeldByOther(path string) bool {
 	if err != nil {
 		return false
 	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	pidText, wantName, _ := strings.Cut(strings.TrimSpace(string(data)), "\n")
+	pid, err := strconv.Atoi(strings.TrimSpace(pidText))
 	if err != nil || pid <= 0 || pid == os.Getpid() {
 		return false
 	}
@@ -168,7 +173,29 @@ func lockHeldByOther(path string) bool {
 	if proc.Signal(syscall.Signal(0)) != nil {
 		return false // no such live process
 	}
-	return pidIsOurs(pid)
+	return pidIsOurs(pid, strings.TrimSpace(wantName))
+}
+
+// lockPayload is what a holder writes: its pid and the base name of its own
+// executable, newline-separated.
+//
+// Recording the name makes the lock self-describing, which matters because the
+// holder is not always called "moony": `go run .` produces a temp binary called
+// "main", a debugger builds "__debug_binNNNN", and packagers rename freely.
+// Guessing the name instead — as this used to — rejected those holders, so a second
+// terminal believed the slot was free, dialed the relay too, and the two evicted
+// each other in a reconnect loop instead of one showing "shared".
+func lockPayload() string {
+	return strconv.Itoa(os.Getpid()) + "\n" + selfExecName()
+}
+
+// selfExecName is the base name of this process's executable, lowercased.
+func selfExecName() string {
+	exe, err := os.Executable()
+	if err != nil || exe == "" {
+		return connectorProcessName // fall back to the build's own name
+	}
+	return strings.ToLower(filepath.Base(exe))
 }
 
 // pidIsOurs reports whether pid looks like one of our own processes, so a recycled
@@ -179,7 +206,7 @@ func lockHeldByOther(path string) bool {
 // unavailable) the historical behaviour is kept and the slot is treated as held.
 // Guessing "free" instead would let two instances dial the relay and evict each
 // other in a reconnect loop, which is worse than a delayed takeover.
-func pidIsOurs(pid int) bool {
+func pidIsOurs(pid int, wantName string) bool {
 	name, ok := processName(pid)
 	if !ok {
 		return true // unknown ⇒ assume held (never risk a dual-dial flap)
@@ -187,7 +214,30 @@ func pidIsOurs(pid int) bool {
 	if name == "" {
 		return false // the process vanished between the liveness probe and here
 	}
+	// Prefer the name the holder recorded for itself: it is authoritative and
+	// covers `go run`, debug builds and renamed binaries that a hardcoded name
+	// would wrongly reject.
+	if wantName != "" {
+		return sameExecName(name, wantName)
+	}
 	return nameLooksLikeConnector(name)
+}
+
+// sameExecName compares a live process's executable name with the one recorded in
+// the lock, tolerating Linux's 15-char comm truncation and a ".exe" suffix.
+func sameExecName(live, recorded string) bool {
+	l := strings.ToLower(strings.TrimSpace(filepath.Base(live)))
+	r := strings.ToLower(strings.TrimSpace(filepath.Base(recorded)))
+	if l == "" || r == "" {
+		return false
+	}
+	l = strings.TrimSuffix(l, ".exe")
+	r = strings.TrimSuffix(r, ".exe")
+	if l == r {
+		return true
+	}
+	// comm is clamped to 15 chars, so a longer name arrives truncated.
+	return strings.HasPrefix(r, l) && len(l) >= linuxCommLen
 }
 
 // nameLooksLikeConnector matches an executable name against this binary's name,
@@ -199,6 +249,15 @@ func nameLooksLikeConnector(name string) bool {
 		return false
 	}
 	if strings.Contains(base, connectorProcessName) {
+		return true
+	}
+	// A lock written by an older build records only a pid, so we must guess from
+	// the process name. Accept the shapes a legitimate holder can take when it
+	// wasn't installed as "moony": `go run .` builds into .../b001/exe/main, and
+	// a debugger builds __debug_binNNNN. Being permissive here only risks a
+	// delayed takeover; being too strict causes two live connectors to fight,
+	// which is the far worse failure.
+	if base == "main" || base == "exe" || strings.HasPrefix(base, "__debug_bin") {
 		return true
 	}
 	// Linux reports a truncated comm; only relevant if the binary name exceeds it.

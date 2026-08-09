@@ -111,13 +111,13 @@ func TestPidIsOursMatchesRegardlessOfInstallPath(t *testing.T) {
 		"moony.exe",
 	} {
 		stubProcessName(t, func(int) (string, bool) { return name, true })
-		if !pidIsOurs(1234) {
+		if !pidIsOurs(1234, "") {
 			t.Errorf("%q should be recognized as one of ours", name)
 		}
 	}
 	for _, name := range []string{"/sbin/launchd", "/usr/bin/python3", "node"} {
 		stubProcessName(t, func(int) (string, bool) { return name, true })
-		if pidIsOurs(1234) {
+		if pidIsOurs(1234, "") {
 			t.Errorf("%q must not be mistaken for a connector holder", name)
 		}
 	}
