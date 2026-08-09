@@ -269,3 +269,48 @@ func TestQuoteIsNotATokenBoundaryInTheRemainder(t *testing.T) {
 		}
 	}
 }
+
+// A rule of exactly "bash:" (an empty command) must not be storable, and must never crash
+// or blanket-allow if it reaches the matcher another way — a self-review caught
+// coveredByPrefix indexing prefix[-1] on it, panicking inside a permission check.
+func TestEmptyBashRuleIsRejectedAndHarmless(t *testing.T) {
+	isolate(t)
+	dir := t.TempDir()
+
+	r := Load(dir)
+	// Add must refuse it: as an allow it would name every command.
+	for _, bad := range []string{"bash:", "bash:   ", "bash:\t"} {
+		if err := r.Add(bad, false, Project); err == nil {
+			t.Errorf("Add(%q) should have been rejected", bad)
+		}
+	}
+
+	// And if such a rule arrives from a hand-edited file, matching must be safe: no panic,
+	// and emphatically not an allow-everything.
+	hand := &Rules{workingDir: dir, project: set{Allow: []string{"bash:", "bash:  "}}}
+	for _, cmd := range []string{"ls -la", "shutdown now", "make build && wipe home", ""} {
+		if got := hand.Check("bash", cmd); got == Allow {
+			t.Errorf("an empty bash rule must not allow %q (got %v)", cmd, got)
+		}
+	}
+
+	// The same rule on the deny side must not panic either.
+	handDeny := &Rules{workingDir: dir, project: set{Deny: []string{"bash:"}}}
+	_ = handDeny.Check("bash", "ls -la")
+}
+
+// coveredByPrefix is the function that panicked; pin it directly against empty input.
+func TestCoveredByPrefixRejectsEmptyPrefix(t *testing.T) {
+	for _, prefix := range []string{"", " ", "\t"} {
+		if coveredByPrefix("ls -la", prefix) {
+			t.Errorf("an empty prefix %q must not cover a command", prefix)
+		}
+		if coveredByPrefix("", prefix) {
+			t.Errorf("an empty prefix %q must not cover an empty segment", prefix)
+		}
+	}
+	// Sanity: a real prefix still works.
+	if !coveredByPrefix("git status", "git ") {
+		t.Error(`"git " should cover "git status"`)
+	}
+}

@@ -213,7 +213,14 @@ func exactCommandMatch(rule, command, trimmedCommand string) bool {
 func normalizeRule(rule string) string {
 	rule = strings.TrimLeft(rule, " \t")
 	if strings.HasPrefix(rule, bashPrefix) {
-		return strings.TrimRight(rule, "\r\n") // never trim significant spaces
+		rule = strings.TrimRight(rule, "\r\n") // never trim significant spaces
+		// "bash:" with no command is meaningless as a rule and dangerous as an allow (it
+		// would name every command), so reject it rather than store it. A rule that is
+		// deliberately about the bash tool as a whole is written as plain "bash".
+		if strings.TrimSpace(strings.TrimPrefix(rule, bashPrefix)) == "" {
+			return ""
+		}
+		return rule
 	}
 	return strings.TrimSpace(rule)
 }
@@ -290,6 +297,12 @@ func allCovered(segments, prefixes []string) bool {
 // Deny keeps using plain HasPrefix on purpose: over-matching a deny fails safe, while
 // over-matching an allow is an escalation.
 func coveredByPrefix(seg, prefix string) bool {
+	// An empty prefix would both index out of range below and, worse, cover every possible
+	// command — turning a malformed "bash:" rule into a blanket allow. Refuse it. (The deny
+	// path keeps plain HasPrefix: an empty prefix there over-denies, which fails safe.)
+	if strings.TrimSpace(prefix) == "" {
+		return false
+	}
 	if !strings.HasPrefix(seg, prefix) {
 		return false
 	}
