@@ -5,6 +5,39 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.25.3] — 2026-08-09
+
+### Fixed
+
+- **The same "second terminal retries the relay instead of showing `shared`" bug, on
+  Windows.** 2.25.2 fixed the identity half of this; the liveness half in front of it was
+  still Unix-only. `lockHeldByOther` probed the recorded holder with
+  `Signal(syscall.Signal(0))`, but `os.Process.Signal` on Windows supports only `Kill` and
+  returns `EWINDOWS` for anything else — including for a running process. So every holder
+  read as dead, `TryHoldConnector()` succeeded in every terminal, they all dialed, and the
+  relay's one-connector-per-machine rule turned that into mutual eviction. `pidIsOurs` is
+  deliberately fail-safe for an undeterminable holder, but the liveness probe returned
+  first and never let it run.
+  - Liveness is now platform-split: Unix keeps `Signal(0)` (treating `EPERM` as alive),
+    Windows waits on the process handle with a zero timeout — `GetExitCodeProcess` cannot
+    tell a live process from one that exited with 259 (`STILL_ACTIVE`). Access-denied and
+    unexpected errors count as **alive**, since guessing "free" is what caused the loop.
+  - Windows also had no process-name lookup, so the identity check could only fail safe and
+    a recycled pid would have pinned the slot forever; it now uses
+    `QueryFullProcessImageName`.
+  - Both regression tests for this symptom held the slot with `sleep`, so they had never run
+    on Windows — which is how this shipped. They now re-exec the test binary, and the root
+    one asserts `TryHoldConnector` refuses the slot rather than only checking a pill mapping
+    that passes even with the lock logic broken.
+
+### Changed
+
+- `MarkConnectorActive` records the holder's executable name alongside its pid, like
+  `TryHoldConnector`, so the two lock writers agree.
+- approval: stop offering 'always allow' where it is ignored
+- Notes: mirror sqe-code-agent 7.21.0 blob offload and 7.21.1 queued quick-action scope fix
+- notes: port the per-project notes checklist, @notes backlog mention and API
+
 ## [2.25.2] — 2026-08-09
 
 ### Fixed
