@@ -5,6 +5,52 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.25.0] — 2026-08-09
+
+### Added
+
+- **Project notes — a per-project checklist the agent can work through.** Each project
+  gets a free-form markdown scratchpad, edited from a "Notes" action on the project row
+  in the tree and rendered as a todo-style checklist (progress bar, per-item toggle /
+  edit / reorder / delete, quick-add, and a raw-markdown escape hatch), with the count of
+  still-open items badged on the row. Notes are stored globally, keyed by project
+  directory (`project_notes.json` in the global config dir), so they survive a clean
+  checkout and are never at risk of being committed.
+  - New `@notes` mention inlines the project's notes into the turn and instructs the
+    agent to treat them as a backlog: plan the items with `plan_write`, build them while
+    keeping a `todo_write` checklist, and verify each one before marking it done. With no
+    notes saved it appends a short "nothing to work through" hint instead, so the agent
+    says so rather than inventing work. Offered in the @-dropdown only when the project
+    actually has notes.
+  - New `POST /api/projects/{key}/notes`; `GET /api/projects` now returns each project's
+    notes, so the tree can badge them without a request per row.
+
+  Ported from the upstream this project was forked from, with four fixes made along the
+  way:
+  - **Prose no longer moves.** Upstream collected every non-item line into one trailer
+    appended at the end, so a heading written above a task silently jumped below it and a
+    mid-list `## Section` was swept to the bottom — the UI rewrites the whole notes string
+    on every edit, so that reordering was permanent. Items now carry the prose that
+    precedes them and it is re-emitted in place; verified by round-tripping headings,
+    quotes and interleaved sections.
+  - **Notes are keyed consistently.** The store is written by the web handler (whose
+    directory comes from the session store) and read by the agent (from its working dir);
+    those could disagree on relative-vs-absolute and the lookup would silently miss,
+    leaving `@notes` empty. Keys are now canonicalized (absolute + cleaned) on both paths.
+  - **Overlapping saves are ordered.** The editor debounces and saves in the background,
+    so a slow earlier request could land after a newer one and clobber the local copy, or
+    surface a stale error over text the user had already fixed; superseded saves are now
+    discarded.
+  - **A note can't forge the end of its own block.** Notes are usually hand-written but
+    are a natural place to paste text from elsewhere, so a literal end-delimiter inside
+    them is escaped rather than being able to close the block early and have the rest read
+    as top-level instructions.
+
+### Changed
+
+- Mirrored from sqe-code-agent: 7.21.0 transcript blob offload and the 7.21.1 queued
+  quick-action context-scope fix.
+
 ## [2.24.1] — 2026-08-09
 
 ### Fixed
