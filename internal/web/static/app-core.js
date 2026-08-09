@@ -3302,10 +3302,12 @@ function syncStripClock() {
   if (stripClockTimer) return;
   stripClockTimer = setInterval(() => {
     if (!jobsStrip || jobsStrip.classList.contains("hidden")) return;
-    const cells = jobsStrip.querySelectorAll(".jobstrip-time");
-    stripJobs.forEach((j, i) => {
-      if (cells[i]) cells[i].textContent = stripRuntime(j);
-    });
+    // Keyed by id, not position: a command's finished runs fold into one row, so row N
+    // is no longer job N and indexing would print one job's runtime on another's row.
+    for (const cell of jobsStrip.querySelectorAll(".jobstrip-time")) {
+      const j = stripJobs.find((x) => x.id === cell.dataset.job);
+      if (j) cell.textContent = stripRuntime(j);
+    }
   }, 1000);
 }
 
@@ -3333,6 +3335,48 @@ function stripState(j) {
   return { label: st || "done", cls: "is-done" };
 }
 
+// jobSeq orders jobs by the number in their id ("bg_2" before "bg_10"), which the
+// server's string sort gets wrong as soon as ten jobs have run in a session.
+function jobSeq(j) {
+  const n = parseInt(String((j && j.id) || "").replace(/^\D+/, ""), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// stripRows collapses the job list to ONE row per background job. The store keeps every
+// run of a session, so restarting a dev server three times used to leave three rows -
+// two of them dead - and the live one could scroll out of reach.
+//
+// Runs are grouped by command. Every RUNNING run keeps its own row, because the row is
+// the only place to stop it and folding one away would make it unstoppable; the finished
+// runs of a command collapse into the newest one, reported as "+N" on a single row. So a
+// restarted job keeps one row that flips done -> running.
+function stripRows(list) {
+  const groups = new Map();
+  for (const j of list) {
+    // Without a command there is nothing to group by, and nothing to restart either, so
+    // such a job stands alone under its own id.
+    const key = j.command ? "c:" + j.command : "i:" + j.id;
+    let g = groups.get(key);
+    if (!g) { g = { running: [], finished: [] }; groups.set(key, g); }
+    (j.running ? g.running : g.finished).push(j);
+  }
+
+  const rows = [];
+  for (const g of groups.values()) {
+    if (g.running.length) {
+      g.running.sort((a, b) => jobSeq(a) - jobSeq(b));
+      // The folded count sits on the first row only, so it is not repeated when the same
+      // command happens to be running twice.
+      g.running.forEach((j, i) => rows.push({ job: j, folded: i === 0 ? g.finished.length : 0 }));
+      continue;
+    }
+    g.finished.sort((a, b) => jobSeq(a) - jobSeq(b));
+    const newest = g.finished[g.finished.length - 1];
+    if (newest) rows.push({ job: newest, folded: g.finished.length - 1 });
+  }
+  return rows.sort((a, b) => jobSeq(a.job) - jobSeq(b.job));
+}
+
 function renderJobsStrip() {
   if (!jobsStrip) return;
   const list = Array.isArray(stripJobs) ? stripJobs : [];
@@ -3344,8 +3388,10 @@ function renderJobsStrip() {
     if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
     return;
   }
-  // An expanded row whose job has disappeared must not keep polling a dead id.
-  if (stripExpanded && !list.some((j) => j.id === stripExpanded)) stripExpanded = null;
+  const rows = stripRows(list);
+  // An expanded row whose job is no longer SHOWN must not keep polling: the job may have
+  // been reaped, or folded away by a newer run of the same command.
+  if (stripExpanded && !rows.some((r) => r.job.id === stripExpanded)) stripExpanded = null;
 
   jobsStrip.classList.remove("hidden");
   jobsStrip.innerHTML = "";
@@ -3353,16 +3399,17 @@ function renderJobsStrip() {
   const running = list.filter((j) => j.running).length;
   const head = el("div", "jobstrip-head");
   head.appendChild(sym("terminal"));
+  // Counts the jobs on show, not the runs behind them, so it matches what is visible.
   head.appendChild(el("span", "jobstrip-head-text",
-    `Background job: ${list.length}${running ? ` (${running} running)` : ""}`));
+    `Background job: ${rows.length}${running ? ` (${running} running)` : ""}`));
   jobsStrip.appendChild(head);
 
-  for (const j of list) jobsStrip.appendChild(stripRow(j));
+  for (const r of rows) jobsStrip.appendChild(stripRow(r.job, r.folded));
   syncStripTail();
   syncStripClock();
 }
 
-function stripRow(j) {
+function stripRow(j, folded) {
   const open = stripExpanded === j.id;
   const row = el("div", "jobstrip-row" + (open ? " is-open" : ""));
 
@@ -3385,11 +3432,22 @@ function stripRow(j) {
   const st = stripState(j);
   line.appendChild(el("span", `jobstrip-state ${st.cls}`, st.label));
 
+  // Earlier runs of this command are not shown as rows of their own; say how many, so a
+  // folded history is visible rather than silently dropped.
+  if (folded > 0) {
+    const more = el("span", "jobstrip-more", `+${folded}`);
+    more.title = folded === 1
+      ? "1 earlier run of this command is not shown"
+      : `${folded} earlier runs of this command are not shown`;
+    line.appendChild(more);
+  }
+
   const cmd = el("span", "jobstrip-cmd", j.command || "(no command)");
   cmd.title = j.command || "";
   line.appendChild(cmd);
 
   const rt = el("span", "jobstrip-time", stripRuntime(j));
+  rt.dataset.job = j.id;
   line.appendChild(rt);
 
   // Running: stop it. Finished: run the same command again. There is no dedicated restart

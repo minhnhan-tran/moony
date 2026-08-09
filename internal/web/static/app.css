@@ -2105,6 +2105,18 @@ body.wf-active .app-topbar { z-index: 40; }
 .jobstrip-state.is-done    { background: rgb(var(--c-edge) / .7); color: rgb(var(--c-faint)); }
 .jobstrip-state.is-failed  { background: rgb(var(--c-danger) / .16); color: rgb(var(--c-danger)); }
 .jobstrip-state.is-killed  { background: rgb(var(--c-warn) / .16); color: rgb(var(--c-warn)); }
+/* "+N": how many earlier runs of this command are folded into the row, so a restarted
+   job reads as one job with a history instead of a pile of dead rows. */
+.jobstrip-more {
+  flex: none;
+  padding: .0625rem .25rem;
+  border-radius: var(--r-sm);
+  background: rgb(var(--c-edge) / .7);
+  color: rgb(var(--c-faint));
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 /* The command takes the slack and ellipsises: a long command line must not push the
    runtime and stop button off the row. */
 .jobstrip-cmd {

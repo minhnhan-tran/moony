@@ -79,6 +79,9 @@ const SF_TO_MATERIAL = {
   "alarm.fill": "alarm", "antenna.radiowaves.left.and.right": "sensors",
   "arrow.clockwise": "refresh", "arrow.counterclockwise": "refresh",
   "arrow.down": "arrow_downward", "arrow.down.circle": "arrow_circle_down",
+  // arrow_circle_up is not in the vendored subset, so the Deploy button borrows the plain
+  // upward arrow rather than falling through to the "help" glyph it used to draw.
+  "arrow.up.circle": "arrow_upward",
   "arrow.left": "arrow_back", "arrow.right": "arrow_forward",
   "arrow.right.to.line": "east", "arrow.triangle.2.circlepath": "autorenew",
   "arrow.triangle.branch": "call_split", "arrow.trianglehead.branch": "call_split", "arrow.trianglehead.merge": "call_split",

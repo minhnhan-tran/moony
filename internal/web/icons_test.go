@@ -122,3 +122,38 @@ func materialCodepoints(t *testing.T, src string) map[string]bool {
 	}
 	return out
 }
+
+// sym("name") call sites are the third place icon names are hand-written, and they were
+// the untested one: the Deploy button's sym("arrow.up.circle") shipped unmapped and drew
+// the fallback "help" glyph, which looks exactly like a missing button.
+var symCallRe = regexp.MustCompile(`\bsym\(\s*"([^"]*)"`)
+
+func TestSymCallIconNamesAreMapped(t *testing.T) {
+	mapped := mappedIconNames(t)
+
+	entries, err := filepath.Glob(filepath.Join("static", "*.js"))
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("glob static/*.js: %v (%d files)", err, len(entries))
+	}
+
+	total := 0
+	for _, path := range entries {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, m := range symCallRe.FindAllStringSubmatch(string(b), -1) {
+			name := m[1]
+			if name == "" || strings.Contains(name, "${") {
+				continue
+			}
+			total++
+			if !mapped[name] {
+				t.Errorf("%s calls sym(%q), which is not in SF_TO_MATERIAL — it renders the fallback \"help\" glyph", filepath.Base(path), name)
+			}
+		}
+	}
+	if total < 20 {
+		t.Fatalf("only %d sym() names parsed from static/*.js — parser is out of date", total)
+	}
+}
