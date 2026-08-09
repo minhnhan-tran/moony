@@ -9,6 +9,11 @@ import (
 )
 
 func TestConnectorLock(t *testing.T) {
+	// These cases simulate a holder using a live pid that is NOT actually a moony
+	// process, so state the identity explicitly: the contract is "a live pid that IS
+	// one of ours holds the slot". Without this the identity check correctly rejects
+	// the borrowed pid (see TestLockHeldByOtherIgnoresRecycledPid for that case).
+	stubProcessName(t, func(int) (string, bool) { return "moony", true })
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -59,6 +64,11 @@ func TestConnectorLock(t *testing.T) {
 }
 
 func TestTryHoldConnector(t *testing.T) {
+	// These cases simulate a holder using a live pid that is NOT actually a moony
+	// process, so state the identity explicitly: the contract is "a live pid that IS
+	// one of ours holds the slot". Without this the identity check correctly rejects
+	// the borrowed pid (see TestLockHeldByOtherIgnoresRecycledPid for that case).
+	stubProcessName(t, func(int) (string, bool) { return "moony", true })
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -121,6 +131,11 @@ func TestTryHoldConnector(t *testing.T) {
 }
 
 func TestConnectorLegacyLockHonored(t *testing.T) {
+	// These cases simulate a holder using a live pid that is NOT actually a moony
+	// process, so state the identity explicitly: the contract is "a live pid that IS
+	// one of ours holds the slot". Without this the identity check correctly rejects
+	// the borrowed pid (see TestLockHeldByOtherIgnoresRecycledPid for that case).
+	stubProcessName(t, func(int) (string, bool) { return "moony", true })
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))

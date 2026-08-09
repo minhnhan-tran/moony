@@ -141,7 +141,14 @@ func legacyConnectorLockPath() string {
 }
 
 // lockHeldByOther reports whether the lock file at path records a different, live
-// process's pid.
+// process's pid that is actually one of ours.
+//
+// Liveness alone is not enough. A pid is only a small integer that the OS recycles
+// (kern.maxproc is 12k on macOS), so after an instance exits without releasing — a
+// crash, SIGKILL, or a laptop that slept and woke — an unrelated process can inherit
+// its number. Without an identity check the daemon would see a "live holder" forever
+// and stand by indefinitely, leaving this machine with no connector and no way to
+// recover short of deleting the lock by hand.
 func lockHeldByOther(path string) bool {
 	if path == "" {
 		return false
@@ -158,7 +165,72 @@ func lockHeldByOther(path string) bool {
 	if err != nil {
 		return false
 	}
-	return proc.Signal(syscall.Signal(0)) == nil // nil error ⇒ the process is alive
+	if proc.Signal(syscall.Signal(0)) != nil {
+		return false // no such live process
+	}
+	return pidIsOurs(pid)
+}
+
+// pidIsOurs reports whether pid looks like one of our own processes, so a recycled
+// pid belonging to an unrelated program is not mistaken for a live connector holder.
+//
+// Deliberately fail-safe in the "held" direction: when the identity of a live pid
+// cannot be determined (an unexpected ps failure, or a platform where the lookup is
+// unavailable) the historical behaviour is kept and the slot is treated as held.
+// Guessing "free" instead would let two instances dial the relay and evict each
+// other in a reconnect loop, which is worse than a delayed takeover.
+func pidIsOurs(pid int) bool {
+	name, ok := processName(pid)
+	if !ok {
+		return true // unknown ⇒ assume held (never risk a dual-dial flap)
+	}
+	if name == "" {
+		return false // the process vanished between the liveness probe and here
+	}
+	return nameLooksLikeConnector(name)
+}
+
+// nameLooksLikeConnector matches an executable name against this binary's name,
+// comparing base names so it survives being run from ./bin, ~/.local/bin or a
+// Homebrew prefix.
+func nameLooksLikeConnector(name string) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(name)))
+	if base == "" {
+		return false
+	}
+	if strings.Contains(base, connectorProcessName) {
+		return true
+	}
+	// Linux reports a truncated comm; only relevant if the binary name exceeds it.
+	if truncatedConnectorProcessName != connectorProcessName {
+		return strings.Contains(base, truncatedConnectorProcessName)
+	}
+	return false
+}
+
+// connectorProcessName is the substring expected in a connector-holding process's
+// executable name.
+const connectorProcessName = "moony"
+
+// linuxCommLen is TASK_COMM_LEN-1: the kernel stores a task's comm in a 16-byte
+// field including the NUL terminator, so names are clamped to 15 characters.
+const linuxCommLen = 15
+
+// truncatedConnectorProcessName is connectorProcessName as Linux would report it
+// via comm. "moony" is shorter than the limit, so this is normally identical to
+// connectorProcessName — the slice is guarded so a longer rename stays correct
+// instead of panicking.
+var truncatedConnectorProcessName = truncateComm(connectorProcessName)
+
+// truncateComm clamps a name the way Linux's comm field does. Written as a function
+// over a variable rather than a constant slice expression, because the compiler
+// rejects connectorProcessName[:linuxCommLen] outright when the name is shorter
+// than the limit — as "moony" is.
+func truncateComm(name string) string {
+	if len(name) > linuxCommLen {
+		return name[:linuxCommLen]
+	}
+	return name
 }
 
 // connectorStatusPath is where the instance holding the connector slot publishes
