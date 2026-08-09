@@ -660,6 +660,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "y", "Y", "enter":
 				return m.decide(agent.Approve)
 			case "a", "A":
+				// Ignored for gates that re-confirm every time; swallow the key
+				// instead of quietly downgrading it to a one-time approve.
+				if m.pending != nil && m.pending.AlwaysDisabled {
+					return m, nil
+				}
 				return m.decide(agent.ApproveAlways)
 			case "n", "N", "esc":
 				return m.decide(agent.Deny)

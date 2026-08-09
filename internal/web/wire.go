@@ -15,17 +15,21 @@ import (
 // reason about ordering after a history replay. Synthetic types ("state",
 // "error") are produced by the session, not the agent.
 type wireEvent struct {
-	Seq      int    `json:"seq"`
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	Tool     string `json:"tool,omitempty"`
-	ToolID   string `json:"toolId,omitempty"`
-	Input    string `json:"input,omitempty"`
-	Diff     string `json:"diff,omitempty"`
-	Summary  string `json:"summary,omitempty"`
-	Output   string `json:"output,omitempty"`
-	IsError  bool   `json:"isError,omitempty"`
-	Mutating bool   `json:"mutating,omitempty"`
+	Seq     int    `json:"seq"`
+	Type    string `json:"type"`
+	Text    string `json:"text,omitempty"`
+	Tool    string `json:"tool,omitempty"`
+	ToolID  string `json:"toolId,omitempty"`
+	Input   string `json:"input,omitempty"`
+	Diff    string `json:"diff,omitempty"`
+	Summary string `json:"summary,omitempty"`
+	// NoAlways marks an approval whose "always allow" would be ignored (git
+	// commit/push, destructive commands), so the browser hides that button.
+	NoAlways       bool   `json:"noAlways,omitempty"`
+	NoAlwaysReason string `json:"noAlwaysReason,omitempty"`
+	Output         string `json:"output,omitempty"`
+	IsError        bool   `json:"isError,omitempty"`
+	Mutating       bool   `json:"mutating,omitempty"`
 	// ParentID and Agent are set on a "tool_start"/"tool_end" for a delegated
 	// sub-agent's tool call, so the browser nests it under the parent `task`
 	// card (ParentID is that task call's toolId) and attributes it to the
@@ -410,7 +414,8 @@ func toWire(ev agent.Event) wireEvent {
 	case agent.ContextStats:
 		return wireEvent{Type: "context", Context: &contextWire{Segments: contextSegmentsWire(e.Segments), Total: e.Total, Window: e.Window}}
 	case agent.ApprovalRequest:
-		return wireEvent{Type: "approval", Tool: e.Tool, Input: e.Input, Summary: e.Summary, Diff: e.Diff}
+		return wireEvent{Type: "approval", Tool: e.Tool, Input: e.Input, Summary: e.Summary, Diff: e.Diff,
+			NoAlways: e.AlwaysDisabled, NoAlwaysReason: e.AlwaysDisabledReason}
 	case agent.TodosUpdated:
 		ts := make([]todoWire, 0, len(e.Items))
 		for _, it := range e.Items {

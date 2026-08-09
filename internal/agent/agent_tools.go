@@ -460,7 +460,13 @@ func (a *Agent) approveToolCall(ctx context.Context, emit func(Event), call llm.
 		}
 		// Always prompt; do NOT honor "always allow" for these (ApproveAlways is
 		// treated as a one-time Approve), so every commit/push or unexpected destructive step is re-confirmed.
-		if a.requestApproval(ctx, emit, call.Name, summary, diff).Type == DenyType {
+		// Tell the UI so it hides "always allow" rather than offering a choice that
+		// is silently downgraded — which looks exactly like permissions not sticking.
+		reason := "git commits and pushes are confirmed every time"
+		if isDest {
+			reason = "destructive commands (" + string(destKind) + ") are confirmed every time"
+		}
+		if a.requestApprovalOnce(ctx, emit, call.Name, summary, diff, reason).Type == DenyType {
 			msg := "User denied execution of this tool. Do not retry; ask the user how to proceed."
 			emit(ToolEnd{ID: call.ID, Name: call.Name, Output: msg, IsError: true, Denied: true})
 			return false, llm.ToolResultBlock(call.ID, msg, true)

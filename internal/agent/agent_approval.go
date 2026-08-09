@@ -94,8 +94,23 @@ func (a *Agent) turnHardStopReason(maxCalls int, maxCost float64, rounds int, co
 
 // requestApproval emits an ApprovalRequest and blocks for the decision.
 func (a *Agent) requestApproval(ctx context.Context, emit func(Event), tool, summary, diff string) Decision {
+	return a.requestApprovalOnce(ctx, emit, tool, summary, diff, "")
+}
+
+// requestApprovalOnce is requestApproval for a gate that re-confirms every time
+// (git commit/push, destructive commands). Passing a non-empty reason marks the
+// request so UIs hide "always allow" instead of offering a choice that is then
+// silently downgraded to a one-time approve.
+func (a *Agent) requestApprovalOnce(ctx context.Context, emit func(Event), tool, summary, diff, alwaysDisabledReason string) Decision {
 	reply := make(chan Decision, 1)
-	emit(ApprovalRequest{Tool: tool, Summary: summary, Diff: diff, Reply: reply})
+	emit(ApprovalRequest{
+		Tool:                 tool,
+		Summary:              summary,
+		Diff:                 diff,
+		Reply:                reply,
+		AlwaysDisabled:       alwaysDisabledReason != "",
+		AlwaysDisabledReason: alwaysDisabledReason,
+	})
 	text := fmt.Sprintf("moony: approval needed for %s", tool)
 	if summary != "" {
 		text += " — " + summary

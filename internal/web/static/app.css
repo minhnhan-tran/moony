@@ -3612,3 +3612,9 @@ html.light .diff-hunk { color: #0550ae; }
   font-size: 10px; line-height: 1.5; border-radius: var(--r-pill);
   background: rgb(var(--c-brand) / .18); color: rgb(var(--c-brand));
 }
+
+/* Explains an approval that re-confirms every time (no "always allow"). */
+.app-approval-note {
+  margin: .25rem 0 .4rem; font-size: 11px; line-height: 1.4;
+  color: rgb(var(--c-faint));
+}

@@ -170,6 +170,13 @@ type ApprovalRequest struct {
 	Summary string
 	Diff    string
 	Reply   chan Decision
+	// AlwaysDisabled marks a prompt whose "always allow" choice would be ignored:
+	// git commit/push and destructive commands are re-confirmed every time,
+	// regardless of any rule. UIs must not offer "always allow" for these, or the
+	// user picks it, sees the prompt return, and reasonably reports it as a bug.
+	AlwaysDisabled bool
+	// AlwaysDisabledReason explains why, for display next to the buttons.
+	AlwaysDisabledReason string
 }
 
 // WorkerActivity is a live progress line from an out-of-process worker (the

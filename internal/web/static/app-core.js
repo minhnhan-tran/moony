@@ -1594,6 +1594,23 @@ function handle(ev) {
       counts.textContent = "";
       appendDiffCount(counts, headerStats(ev.summary, diffText));
       renderDiff($("pre", approval), diffText);
+      // Some gates (git commit/push, destructive commands) re-confirm every time
+      // and ignore "always allow". Hide the button rather than let the user pick
+      // it and watch the same prompt come back — that reads as a broken setting.
+      const alwaysBtn = $(".b-always", approval);
+      if (alwaysBtn) alwaysBtn.classList.toggle("hidden", !!ev.noAlways);
+      let note = $(".app-approval-note", approval);
+      if (ev.noAlways && ev.noAlwaysReason) {
+        if (!note) {
+          note = el("div", "app-approval-note");
+          const acts = $(".app-approval-actions", approval);
+          if (acts && acts.parentNode) acts.parentNode.insertBefore(note, acts);
+        }
+        note.textContent = ev.noAlwaysReason;
+        note.classList.remove("hidden");
+      } else if (note) {
+        note.classList.add("hidden");
+      }
       approval.classList.remove("hidden");
       break;
     }

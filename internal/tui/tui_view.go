@@ -218,6 +218,21 @@ func (m Model) approvalView() string {
 		b.WriteString(renderDiff(p.Diff, 12))
 		b.WriteByte('\n')
 	}
+	// Gates that re-confirm every time (git commit/push, destructive commands)
+	// ignore "always allow", so don't advertise the key there: offering it and
+	// then re-prompting anyway is indistinguishable from a broken setting.
+	if p.AlwaysDisabled {
+		hint := " approve   "
+		b.WriteString(
+			approvalKeyStyle.Render("y") + toolMetaStyle.Render(hint) +
+				approvalKeyStyle.Render("n") + toolMetaStyle.Render(" deny"),
+		)
+		if p.AlwaysDisabledReason != "" {
+			b.WriteByte('\n')
+			b.WriteString(toolMetaStyle.Render(p.AlwaysDisabledReason))
+		}
+		return approvalBoxStyle.Width(m.width - 2).Render(b.String())
+	}
 	// "a" persists a command-scoped rule for bash (see alwaysAllowRule), so label
 	// it "this command" there to set the right expectation; "this tool" otherwise.
 	alwaysLabel := " always allow this tool"
