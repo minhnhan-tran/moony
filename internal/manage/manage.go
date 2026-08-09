@@ -3,7 +3,7 @@
 // scopes:
 //
 //   - global:  ~/.config/moony/manage.json   (a disabled list)
-//   - project: ./.sqe/manage.json                     (disabled + enabled overrides)
+//   - project: ./.moony/manage.json                     (disabled + enabled overrides)
 //
 // Effective state, most- to least-specific:
 //
@@ -181,7 +181,7 @@ func globalPath() string {
 }
 
 func projectPath(workingDir string) string {
-	return filepath.Join(workingDir, ".sqe", "manage.json")
+	return config.ProjectPath(workingDir, "manage.json")
 }
 
 func read(path string) set {

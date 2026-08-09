@@ -5,7 +5,7 @@
 // Rules live in two scopes, both named permissions.json:
 //
 //   - global:  ~/.config/moony/permissions.json
-//   - project: ./.sqe/permissions.json
+//   - project: ./.moony/permissions.json
 //
 // Each scope has an "allow" and a "deny" list. A rule is either a bare tool
 // name (e.g. "write_file") or a bash command-prefix rule of the form
@@ -406,7 +406,7 @@ func globalPath() string {
 }
 
 func projectPath(workingDir string) string {
-	return filepath.Join(workingDir, ".sqe", "permissions.json")
+	return config.ProjectPath(workingDir, "permissions.json")
 }
 
 // read loads one scope's rules. The bool is false only when the file EXISTS but

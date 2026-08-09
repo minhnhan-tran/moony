@@ -1222,7 +1222,7 @@ loadAuthUser();
 
 // --- Quick actions panel -----------------------------------------------------
 // CRUD for the composer's preset prompts (/api/quickactions): two scopes
-// (committable per-project .sqe/quickactions.json, and a global fallback used
+// (committable per-project .moony/quickactions.json, and a global fallback used
 // only when the project defines none), reorderable because the first action is
 // the split button's default, each optionally pinning a model/provider/reasoning
 // for its own turn.
@@ -1239,7 +1239,7 @@ async function renderQuickActionsPanel() {
   const qaProviders = qaOptions.providers || [], qaLevels = qaOptions.reasoningLevels || [];
 
   body.append(el("p", "access-intro",
-    "Preset prompts for the quick-actions button beside the turn pager. Picking one sends it to the agent as if you'd typed it. An action can optionally pin a model, provider or reasoning level for its own turn only — the session reverts afterwards. Project actions live in .sqe/quickactions.json (commit it to share them); global actions are a fallback used only when a project defines none. The first action is the button's default."));
+    "Preset prompts for the quick-actions button beside the turn pager. Picking one sends it to the agent as if you'd typed it. An action can optionally pin a model, provider or reasoning level for its own turn only — the session reverts afterwards. Project actions live in .moony/quickactions.json (commit it to share them); global actions are a fallback used only when a project defines none. The first action is the button's default."));
 
 // QA_ICONS is the curated icon catalog offered by the quick-action icon picker,
 // grouped by what an action tends to DO so the list is scannable.

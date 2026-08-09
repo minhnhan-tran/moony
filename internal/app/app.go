@@ -6,6 +6,7 @@ package app
 
 import (
 	"context"
+	"os"
 
 	"github.com/pysty1995/moony/internal/agent"
 	"github.com/pysty1995/moony/internal/config"
@@ -51,6 +52,11 @@ func BuildServer(cfg *config.Config) (*web.Server, *session.Store, error) {
 	factory := func(workingDir string, sess *session.Session) *agent.Agent {
 		c := *cfg // per-project copy so the working dir (and thus tools/system prompt) is correct
 		c.WorkingDir = workingDir
+		// The relay serves sessions for arbitrary project dirs, which the process's own
+		// startup migration never touched — without this, a project opened through the
+		// web UI would keep reading its legacy config dir forever. Idempotent, so the
+		// repeat cost for an already-migrated project is a single stat.
+		config.MigrateProjectDirVerbose(workingDir, os.Stderr)
 		registry := tools.Default(workingDir, c.MaxToolOutputBytes)
 		todos := tools.NewTodoStore()
 		registry.RegisterTodo(todos)

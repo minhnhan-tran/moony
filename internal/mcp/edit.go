@@ -11,7 +11,7 @@ import (
 )
 
 // AddServer writes (or overwrites) a server definition in the sqe MCP config —
-// the project's ./.sqe/mcp.json, or the global ~/.config/moony/mcp.json
+// the project's ./.moony/mcp.json, or the global ~/.config/moony/mcp.json
 // when global is true. A non-empty url makes it a remote (HTTP) server; headers
 // (optional) are sent on every request to a remote server and may reference
 // secrets via ${ENV_VAR} (expanded at load time). Returns the file written.
@@ -42,7 +42,7 @@ func AddServer(name, command string, args []string, url string, headers map[stri
 // sqe-owned config (e.g. a Claude-discovered one — disable it instead).
 func RemoveServer(name, workingDir string) (string, error) {
 	var paths []string
-	paths = append(paths, filepath.Join(workingDir, ".sqe", "mcp.json"))
+	paths = append(paths, config.ProjectPath(workingDir, "mcp.json"))
 	if p, err := config.GlobalConfigPath("mcp.json"); err == nil {
 		paths = append(paths, p)
 	}
@@ -95,7 +95,7 @@ func sqeConfigPath(global bool, workingDir string) (string, error) {
 	if global {
 		return config.GlobalConfigPath("mcp.json")
 	}
-	return filepath.Join(workingDir, ".sqe", "mcp.json"), nil
+	return config.ProjectPath(workingDir, "mcp.json"), nil
 }
 
 func readRawConfig(path string) rawConfig {

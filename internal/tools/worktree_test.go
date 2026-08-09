@@ -23,7 +23,7 @@ func TestGitWorktreeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	if !strings.Contains(out, "sqe/feature") {
+	if !strings.Contains(out, "moony/feature") {
 		t.Errorf("add output missing branch name: %q", out)
 	}
 	wtPath := filepath.Join(dir, worktreeDir, "feature")
@@ -124,7 +124,7 @@ func TestGitWorktreeBadName(t *testing.T) {
 }
 
 // TestGitWorktreeExcludedFromParentStatus checks that creating a worktree under
-// .sqe/worktrees/ doesn't leave the parent repo dirty — the worktree base dir
+// .moony/worktrees/ doesn't leave the parent repo dirty — the worktree base dir
 // is added to .git/info/exclude so it never shows as untracked (which would
 // inflate the status-bar dirty count and clutter git_status).
 func TestGitWorktreeExcludedFromParentStatus(t *testing.T) {
@@ -143,15 +143,15 @@ func TestGitWorktreeExcludedFromParentStatus(t *testing.T) {
 		t.Errorf("parent repo should be clean after add (worktree must be git-excluded), got:\n%s", st)
 	}
 
-	// The exclude entry must be the precise worktree dir, not all of .sqe/, so
-	// tracked project config under .sqe/ (commands, agents, mcp.json, …) stays
+	// The exclude entry must be the precise worktree dir, not all of .moony/, so
+	// tracked project config under .moony/ (commands, agents, mcp.json, …) stays
 	// visible to git.
 	excl, _ := os.ReadFile(filepath.Join(dir, ".git", "info", "exclude"))
 	if !strings.Contains(string(excl), worktreeDir+"/") {
 		t.Errorf("exclude file missing %q entry:\n%s", worktreeDir+"/", excl)
 	}
-	if strings.Contains(string(excl), "\n.sqe/\n") {
-		t.Errorf("exclude should not blanket-ignore all of .sqe/:\n%s", excl)
+	if strings.Contains(string(excl), "\n.moony/\n") {
+		t.Errorf("exclude should not blanket-ignore all of .moony/:\n%s", excl)
 	}
 
 	// Idempotent: a second add must not duplicate the exclude entry.

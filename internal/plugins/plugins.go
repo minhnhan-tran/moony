@@ -203,7 +203,7 @@ func commandsBase(global bool, workingDir string) (string, error) {
 	if global {
 		return config.GlobalConfigPath("commands")
 	}
-	return filepath.Join(workingDir, ".sqe", "commands"), nil
+	return config.ProjectPath(workingDir, "commands"), nil
 }
 
 // commandExists reports whether a command file is present in either scope.
@@ -213,7 +213,7 @@ func commandExists(name, workingDir string) bool {
 			return true
 		}
 	}
-	return fileExists(filepath.Join(workingDir, ".sqe", "commands", name+".md"))
+	return fileExists(config.ProjectPath(workingDir, "commands", name+".md"))
 }
 
 // writeCommand writes a plugin command's .md file. It won't clobber an existing
@@ -241,7 +241,7 @@ func writeCommand(c Command, global bool, workingDir string) (bool, error) {
 // file was removed.
 func removeCommand(name, workingDir string) bool {
 	removed := false
-	paths := []string{filepath.Join(workingDir, ".sqe", "commands", name+".md")}
+	paths := []string{config.ProjectPath(workingDir, "commands", name+".md")}
 	if p, err := config.GlobalConfigPath("commands", name+".md"); err == nil {
 		paths = append(paths, p)
 	}

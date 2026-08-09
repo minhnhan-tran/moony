@@ -11,7 +11,7 @@ import (
 
 // Scaffold creates a new persona `.md` from a template and returns its path.
 // global selects ~/.config/moony/agents; otherwise the project's
-// ./.sqe/agents under workingDir. It errors if the persona already exists.
+// ./.moony/agents under workingDir. It errors if the persona already exists.
 func Scaffold(name string, global bool, workingDir string) (string, error) {
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
 		return "", fmt.Errorf("invalid agent name %q", name)
@@ -37,7 +37,7 @@ func Scaffold(name string, global bool, workingDir string) (string, error) {
 // Builder's "New agent" form), as opposed to Scaffold (a fixed TODO template) or
 // Install (a catalog entry). description and the system-prompt body are required;
 // model and the tools allowlist are optional. global selects
-// ~/.config/moony/agents; otherwise the project's ./.sqe/agents under
+// ~/.config/moony/agents; otherwise the project's ./.moony/agents under
 // workingDir. It errors on an invalid name, an empty description/prompt, or if
 // the persona already exists. Returns the `.md` path.
 func Create(name, description, model string, tools []string, systemPrompt string, global bool, workingDir string) (string, error) {
@@ -102,7 +102,7 @@ func oneLine(s string) string {
 }
 
 // Install writes a catalog persona (see catalog.go) into the agents dir — the
-// global ~/.config/moony/agents, or the project's ./.sqe/agents when
+// global ~/.config/moony/agents, or the project's ./.moony/agents when
 // global is false. Returns the `.md` path. Errors if the persona already exists.
 func Install(name string, global bool, workingDir string) (string, error) {
 	e, ok := CatalogEntryByName(name)
@@ -151,7 +151,7 @@ func agentsBase(global bool, workingDir string) (string, error) {
 	if global {
 		return config.GlobalConfigPath("agents")
 	}
-	return filepath.Join(workingDir, ".sqe", "agents"), nil
+	return config.ProjectPath(workingDir, "agents"), nil
 }
 
 // GlobalAgentsDir returns the global agents directory
@@ -182,7 +182,7 @@ func SeedGlobalDefaultAgents() ([]string, error) {
 }
 
 // sqeNames returns the set of persona names backed by an sqe-owned file (the
-// global ~/.config/moony/agents dir or the project ./.sqe/agents), i.e.
+// global ~/.config/moony/agents dir or the project ./.moony/agents), i.e.
 // the ones that already win over any imported external of the same name.
 func sqeNames(workingDir string) map[string]bool {
 	out := map[string]bool{}
@@ -191,7 +191,7 @@ func sqeNames(workingDir string) map[string]bool {
 			out[p.Name] = true
 		}
 	}
-	for _, p := range readDir(filepath.Join(workingDir, ".sqe", "agents"), "project") {
+	for _, p := range readDir(config.ProjectPath(workingDir, "agents"), "project") {
 		out[p.Name] = true
 	}
 	return out

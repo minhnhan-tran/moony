@@ -155,6 +155,13 @@ func main() {
 		}
 	}
 
+	// Project-scoped half of the sqe->moony rename: relocate <project>/.sqe to
+	// <project>/.moony. Deliberately AFTER the -C chdir above: running it earlier
+	// would migrate whatever directory the process happened to start in, leaving the
+	// project named by -C un-migrated — and a later write could then create an empty
+	// .moony/ there that silently shadows the real .sqe/ config.
+	config.MigrateProjectDirVerbose(cfg.WorkingDir, os.Stderr)
+
 	// Session persistence (best effort: continue without it on failure).
 	store, err := session.NewStore()
 	if err != nil {

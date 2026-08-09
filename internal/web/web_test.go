@@ -1611,7 +1611,7 @@ func TestSlashAgents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".sqe", "agents", "explore.md"),
+	mustWrite(t, filepath.Join(dir, config.ProjectDir, "agents", "explore.md"),
 		"---\ndescription: read-only explorer\ntools: read_file, grep\n---\nYou explore.")
 	sess := openLive(t, srv, key)
 
@@ -1634,7 +1634,7 @@ func TestSlashLSP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".sqe", "lsp.json"),
+	mustWrite(t, filepath.Join(dir, config.ProjectDir, "lsp.json"),
 		`{"servers":{"gopls":{"command":"gopls","extensions":[".go"]}}}`)
 	sess := openLive(t, srv, key)
 
@@ -1763,7 +1763,7 @@ func findMcp(items []mcpCatalogItem, name string) (mcpCatalogItem, bool) {
 func TestMcpsCatalogListsCatalogAndCustom(t *testing.T) {
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	dir, _ := decodeProjectKey(key)
-	mustWrite(t, filepath.Join(dir, ".sqe", "mcp.json"),
+	mustWrite(t, filepath.Join(dir, config.ProjectDir, "mcp.json"),
 		`{"servers":{"mymcp":{"command":"mymcp"}}}`)
 	sess := openLive(t, srv, key)
 
@@ -1830,7 +1830,7 @@ func TestAgentsCatalogListsCatalogAndCustom(t *testing.T) {
 	t.Setenv("MN_IMPORT_EXTERNAL_AGENTS", "0") // keep discovery to sqe dirs only
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	dir, _ := decodeProjectKey(key)
-	mustWrite(t, filepath.Join(dir, ".sqe", "agents", "myagent.md"),
+	mustWrite(t, filepath.Join(dir, config.ProjectDir, "agents", "myagent.md"),
 		"---\ndescription: a custom agent\n---\nDo the thing.")
 	sess := openLive(t, srv, key)
 
@@ -1956,7 +1956,7 @@ func TestAgentsCatalogMaterializesExternals(t *testing.T) {
 func TestLspCatalogListsCatalogAndCustom(t *testing.T) {
 	srv, key := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
 	dir, _ := decodeProjectKey(key)
-	mustWrite(t, filepath.Join(dir, ".sqe", "lsp.json"),
+	mustWrite(t, filepath.Join(dir, config.ProjectDir, "lsp.json"),
 		`{"servers":{"mylsp":{"command":"mylsp","extensions":[".x"]}}}`)
 	sess := openLive(t, srv, key)
 

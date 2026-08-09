@@ -57,8 +57,8 @@ func TestIsolatedWorktree(t *testing.T) {
 		t.Fatalf("newIsolatedWorktree: %v", err)
 	}
 	// The worktree base is git-excluded so it won't show as untracked in the repo.
-	if ex, _ := os.ReadFile(filepath.Join(repo, ".git", "info", "exclude")); !strings.Contains(string(ex), ".sqe/worktrees/") {
-		t.Errorf("expected .sqe/worktrees/ in the repo's git exclude, got:\n%s", ex)
+	if ex, _ := os.ReadFile(filepath.Join(repo, ".git", "info", "exclude")); !strings.Contains(string(ex), ".moony/worktrees/") {
+		t.Errorf("expected .moony/worktrees/ in the repo's git exclude, got:\n%s", ex)
 	}
 	// Edit an existing file and add a new one INSIDE the worktree.
 	if err := os.WriteFile(filepath.Join(w.path, "a.txt"), []byte("changed in worktree\n"), 0o644); err != nil {

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // isolate points the global scope at a temp dir so tests never touch the real
@@ -191,8 +193,8 @@ func TestScopesAreSeparateFiles(t *testing.T) {
 	if got := prompts(s.ListScope(Global)); strings.Join(got, ",") != "g" {
 		t.Errorf("global scope leaked: %v", got)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".sqe", "quickactions.json")); err != nil {
-		t.Errorf("project file should live at .sqe/quickactions.json: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, config.ProjectDir, "quickactions.json")); err != nil {
+		t.Errorf("project file should live at .moony/quickactions.json: %v", err)
 	}
 }
 
@@ -218,7 +220,7 @@ func TestEnsureGlobalDefaultsDoesNotClobber(t *testing.T) {
 // degrades to an empty list rather than breaking the UI.
 func TestMalformedFileReadsEmpty(t *testing.T) {
 	dir := isolate(t)
-	p := filepath.Join(dir, ".sqe", "quickactions.json")
+	p := filepath.Join(dir, config.ProjectDir, "quickactions.json")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +236,7 @@ func TestMalformedFileReadsEmpty(t *testing.T) {
 // put an empty row in the menu.
 func TestReadDropsUnusableEntries(t *testing.T) {
 	dir := isolate(t)
-	p := filepath.Join(dir, ".sqe", "quickactions.json")
+	p := filepath.Join(dir, config.ProjectDir, "quickactions.json")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +256,7 @@ func TestPersistedShapeIsStable(t *testing.T) {
 	if err := s.Add(Action{Prompt: "make test", Label: "Test", Sub: "run it", Icon: "hammer"}, Project); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, ".sqe", "quickactions.json"))
+	data, err := os.ReadFile(filepath.Join(dir, config.ProjectDir, "quickactions.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

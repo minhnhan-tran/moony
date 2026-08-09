@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func isolate(t *testing.T) {
@@ -163,7 +165,7 @@ func TestProjectFileLocation(t *testing.T) {
 	if err := r.Add("write_file", false, Project); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".sqe", "permissions.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, config.ProjectDir, "permissions.json")); err != nil {
 		t.Fatalf("project permissions.json not written: %v", err)
 	}
 }
@@ -259,7 +261,7 @@ func TestBashDenyResistsChainingEvasion(t *testing.T) {
 func TestMalformedRulesFileFlagged(t *testing.T) {
 	isolate(t)
 	dir := t.TempDir()
-	pdir := filepath.Join(dir, ".sqe")
+	pdir := filepath.Join(dir, config.ProjectDir)
 	if err := os.MkdirAll(pdir, 0o755); err != nil {
 		t.Fatal(err)
 	}

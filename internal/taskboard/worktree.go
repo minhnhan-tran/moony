@@ -1,7 +1,7 @@
 package taskboard
 
 // worktree.go — self-contained git plumbing for the Task Board. Each task runs
-// in a throwaway worktree checked out off HEAD under <repo>/.sqe/worktrees, on
+// in a throwaway worktree checked out off HEAD under <repo>/.moony/worktrees, on
 // its own branch, so parallel tasks never collide. We capture the task's work
 // as a diff against the base commit (covering both committed and uncommitted
 // changes) and, on Apply, replay that diff onto the real working tree.
@@ -16,9 +16,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
-const worktreeSubdir = ".sqe/worktrees"
+const worktreeSubdir = config.ProjectDir + "/worktrees"
+
+// Branch prefix for taskboard worktrees (renamed from the legacy "sqe-board/").
+const boardBranchPrefix = "moony-board/"
 
 var (
 	wtSeq atomic.Int64
@@ -53,7 +58,7 @@ func createWorktree(ctx context.Context, repoRoot, label string) (*worktree, err
 	n := wtSeq.Add(1)
 	name := fmt.Sprintf("board-%s-%d-%d", sanitize(label), time.Now().UnixNano(), n)
 	path := filepath.Join(repoRoot, worktreeSubdir, name)
-	branch := "sqe-board/" + name
+	branch := boardBranchPrefix + name
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}

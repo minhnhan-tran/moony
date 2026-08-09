@@ -281,7 +281,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/deploy/aws/log", s.handleDeployLog)
 	mux.HandleFunc("POST /api/deploy/aws/cancel", s.handleDeployCancel)
 	// Quick actions: user-editable preset prompts behind the composer's split
-	// button (project-scoped .sqe/quickactions.json, global fallback).
+	// button (project-scoped .moony/quickactions.json, global fallback).
 	// Cross-session transcript search (a "where did we discuss X" jump).
 	mux.HandleFunc("GET /api/search", s.handleSearch)
 	// Stateless fill-in-the-middle inline completion for editor clients

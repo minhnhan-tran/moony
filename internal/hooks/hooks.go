@@ -4,7 +4,7 @@
 //
 // Hooks are loaded from JSON configuration files in:
 //   - ~/.config/moony/hooks.json   (global)
-//   - ./.sqe/hooks.json                     (per-project; merged over global)
+//   - ./.moony/hooks.json                     (per-project; merged over global)
 //
 // File format (all fields optional):
 //
@@ -92,7 +92,7 @@ func New(workingDir string, logger func(string)) (*Set, error) {
 			}
 		}
 	}
-	if got, err := loadFile(filepath.Join(workingDir, ".sqe", "hooks.json")); err != nil {
+	if got, err := loadFile(config.ProjectPath(workingDir, "hooks.json")); err != nil {
 		return nil, fmt.Errorf("project hooks: %w", err)
 	} else if got != nil {
 		for k, v := range got {

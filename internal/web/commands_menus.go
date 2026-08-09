@@ -135,7 +135,7 @@ func (s *Server) emitAgentsMenu(sess *session) {
 	mgmt := manage.Load(cfg.WorkingDir)
 	found := subagents.Load(cfg.WorkingDir)
 	if len(found) == 0 {
-		sess.publishEvent(wireEvent{Type: "info", Text: "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .sqe/agents."})
+		sess.publishEvent(wireEvent{Type: "info", Text: "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .moony/agents."})
 		return
 	}
 	items := make([]menuItemWire, 0, len(found))
@@ -161,7 +161,7 @@ func (s *Server) emitWorkersMenu(sess *session) {
 	mgr.Detect()
 	all := mgr.All()
 	if len(all) == 0 {
-		sess.publishEvent(wireEvent{Type: "info", Text: "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.sqe/workers.json."})
+		sess.publishEvent(wireEvent{Type: "info", Text: "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.moony/workers.json."})
 		return
 	}
 	ready := mgr.Readiness()
@@ -230,7 +230,7 @@ func (s *Server) emitLspMenu(sess *session) {
 	mgmt := manage.Load(cfg.WorkingDir)
 	cfgs, err := lsp.LoadConfigs(cfg.WorkingDir)
 	if err != nil || len(cfgs) == 0 {
-		sess.publishEvent(wireEvent{Type: "info", Text: "No language servers configured. Add one to ~/.config/moony/lsp.json or ./.sqe/lsp.json, then /lsp reload."})
+		sess.publishEvent(wireEvent{Type: "info", Text: "No language servers configured. Add one to ~/.config/moony/lsp.json or ./.moony/lsp.json, then /lsp reload."})
 		return
 	}
 	running := map[string]bool{}

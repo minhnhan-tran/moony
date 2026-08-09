@@ -2,7 +2,7 @@ package tui
 
 // Custom slash commands. Users place .md files in either:
 //   - ~/.config/moony/commands/<name>.md   (global)
-//   - ./.sqe/commands/<name>.md                     (per-project)
+//   - ./.moony/commands/<name>.md                     (per-project)
 //
 // Each file's body becomes a templated user message, with $ARGUMENTS replaced
 // by whatever the user typed after the command name. An optional YAML-ish
@@ -35,7 +35,7 @@ type userCommand struct {
 }
 
 // loadUserCommands reads commands from the global config dir and the project
-// `.sqe/commands` dir. Project commands win when names collide.
+// `.moony/commands` dir. Project commands win when names collide.
 func loadUserCommands(workingDir string) []userCommand {
 	merged := map[string]userCommand{}
 
@@ -44,7 +44,7 @@ func loadUserCommands(workingDir string) []userCommand {
 			merged[c.name] = c
 		}
 	}
-	for _, c := range readCommandDir(filepath.Join(workingDir, ".sqe", "commands"), "project") {
+	for _, c := range readCommandDir(config.ProjectPath(workingDir, "commands"), "project") {
 		merged[c.name] = c
 	}
 

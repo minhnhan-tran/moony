@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func TestScaffoldAndRemove(t *testing.T) {
@@ -21,7 +23,7 @@ func TestScaffoldAndRemove(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("scaffolded file missing: %v", err)
 	}
-	if want := filepath.Join(wd, ".sqe", "agents", "reviewer.md"); path != want {
+	if want := filepath.Join(wd, config.ProjectDir, "agents", "reviewer.md"); path != want {
 		t.Errorf("path = %q, want %q", path, want)
 	}
 

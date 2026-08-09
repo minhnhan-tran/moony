@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func TestLoadFileMissing(t *testing.T) {
@@ -35,7 +37,7 @@ func TestRunFiresCommandsAndPropagatesEnv(t *testing.T) {
 
 	proj := t.TempDir()
 	out := filepath.Join(proj, "out.txt")
-	cfgDir := filepath.Join(proj, ".sqe")
+	cfgDir := filepath.Join(proj, config.ProjectDir)
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +70,7 @@ func TestRunFiresCommandsAndPropagatesEnv(t *testing.T) {
 
 func TestUnknownEventsAreIgnored(t *testing.T) {
 	dir := t.TempDir()
-	cfgDir := filepath.Join(dir, ".sqe")
+	cfgDir := filepath.Join(dir, config.ProjectDir)
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // worktreeDir is the path (relative to the repo root) under which the agent's
 // isolated git worktrees live. Keeping them inside the working directory means
 // the existing path sandbox and ignore rules apply to them unchanged.
-const worktreeDir = ".sqe/worktrees"
+const worktreeDir = config.ProjectDir + "/worktrees"
 
 // gitWorktreeTool lets the model create, list, remove, and merge back isolated
 // git worktrees so a task's changes are confined to a throwaway branch +
@@ -38,7 +40,7 @@ func (t *gitWorktreeTool) Schema() json.RawMessage {
 		"properties": {
 			"action": {"type": "string", "enum": ["add", "list", "remove", "merge"], "description": "The operation to perform."},
 			"name":   {"type": "string", "description": "Worktree name (used for the directory and branch). Required for add/remove/merge."},
-			"branch": {"type": "string", "description": "For 'add': the new branch name to create (defaults to sqe/<name>). For 'merge': informational only."},
+			"branch": {"type": "string", "description": "For 'add': the new branch name to create (defaults to moony/<name>). For 'merge': informational only."},
 			"base":   {"type": "string", "description": "For 'add': the commit/branch to base the new worktree on (defaults to the current HEAD)."},
 			"delete_branch": {"type": "boolean", "description": "For 'remove': also delete the worktree's branch (git branch -D). Default false."},
 			"force":  {"type": "boolean", "description": "For 'remove'/'merge': force removal even with uncommitted changes in the worktree."}
@@ -73,6 +75,33 @@ func sanitizeName(name string) (string, error) {
 
 // worktreePath returns the absolute path of the named worktree, guaranteed to
 // be inside the repo root.
+// Default branch prefix for agent-created worktrees.
+//
+// legacyBranchPrefix is the pre-rename name. New branches use branchPrefix, but
+// remove/merge resolve through defaultBranch, which prefers whichever branch
+// actually EXISTS — so a worktree created by an older build can still be merged or
+// removed without the user having to pass --branch by hand.
+const (
+	branchPrefix       = "moony/"
+	legacyBranchPrefix = "sqe/"
+)
+
+// defaultBranch returns the branch name to assume for a worktree called name.
+//
+// Prefers the current prefix, but falls back to the legacy one when that branch
+// exists and the current one does not.
+func (t *gitWorktreeTool) defaultBranch(ctx context.Context, name string) string {
+	current := branchPrefix + name
+	if _, err := runGit(ctx, t.r.Root(), t.max, "rev-parse", "--verify", "--quiet", "refs/heads/"+current); err == nil {
+		return current
+	}
+	legacy := legacyBranchPrefix + name
+	if _, err := runGit(ctx, t.r.Root(), t.max, "rev-parse", "--verify", "--quiet", "refs/heads/"+legacy); err == nil {
+		return legacy
+	}
+	return current
+}
+
 func (t *gitWorktreeTool) worktreePath(name string) string {
 	return filepath.Join(t.r.Root(), worktreeDir, name)
 }
@@ -82,7 +111,7 @@ func (t *gitWorktreeTool) worktreePath(name string) string {
 // untracked in the PARENT repo's status — which would otherwise inflate the
 // dirty count (status bar / web header) and clutter git_status. It's local and
 // uncommitted: it never touches the user's tracked .gitignore, and it excludes
-// only worktreeDir, leaving the rest of .sqe/ (commands, agents, mcp.json, …)
+// only worktreeDir, leaving the rest of .moony/ (commands, agents, mcp.json, …)
 // visible to git. Best-effort and idempotent — any failure is ignored since
 // this is cosmetic cleanup, not correctness.
 func (t *gitWorktreeTool) excludeWorktreeDir(ctx context.Context) {
@@ -98,7 +127,7 @@ func (t *gitWorktreeTool) excludeWorktreeDir(ctx context.Context) {
 		commonDir = filepath.Join(t.r.Root(), commonDir)
 	}
 	excludePath := filepath.Join(commonDir, "info", "exclude")
-	entry := worktreeDir + "/" // ".sqe/worktrees/"
+	entry := worktreeDir + "/" // ".moony/worktrees/"
 
 	data, _ := os.ReadFile(excludePath)
 	for _, line := range strings.Split(string(data), "\n") {
@@ -147,7 +176,7 @@ func (t *gitWorktreeTool) add(ctx context.Context, in worktreeInput) (string, er
 	}
 	branch := strings.TrimSpace(in.Branch)
 	if branch == "" {
-		branch = "sqe/" + name
+		branch = branchPrefix + name
 	}
 	// `git worktree add -b <branch> <path> [<base>]` creates the directory,
 	// a new branch, and checks it out there in one step.
@@ -195,7 +224,7 @@ func (t *gitWorktreeTool) remove(ctx context.Context, in worktreeInput) (string,
 	if in.DeleteBranch {
 		branch := strings.TrimSpace(in.Branch)
 		if branch == "" {
-			branch = "sqe/" + name
+			branch = t.defaultBranch(ctx, name)
 		}
 		flag := "-d"
 		if in.Force {
@@ -217,7 +246,7 @@ func (t *gitWorktreeTool) merge(ctx context.Context, in worktreeInput) (string, 
 	}
 	branch := strings.TrimSpace(in.Branch)
 	if branch == "" {
-		branch = "sqe/" + name
+		branch = t.defaultBranch(ctx, name)
 	}
 	abs := t.worktreePath(name)
 	if _, statErr := os.Stat(abs); statErr != nil {
@@ -258,7 +287,7 @@ func (t *gitWorktreeTool) Preview(ctx context.Context, input json.RawMessage) (P
 	case "add":
 		branch := strings.TrimSpace(in.Branch)
 		if branch == "" {
-			branch = "sqe/" + strings.TrimSpace(in.Name)
+			branch = branchPrefix + strings.TrimSpace(in.Name)
 		}
 		return Preview{Summary: fmt.Sprintf("create isolated worktree %q on branch %q", in.Name, branch)}, nil
 	case "remove", "rm":
@@ -266,7 +295,7 @@ func (t *gitWorktreeTool) Preview(ctx context.Context, input json.RawMessage) (P
 	case "merge":
 		branch := strings.TrimSpace(in.Branch)
 		if branch == "" {
-			branch = "sqe/" + strings.TrimSpace(in.Name)
+			branch = t.defaultBranch(ctx, strings.TrimSpace(in.Name))
 		}
 		// Show what the merge would bring in.
 		diff, _ := runGit(ctx, t.r.Root(), t.max, "diff", "--stat", "HEAD.."+branch)

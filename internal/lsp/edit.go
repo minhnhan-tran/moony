@@ -1,6 +1,6 @@
 package lsp
 
-// Editing the sqe LSP config files (lsp.json) — the project's ./.sqe/lsp.json or
+// Editing the sqe LSP config files (lsp.json) — the project's ./.moony/lsp.json or
 // the global ~/.config/moony/lsp.json. Mirrors internal/mcp/edit.go.
 
 import (
@@ -13,7 +13,7 @@ import (
 )
 
 // AddServer writes (or overwrites) a language-server definition in the sqe LSP
-// config — the project's ./.sqe/lsp.json, or the global file when global is
+// config — the project's ./.moony/lsp.json, or the global file when global is
 // true. Returns the file written.
 func AddServer(name, command string, args, extensions []string, global bool, workingDir string) (string, error) {
 	if name == "" {
@@ -40,7 +40,7 @@ func AddServer(name, command string, args, extensions []string, global bool, wor
 // RemoveServer deletes a server from the sqe config files (project, then
 // global). Returns the file it was removed from.
 func RemoveServer(name, workingDir string) (string, error) {
-	paths := []string{filepath.Join(workingDir, ".sqe", "lsp.json")}
+	paths := []string{config.ProjectPath(workingDir, "lsp.json")}
 	if p, err := config.GlobalConfigPath("lsp.json"); err == nil {
 		paths = append(paths, p)
 	}
@@ -61,7 +61,7 @@ func sqeConfigPath(global bool, workingDir string) (string, error) {
 	if global {
 		return config.GlobalConfigPath("lsp.json")
 	}
-	return filepath.Join(workingDir, ".sqe", "lsp.json"), nil
+	return config.ProjectPath(workingDir, "lsp.json"), nil
 }
 
 func readRawCfg(path string) rawConfig {

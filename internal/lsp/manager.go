@@ -56,7 +56,7 @@ func LoadConfigs(workingDir string) ([]Config, error) {
 			merged[k] = v
 		}
 	}
-	got, err := readConfig(filepath.Join(workingDir, ".sqe", "lsp.json"))
+	got, err := readConfig(config.ProjectPath(workingDir, "lsp.json"))
 	if err != nil {
 		return nil, fmt.Errorf("project lsp.json: %w", err)
 	}

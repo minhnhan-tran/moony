@@ -1,7 +1,8 @@
 package tools
 
-// .sqeignore: a small subset of gitignore semantics for the agent's read-side
-// tools (glob, grep, list_dir). Reads `.sqeignore` and `.gitignore` from the
+// .moonyignore: a small subset of gitignore semantics for the agent's read-side
+// tools (glob, grep, list_dir). Reads `.moonyignore` (and the legacy
+// `.sqeignore`) plus `.gitignore` from the
 // working directory and applies a sensible built-in default so noisy folders
 // like `.git`, `node_modules`, `dist`, and build caches don't blow up
 // every search.
@@ -24,18 +25,34 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // nestedIgnoreMaxDepth bounds how deep LoadIgnore looks for nested .gitignore /
-// .sqeignore files. Real projects keep them near the top, and this scan runs at
+// agent ignore files. Real projects keep them near the top, and this scan runs at
 // startup, so a shallow bound keeps it cheap on a big tree.
 const nestedIgnoreMaxDepth = 4
+
+// ignoreFileNames are the per-directory ignore files that are honoured, in order.
+//
+// Both the current and the legacy agent ignore file are read: unlike the config
+// DIRECTORY, this is a file users hand-author and commit to their repositories, so
+// dropping the old name would silently stop honouring a file that had been working
+// — with nothing to migrate, since it lives in the user's own git history.
+var ignoreFileNames = []string{".gitignore", ignoreFileName, legacyIgnoreFileName}
+
+// The agent's own ignore file, named after the project dir it accompanies.
+const (
+	ignoreFileName       = ".moonyignore"
+	legacyIgnoreFileName = ".sqeignore"
+)
 
 // defaultIgnorePatterns are always applied. They mirror what a sensible
 // .gitignore in any repo would carry.
 var defaultIgnorePatterns = []string{
 	".git/", ".hg/", ".svn/",
-	".sqe/",
+	config.ProjectDir + "/", config.LegacyProjectDir + "/",
 	"node_modules/", "vendor/", ".venv/", "__pycache__/",
 	"dist/", "build/", "target/",
 	".next/", ".nuxt/", ".cache/", ".parcel-cache/",
@@ -63,7 +80,7 @@ type IgnoreSet struct {
 	root  string
 }
 
-// LoadIgnore reads `.sqeignore` and `.gitignore` (in that order) from root and
+// LoadIgnore reads `.gitignore` and the agent ignore files (see ignoreFileNames) from root and
 // returns a combined set, preceded by defaultIgnorePatterns. A missing file is
 // not an error.
 func LoadIgnore(root string) *IgnoreSet {
@@ -71,7 +88,7 @@ func LoadIgnore(root string) *IgnoreSet {
 	for _, p := range defaultIgnorePatterns {
 		set.add(p)
 	}
-	for _, name := range []string{".gitignore", ".sqeignore"} {
+	for _, name := range ignoreFileNames {
 		_ = set.appendFile(filepath.Join(root, name))
 	}
 	set.appendNested(root)
@@ -137,7 +154,7 @@ func (s *IgnoreSet) appendNested(root string) {
 			if s.Match(childRel, true) {
 				continue
 			}
-			for _, n := range []string{".gitignore", ".sqeignore"} {
+			for _, n := range ignoreFileNames {
 				s.appendFileScoped(filepath.Join(dir, name, n), childRel)
 			}
 			walk(filepath.Join(dir, name), childRel, depth+1)

@@ -273,9 +273,9 @@ func TestRgEnabled(t *testing.T) {
 func TestBuildRgArgs(t *testing.T) {
 	args := buildRgArgs(grepInput{
 		Pattern: "foo", IgnoreCase: true, Literal: true, Word: true, Context: 2,
-	}, 2, []string{"*.go", "*.ts"}, "/repo/.sqeignore", "internal")
+	}, 2, []string{"*.go", "*.ts"}, "/repo/.moonyignore", "internal")
 	joined := strings.Join(args, " ")
-	for _, want := range []string{"--sort path", "-i", "-F", "-w", "-g *.go", "-g *.ts", "--ignore-file /repo/.sqeignore", "-C 2", "--json", "-e foo -- internal"} {
+	for _, want := range []string{"--sort path", "-i", "-F", "-w", "-g *.go", "-g *.ts", "--ignore-file /repo/.moonyignore", "-C 2", "--json", "-e foo -- internal"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("buildRgArgs missing %q in: %s", want, joined)
 		}

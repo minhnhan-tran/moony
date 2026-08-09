@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func TestPathToURI(t *testing.T) {
@@ -74,7 +76,7 @@ func TestLoadConfigsProjectOverridesGlobal(t *testing.T) {
 	}
 
 	proj := t.TempDir()
-	pd := filepath.Join(proj, ".sqe")
+	pd := filepath.Join(proj, config.ProjectDir)
 	if err := os.MkdirAll(pd, 0o755); err != nil {
 		t.Fatal(err)
 	}

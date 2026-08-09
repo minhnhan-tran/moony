@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // Create writes a persona from user-supplied content that Load/parseFile reads
@@ -16,7 +18,7 @@ func TestCreateRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if want := filepath.Join(wd, ".sqe", "agents", "researcher.md"); path != want {
+	if want := filepath.Join(wd, config.ProjectDir, "agents", "researcher.md"); path != want {
 		t.Errorf("path = %q, want %q", path, want)
 	}
 
@@ -55,7 +57,7 @@ func TestCreateFlattensMultilineDescription(t *testing.T) {
 	if _, err := Create("x", "line one\nline two", "", nil, "body", false, wd); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	data, _ := os.ReadFile(filepath.Join(wd, ".sqe", "agents", "x.md"))
+	data, _ := os.ReadFile(filepath.Join(wd, config.ProjectDir, "agents", "x.md"))
 	if strings.Contains(string(data), "line one\nline two") {
 		t.Error("description was not flattened to a single line")
 	}
@@ -95,7 +97,7 @@ func TestCreateOmitsEmptyTools(t *testing.T) {
 	if _, err := Create("notools", "d", "", nil, "b", false, wd); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	data, _ := os.ReadFile(filepath.Join(wd, ".sqe", "agents", "notools.md"))
+	data, _ := os.ReadFile(filepath.Join(wd, config.ProjectDir, "agents", "notools.md"))
 	if strings.Contains(string(data), "tools:") {
 		t.Errorf("expected no tools: line, got:\n%s", data)
 	}

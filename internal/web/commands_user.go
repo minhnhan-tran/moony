@@ -101,7 +101,7 @@ func loadUserCommands(workingDir string) []userCommand {
 			merged[c.name] = c
 		}
 	}
-	for _, c := range readCommandDir(filepath.Join(workingDir, ".sqe", "commands"), "project") {
+	for _, c := range readCommandDir(config.ProjectPath(workingDir, "commands"), "project") {
 		merged[c.name] = c
 	}
 	out := make([]userCommand, 0, len(merged))

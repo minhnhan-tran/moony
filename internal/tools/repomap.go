@@ -33,7 +33,7 @@ var rootMarkerFiles = []string{
 // RepoMap returns a compact structural overview of the repository: the detected
 // stack, key root files, and a depth-2 directory tree with per-directory
 // (recursive) file counts. Honors the same ignore rules as the search tools
-// (.gitignore/.sqeignore + defaults), is static, and is bounded. Returns "" for
+// (.gitignore/.moonyignore + defaults), is static, and is bounded. Returns "" for
 // an empty tree. Memoized per registry (computeRepoMap's whole-tree walk runs at
 // most once) so repeated system-prompt rebuilds don't re-walk the tree.
 func (r *Registry) RepoMap() string {

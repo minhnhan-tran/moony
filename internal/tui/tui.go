@@ -523,7 +523,7 @@ type Model struct {
 	attachments []attach.Attachment
 
 	// userCommands are custom slash commands loaded from
-	// ~/.config/moony/commands and ./.sqe/commands.
+	// ~/.config/moony/commands and ./.moony/commands.
 	userCommands []userCommand
 
 	// mcpPrompts surfaces MCP-supplied prompts as slash commands; each one
@@ -3550,7 +3550,7 @@ func (m Model) openAgentsMenu() (tea.Model, tea.Cmd) {
 	mgmt := manage.Load(m.cfg.WorkingDir)
 	found := subagents.Load(m.cfg.WorkingDir)
 	if len(found) == 0 {
-		m.trans.add(entry{kind: entryInfo, text: "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .sqe/agents."})
+		m.trans.add(entry{kind: entryInfo, text: "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .moony/agents."})
 		m.refresh()
 		return m, nil
 	}
@@ -3587,7 +3587,7 @@ func (m Model) openWorkersMenu() (tea.Model, tea.Cmd) {
 	mgr.Detect() // pick up engines installed since startup
 	all := mgr.All()
 	if len(all) == 0 {
-		m.trans.add(entry{kind: entryInfo, text: "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.sqe/workers.json."})
+		m.trans.add(entry{kind: entryInfo, text: "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.moony/workers.json."})
 		m.refresh()
 		return m, nil
 	}
@@ -3835,7 +3835,7 @@ func (m Model) publishAgentsMenu() {
 	mgmt := manage.Load(m.cfg.WorkingDir)
 	found := subagents.Load(m.cfg.WorkingDir)
 	if len(found) == 0 {
-		m.publishInfo("No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .sqe/agents.")
+		m.publishInfo("No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .moony/agents.")
 		return
 	}
 	out := make([]bridge.MenuItem, 0, len(found))
@@ -3863,7 +3863,7 @@ func (m Model) publishWorkersMenu() {
 	mgr.Detect()
 	all := mgr.All()
 	if len(all) == 0 {
-		m.publishInfo("No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.sqe/workers.json.")
+		m.publishInfo("No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.moony/workers.json.")
 		return
 	}
 	ready := mgr.Readiness()

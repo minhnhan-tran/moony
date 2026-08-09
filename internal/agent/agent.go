@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -234,7 +233,7 @@ type Agent struct {
 
 	// personas are the attached sub-agent definitions (see AttachSubAgents).
 	// Primary-capable ones can also be switched to as a primary agent profile
-	// via SetAgent, so a user-defined `.sqe/agents/*.md` agent works like a
+	// via SetAgent, so a user-defined `.moony/agents/*.md` agent works like a
 	// custom build/plan profile.
 	personas []subagents.Persona
 
@@ -426,14 +425,14 @@ func New(cfg *config.Config, client llm.Streamer, registry *tools.Registry, stor
 
 				// The same embedder powers the semantic_search tool, backed by a
 				// per-workspace local vector index (package rag), stored inside the
-				// project itself at <root>/.sqe/rag/index.gob (alongside
+				// project itself at <root>/.moony/rag/index.gob (alongside
 				// mcp.json/permissions.json) rather than the global config dir, so
 				// it's easy to find/inspect/delete per project and travels with the
 				// project if it moves. MN_RAG_INDEX_DIR overrides (e.g. to share one
 				// index across worktrees).
 				idxPath := strings.TrimSpace(cfg.RAGIndexDir)
 				if idxPath == "" && registry.Root() != "" {
-					idxPath = filepath.Join(registry.Root(), ".sqe", "rag", "index.gob")
+					idxPath = config.ProjectPath(registry.Root(), "rag", "index.gob")
 				}
 				if idxPath != "" {
 					registry.Register(tools.NewSemanticSearchTool(registry, idxPath, cfg.EmbeddingsModel))

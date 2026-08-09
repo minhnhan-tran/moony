@@ -6,7 +6,7 @@
 // quickactions.json:
 //
 //   - global:  ~/.config/sqeqct-coding-agent/quickactions.json
-//   - project: ./.sqe/quickactions.json
+//   - project: ./.moony/quickactions.json
 //
 // The project scope is what the UI edits (presets are usually repo-specific,
 // e.g. "rio build"), and it's committable so a team shares the same buttons.
@@ -451,7 +451,7 @@ func projectPath(workingDir string) string {
 	if strings.TrimSpace(workingDir) == "" {
 		return ""
 	}
-	return filepath.Join(workingDir, ".sqe", "quickactions.json")
+	return config.ProjectPath(workingDir, "quickactions.json")
 }
 
 func read(path string) file {

@@ -33,7 +33,7 @@ func TestCheckHooks(t *testing.T) {
 
 	t.Run("valid", func(t *testing.T) {
 		dir := t.TempDir()
-		writeFile(t, filepath.Join(dir, ".sqe", "hooks.json"),
+		writeFile(t, filepath.Join(dir, config.ProjectDir, "hooks.json"),
 			`{"post_turn":["echo done"],"pre_tool":["./audit.sh"]}`)
 		r := &Report{}
 		checkHooks(r, &config.Config{WorkingDir: dir})
@@ -48,7 +48,7 @@ func TestCheckHooks(t *testing.T) {
 
 	t.Run("malformed", func(t *testing.T) {
 		dir := t.TempDir()
-		writeFile(t, filepath.Join(dir, ".sqe", "hooks.json"), `{not json`)
+		writeFile(t, filepath.Join(dir, config.ProjectDir, "hooks.json"), `{not json`)
 		r := &Report{}
 		checkHooks(r, &config.Config{WorkingDir: dir})
 		c := find(r, "hooks config")
@@ -73,9 +73,9 @@ func TestCheckSubagentsAndCommands(t *testing.T) {
 
 	t.Run("persona with unknown tool warns", func(t *testing.T) {
 		dir := t.TempDir()
-		writeFile(t, filepath.Join(dir, ".sqe", "agents", "explore.md"),
+		writeFile(t, filepath.Join(dir, config.ProjectDir, "agents", "explore.md"),
 			"---\ntools: read_file, frobnicate\n---\nYou explore.")
-		writeFile(t, filepath.Join(dir, ".sqe", "commands", "review.md"),
+		writeFile(t, filepath.Join(dir, config.ProjectDir, "commands", "review.md"),
 			"---\ndescription: review\n---\n$ARGUMENTS")
 		r := &Report{}
 		checkSubagentsAndCommands(r, &config.Config{WorkingDir: dir})
@@ -92,7 +92,7 @@ func TestCheckSubagentsAndCommands(t *testing.T) {
 
 	t.Run("known tools do not warn", func(t *testing.T) {
 		dir := t.TempDir()
-		writeFile(t, filepath.Join(dir, ".sqe", "agents", "ro.md"),
+		writeFile(t, filepath.Join(dir, config.ProjectDir, "agents", "ro.md"),
 			"---\ntools: read_file, glob, grep, mcp.fs.read, task\n---\nRead only.")
 		r := &Report{}
 		checkSubagentsAndCommands(r, &config.Config{WorkingDir: dir})

@@ -62,7 +62,7 @@ func LoadConfigs(workingDir string) ([]Config, error) {
 			merged[k] = v
 		}
 	}
-	got, err := readConfig(filepath.Join(workingDir, ".sqe", "format.json"))
+	got, err := readConfig(config.ProjectPath(workingDir, "format.json"))
 	if err != nil {
 		return nil, fmt.Errorf("project format.json: %w", err)
 	}

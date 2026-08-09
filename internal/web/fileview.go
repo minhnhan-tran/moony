@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // maxViewBytes caps a served file. Big enough for essentially any source file,
@@ -277,8 +279,11 @@ func (s *Server) handleFileTree(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, e := range entries {
 		name := e.Name()
-		if strings.HasPrefix(name, ".") && name != ".sqe" {
-			continue // dotfiles are noise in a browser; .sqe holds project config
+		// Dotfiles are noise in a browser, but the project config dir is worth
+		// showing. The legacy name is included so an un-migrated checkout still
+		// exposes its config.
+		if strings.HasPrefix(name, ".") && name != config.ProjectDir && name != config.LegacyProjectDir {
+			continue
 		}
 		if e.IsDir() && skipDirNames[name] {
 			continue

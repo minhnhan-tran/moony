@@ -3029,7 +3029,7 @@ async function send(override) {
 // A split button that fires a preset prompt at the agent so the user doesn't
 // retype it. The presets are user-editable (Manage → Quick actions) and come
 // from /api/quickactions, which merges a committable per-project
-// .sqe/quickactions.json with a global fallback. The chosen action becomes the
+// .moony/quickactions.json with a global fallback. The chosen action becomes the
 // primary half's default and is remembered across reloads. Sending routes
 // through send() rather than sendText() so the preset inherits everything a
 // typed message gets: the busy/queue path, composer clearing, attachments.

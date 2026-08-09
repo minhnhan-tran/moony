@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func TestParseCommandFile(t *testing.T) {
@@ -62,7 +64,7 @@ func TestLoadUserCommandsProjectOverridesGlobal(t *testing.T) {
 	}
 
 	proj := t.TempDir()
-	projDir := filepath.Join(proj, ".sqe", "commands")
+	projDir := filepath.Join(proj, config.ProjectDir, "commands")
 	if err := os.MkdirAll(projDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

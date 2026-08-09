@@ -96,10 +96,10 @@ func TestInheritSandboxNilSafe(t *testing.T) {
 func TestSubAgentInheritsHooks(t *testing.T) {
 	// A real Set from a hooks.json, so this exercises the type the agent actually holds.
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".sqe"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.ProjectDir), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".sqe", "hooks.json"),
+	if err := os.WriteFile(filepath.Join(dir, config.ProjectDir, "hooks.json"),
 		[]byte(`{"pre_tool":["exit 77"]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

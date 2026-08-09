@@ -13,7 +13,7 @@ import (
 // Quick actions panel.
 //
 // Actions are stored in two scopes (see internal/quickactions): a committable
-// per-project .sqe/quickactions.json, and a global fallback used only when the
+// per-project .moony/quickactions.json, and a global fallback used only when the
 // project defines none. The panel edits one scope at a time; the button always
 // renders the effective list.
 //

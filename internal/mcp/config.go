@@ -14,7 +14,7 @@ package mcp
 //	moony ("servers" key):
 //	  - <global>/mcp.json                    (global; <global> = ~/.config/moony,
 //	                                            honoring $XDG_CONFIG_HOME, on every OS — see config.GlobalConfigDir)
-//	  - ./.sqe/mcp.json                      (project; overrides)
+//	  - ./.moony/mcp.json                      (project; overrides)
 //
 // Schema (sqe files use "servers", Claude files use "mcpServers"; entries are
 // otherwise identical):
@@ -96,7 +96,7 @@ func LoadConfigs(workingDir string) ([]Config, error) {
 		}
 		apply(got)
 	}
-	got, err := readConfig(filepath.Join(workingDir, ".sqe", "mcp.json"))
+	got, err := readConfig(config.ProjectPath(workingDir, "mcp.json"))
 	if err != nil {
 		return nil, fmt.Errorf("project mcp.json: %w", err)
 	}
@@ -181,7 +181,7 @@ func ReferencedEnvVars(workingDir string) []string {
 			apply(got)
 		}
 	}
-	if got, err := readConfig(filepath.Join(workingDir, ".sqe", "mcp.json")); err == nil {
+	if got, err := readConfig(config.ProjectPath(workingDir, "mcp.json")); err == nil {
 		apply(got)
 	}
 	for _, raw := range merged {

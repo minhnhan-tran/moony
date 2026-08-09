@@ -8,7 +8,7 @@ import (
 
 func TestIgnoreSetDefaultsAndCustomPatterns(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".sqeignore"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, ".moonyignore"), []byte(`
 # comment
 secrets/
 *.tmp
@@ -95,7 +95,7 @@ func TestNestedIgnoreScopedToItsOwnSubtree(t *testing.T) {
 // checking a single file) would otherwise be told the file is visible.
 func TestDirOnlyRuleHidesFilesUnderneath(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, ".sqeignore"), []byte("build/\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".moonyignore"), []byte("build/\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ig := LoadIgnore(root)

@@ -55,7 +55,7 @@ func (m Model) workersCmd(fields []string) string {
 	}
 	mgr.Detect() // pick up any engines installed since startup
 	if mgr.Empty() {
-		return "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.sqe/workers.json (see the README's \"Worker agents\" section)."
+		return "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.moony/workers.json (see the README's \"Worker agents\" section)."
 	}
 	if len(fields) < 2 {
 		return workersList(mgr)
@@ -700,7 +700,7 @@ func (m Model) lspCmd(fields []string) string {
 		return "lsp config invalid: " + err.Error()
 	}
 	if len(cfgs) == 0 {
-		return "No language servers configured. Add one to ~/.config/moony/lsp.json or ./.sqe/lsp.json (see /doctor), then /lsp reload."
+		return "No language servers configured. Add one to ~/.config/moony/lsp.json or ./.moony/lsp.json (see /doctor), then /lsp reload."
 	}
 	running := map[string]bool{}
 	for _, n := range m.lspMgr.Running() {

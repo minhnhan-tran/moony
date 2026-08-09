@@ -384,7 +384,7 @@ func commandNames(workingDir string) []string {
 	if base, err := config.GlobalConfigDir(); err == nil {
 		add(filepath.Join(base, "commands"))
 	}
-	add(filepath.Join(workingDir, ".sqe", "commands"))
+	add(config.ProjectPath(workingDir, "commands"))
 
 	out := make([]string, 0, len(seen))
 	for name := range seen {

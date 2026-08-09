@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
-// writeProjectConfig drops a .sqe/format.json under dir.
+// writeProjectConfig drops a .moony/format.json under dir.
 func writeProjectConfig(t *testing.T, dir, body string) {
 	t.Helper()
-	sqe := filepath.Join(dir, ".sqe")
+	sqe := filepath.Join(dir, config.ProjectDir)
 	if err := os.MkdirAll(sqe, 0o755); err != nil {
 		t.Fatal(err)
 	}

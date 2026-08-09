@@ -5,7 +5,7 @@
 //
 // Personas are loaded from:
 //   - ~/.config/moony/agents/<name>.md  (global)
-//   - ./.sqe/agents/<name>.md                    (per-project; overrides)
+//   - ./.moony/agents/<name>.md                    (per-project; overrides)
 //
 // They're also auto-discovered from neighboring agent tools so personas defined
 // for Optimus or Claude Code show up here without copying files (lowest
@@ -213,7 +213,7 @@ func (p Persona) ReadOnly() bool {
 	return true
 }
 
-// Load reads personas from the global config dir and the project `.sqe/agents`
+// Load reads personas from the global config dir and the project `.moony/agents`
 // dir, plus (unless MN_IMPORT_EXTERNAL_AGENTS=0) any agents defined for Optimus
 // or Claude Code, plus the always-on read-only built-ins (BuiltinPersonas).
 // Precedence, low → high: built-ins, external imports, sqe global, sqe project —
@@ -246,7 +246,7 @@ func Load(workingDir string) []Persona {
 			merged[p.Name] = p
 		}
 	}
-	for _, p := range readDir(filepath.Join(workingDir, ".sqe", "agents"), "project") {
+	for _, p := range readDir(config.ProjectPath(workingDir, "agents"), "project") {
 		merged[p.Name] = p
 	}
 

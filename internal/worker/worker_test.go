@@ -9,11 +9,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func writeWorkers(t *testing.T, dir, body string) {
 	t.Helper()
-	sqe := filepath.Join(dir, ".sqe")
+	sqe := filepath.Join(dir, config.ProjectDir)
 	if err := os.MkdirAll(sqe, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ Notes are appended under a `## Memory` section of the relevant `AGENTS.md` (so t
 Drop `.md` files into either:
 
 - `~/.config/moony/commands/<name>.md` (global)
-- `./.sqe/commands/<name>.md` (per-project; overrides global)
+- `./.moony/commands/<name>.md` (per-project; overrides global)
 
 Each file's body becomes a templated user message; `$ARGUMENTS` is replaced with whatever you typed after the command name. Optional frontmatter sets a one-line description shown in the menu:
 
@@ -45,7 +45,7 @@ Run it as `/review` (or `/review with focus on tests`).
 
 ## Sub-agents (`task` tool)
 
-Define specialized personas in `.md` files at `~/.config/moony/agents/<name>.md` or `./.sqe/agents/<name>.md`. The model can delegate self-contained subtasks to them via a built-in `task` tool, getting back just the persona's final answer (so the parent's history stays focused).
+Define specialized personas in `.md` files at `~/.config/moony/agents/<name>.md` or `./.moony/agents/<name>.md`. The model can delegate self-contained subtasks to them via a built-in `task` tool, getting back just the persona's final answer (so the parent's history stays focused).
 
 ```markdown
 ---
@@ -65,7 +65,7 @@ When the model dispatches several `task` calls in one turn, they run concurrentl
 
 ## Hooks
 
-Run user scripts at lifecycle points by adding either `~/.config/moony/hooks.json` or `./.sqe/hooks.json`:
+Run user scripts at lifecycle points by adding either `~/.config/moony/hooks.json` or `./.moony/hooks.json`:
 
 ```json
 {
@@ -120,7 +120,7 @@ Discovery uses **progressive disclosure**: only the catalog of names + descripti
 
 ## MCP servers
 
-Add `~/.config/moony/mcp.json` or `./.sqe/mcp.json` to connect to any [Model Context Protocol](https://modelcontextprotocol.io) server. Their tools appear to the model as `mcp.<server>.<tool>`. Resources are exposed as `mcp.<server>.read_resource`, and any prompt the server advertises auto-registers as a `/mcp.<server>.<prompt>` slash command.
+Add `~/.config/moony/mcp.json` or `./.moony/mcp.json` to connect to any [Model Context Protocol](https://modelcontextprotocol.io) server. Their tools appear to the model as `mcp.<server>.<tool>`. Resources are exposed as `mcp.<server>.read_resource`, and any prompt the server advertises auto-registers as a `/mcp.<server>.<prompt>` slash command.
 
 ```json
 {
@@ -152,11 +152,11 @@ Skills, MCP servers, subagent personas, and worker agents can be listed and chan
 
 - **List** — `/skills`, `/mcps`, or `/agents` with no arguments shows every discovered item with its on/off state. In the terminal it's a selectable picker (arrow keys + enter toggles); in the web UI it's the same clickable picker, and the Manage panel has a section for each.
 - **Enable / disable** — `/skills enable|disable <name>`, `/mcps enable|disable <name>`, and `/agents enable|disable <name>` flip an item on or off. Toggling a skill or subagent re-attaches the enabled set to the model immediately; toggling an MCP server takes effect after `/mcps reload`. A disabled subagent disappears from the `task` tool's persona list.
-- **Add / scaffold** — `/skills new <name>` scaffolds a `SKILL.md` template (in `./.claude/skills`, or `~/.claude/skills` with `--global`); `/agents new <name>` scaffolds a persona `.md` (in `./.sqe/agents`, or `~/.config/moony/agents` with `--global`); `/mcps add <name> -- <cmd> [args]` (stdio) or `/mcps add <name> <url>` (HTTP) writes a server into `mcp.json`.
+- **Add / scaffold** — `/skills new <name>` scaffolds a `SKILL.md` template (in `./.claude/skills`, or `~/.claude/skills` with `--global`); `/agents new <name>` scaffolds a persona `.md` (in `./.moony/agents`, or `~/.config/moony/agents` with `--global`); `/mcps add <name> -- <cmd> [args]` (stdio) or `/mcps add <name> <url>` (HTTP) writes a server into `mcp.json`.
 - **Remove** — `/skills remove <name>` deletes the skill's directory (refused for `~/.agents` skills — disable those instead); `/agents remove <name>` deletes the persona's `.md`; `/mcps remove <name>` drops the server from `mcp.json`.
 - **Reload** — `/mcps reload` reconnects the enabled MCP servers in place (detaching the old tools first), so adds/removes/toggles apply live.
 
-**Scope & precedence.** Changes default to **this project** (`./.sqe/manage.json`); add `--global` (or `-g`) to target the user-level file (`~/.config/moony/manage.json`). Enable/disable state is tracked separately from the skill/MCP/agent source files (so nothing is edited to turn an item off), and resolves most- to least-specific:
+**Scope & precedence.** Changes default to **this project** (`./.moony/manage.json`); add `--global` (or `-g`) to target the user-level file (`~/.config/moony/manage.json`). Enable/disable state is tracked separately from the skill/MCP/agent source files (so nothing is edited to turn an item off), and resolves most- to least-specific:
 
 ```
 project explicitly enabled   -> on   (re-enables a globally-disabled item)
@@ -169,7 +169,7 @@ In the web UI the same actions are available as buttons: each row has an on/off 
 
 ## LSP servers (diagnostics)
 
-Add `~/.config/moony/lsp.json` or `./.sqe/lsp.json` to wire up language servers. After every successful `write_file`/`edit_file`/`multi_edit`/`apply_patch`, diagnostics for the changed file(s) are appended to the tool's result so the model sees errors right away.
+Add `~/.config/moony/lsp.json` or `./.moony/lsp.json` to wire up language servers. After every successful `write_file`/`edit_file`/`multi_edit`/`apply_patch`, diagnostics for the changed file(s) are appended to the tool's result so the model sees errors right away.
 
 ```json
 {
@@ -224,7 +224,7 @@ Works with any DAP-compliant adapter: `dlv dap` (Go), `debugpy` (Python), `node 
 
 ## Code formatters (format-on-write)
 
-Add `~/.config/moony/format.json` or `./.sqe/format.json` to run formatters on changed files. After every successful `write_file`/`edit_file`/`multi_edit`/`apply_patch`, each changed file is formatted **in place** — right before LSP diagnostics run, so diagnostics see the formatted code. The file path is appended as the final argument, so each formatter is invoked as `<command> <args...> <file>` and is expected to edit the file in place.
+Add `~/.config/moony/format.json` or `./.moony/format.json` to run formatters on changed files. After every successful `write_file`/`edit_file`/`multi_edit`/`apply_patch`, each changed file is formatted **in place** — right before LSP diagnostics run, so diagnostics see the formatted code. The file path is appended as the final argument, so each formatter is invoked as `<command> <args...> <file>` and is expected to edit the file in place.
 
 ```json
 {
@@ -267,7 +267,7 @@ Caps: images ≤ 5 MB, PDFs ≤ 32 MB, Office files ≤ 30 MB (extracted text �
 
 **Auto-detection:** if the `claude` (Claude Code) or `optimus` CLI is on your `PATH`, a default read-only worker for it is added automatically — `delegate` works with no config. `/workers` probes each engine by running `<cli> --version` and shows its state (`ready` / `not ready` / `missing`).
 
-To customize (a named worker, a pinned model, a second worker on the same engine), add entries to `~/.config/moony/workers.json` or `./.sqe/workers.json`:
+To customize (a named worker, a pinned model, a second worker on the same engine), add entries to `~/.config/moony/workers.json` or `./.moony/workers.json`:
 
 ```json
 {

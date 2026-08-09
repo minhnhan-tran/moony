@@ -424,7 +424,7 @@ func (s *Server) agentsCommand(sess *session, arg string) string {
 	}
 	found := subagents.Load(cfg.WorkingDir)
 	if len(found) == 0 {
-		return "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .sqe/agents."
+		return "No subagents found. Add one with /agents new <name>, or place a .md under ~/.config/moony/agents or .moony/agents."
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Subagents (%d):\n", len(found))
@@ -581,7 +581,7 @@ func (s *Server) workersCommand(sess *session, arg string) string {
 	}
 	mgr.Detect()
 	if mgr.Empty() {
-		return "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.sqe/workers.json."
+		return "No workers available. Install Claude Code (`claude`) or Optimus (`optimus`), or add a worker to ./.moony/workers.json."
 	}
 	f := strings.Fields(arg)
 	if len(f) >= 1 {

@@ -591,7 +591,7 @@ type Config struct {
 	CodebaseMapPromptBytes int
 
 	// RAGIndexDir overrides where the per-workspace semantic_search vector index
-	// is stored (default <root>/.sqe/rag/index.gob). Set via MN_RAG_INDEX_DIR —
+	// is stored (default <root>/.moony/rag/index.gob). Set via MN_RAG_INDEX_DIR —
 	// e.g. to share one index across git worktrees of the same repo.
 	RAGIndexDir string
 

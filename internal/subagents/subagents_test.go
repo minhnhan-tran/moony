@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 func TestParseFile(t *testing.T) {
@@ -96,7 +98,7 @@ func TestLoadProjectOverridesGlobal(t *testing.T) {
 	}
 
 	proj := t.TempDir()
-	pd := filepath.Join(proj, ".sqe", "agents")
+	pd := filepath.Join(proj, config.ProjectDir, "agents")
 	if err := os.MkdirAll(pd, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +213,7 @@ func TestSQEProjectOverridesExternalAgent(t *testing.T) {
 	}
 
 	proj := t.TempDir()
-	pd := filepath.Join(proj, ".sqe", "agents")
+	pd := filepath.Join(proj, config.ProjectDir, "agents")
 	if err := os.MkdirAll(pd, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +356,7 @@ func TestDefaultAgentFilesRoundTrip(t *testing.T) {
 // TestWriteDefaultAgents covers scaffolding: it writes missing files, skips
 // existing ones unless force is set, and the result is loadable.
 func TestWriteDefaultAgents(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".sqe", "agents")
+	dir := filepath.Join(t.TempDir(), config.ProjectDir, "agents")
 
 	written, err := WriteDefaultAgents(dir, false)
 	if err != nil {

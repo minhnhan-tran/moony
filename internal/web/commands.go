@@ -675,7 +675,7 @@ func webHelpText() string {
 		}
 		fmt.Fprintf(&b, "  %-22s %s\n", n, c.Desc)
 	}
-	b.WriteString("\nType / in the input to autocomplete. Custom commands live in .sqe/commands/<name>.md.")
+	b.WriteString("\nType / in the input to autocomplete. Custom commands live in .moony/commands/<name>.md.")
 	return b.String()
 }
 

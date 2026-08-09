@@ -64,7 +64,7 @@ func (t *taskTool) Description() string {
 	if len(t.personas) == 0 {
 		return "Delegate a self-contained subtask to a sub-agent. " +
 			"No custom personas are configured, so this tool currently has no agents to dispatch to. " +
-			"Add a persona at .sqe/agents/<name>.md to enable it."
+			"Add a persona at .moony/agents/<name>.md to enable it."
 	}
 	var b strings.Builder
 	b.WriteString("Delegate a self-contained subtask to a sub-agent. The sub-agent runs in an isolated context with its own system prompt and tool subset. ")

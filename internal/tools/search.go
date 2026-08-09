@@ -25,7 +25,7 @@ func (t *lsTool) Name() string { return "list_dir" }
 func (t *lsTool) Description() string {
 	return "List the files and subdirectories of a directory (non-recursive). " +
 		"Directories are suffixed with '/'. Defaults to the working directory. " +
-		"Entries listed in .gitignore/.sqeignore are skipped."
+		"Entries listed in .gitignore/.moonyignore are skipped."
 }
 
 func (t *lsTool) Schema() json.RawMessage {
@@ -357,7 +357,7 @@ func noGrepMatchDiagnostic(in grepInput) string {
 	} else {
 		msg += " —"
 	}
-	return msg + " The scan skips .gitignore/.sqeignore entries, binary files, and files >5MB, so the term may be in a skipped/generated file — otherwise it's likely absent or spelled differently."
+	return msg + " The scan skips .gitignore/.moonyignore entries, binary files, and files >5MB, so the term may be in a skipped/generated file — otherwise it's likely absent or spelled differently."
 }
 
 // search runs a prepared grepInput through the ripgrep fast path (with a pure-Go
@@ -711,11 +711,11 @@ func rgEnabled() bool {
 // results) shape as the Go scanner. It returns ok=false on any problem (rg
 // missing/errored, bad pattern for rg's regex engine, etc.) so the caller falls
 // back. Results are post-filtered through the project's ignore set so rg never
-// surfaces a path the Go path would hide (.sqeignore parity).
+// surfaces a path the Go path would hide (agent-ignore parity).
 func (t *grepTool) scanWithRipgrep(ctx context.Context, rgPath string, in grepInput, ctxN int, rawGlobs []string, searchTarget string) ([]string, []fileResult, bool) {
 	rgCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(rgCtx, rgPath, buildRgArgs(in, ctxN, rawGlobs, t.sqeignorePath(), searchTarget)...)
+	cmd := exec.CommandContext(rgCtx, rgPath, buildRgArgs(in, ctxN, rawGlobs, t.agentIgnorePath(), searchTarget)...)
 	cmd.Dir = t.r.Root()
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -766,19 +766,22 @@ func (t *grepTool) ignored(rel string) bool {
 	return false
 }
 
-// sqeignorePath returns the project's .sqeignore path if it exists, so it can be
-// passed to ripgrep (which honors .gitignore but not .sqeignore).
-func (t *grepTool) sqeignorePath() string {
-	p := filepath.Join(t.r.Root(), ".sqeignore")
-	if _, err := os.Stat(p); err == nil {
-		return p
+// agentIgnorePath returns the project's agent ignore file if one exists, so it can
+// be passed to ripgrep (which honors .gitignore but not our own ignore file).
+// The current name wins; the legacy name is still honoured when only it is present.
+func (t *grepTool) agentIgnorePath() string {
+	for _, name := range []string{ignoreFileName, legacyIgnoreFileName} {
+		p := filepath.Join(t.r.Root(), name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	return ""
 }
 
 // buildRgArgs maps the grep options to ripgrep flags. --sort path makes rg's
 // output deterministic and path-sorted, matching the Go scanner.
-func buildRgArgs(in grepInput, ctxN int, rawGlobs []string, sqeignore, searchTarget string) []string {
+func buildRgArgs(in grepInput, ctxN int, rawGlobs []string, agentIgnore, searchTarget string) []string {
 	args := []string{"--sort", "path", "--max-filesize", strconv.Itoa(maxGrepFileSize)}
 	if in.IgnoreCase {
 		args = append(args, "-i")
@@ -792,8 +795,8 @@ func buildRgArgs(in grepInput, ctxN int, rawGlobs []string, sqeignore, searchTar
 	for _, g := range rawGlobs {
 		args = append(args, "-g", g)
 	}
-	if sqeignore != "" {
-		args = append(args, "--ignore-file", sqeignore)
+	if agentIgnore != "" {
+		args = append(args, "--ignore-file", agentIgnore)
 	}
 	if in.FilesOnly {
 		args = append(args, "-l")

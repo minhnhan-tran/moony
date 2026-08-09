@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/pysty1995/moony/internal/config"
 )
 
 // fakeTransport is a controllable in-process Transport that mimics an MCP
@@ -249,7 +251,7 @@ func TestLoadConfigsProjectOverridesGlobal(t *testing.T) {
 	}
 
 	proj := t.TempDir()
-	pd := filepath.Join(proj, ".sqe")
+	pd := filepath.Join(proj, config.ProjectDir)
 	if err := os.MkdirAll(pd, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +287,7 @@ func TestLoadConfigsProjectOverridesGlobal(t *testing.T) {
 
 func TestLoadConfigsMalformed(t *testing.T) {
 	dir := t.TempDir()
-	pd := filepath.Join(dir, ".sqe")
+	pd := filepath.Join(dir, config.ProjectDir)
 	if err := os.MkdirAll(pd, 0o755); err != nil {
 		t.Fatal(err)
 	}

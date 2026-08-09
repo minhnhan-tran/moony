@@ -124,11 +124,11 @@ func globalPath() string {
 }
 
 func projectPath(workingDir string) string {
-	return filepath.Join(workingDir, ".sqe", "workers.json")
+	return config.ProjectPath(workingDir, "workers.json")
 }
 
 // Load reads global (~/.config/moony/workers.json) then project
-// (<workingDir>/.sqe/workers.json) configs; project entries override global ones
+// (<workingDir>/.moony/workers.json) configs; project entries override global ones
 // with the same name. Disabled workers are included (the Manager decides what's
 // active), tagged with their source file so edits persist in place. Invalid
 // entries are skipped; missing files are not an error.

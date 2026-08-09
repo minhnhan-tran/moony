@@ -12,7 +12,7 @@
 //
 // State is in-memory for the life of the session (not persisted across a full
 // process restart); worktrees live under
-// <repo>/.sqe/worktrees and are cleaned up on Apply, Discard, or Close.
+// <repo>/.moony/worktrees and are cleaned up on Apply, Discard, or Close.
 //
 // Isolation is by convention, not a sandbox: a task's git *worktree* is
 // separate, but the sub-process has normal OS filesystem/network access (the

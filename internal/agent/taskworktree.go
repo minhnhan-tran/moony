@@ -19,12 +19,20 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pysty1995/moony/internal/config"
 	"github.com/pysty1995/moony/internal/tools"
 )
 
 // taskWorktreeDir mirrors the git_worktree tool's location so isolated task
 // worktrees live alongside (and are ignored like) the manual ones.
-const taskWorktreeDir = ".sqe/worktrees"
+const taskWorktreeDir = config.ProjectDir + "/worktrees"
+
+// Branch prefixes for sub-agent task worktrees. The legacy prefix is still cleaned
+// up so worktrees created before the rename do not leak branches.
+const (
+	taskBranchPrefix       = "moony-task/"
+	legacyTaskBranchPrefix = "sqe-task/"
+)
 
 // worktreeSeq makes concurrent isolated-task worktree names unique.
 var worktreeSeq atomic.Int64
@@ -56,7 +64,7 @@ func isGitWorktreeRepo(ctx context.Context, dir string) bool {
 
 // isolatedWorktree is a throwaway git worktree for one delegated sub-agent.
 type isolatedWorktree struct {
-	path   string // absolute worktree dir (under repo/.sqe/worktrees)
+	path   string // absolute worktree dir (under repo/.moony/worktrees)
 	branch string
 	repo   string // the parent repo root
 }
@@ -67,7 +75,7 @@ func newIsolatedWorktree(ctx context.Context, repoRoot, label string) (*isolated
 	seq := worktreeSeq.Add(1)
 	name := fmt.Sprintf("task-%s-%d-%d-%d", sanitizeWorktreeLabel(label), time.Now().UnixNano(), os.Getpid(), seq)
 	path := filepath.Join(repoRoot, taskWorktreeDir, name)
-	branch := "sqe-task/" + name
+	branch := taskBranchPrefix + name
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
@@ -111,7 +119,7 @@ func excludeFromGitStatus(ctx context.Context, repoRoot string) {
 		commonDir = filepath.Join(repoRoot, commonDir)
 	}
 	excludePath := filepath.Join(commonDir, "info", "exclude")
-	entry := taskWorktreeDir + "/" // ".sqe/worktrees/"
+	entry := taskWorktreeDir + "/" // ".moony/worktrees/"
 	data, _ := os.ReadFile(excludePath)
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.TrimSpace(line) == entry {
@@ -177,8 +185,8 @@ const staleTaskWorktreeLockedAge = 7 * 24 * time.Hour
 
 // pruneStaleTaskWorktrees clears leaked isolation worktrees left by agents that
 // died before cleanup(): (1) `git worktree prune` drops registry entries + locks
-// whose working dirs are already gone; (2) any .sqe/worktrees/task-* dir older
-// than staleTaskWorktreeAge is force-removed and its sqe-task/* branch deleted.
+// whose working dirs are already gone; (2) any .moony/worktrees/task-* dir older
+// than staleTaskWorktreeAge is force-removed and its task branch deleted.
 // Called under worktreeOpMu. Entirely best-effort — a failure just leaves the
 // leftover for a later sweep and never blocks a new worktree.
 func pruneStaleTaskWorktrees(ctx context.Context, repoRoot string) {
@@ -214,7 +222,10 @@ func pruneStaleTaskWorktrees(ctx context.Context, repoRoot string) {
 		_, _ = gitText(ctx, repoRoot, "worktree", "unlock", stale)
 		_, _ = gitText(ctx, repoRoot, "worktree", "remove", "--force", stale)
 		_ = os.RemoveAll(stale)
-		_, _ = gitText(ctx, repoRoot, "branch", "-D", "sqe-task/"+e.Name())
+		// Both prefixes: a worktree created before the rename is on the legacy branch,
+		// and leaving it behind would leak a branch per stale worktree.
+		_, _ = gitText(ctx, repoRoot, "branch", "-D", taskBranchPrefix+e.Name())
+		_, _ = gitText(ctx, repoRoot, "branch", "-D", legacyTaskBranchPrefix+e.Name())
 	}
 	_, _ = gitText(ctx, repoRoot, "worktree", "prune")
 }
