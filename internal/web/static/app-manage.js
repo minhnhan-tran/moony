@@ -234,10 +234,33 @@ function gitBadgeClass(c) {
 // (empty content removes it); changes hit the agent immediately (it rewrites
 // AGENTS.md and rebuilds the system prompt), so they apply to the next turn.
 
-async function openMemoryEditor() {
+// The session-memory modal groups everything the agent carries INTO a turn as
+// project knowledge: the AGENTS.md memory bullets, the project notes backlog that
+// @notes hands over, and the codebase map it consults before exploring. They were
+// scattered across two modals before, which made the map hard to find even though
+// it is the piece that most affects how much the agent has to re-read.
+const MEMORY_TABS = [
+  { key: "memory", label: "Memory", icon: "brain", render: () => renderMemoryEditor() },
+  { key: "notes", label: "Notes", icon: "note.text", render: () => renderMemoryNotesTab() },
+  { key: "map", label: "Codebase map", icon: "map.fill", render: () => renderCodebaseMapPanel() },
+];
+
+async function openMemoryEditor(tabKey) {
   if (!current) { alertBox("Open a session first to edit its memory."); return; }
-  setPanel("Session memory", "brain");
-  await renderMemoryEditor();
+  openTabbedModal("Session memory", "brain", MEMORY_TABS, tabKey || "memory");
+}
+
+// renderMemoryNotesTab renders the active project's notes checklist inside the
+// memory modal, or explains why it can't.
+function renderMemoryNotesTab() {
+  manageBody.innerHTML = "";
+  const p = (typeof getActiveProject === "function") ? getActiveProject() : null;
+  if (!p) {
+    manageBody.append(el("p", "access-intro",
+      "No active project for this session, so there are no notes to show."));
+    return;
+  }
+  renderProjectNotesInto(manageBody, currentLaptop, p);
 }
 
 async function renderMemoryEditor() {

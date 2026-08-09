@@ -4785,7 +4785,6 @@ const CONFIG_TABS = [
   { key: "schedule", label: "Schedule", icon: "calendar.badge.clock", render: () => renderSchedules() },
   { key: "quickactions", label: "Quick actions", icon: "bolt.fill", render: () => renderQuickActionsPanel() },
   { key: "taskboard", label: "Task Board", icon: "square.grid.2x2", render: () => renderTaskBoard() },
-  { key: "codebasemap", label: "Codebase map", icon: "map.fill", render: () => renderCodebaseMapPanel() },
   { key: "jobs", label: "Jobs", icon: "terminal", render: () => renderJobsPanel() },
   { key: "deploy", label: "Deploy", icon: "cloud", render: () => renderDeployPanel() },
   { key: "doctor", label: "Doctor", icon: "stethoscope", render: () => renderDoctorPanel() },
@@ -5860,6 +5859,16 @@ function hideLoadEarlier() {
 function countOpenNotesItems(notes) {
   if (!notes) return 0;
   return parseNotesItems(notes).items.filter((it) => !it.done).length;
+}
+
+// getActiveProject returns the project record the current session belongs to, or
+// null when nothing is selected. Used by panels that act on "the project you're
+// looking at" (notes, codebase map) rather than taking one as an argument.
+function getActiveProject() {
+  if (!currentLaptop || !currentProject) return null;
+  const projs = laptopProjects[currentLaptop];
+  if (!projs) return null;
+  return projs.find((p) => p.key === currentProject) || null;
 }
 
 // openProjectNotes opens the notes checklist for one project in the manage modal.
