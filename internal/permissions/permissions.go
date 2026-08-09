@@ -159,6 +159,26 @@ func checkBash(command string, denies, allows []string) Decision {
 			return Allow
 		}
 	}
+
+	// Exact whole-command allow. Every deny check above has already run, so a deny still
+	// wins; this only decides whether an ALLOW applies.
+	//
+	// Needed because "always allow" persists the exact command the user approved
+	// ("bash:make build && make test"), and the prefix path below refuses to consider any
+	// command containing >, `, $( or & — so such a rule could never match itself back and
+	// the approval silently re-prompted after every reload.
+	//
+	// Safe where the prefix path is not: this compares the WHOLE command, so it grants
+	// exactly the string that was approved and nothing else. "bash:make build" does not
+	// allow "make build && rm -rf ~", because that is a different string. The prefix path
+	// stays conservative precisely because a prefix rule is deliberately fuzzy.
+	trimmedCmd := strings.TrimSpace(command)
+	for _, rule := range allows {
+		if exact, ok := bashRulePrefix(rule); ok && exactCommandMatch(exact, command, trimmedCmd) {
+			return Allow
+		}
+	}
+
 	if vettable && len(segments) > 0 {
 		var allowPrefixes []string
 		for _, rule := range allows {
@@ -171,6 +191,20 @@ func checkBash(command string, denies, allows []string) Decision {
 		}
 	}
 	return Default
+}
+
+// exactCommandMatch reports whether an allow rule names this exact command.
+//
+// Compared both raw and space-trimmed: normalizeRule keeps significant trailing spaces on
+// bash rules (a trailing space is what makes "bash:git " a prefix rule rather than a rule
+// about the command "git"), so a rule stored with incidental surrounding whitespace still
+// matches the command it was created from. A rule that is ONLY whitespace is rejected,
+// since it would otherwise match a whitespace-only command.
+func exactCommandMatch(rule, command, trimmedCommand string) bool {
+	if strings.TrimSpace(rule) == "" {
+		return false
+	}
+	return rule == command || strings.TrimSpace(rule) == trimmedCommand
 }
 
 // normalizeRule trims a rule for storage. Tool-name rules are fully trimmed;
@@ -233,7 +267,7 @@ func allCovered(segments, prefixes []string) bool {
 	for _, seg := range segments {
 		covered := false
 		for _, p := range prefixes {
-			if strings.HasPrefix(seg, p) {
+			if coveredByPrefix(seg, p) {
 				covered = true
 				break
 			}
@@ -243,6 +277,45 @@ func allCovered(segments, prefixes []string) bool {
 		}
 	}
 	return true
+}
+
+// coveredByPrefix reports whether an ALLOW prefix covers a command segment, requiring the
+// match to end on a token boundary.
+//
+// A bare strings.HasPrefix over-allows: the rule "make build" would cover "make buildx"
+// (and "make build --evil"), so approving one command silently blesses different ones that
+// merely start with the same characters. That matters here because "always allow" persists
+// rules of exactly this shape ("bash:" + the approved command).
+//
+// Deny keeps using plain HasPrefix on purpose: over-matching a deny fails safe, while
+// over-matching an allow is an escalation.
+func coveredByPrefix(seg, prefix string) bool {
+	if !strings.HasPrefix(seg, prefix) {
+		return false
+	}
+	rest := seg[len(prefix):]
+	if rest == "" {
+		return true // the segment is exactly the rule
+	}
+	// A rule written with a trailing separator ("git ", "cat /tmp/", "--git-dir=", or a
+	// quote as in `git commit -m '`) is explicitly a prefix rule: the author wrote the
+	// boundary themselves, so whatever follows is what they meant to cover.
+	if end := prefix[len(prefix)-1]; isRuleBoundary(end) || end == '\'' || end == '"' {
+		return true
+	}
+	// Otherwise the rule ends mid-token, so the command must continue at a boundary the
+	// shell cannot erase. Quotes are deliberately NOT accepted here: shell quote removal
+	// joins tokens, so treating them as boundaries would let the rule "make build" cover
+	// make build'x' — which the shell executes as "make buildx", a different command.
+	return isRuleBoundary(rest[0])
+}
+
+// isRuleBoundary reports whether c ends one shell token and cannot be elided by the shell.
+// '=' and '/' are included so a flag rule ("git --git-dir") still covers
+// "git --git-dir=/tmp/repo" and a path rule ("cat /tmp") still covers "cat /tmp/file.txt",
+// as they did before token boundaries were enforced.
+func isRuleBoundary(c byte) bool {
+	return c == ' ' || c == '\t' || c == '=' || c == '/'
 }
 
 // Allowed/Denied expose the merged rule lists (project first, then global) for
