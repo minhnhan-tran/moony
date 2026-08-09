@@ -5,6 +5,31 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.25.2] — 2026-08-09
+
+### Fixed
+
+- **A second terminal kept retrying the relay instead of showing "shared".** Only one
+  instance per machine may dial the relay (it keys connectors by owner+host, last-wins);
+  the others read `connector.lock` and stand by, mirroring the holder's state. The
+  identity check added in 2.24.1 decided whether the recorded pid was "one of ours" by
+  looking for `moony` in the holder's process name — but a legitimate holder is not always
+  called that: `go run .` (documented in `docs/development.md`) builds a temp binary named
+  `main`, a debugger builds `__debug_binNNNN`, and packagers rename freely. Such a holder
+  was rejected, the slot looked free, the second terminal dialed too, and the relay evicted
+  each in turn — an endlessly retrying pill on both, and never "shared".
+  - The lock is now self-describing: a holder records its own executable name next to its
+    pid, so identity no longer depends on guessing the binary's name and works for any
+    build or rename. Locks from older builds (pid only) still fall back to a name check,
+    now widened to accept `go run` and debugger builds so upgrading doesn't strand a
+    running terminal.
+  - The recycled-pid protection from 2.24.1 is intact: a pid inherited by an unrelated
+    program still frees the slot, so a crashed holder can't wedge the machine.
+  - Also fixes a latent bug in the same change: release compared the *whole* lock file
+    against its pid, so with the new two-line payload an instance would no longer recognise
+    its own lock and would leave it behind on exit — stranding the slot for every later
+    terminal.
+
 ## [2.25.1] — 2026-08-09
 
 ### Fixed
