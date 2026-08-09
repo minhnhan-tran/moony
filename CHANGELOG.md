@@ -5,6 +5,29 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.25.1] — 2026-08-09
+
+### Fixed
+
+- **"Always allow" no longer appears where it is silently ignored.** Picking *Always
+  allow* on a `git commit`/`git push` or a destructive command (`rm -rf`, `git reset
+  --hard`, …) had no lasting effect: those gates deliberately re-confirm on every call
+  and downgrade `ApproveAlways` to a one-time approve. The rule was never stored, so the
+  prompt came back on the very next call and on every later session — indistinguishable
+  from permissions being broken. The gate itself is correct and unchanged; what was wrong
+  was offering a choice that was then discarded.
+  - Approval requests now carry `AlwaysDisabled` plus a short reason. The web UI hides the
+    *Always allow* button and shows why ("git commits and pushes are confirmed every
+    time"); the TUI drops the `a` hint and ignores the key rather than quietly treating it
+    as a plain approve.
+  - Ordinary tools are unaffected: `bash`, `write_file` and friends still persist an
+    always-allow rule to `.moony/permissions.json`, and it is still honoured after a
+    restart — now covered by a test that approves in one session and asserts a second,
+    freshly loaded agent does not prompt again.
+
+  Note for anyone who hit this: the re-prompt on commits and destructive commands is
+  intentional and still happens — only the misleading button is gone.
+
 ## [2.25.0] — 2026-08-09
 
 ### Added
