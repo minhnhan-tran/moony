@@ -59,12 +59,14 @@ func (s *MirrorServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	page, err := staticFS.ReadFile("static/index.html")
+	page, err := indexHTML()
 	if err != nil {
 		http.Error(w, "ui unavailable", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// The shell carries the stamp, so it must never be the cached thing.
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(page)
 }
 

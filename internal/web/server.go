@@ -435,12 +435,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	page, err := staticFS.ReadFile("static/index.html")
+	page, err := indexHTML()
 	if err != nil {
 		http.Error(w, "ui unavailable", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// The shell carries the stamp, so it must never be the cached thing.
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(page)
 }
 
@@ -456,12 +458,13 @@ func SPAHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		page, err := staticFS.ReadFile("static/index.html")
+		page, err := indexHTML()
 		if err != nil {
 			http.Error(w, "ui unavailable", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(page)
 	})
 	return mux
@@ -478,20 +481,31 @@ func SPAHandler() http.Handler {
 func cacheStatic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Accept-Encoding")
-		next.ServeHTTP(&cacheableWriter{ResponseWriter: w}, r)
+		immutable := isStampedAsset(r.URL.RawQuery) || assetIsFingerprinted(r.URL.Path)
+		next.ServeHTTP(&cacheableWriter{ResponseWriter: w, immutable: immutable}, r)
 	})
 }
 
 type cacheableWriter struct {
 	http.ResponseWriter
 	wroteHeader bool
+	// immutable is set for requests carrying the current build stamp (?v=…) or an
+	// already content-addressed filename: those URLs change when the bytes do, so
+	// they can be cached hard instead of re-validated every hour.
+	immutable bool
 }
 
 func (c *cacheableWriter) WriteHeader(status int) {
 	if !c.wroteHeader {
 		c.wroteHeader = true
 		if status == http.StatusOK {
-			c.Header().Set("Cache-Control", "public, max-age=3600")
+			if c.immutable {
+				c.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				// Unstamped asset: a client that hard-navigates straight to it must
+				// still notice a rebuild, so keep this short and revalidated.
+				c.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+			}
 		}
 	}
 	c.ResponseWriter.WriteHeader(status)

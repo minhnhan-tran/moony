@@ -12,13 +12,25 @@ import (
 func TestSPAHandlerStaticCaching(t *testing.T) {
 	h := SPAHandler()
 
+	// Assets are addressed with a build stamp (?v=…), so a stamped URL is
+	// immutable while a bare one must revalidate — otherwise an upgrade leaves the
+	// browser running the previous JS/CSS for the whole max-age window.
 	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/static/app.css?v="+assetStamp(), nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
+		t.Errorf("stamped Cache-Control = %q", cc)
+	}
+
+	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/static/app.css", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=3600" {
-		t.Errorf("Cache-Control = %q", cc)
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=0, must-revalidate" {
+		t.Errorf("unstamped Cache-Control = %q", cc)
 	}
 	if v := rec.Header().Get("Vary"); v != "Accept-Encoding" {
 		t.Errorf("Vary = %q, want Accept-Encoding", v)

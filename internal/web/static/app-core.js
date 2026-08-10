@@ -2291,7 +2291,7 @@ function renderComposerMeta(s) {
   mem.appendChild(document.createTextNode(n ? String(n) : ""));
   mem.setAttribute("role", "button");
   mem.tabIndex = 0;
-  mem.title = "Session memory — " + (n ? n + " project rule" + (n === 1 ? "" : "s") : "no rules yet") + " (click to edit AGENTS.md rules)";
+  mem.title = "Project memory — " + (n ? n + " project rule" + (n === 1 ? "" : "s") : "no rules yet") + " (click to edit AGENTS.md rules)";
   const openMem = (e) => { e.stopPropagation(); openMemoryEditor(); };
   mem.onclick = openMem;
   mem.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMem(e); } };

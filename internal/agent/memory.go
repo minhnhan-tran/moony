@@ -300,6 +300,13 @@ func (a *Agent) RefreshSystemPrompt() {
 	a.rebuildSystemPrompt()
 }
 
+// SystemPrompt returns the currently assembled system prompt. Exported so hosts
+// (and tests) can observe what the next turn will actually be told, e.g. to check
+// a memory edit has landed in a sibling session's prompt.
+func (a *Agent) SystemPrompt() string {
+	return a.systemPrompt()
+}
+
 // AttachMemory wires the remember tool's sink to this agent so the model can
 // persist memories (which store under the project AGENTS.md and reload the prompt).
 func (a *Agent) AttachMemory(sink *tools.MemorySink) {

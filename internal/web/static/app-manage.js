@@ -226,7 +226,7 @@ function gitBadgeClass(c) {
   }
 }
 
-// --- Session memory editor ---------------------------------------------------
+// --- Project memory editor ---------------------------------------------------
 // The composer's memory pill opens this: a structured editor over EVERY section
 // of the project AGENTS.md (Memory, Versioning, …). Each section shows its whole
 // content as ONE block — rendered markdown by default, swapping to a raw-markdown
@@ -247,7 +247,7 @@ const MEMORY_TABS = [
 
 async function openMemoryEditor(tabKey) {
   if (!current) { alertBox("Open a session first to edit its memory."); return; }
-  openTabbedModal("Session memory", "brain", MEMORY_TABS, tabKey || "memory");
+  openTabbedModal("Project memory", "brain", MEMORY_TABS, tabKey || "memory");
 }
 
 // renderMemoryNotesTab renders the active project's notes checklist inside the
@@ -270,10 +270,10 @@ async function renderMemoryEditor() {
   try { const r = await fetch(api(`/api/sessions/${current}/memory`)); if (r.ok) data = await r.json(); } catch (_) {}
 
   body.innerHTML = "";
-  body.append(el("p", "access-intro", "The agent reads these every turn. Notes live in two places: this session's own AGENTS.md, and a global one shared by every project on this machine. Edit, delete, or add a bullet to any section — changes apply to the next message."));
+  body.append(el("p", "access-intro", "The agent reads these every turn. Notes live in two places: this project's AGENTS.md, shared by every session in the project, and a global one shared by every project on this machine. Edit, delete, or add a bullet to any section — changes apply to the next message."));
 
   // Two clearly-separated groups so it's obvious which scope a note lands in.
-  memoryGroup(body, false, "This session", "brain", "Only this project (its AGENTS.md).", data.project || []);
+  memoryGroup(body, false, "This project", "brain", "Every session in this project (its AGENTS.md).", data.project || []);
   memoryGroup(body, true, "Global", "globe", "Every project on this machine (~/.config/moony/AGENTS.md).", data.global || []);
 }
 

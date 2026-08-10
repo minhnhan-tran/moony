@@ -1,6 +1,6 @@
 package web
 
-// memory.go: the web "session memory" editor — list, add, edit, and delete the
+// memory.go: the web "project memory" editor — list, add, edit, and delete the
 // bullets of every section in TWO places: the PROJECT AGENTS.md (this working
 // directory) and the GLOBAL one (~/.config/moony/AGENTS.md, shared
 // across every project) — shown side by side so a user can pick which one a
@@ -59,6 +59,7 @@ func (s *Server) handleSaveMemory(w http.ResponseWriter, r *http.Request) {
 	}
 	// Re-emit status so the composer pill's bullet count refreshes immediately.
 	sess.publishEvent(s.statusEvent(nil, sess))
+	s.propagateMemory(sess, body.Global)
 	writeJSON(w, map[string]any{"ok": true})
 }
 
@@ -83,6 +84,7 @@ func (s *Server) handleReplaceMemorySection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	sess.publishEvent(s.statusEvent(nil, sess))
+	s.propagateMemory(sess, body.Global)
 	writeJSON(w, map[string]any{"ok": true})
 }
 
@@ -108,7 +110,42 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess.publishEvent(s.statusEvent(nil, sess))
+	s.propagateMemory(sess, body.Global)
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// propagateMemory reloads the system prompt of every OTHER live session that
+// shares the edited scope, so a memory edit is visible to sibling sessions on
+// their next message instead of only to the tab that made it. Project AGENTS.md
+// is per-working-dir (shared by every session in that project); the global one is
+// shared by all of them, so a global edit fans out everywhere.
+//
+// The editing session has already rebuilt its own prompt inside AddBullet/
+// UpdateBullet/ReplaceSection/DeleteBullet, so it is skipped here. Prompts are
+// rebuilt off the request goroutine because buildSystemPrompt walks the tree and
+// reads memory files; a running turn already captured its prompt and is
+// unaffected either way.
+func (s *Server) propagateMemory(editor *session, global bool) {
+	var wd string
+	if editor != nil && editor.agent != nil {
+		wd = editor.agent.Config().WorkingDir
+	}
+	s.mu.Lock()
+	peers := make([]*session, 0, len(s.sessions))
+	for _, other := range s.sessions {
+		if other == editor || other == nil || other.agent == nil {
+			continue
+		}
+		// A project edit only touches sessions rooted at the same working dir.
+		if !global && other.agent.Config().WorkingDir != wd {
+			continue
+		}
+		peers = append(peers, other)
+	}
+	s.mu.Unlock()
+	for _, peer := range peers {
+		go peer.agent.RefreshSystemPrompt()
+	}
 }
 
 // handleCodebaseMap serves the project's CODEBASE_MAP.md for the "Codebase Map"

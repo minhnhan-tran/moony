@@ -45,8 +45,29 @@ func TestMemoryModalHasCodebaseMapTab(t *testing.T) {
 	}
 
 	// The modal must actually open as a tabbed modal on those tabs.
-	if !regexp.MustCompile(`openTabbedModal\("Session memory", "brain", MEMORY_TABS`).MatchString(mg) {
-		t.Error("openMemoryEditor should open the tabbed Session memory modal with MEMORY_TABS")
+	if !regexp.MustCompile(`openTabbedModal\("Project memory", "brain", MEMORY_TABS`).MatchString(mg) {
+		t.Error("openMemoryEditor should open the tabbed Project memory modal with MEMORY_TABS")
+	}
+}
+
+// The memory it edits is the PROJECT's AGENTS.md, shared by every session in the
+// project — calling it "session memory" told users the opposite.
+func TestMemoryUIIsLabelledProjectScoped(t *testing.T) {
+	ui := staticAsset(t, "app-manage.js") + staticAsset(t, "app-core.js")
+	for _, stale := range []string{`"Session memory"`, `"Session memory — "`, `"This session"`} {
+		if strings.Contains(ui, stale) {
+			t.Errorf("memory UI still says %s; this memory is project-scoped", stale)
+		}
+	}
+	if !strings.Contains(ui, `"Project memory"`) {
+		t.Error("the modal should be titled \"Project memory\"")
+	}
+	if !strings.Contains(ui, `"This project"`) {
+		t.Error("the project scope group should be labelled \"This project\"")
+	}
+	// And the blurb must not claim the file belongs to the session.
+	if strings.Contains(ui, "this session's own AGENTS.md") {
+		t.Error("the scope blurb should say the project's AGENTS.md is shared across its sessions")
 	}
 }
 
