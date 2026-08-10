@@ -337,17 +337,22 @@
   <!-- Shared modal: Manage (skills + MCP), Tools (command access), Domains (web access). -->
   <div id="manageOverlay" class="app-overlay" style="display:none;position:fixed;inset:0;background:rgba(1,4,9,.55);-webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%);z-index:50;align-items:center;justify-content:center">
     <div class="app-modal bg-surface border border-edge rounded-lg" style="width:min(1200px,96vw);max-height:88dvh;display:flex;flex-direction:column">
-      <div class="px-4 py-3 border-b border-edge flex items-center gap-2">
+      <div class="px-4 py-3 border-b border-edge flex items-center gap-2" style="flex:0 0 auto">
         <app-icon id="manageIcon" name="slider.horizontal.3" class="text-faint"></app-icon>
         <span id="manageTitle" class="font-semibold text-ink text-sm">Manage</span>
         <span class="flex-1"></span>
         <button id="manageClose" class="text-faint hover:text-ink" aria-label="Close"><app-icon name="xmark"></app-icon></button>
       </div>
-      <!-- Tab strip for the consolidated Config modal (Skills/MCP/Agents/Tools/
-           Domains/LSP/Schedule); hidden for the other panels sharing this shell
-           (Manage, Persona, Git). Populated by renderConfigTabs(). -->
-      <div id="manageTabs" class="flex items-center gap-1 px-3 pt-2 border-b border-edge overflow-x-auto" style="display:none"></div>
-      <div id="manageBody" class="overflow-y-auto p-4 text-[13px]" style="flex:1 1 auto"></div>
+      <!-- Tab strip for the tabbed modals (Project memory: Memory/Notes/Codebase map;
+           Config: Skills/MCP/Agents/Tools/Domains/LSP/Schedule); hidden for the other
+           panels sharing this shell (Manage, Persona, Git). Populated by renderTabStrip().
+           flex:0 0 auto is load-bearing: this is a flex item of a max-height column, and
+           because overflow-x:auto suppresses its automatic minimum size it would otherwise
+           shrink (to ~16px, clipping the tab buttons) as soon as the body content is tall
+           enough to overflow the modal. renderTabStrip re-asserts display:flex, so the
+           sizing lives here rather than in a rule it would fight. -->
+      <div id="manageTabs" class="flex items-center gap-1 px-3 pt-2 border-b border-edge overflow-x-auto" style="display:none;flex:0 0 auto"></div>
+      <div id="manageBody" class="overflow-y-auto p-4 text-[13px]" style="flex:1 1 auto;min-height:0"></div>
     </div>
   </div>
 
