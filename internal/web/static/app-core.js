@@ -3435,7 +3435,18 @@ function renderJobsStrip() {
     `Background job: ${rows.length}${running ? ` (${running} running)` : ""}`));
   jobsStrip.appendChild(head);
 
-  for (const r of rows) jobsStrip.appendChild(stripRow(r.job, r.folded));
+  // Rows go in a scroll box (capped by .jobstrip-list) instead of straight into the strip,
+  // so many jobs can't grow the strip without bound.
+  const listEl = el("div", "jobstrip-list");
+  for (const r of rows) listEl.appendChild(stripRow(r.job, r.folded));
+  jobsStrip.appendChild(listEl);
+
+  // Re-rendering resets that box to the top, so an expanded row below the fold would have
+  // its log pane scrolled out of sight; "nearest" is a no-op when it is already visible,
+  // which keeps a later jobs event from yanking the list while the user reads.
+  const openRow = listEl.querySelector(".jobstrip-row.is-open");
+  if (openRow) openRow.scrollIntoView({ block: "nearest" });
+
   syncStripTail();
   syncStripClock();
 }

@@ -86,6 +86,52 @@ func TestJobsStripClockIsKeyedByJobID(t *testing.T) {
 	}
 }
 
+// The strip is pinned between the status bar and the transcript, so its rows must be capped
+// and scrollable: a machine running several dev servers / watch scripts would otherwise grow
+// it until it pushes the transcript (and on a short window the composer) off screen. The
+// header must stay OUTSIDE the scroll box so the "N running" count doesn't scroll away.
+func TestJobsStripRowsAreCappedAndScrollable(t *testing.T) {
+	css := readAsset(t, "static/app.css")
+	rule := cssRule(t, css, ".jobstrip-list")
+	if !strings.Contains(rule, "max-height:") {
+		t.Error(".jobstrip-list has no max-height — the strip can grow without bound")
+	}
+	if !strings.Contains(rule, "overflow-y: auto") {
+		t.Error(".jobstrip-list does not scroll — capping it without a scrollbar hides jobs entirely")
+	}
+
+	src := readAsset(t, "static/app-core.js")
+	render := jobstripFunc(t, src, "renderJobsStrip")
+	if !strings.Contains(render, `el("div", "jobstrip-list")`) {
+		t.Fatal("renderJobsStrip does not build the .jobstrip-list scroll box — the max-height rule applies to nothing")
+	}
+	if !strings.Contains(render, "listEl.appendChild(stripRow(") {
+		t.Error("rows are not appended to the scroll box, so they are not capped")
+	}
+	if strings.Contains(render, "jobsStrip.appendChild(stripRow(") {
+		t.Error("renderJobsStrip still appends rows straight to #jobsStrip, bypassing the cap")
+	}
+	if !strings.Contains(render, "jobsStrip.appendChild(head)") {
+		t.Error("the head must stay a direct child of #jobsStrip so the job count doesn't scroll away")
+	}
+}
+
+// cssRule returns the declaration block of a selector, so a test asserts against one rule
+// rather than the whole stylesheet.
+func cssRule(t *testing.T, css, selector string) string {
+	t.Helper()
+	css = strings.ReplaceAll(css, "\r\n", "\n")
+	start := strings.Index(css, "\n"+selector+" {")
+	if start < 0 {
+		t.Fatalf("CSS rule %s not found in app.css", selector)
+	}
+	end := strings.Index(css[start:], "}")
+	if end < 0 {
+		t.Fatalf("unterminated CSS rule %s", selector)
+	}
+	return css[start : start+end]
+}
+
 // jobstripFunc returns the source of a top-level function declaration, so a test asserts
 // against one function instead of the whole 5k-line asset.
 func jobstripFunc(t *testing.T, src, name string) string {
