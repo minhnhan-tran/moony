@@ -5,6 +5,33 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.28.0] — 2026-08-10
+
+### Fixed
+
+- **New web UI now reaches the browser without a hard refresh.** The shell referenced its
+  assets by bare path (`/static/app-core.js`) and they were served with `max-age=3600`, so
+  after an upgrade the browser kept running the PREVIOUS JS/CSS for up to an hour — new UI
+  looked simply absent, and a stale script against a new API is worse than an obvious
+  break. Rebuilding couldn't help, because the URL never changed. Asset URLs now carry a
+  `?v=<stamp>` derived from a content hash of every embedded asset: stamped URLs are served
+  `immutable`, bare ones must revalidate, and the shell itself is `no-cache`. The stamp
+  moves exactly when an asset does, so upgrades invalidate themselves and unchanged deploys
+  still hit cache. (This is what made the v2.27.0 codebase-map tab appear missing.)
+- **A project memory edit now reaches the project's other open sessions.** Memory is stored
+  in the project's `AGENTS.md` and always was shared on disk, but each agent caches its
+  assembled system prompt and only the editing session's was rebuilt — so a second tab open
+  on the same project kept sending the OLD rules until it was restarted. Edits now fan out
+  to every live sibling session (project edits by working dir; global edits everywhere).
+
+### Changed
+
+- **"Session memory" is now "Project memory".** The modal edits the project's `AGENTS.md`,
+  which every session in the project shares, so the old name and the "This session" scope
+  label claimed the opposite of what the storage does. The scope blurb now says so too.
+  Added `Agent.SystemPrompt()` so a host can observe what the next turn will be told.
+- Notes: mirror sqe-code-agent 7.22.0 cross-session agent messaging (phase 1)
+
 ## [2.27.0] — 2026-08-09
 
 ### Changed
