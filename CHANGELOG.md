@@ -5,6 +5,24 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.28.2] — 2026-08-10
+
+### Fixed
+
+- **The modal tab strip no longer collapses to a sliver when the panel is tall.** The
+  shared modal is a max-height flex column (header / tabs / body). The strip sets
+  `overflow-x:auto` so many tabs can scroll sideways, and that also suppresses its
+  automatic minimum size — so with the default `flex-shrink:1` it was squeezed from 43.8px
+  to 16.5px, clipping the tab buttons, as soon as the body content overflowed the modal.
+  Any long-list panel triggered it; the Memory tab just made it easy to hit. The strip and
+  the header row are now `flex:0 0 auto`, and the body carries `min-height:0` so it is the
+  part that absorbs the leftover space. Measured in a real browser at wide and narrow
+  viewports: 43.8px/47px, unclipped, all tabs full height.
+
+### Changed
+
+- Notes: mirror sqe-code-agent 7.22.2 codesign/TCC re-prompt fixes
+
 ## [2.28.1] — 2026-08-10
 
 ### Changed
