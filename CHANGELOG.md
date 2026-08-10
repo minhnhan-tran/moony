@@ -5,6 +5,13 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.28.1] — 2026-08-10
+
+### Changed
+
+- web: cap the background-jobs strip height and scroll its rows
+- Notes: mirror sqe-code-agent 7.22.1 live-image corruption fix (floodgate 500)
+
 ## [2.28.0] — 2026-08-10
 
 ### Fixed
