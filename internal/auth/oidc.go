@@ -34,6 +34,36 @@ const (
 	defaultAccountClaim = "email"
 )
 
+// cookieSecure decides whether the session cookie carries Secure.
+//
+// This used to be inferred from the OIDC redirect URL alone, so any configuration
+// without an https redirect URL silently produced a cookie sent in clear. That
+// cookie is a credential for shell access on a connector's machine, so the default
+// is now "secure, or refuse to start"; plain HTTP has to be asked for.
+func cookieSecure(redirectURL string) (bool, error) {
+	if truthyEnv("MN_AUTH_COOKIE_SECURE") {
+		return true, nil
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(redirectURL)), "https://") {
+		return true, nil
+	}
+	if strings.TrimSpace(os.Getenv("MN_RELAY_TLS_CERT")) != "" {
+		return true, nil // the relay terminates TLS itself
+	}
+	if truthyEnv("MN_AUTH_INSECURE_COOKIES") {
+		return false, nil
+	}
+	return false, fmt.Errorf("cannot tell whether the relay is served over HTTPS, so the session cookie would be sent in clear: set MN_AUTH_COOKIE_SECURE=1 (recommended, and required when a proxy such as Caddy terminates TLS) or MN_AUTH_INSECURE_COOKIES=1 to accept plain HTTP")
+}
+
+func truthyEnv(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
 // authEnabled reports whether authentication is switched on. An unrecognised value
 // is an error rather than "off": cmd/relay installs the gate, the owner resolver
 // and the connector-token check only when this returns true, so quietly reading a
@@ -111,7 +141,10 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 			admins[a] = true
 		}
 	}
-	secure := strings.HasPrefix(strings.ToLower(redirect), "https://")
+	secure, err := cookieSecure(redirect)
+	if err != nil {
+		return nil, false, err
+	}
 
 	a := &Auth{
 		secret:   []byte(secret),
