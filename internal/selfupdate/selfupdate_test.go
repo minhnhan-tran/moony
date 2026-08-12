@@ -90,8 +90,14 @@ func TestApplyReplacesBinary(t *testing.T) {
 	if string(got) != content {
 		t.Errorf("after apply, exe = %q, want %q", got, content)
 	}
-	if info, _ := os.Stat(exe); info.Mode().Perm()&0o100 == 0 {
-		t.Error("replaced binary should be executable")
+	// Windows has no execute bit: os.Stat reports 0666 for any writable file, so
+	// this can only hold on Unix — where executability is what makes the replaced
+	// binary runnable at all. (This assertion failed on Windows before the
+	// platform split too; it is a test-only artifact, not an install defect.)
+	if runtime.GOOS != "windows" {
+		if info, _ := os.Stat(exe); info.Mode().Perm()&0o100 == 0 {
+			t.Error("replaced binary should be executable")
+		}
 	}
 }
 

@@ -35,6 +35,7 @@ import (
 	"github.com/pysty1995/moony/internal/permissions"
 	"github.com/pysty1995/moony/internal/relay"
 	"github.com/pysty1995/moony/internal/schedule"
+	"github.com/pysty1995/moony/internal/selfupdate"
 	"github.com/pysty1995/moony/internal/session"
 	"github.com/pysty1995/moony/internal/skills"
 	"github.com/pysty1995/moony/internal/subagents"
@@ -57,6 +58,12 @@ func main() {
 	// needed. Best-effort; a no-op once migrated.
 	if err := config.MigrateRenamedConfigDir(); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: could not migrate renamed config dir:", err)
+	}
+	// A completed update leaves the previous executable parked beside this one on
+	// Windows, because a running image cannot delete itself. This start is the
+	// first chance to sweep it. Best-effort and silent.
+	if exe, err := os.Executable(); err == nil {
+		selfupdate.CleanupStaleBackups(exe)
 	}
 	// Materialize the built-in build/plan agents as editable files in the global
 	// agents dir (~/.config/moony/agents) so they're first-class,
@@ -509,7 +516,21 @@ func main() {
 		// where the deferred Close also didn't run on exec.
 		if m.ShouldRestart() {
 			if exe, err := os.Executable(); err == nil {
-				_ = syscall.Exec(exe, os.Args, os.Environ())
+				// Platform-split (selfupdate.Restart): execve on Unix, a child
+				// process on Windows, which has no execve — syscall.Exec is a stub
+				// there that only returns "not supported by windows", so this used
+				// to fail silently and drop the user back to the shell still on
+				// the old build.
+				err := selfupdate.Restart(exe, os.Args, os.Environ())
+				switch {
+				case err != nil:
+					fmt.Fprintf(os.Stderr, "could not restart %s: %v\nrun moony again to pick up the update\n", exe, err)
+				case !selfupdate.RestartReplacesProcess:
+					// The successor is a child sharing this console, so exit
+					// rather than have both processes read stdin.
+					m.CloseServers()
+					os.Exit(0)
+				}
 			}
 		}
 		m.CloseServers()
