@@ -1,9 +1,12 @@
 package relay
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -70,4 +73,42 @@ func TestNoResolverMeansNoFiltering(t *testing.T) {
 	if _, filter := r.resolveOwner(req); filter {
 		t.Error("with no owner resolver the relay should not filter")
 	}
+}
+
+// A hostile connector must not be able to forge the anonymous sentinel's key.
+// linkKey joins owner and host with NUL, so linkKey("", "unauthenticated\x00h")
+// would otherwise equal linkKey(anonAccount, "h") and an anonymous browser request
+// would resolve straight to that connector.
+func TestConnectorCannotForgeTheAnonymousKey(t *testing.T) {
+	if !strings.Contains(anonAccount, "\x00") {
+		t.Skip("sentinel no longer uses NUL; this collision cannot arise")
+	}
+	forged := strings.TrimPrefix(anonAccount, "\x00") + "\x00" + isoHost
+	if linkKey("", forged) != linkKey(anonAccount, isoHost) {
+		t.Fatal("premise no longer holds: the forged key does not collide, so this test proves nothing")
+	}
+
+	r := New()
+	r.SetOwnerResolver(func(*http.Request) (string, bool) { return "", false })
+	attachHostile(t, r, forged)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/laptops", nil)
+	account, filter := r.resolveOwner(req)
+	if l := r.lookup(isoHost, account, filter); l != nil {
+		t.Error("anonymous request resolved a connector that forged the sentinel key")
+	}
+	if got := r.laptops(account, filter); len(got) != 0 {
+		t.Errorf("anonymous request listed %d connectors: %+v", len(got), got)
+	}
+}
+
+// attachHostile wires a connector announcing a raw host name, without waiting for
+// it to register — the point is that the relay REFUSES it, so waiting would hang.
+func attachHostile(t *testing.T, r *Relay, host string) {
+	t.Helper()
+	a, b := net.Pipe()
+	go r.AddConnector(a)
+	go func() { _ = ServeConnector(b, host, "", "", "", http.NotFoundHandler(), nil) }()
+	t.Cleanup(func() { a.Close(); b.Close() })
+	time.Sleep(50 * time.Millisecond) // give the relay time to accept or reject
 }

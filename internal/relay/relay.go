@@ -328,6 +328,16 @@ func (r *Relay) AddConnector(conn net.Conn) {
 	if host == "" {
 		host = conn.RemoteAddr().String()
 	}
+	// linkKey joins owner and host with NUL, and resolveOwner reserves an account
+	// containing NUL for unidentified callers. A host (or owner) carrying NUL could
+	// therefore shift that boundary and forge another key — linkKey("", "x\x00h")
+	// equals linkKey("\x00x", "h") — so control bytes are refused outright rather
+	// than relying on the separator never appearing in either half.
+	if strings.ContainsAny(host, "\x00") {
+		r.logf("relay: connector rejected - host name contains a NUL byte")
+		t.close()
+		return
+	}
 	owner := strings.TrimSpace(hello.User)
 	// When connector auth is enabled, the owner is derived from a verified token,
 	// not self-declared: reject any connector whose token doesn't verify.
@@ -339,6 +349,11 @@ func (r *Relay) AddConnector(conn net.Conn) {
 			return
 		}
 		owner = strings.TrimSpace(verified)
+	}
+	if strings.ContainsAny(owner, "\x00") {
+		r.logf("relay: connector %q rejected - owner contains a NUL byte", host)
+		t.close()
+		return
 	}
 	key := linkKey(owner, host)
 	l := &link{host: host, owner: owner, version: strings.TrimSpace(hello.Ver), t: t, pending: map[uint64]*pendingReq{}, logf: r.logf}
@@ -488,12 +503,15 @@ func (r *Relay) resolveOwner(req *http.Request) (string, bool) {
 	}
 	account, ok := r.owner(req)
 	if !ok || strings.TrimSpace(account) == "" {
-		// NUL cannot appear in an OIDC claim or a canonical local name, and
-		// linkKey only lowercases and trims, so this matches no connector.
-		return "\x00unauthenticated", true
+		return anonAccount, true
 	}
 	return account, true
 }
+
+// anonAccount is the account an unidentified caller filters against. It can match
+// no connector because AddConnector refuses a host or owner containing NUL, which
+// is also linkKey's separator.
+const anonAccount = "\x00unauthenticated"
 
 // splitLaptopPath splits "/l/{host}/rest..." into the (URL-decoded) host and the
 // forward path "/rest..." sent to that laptop's connector.

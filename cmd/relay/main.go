@@ -69,6 +69,9 @@ func main() {
 		fatal("both -tls-cert and -tls-key (or MN_RELAY_TLS_CERT/KEY) are required for HTTPS")
 	}
 	useTLS := certFile != ""
+	// The auth layer's cookie-Secure decision needs to know we serve HTTPS; it
+	// cannot read this itself, because the flag form beats the env var above.
+	auth.TLSHint(useTLS)
 
 	r := relay.New()
 	r.SetShell(web.SPAHandler()) // serve the SPA shell; per-laptop API is proxied to connectors

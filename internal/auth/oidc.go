@@ -23,7 +23,7 @@ type Auth struct {
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
 	oauth    *oauth2.Config
-	secure   bool             // set the session cookie Secure (redirect URL is https)
+	secure   bool             // set the session cookie Secure (see cookieSecure)
 	clock    func() time.Time // nil ⇒ time.Now; overridable in tests
 }
 
@@ -47,8 +47,8 @@ func cookieSecure(redirectURL string) (bool, error) {
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(redirectURL)), "https://") {
 		return true, nil
 	}
-	if strings.TrimSpace(os.Getenv("MN_RELAY_TLS_CERT")) != "" {
-		return true, nil // the relay terminates TLS itself
+	if tlsHint || strings.TrimSpace(os.Getenv("MN_RELAY_TLS_CERT")) != "" {
+		return true, nil // the relay terminates TLS itself (flag via TLSHint, or env)
 	}
 	if truthyEnv("MN_AUTH_INSECURE_COOKIES") {
 		return false, nil
@@ -143,7 +143,10 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 	}
 	secure, err := cookieSecure(redirect)
 	if err != nil {
-		return nil, false, err
+		// enabled=true: auth WAS requested. Reporting false here alongside an error
+		// would let a caller that branches on it run open on exactly the
+		// misconfiguration this check exists to catch.
+		return nil, true, err
 	}
 
 	a := &Auth{

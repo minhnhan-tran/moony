@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -74,12 +75,27 @@ func (a *Auth) Wrap(next http.Handler) http.Handler {
 // are belt-and-braces: Wrap's switch above dispatches them before this is
 // consulted, so they matter only if that dispatch is ever refactored away.
 func isPublicPath(p string) bool {
+	// Classify the CLEANED path. The gate sees r.URL.Path verbatim while the
+	// routers behind it may resolve dot segments, so "/static/../api/laptops"
+	// would otherwise match the /static/ arm here and be handed straight through.
+	// path.Clean also collapses "//" and strips "/." for the exact matches below.
+	if !strings.HasPrefix(p, "/") {
+		return false
+	}
+	if c := path.Clean(p); c != p {
+		// Preserve a single trailing slash, which Clean drops, so "/static/" and
+		// friends still classify as themselves.
+		if strings.HasSuffix(p, "/") && !strings.HasSuffix(c, "/") {
+			c += "/"
+		}
+		p = c
+	}
 	switch p {
 	case "/healthz", "/install.sh", "/favicon.ico", "/api/relay",
 		"/auth/login", "/auth/callback", "/auth/logout":
 		return true
 	}
-	return strings.HasPrefix(p, "/download") ||
+	return strings.HasPrefix(p, "/download/") || p == "/download" ||
 		strings.HasPrefix(p, "/static/")
 }
 
@@ -273,6 +289,14 @@ func randToken() string {
 }
 
 func urlQueryEscape(s string) string { return url.QueryEscape(s) }
+
+// TLSHint tells the auth layer that the relay terminates TLS itself, which
+// cmd/relay knows from -tls-cert/-tls-key (flags win over the env, so reading
+// MN_RELAY_TLS_CERT here would miss the flag form). It feeds cookieSecure's
+// decision; call it before FromEnv.
+func TLSHint(servesTLS bool) { tlsHint = servesTLS }
+
+var tlsHint bool
 
 // FromEnvBackground is FromEnv with a background context (convenience for main).
 func FromEnvBackground() (*Auth, bool, error) { return FromEnv(context.Background()) }

@@ -56,3 +56,67 @@ func TestGateRejectsUnauthenticatedAuthRoutes(t *testing.T) {
 		}
 	}
 }
+
+// The gate classifies r.URL.Path, but the routers behind it may resolve dot
+// segments differently. Any path that normalises to a protected route must be
+// treated as protected, or "/static/../api/laptops" is a free pass through the
+// gate.
+func TestTraversalCannotReachProtectedPathsThroughThePublicPrefix(t *testing.T) {
+	for _, p := range []string{
+		"/static/../api/laptops",
+		"/download/../api/laptops",
+		"/auth/../api/laptops",
+		"/auth/login/../keys",
+		"/static/./../l/host/",
+	} {
+		if isPublicPath(p) {
+			t.Errorf("%s normalises into a protected path and must not be public", p)
+		}
+	}
+	// Legitimate paths with no dot segments keep working.
+	for _, p := range []string{"/static/app.css", "/static/fonts/material-symbols.woff2", "/download/SHA256SUMS"} {
+		if !isPublicPath(p) {
+			t.Errorf("%s should still be public", p)
+		}
+	}
+}
+
+// The flip side of the allowlist: an anonymous visitor must still be able to reach
+// a login. Wrap dispatches these before consulting isPublicPath, so this guards
+// against a future refactor that moves them behind the gate and locks everyone out.
+func TestAnonymousCanStillReachTheLoginFlow(t *testing.T) {
+	a := testAuth(time.Now())
+	h := a.Wrap(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("request should have been handled by the auth layer, not passed through")
+	}))
+
+	// /auth/login is excluded: it redirects through the configured OIDC provider,
+	// which testAuth does not build. That it is dispatched rather than gated is
+	// covered by TestOnlyListedPathsArePublic and Wrap's switch.
+	for _, p := range []string{"/auth/logout", "/auth/me"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("%s: 404 — the route is no longer wired", p)
+		}
+		if rec.Code >= 500 {
+			t.Errorf("%s: status %d", p, rec.Code)
+		}
+	}
+}
+
+// Static assets and the health probe must stay reachable, or the login page cannot
+// load its CSS and the container health check fails.
+func TestAnonymousCanLoadStaticAssetsAndHealth(t *testing.T) {
+	a := testAuth(time.Now())
+	passed := 0
+	h := a.Wrap(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { passed++ }))
+
+	for _, p := range []string{"/healthz", "/static/app.css", "/api/relay", "/favicon.ico"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+	}
+	if passed != 4 {
+		t.Errorf("%d of 4 public requests reached the handler; want all 4", passed)
+	}
+}
