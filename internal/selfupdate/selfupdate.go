@@ -185,10 +185,30 @@ func apply(ctx context.Context, exePath string) error {
 	if err := os.Chmod(stagedName, 0o755); err != nil {
 		return err
 	}
-	if err := os.Rename(stagedName, exePath); err != nil {
+	// Platform-split (replace_windows.go / replace_unix.go): Windows refuses to
+	// overwrite a running image, so there the swap goes aside-then-move.
+	if err := replaceExecutable(stagedName, exePath); err != nil {
 		return fmt.Errorf("cannot replace %s: %w", exePath, err)
 	}
 	return nil
+}
+
+// CleanupStaleBackups removes previous executables that an update parked next to
+// exePath. On Windows the outgoing image cannot be deleted while its process is
+// still alive, so a successful update always leaves one behind and the next start
+// (this call) is the first moment it can go. Errors are ignored: a leftover file
+// is harmless, and one of them may still be running.
+func CleanupStaleBackups(exePath string) {
+	if exePath == "" {
+		return
+	}
+	matches, err := filepath.Glob(exePath + backupSuffix + "*")
+	if err != nil {
+		return
+	}
+	for _, m := range matches {
+		_ = os.Remove(m)
+	}
 }
 
 // checksumFor returns the lower-case sha256 listed for asset in a SHA256SUMS
