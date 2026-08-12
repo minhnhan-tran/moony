@@ -5,6 +5,26 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.28.3] — 2026-08-12
+
+### Fixed
+
+- **`/update` could never complete on Windows.** It downloaded the new build and verified
+  its SHA-256, then failed on its last line: the install ended in `os.Rename` over the
+  *running* executable, which Windows refuses with "Access is denied". The swap is now
+  platform-split — Unix keeps the plain rename, Windows moves the running image aside,
+  moves the new binary in, and rolls the old one back if that fails (a failed install must
+  not leave the invoked path empty). The parked image can't delete itself while running, so
+  it is swept on the next start.
+- **The post-update restart silently did nothing on Windows.** It used `syscall.Exec`, a
+  stub there that only returns "not supported by windows", and the error was discarded — so
+  even a successful update returned you to the shell on the old build. Restarting is now
+  platform-split (execve on Unix, a console-sharing child on Windows), and a failed restart
+  says why.
+- The `apply()` tests targeted an inert temp file, which no OS protects, so neither defect
+  was visible: the new test runs a real executable and installs over it. Also un-broke
+  `TestApplyReplacesBinary`, which asserted an execute bit Windows never reports.
+
 ## [2.28.2] — 2026-08-10
 
 ### Fixed
