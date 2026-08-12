@@ -473,12 +473,26 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // resolveOwner returns the authenticated web user's account and whether per-user
-// isolation applies (false when no resolver is set or the request is anonymous).
+// isolation applies.
+//
+// With no resolver installed (auth disabled) nothing is filtered — one operator, no
+// accounts. With a resolver installed, a request we cannot identify filters against
+// an account that matches nothing: callers guard their ownership checks with
+// `if filter && ...`, so reporting "do not filter" for an anonymous request handed
+// it every connector on the relay and let it proxy to any of them. The gate in
+// internal/auth should stop such a request earlier; this makes the handlers safe
+// even when it does not.
 func (r *Relay) resolveOwner(req *http.Request) (string, bool) {
 	if r.owner == nil {
 		return "", false
 	}
-	return r.owner(req)
+	account, ok := r.owner(req)
+	if !ok || strings.TrimSpace(account) == "" {
+		// NUL cannot appear in an OIDC claim or a canonical local name, and
+		// linkKey only lowercases and trims, so this matches no connector.
+		return "\x00unauthenticated", true
+	}
+	return account, true
 }
 
 // splitLaptopPath splits "/l/{host}/rest..." into the (URL-decoded) host and the
