@@ -64,15 +64,23 @@ func (a *Auth) Wrap(next http.Handler) http.Handler {
 // isPublicPath reports whether a path is reachable without a session — the
 // installer/download endpoints, static assets, health check, the relay version
 // probe (hit by the CLI's unauthenticated /update check; carries no per-user
-// data), and the auth routes themselves (so the login flow can run).
+// data), and the auth routes needed to *reach* a login.
+//
+// The /auth/ routes are listed one by one on purpose. This used to be a prefix
+// match, which made every route added under /auth/ public by default — including
+// the ones the local-accounts work adds for enrolling a login key and changing a
+// password, where "no session required" hands an account to anyone who asks.
+// Adding a public route must be a deliberate edit here. The three /auth/ entries
+// are belt-and-braces: Wrap's switch above dispatches them before this is
+// consulted, so they matter only if that dispatch is ever refactored away.
 func isPublicPath(p string) bool {
 	switch p {
-	case "/healthz", "/install.sh", "/favicon.ico", "/api/relay":
+	case "/healthz", "/install.sh", "/favicon.ico", "/api/relay",
+		"/auth/login", "/auth/callback", "/auth/logout":
 		return true
 	}
 	return strings.HasPrefix(p, "/download") ||
-		strings.HasPrefix(p, "/static/") ||
-		strings.HasPrefix(p, "/auth/")
+		strings.HasPrefix(p, "/static/")
 }
 
 // wantsJSON reports whether the request is an XHR/API call (so we return 401
