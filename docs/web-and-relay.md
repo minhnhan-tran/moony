@@ -86,6 +86,7 @@ if any is missing — fail closed):
 ```
 MN_AUTH=on
 MN_AUTH_SECRET=<random, ≥16 bytes>          # signs session cookies + connector tokens
+MN_AUTH_COOKIE_SECURE=1                     # required behind a TLS-terminating proxy
 MN_OIDC_ISSUER=https://accounts.google.com  # your IdP's issuer URL (discovery)
 MN_OIDC_CLIENT_ID=…
 MN_OIDC_CLIENT_SECRET=…

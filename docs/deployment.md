@@ -122,7 +122,7 @@ Set `MN_AUTH=on` and the relay requires the full OIDC set below, performing disc
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `MN_AUTH` | — | `on`/`1`/`true`/`yes` enables the gate. Unset = open relay |
+| `MN_AUTH` | — | `on`/`1`/`true`/`yes` enables the gate; `off`/`0`/`false`/`no` or unset = open relay. **Any other value is a startup error**, so a typo cannot quietly disable the gate |
 | `MN_AUTH_SECRET` | yes | signs the browser cookie **and** the connector credential. Every replica must share the same value. `openssl rand -hex 32` |
 | `MN_OIDC_ISSUER` | yes | e.g. `https://accounts.example.com` |
 | `MN_OIDC_CLIENT_ID` | yes | |
@@ -130,6 +130,8 @@ Set `MN_AUTH=on` and the relay requires the full OIDC set below, performing disc
 | `MN_OIDC_REDIRECT_URL` | yes | the relay's public URL + `/auth/callback`, registered verbatim with the provider |
 | `MN_AUTH_ADMINS` | no | comma-separated accounts granted the admin surface |
 | `MN_AUTH_TTL` | no | session lifetime, e.g. `24h` |
+| `MN_AUTH_COOKIE_SECURE` | no | send the session cookie with `Secure`. **Required when a proxy (Caddy, an ALB) terminates TLS**, because the relay then sees plain HTTP and cannot tell. Implied by `-tls-cert` or an `https://` redirect URL |
+| `MN_AUTH_INSECURE_COOKIES` | no | allow the session cookie over plain HTTP. Local testing only — that cookie is shell access on a connector's machine |
 | `MN_OIDC_ACCOUNT_CLAIM` | no | which claim identifies the account |
 
 Create the Secret without committing values:
