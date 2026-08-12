@@ -34,13 +34,19 @@ const (
 	defaultAccountClaim = "email"
 )
 
-// enabled reports whether MN_AUTH requests the gate be on.
-func enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTH"))) {
+// authEnabled reports whether authentication is switched on. An unrecognised value
+// is an error rather than "off": cmd/relay installs the gate, the owner resolver
+// and the connector-token check only when this returns true, so quietly reading a
+// typo — or a mode name from a newer build — as "off" serves the relay to anyone.
+func authEnabled() (bool, error) {
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTH"))); v {
+	case "", "off", "0", "false", "no":
+		return false, nil
 	case "on", "1", "true", "yes":
-		return true
+		return true, nil
+	default:
+		return false, fmt.Errorf("MN_AUTH=%q is not a recognised value (use on or off); refusing to start with authentication silently disabled", v)
 	}
-	return false
 }
 
 // FromEnv builds an Auth from the environment. It returns (nil, false, nil) when
@@ -49,7 +55,11 @@ func enabled() bool {
 // discovery against the issuer; a missing var or unreachable issuer is a fatal
 // error (fail closed — never start half-secured).
 func FromEnv(ctx context.Context) (*Auth, bool, error) {
-	if !enabled() {
+	on, err := authEnabled()
+	if err != nil {
+		return nil, false, err
+	}
+	if !on {
 		return nil, false, nil
 	}
 	get := func(k string) string { return strings.TrimSpace(os.Getenv(k)) }
