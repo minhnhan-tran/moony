@@ -11,7 +11,9 @@ import (
 // authentication at all: cmd/relay only installs the gate, the owner resolver and
 // the connector-token check when auth reports enabled.
 func TestUnrecognisedAuthModeIsFatal(t *testing.T) {
-	for _, v := range []string{"local", "enabled", "yes please", "onn", "2", "on;local"} {
+	// "local" was invalid until local accounts existed; it now has its own tests in
+	// mode_local_test.go. The values here are the ones that still mean nothing.
+	for _, v := range []string{"enabled", "yes please", "onn", "2", "on;local", "local+sso", "+", ",,"} {
 		t.Run(v, func(t *testing.T) {
 			t.Setenv("MN_AUTH", v)
 			_, on, err := FromEnv(context.Background())

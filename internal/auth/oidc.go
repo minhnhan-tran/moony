@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -69,19 +71,79 @@ func truthyEnv(name string) bool {
 	return false
 }
 
-// authEnabled reports whether authentication is switched on. An unrecognised value
-// is an error rather than "off": cmd/relay installs the gate, the owner resolver
-// and the connector-token check only when this returns true, so quietly reading a
-// typo — or a mode name from a newer build — as "off" serves the relay to anyone.
-func authEnabled() (bool, error) {
-	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTH"))); v {
-	case "", "off", "0", "false", "no":
-		return false, nil
-	case "on", "1", "true", "yes":
-		return true, nil
-	default:
-		return false, fmt.Errorf("MN_AUTH=%q is not a recognised value (use on or off); refusing to start with authentication silently disabled", v)
+// authMode is which credentials the relay accepts. It is a bitmask so
+// "local+oidc" is expressible without a third enum value.
+type authMode uint8
+
+const (
+	modeOff   authMode = 0
+	modeOIDC  authMode = 1 << iota // browser login through an identity provider
+	modeLocal                      // username + password accounts held by the relay
+)
+
+func (m authMode) String() string {
+	switch m {
+	case modeOff:
+		return "off"
+	case modeOIDC:
+		return "oidc"
+	case modeLocal:
+		return "local"
+	case modeLocal | modeOIDC:
+		return "local+oidc"
 	}
+	return "invalid"
+}
+
+// authModeFromEnv parses MN_AUTH. An unrecognised value is an error rather than
+// "off": cmd/relay installs the gate, the owner resolver and the connector-token
+// check only when auth is enabled, so quietly reading a typo — or a mode name from
+// a newer build — as "off" serves the relay to anyone.
+func authModeFromEnv() (authMode, error) {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv("MN_AUTH")))
+	switch raw {
+	case "", "off", "0", "false", "no":
+		return modeOff, nil
+	}
+	var mode authMode
+	// Split without discarding empty segments: "local+" almost certainly means the
+	// operator's "local+oidc" was truncated, and quietly reading it as plain
+	// "local" would hand them less than they asked for.
+	for _, part := range strings.Split(strings.ReplaceAll(raw, ",", "+"), "+") {
+		switch strings.TrimSpace(part) {
+		case "on", "1", "true", "yes", "oidc":
+			mode |= modeOIDC
+		case "local":
+			mode |= modeLocal
+		default:
+			return modeOff, fmt.Errorf("MN_AUTH=%q is not a recognised value (use off, on, local, or local+oidc); refusing to start with authentication silently disabled", raw)
+		}
+	}
+	if mode == modeOff {
+		// e.g. "+" or ",," — parsed to nothing, which must not read as "off".
+		return modeOff, fmt.Errorf("MN_AUTH=%q is not a recognised value (use off, on, local, or local+oidc)", raw)
+	}
+	return mode, nil
+}
+
+// LocalEnabled reports whether username/password accounts are accepted.
+func (a *Auth) LocalEnabled() bool { return a != nil && a.accounts != nil }
+
+// SSOEnabled reports whether an identity provider is configured, so the login page
+// knows whether to offer the SSO button.
+func (a *Auth) SSOEnabled() bool { return a != nil && a.oauth != nil }
+
+// accountStorePath decides where local accounts live. It is deliberately explicit:
+// an implicit path inside a container would lose every account on redeploy and let
+// the freed names be registered by anyone.
+func accountStorePath() (string, error) {
+	if p := strings.TrimSpace(os.Getenv("MN_AUTH_USERS_FILE")); p != "" {
+		return p, nil
+	}
+	if ann := strings.TrimSpace(os.Getenv("MN_ANNOUNCEMENTS_FILE")); ann != "" {
+		return filepath.Join(filepath.Dir(ann), "users.json"), nil
+	}
+	return "", fmt.Errorf("MN_AUTH=local needs somewhere durable to keep accounts: set MN_AUTH_USERS_FILE (a path on a mounted volume), or MN_ANNOUNCEMENTS_FILE to default beside it")
 }
 
 // FromEnv builds an Auth from the environment. It returns (nil, false, nil) when
@@ -90,13 +152,15 @@ func authEnabled() (bool, error) {
 // discovery against the issuer; a missing var or unreachable issuer is a fatal
 // error (fail closed — never start half-secured).
 func FromEnv(ctx context.Context) (*Auth, bool, error) {
-	on, err := authEnabled()
+	mode, err := authModeFromEnv()
 	if err != nil {
 		return nil, false, err
 	}
-	if !on {
+	if mode == modeOff {
 		return nil, false, nil
 	}
+	wantOIDC := mode&modeOIDC != 0
+	wantLocal := mode&modeLocal != 0
 	get := func(k string) string { return strings.TrimSpace(os.Getenv(k)) }
 	secret := get("MN_AUTH_SECRET")
 	issuer := get("MN_OIDC_ISSUER")
@@ -104,20 +168,22 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 	clientSecret := get("MN_OIDC_CLIENT_SECRET")
 	redirect := get("MN_OIDC_REDIRECT_URL")
 
+	required := map[string]string{"MN_AUTH_SECRET": secret}
+	if wantOIDC {
+		required["MN_OIDC_ISSUER"] = issuer
+		required["MN_OIDC_CLIENT_ID"] = clientID
+		required["MN_OIDC_CLIENT_SECRET"] = clientSecret
+		required["MN_OIDC_REDIRECT_URL"] = redirect
+	}
 	var missing []string
-	for k, v := range map[string]string{
-		"MN_AUTH_SECRET":        secret,
-		"MN_OIDC_ISSUER":        issuer,
-		"MN_OIDC_CLIENT_ID":     clientID,
-		"MN_OIDC_CLIENT_SECRET": clientSecret,
-		"MN_OIDC_REDIRECT_URL":  redirect,
-	} {
+	for k, v := range required {
 		if v == "" {
 			missing = append(missing, k)
 		}
 	}
 	if len(missing) > 0 {
-		return nil, true, fmt.Errorf("MN_AUTH=on but missing required var(s): %s", strings.Join(missing, ", "))
+		sort.Strings(missing) // stable message, and MN_OIDC_ISSUER is easy to spot
+		return nil, true, fmt.Errorf("MN_AUTH=%s but missing required var(s): %s", mode, strings.Join(missing, ", "))
 	}
 	if len(secret) < 16 {
 		return nil, true, fmt.Errorf("MN_AUTH_SECRET must be at least 16 bytes")
@@ -131,12 +197,27 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		return nil, true, err
 	}
 
+	// Load the account store before discovery: it is local, and a corrupt store is
+	// fatal, so there is no reason to wait on the network to find out.
+	var accounts *AccountStore
+	if wantLocal {
+		path, err := accountStorePath()
+		if err != nil {
+			return nil, true, err
+		}
+		if accounts, err = OpenAccounts(path); err != nil {
+			return nil, true, err
+		}
+	}
+
 	// Discovery is a network round-trip, so every purely local check belongs above
 	// it: an operator should not wait for their IdP to answer to be told a variable
 	// is wrong.
-	provider, err := oidc.NewProvider(ctx, issuer)
-	if err != nil {
-		return nil, true, fmt.Errorf("OIDC discovery for issuer %q: %w", issuer, err)
+	var provider *oidc.Provider
+	if wantOIDC {
+		if provider, err = oidc.NewProvider(ctx, issuer); err != nil {
+			return nil, true, fmt.Errorf("OIDC discovery for issuer %q: %w", issuer, err)
+		}
 	}
 
 	ttl := defaultSessionTTL
@@ -164,16 +245,21 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		connTTL:  defaultConnectorTTL,
 		claim:    claim,
 		admins:   admins,
-		provider: provider,
-		verifier: provider.Verifier(&oidc.Config{ClientID: clientID}),
-		oauth: &oauth2.Config{
+		secure:   secure,
+		accounts: accounts,
+	}
+	// Only wire the OIDC halves when an identity provider was configured; in local
+	// mode there is none, and provider.Verifier would nil-dereference.
+	if provider != nil {
+		a.provider = provider
+		a.verifier = provider.Verifier(&oidc.Config{ClientID: clientID})
+		a.oauth = &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Endpoint:     provider.Endpoint(),
 			RedirectURL:  redirect,
 			Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
-		},
-		secure: secure,
+		}
 	}
 	return a, true, nil
 }
