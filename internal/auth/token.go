@@ -59,6 +59,10 @@ func (a *Auth) Sign(account, aud string, ttl time.Duration) string {
 const (
 	tokenDomain = "moony-token\x00"
 	txDomain    = "moony-oidc-tx\x00"
+	// csrfDomain covers CSRF tokens, which are handed to the browser. Keeping them in
+	// their own domain means a token the client legitimately holds can never equal a
+	// signing key or a session MAC.
+	csrfDomain = "moony-csrf\x00"
 )
 
 // tokenKey returns the HMAC key for account, and whether one exists.

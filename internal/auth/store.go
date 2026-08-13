@@ -244,6 +244,7 @@ func (s *AccountStore) All() []Account {
 	defer s.mu.RUnlock()
 	out := make([]Account, 0, len(s.accounts))
 	for _, a := range s.accounts {
+		a.PubKeys = append([]PubKey(nil), a.PubKeys...) // don't share the slice
 		out = append(out, a)
 	}
 	return out

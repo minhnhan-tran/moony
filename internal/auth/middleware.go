@@ -51,6 +51,23 @@ func (a *Auth) Wrap(next http.Handler) http.Handler {
 		case "/auth/password":
 			a.handlePassword(w, r)
 			return
+		case "/auth/keyfile.js":
+			a.handleKeyfileScript(w, r)
+			return
+		case "/auth/challenge":
+			a.handleChallenge(w, r)
+			return
+		case "/auth/login-keyfile":
+			a.handleKeyfileLogin(w, r)
+			return
+		case "/auth/keys":
+			// Gated on purpose: enrolment requires a session, and the account is
+			// taken from that session rather than the request.
+			a.handleKeys(w, r)
+			return
+		case "/auth/keys/revoke":
+			a.handleKeysRevoke(w, r)
+			return
 		case "/auth/logout-all":
 			a.handleLogoutAll(w, r)
 			return
@@ -115,7 +132,10 @@ func isPublicPath(p string) bool {
 	switch p {
 	case "/healthz", "/install.sh", "/favicon.ico", "/api/relay",
 		"/auth/login", "/auth/callback", "/auth/logout",
-		"/auth/register", "/auth/sso":
+		"/auth/register", "/auth/sso",
+		// Keyfile login is challenge/response, so both halves must be reachable
+		// before there is a session. /auth/keys is deliberately NOT here.
+		"/auth/challenge", "/auth/login-keyfile", "/auth/keyfile.js":
 		return true
 	}
 	return strings.HasPrefix(p, "/download/") || p == "/download" ||

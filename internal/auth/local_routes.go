@@ -24,8 +24,11 @@ const (
 	// arrives from the proxy's address, so a bucket as tight as the per-account one
 	// would let one attacker lock every user out of the relay.
 	maxLoginAttemptsPerIP = 40
-	loginLockout          = 15 * time.Minute
-	limiterMaxKeys        = 4096
+	// maxKeyfileFailures bounds bad signatures per account. It exists to stop log
+	// spam and pointless work, not to stop brute force.
+	maxKeyfileFailures = 50
+	loginLockout       = 15 * time.Minute
+	limiterMaxKeys     = 4096
 )
 
 const (
@@ -60,7 +63,18 @@ type failCount struct {
 // (a proxy makes every client share one address); accounts and registration get the
 // tight one.
 func limitFor(key string) int {
-	if strings.HasPrefix(key, "ip:") {
+	switch {
+	case strings.HasPrefix(key, "kf:"):
+		// Keyfile failures: looser than password guessing, because guessing a P-256
+		// signature is not a thing that happens, and because this bucket is reachable
+		// for any named account by an unauthenticated caller.
+		return maxKeyfileFailures
+	case strings.HasPrefix(key, "chal:"):
+		// Challenge minting is metered, not a failure count, so it gets its own
+		// looser bucket; sharing the login bucket would let challenge requests lock
+		// an address out of logging in.
+		return maxChallengeMints
+	case strings.HasPrefix(key, "ip:"):
 		return maxLoginAttemptsPerIP
 	}
 	return maxLoginAttempts
@@ -203,8 +217,14 @@ func peerIsTrustedProxy(peer string) bool {
 // csrfToken binds a form to something the caller must already possess: either the
 // session cookie (authenticated forms) or a per-visit CSRF cookie (login and
 // register, where there is no session yet). A cross-site POST cannot read either.
+//
+// The prefix is NUL-terminated and distinct from every other MAC this package
+// computes, so a CSRF token can never coincide with a per-account signing key or a
+// token/challenge MAC. The old "csrf|" prefix could collide in principle with the
+// per-account key derivation (account+"|"+epoch), which is the same shape of bug
+// as the token-confusion fix in confusion_test.go.
 func (a *Auth) csrfToken(seed string) string {
-	return base64.RawURLEncoding.EncodeToString(macWith(a.secret, "csrf|"+seed))
+	return base64.RawURLEncoding.EncodeToString(macWith(a.secret, csrfDomain+seed))
 }
 
 func (a *Auth) csrfValid(seed, presented string) bool {
@@ -422,10 +442,13 @@ func (a *Auth) handlePassword(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "not authenticated", http.StatusUnauthorized)
 			return
 		}
+		acct, _ := a.accounts.ByID(account)
 		a.renderAccount(w, http.StatusOK, accountPage{
 			Username: strings.TrimPrefix(account, localPrefix),
+			Account:  account,
 			CSRF:     a.csrfToken(sess.Value),
 			Changed:  r.URL.Query().Get("changed") == "1",
+			Keys:     keyRows(acct),
 		})
 		return
 	}
@@ -615,6 +638,21 @@ var loginTmpl = template.Must(template.New("login").Parse(`<!doctype html>
   <button type="submit">{{if eq .Mode "register"}}Create account{{else}}Sign in{{end}}</button>
 </form>
 {{if .SSO}}<div class="auth-or">or</div><a class="auth-sso" href="/auth/sso">Continue with single sign-on</a>{{end}}
+{{if eq .Mode "login"}}
+<div class="auth-or">or use a keyfile</div>
+<p class="auth-note" hidden data-keyfile-unsupported>This browser cannot use keyfiles (it has no WebCrypto).</p>
+<form id="keyfile_login" data-keyfile-panel>
+  <p id="keyfile_login_status"></p>
+  <label for="keyfile_file">Keyfile</label>
+  <input id="keyfile_file" type="file" accept="application/json,.json" required>
+  <label for="keyfile_pass">Keyfile passphrase</label>
+  <input id="keyfile_pass" type="password" autocomplete="off" required>
+  <button type="submit">Sign in with keyfile</button>
+  <p class="auth-note">Uses the username above. The file never leaves this browser —
+    it only signs a one-time challenge.</p>
+</form>
+{{end}}
+<script src="/auth/keyfile.js" defer></script>
 {{if eq .Mode "register"}}
 <p class="auth-alt"><a href="/auth/login">I already have an account</a></p>
 {{else if .Register}}
@@ -653,9 +691,27 @@ func (a *Auth) Describe() []string {
 // accountPage is the signed-in account page's data.
 type accountPage struct {
 	Username string
+	Account  string
 	CSRF     string
 	Error    string
 	Changed  bool
+	Keys     []keyRow
+}
+
+// keyRow is one enrolled keyfile as the account page shows it: never the key
+// material, only what a user needs to recognise and revoke it.
+type keyRow struct {
+	ID    string
+	Label string
+	Added string
+}
+
+func keyRows(a Account) []keyRow {
+	out := make([]keyRow, 0, len(a.PubKeys))
+	for _, k := range a.PubKeys {
+		out = append(out, keyRow{ID: k.ID, Label: k.Label, Added: k.AddedAt.UTC().Format("2006-01-02 15:04 UTC")})
+	}
+	return out
 }
 
 func (a *Auth) renderAccount(w http.ResponseWriter, code int, p accountPage) {
@@ -694,7 +750,7 @@ var accountTmpl = template.Must(template.New("account").Parse(`<!doctype html>
   hr{border:0;border-top:1px solid var(--c-border,#e3e3e3);margin:1.5rem 0}
   .auth-alt{margin:1rem 0 0;text-align:center;font-size:.8125rem}
 </style>
-</head><body><div class="auth-wrap"><div class="auth-card">
+</head><body data-account="{{.Account}}"><div class="auth-wrap"><div class="auth-card">
 <h1>Your account</h1>
 <p class="sub">Signed in as {{.Username}}</p>
 {{if .Changed}}<p class="auth-ok">Password changed. Every other session and connector token has been signed out.</p>{{end}}
@@ -712,11 +768,46 @@ var accountTmpl = template.Must(template.New("account").Parse(`<!doctype html>
     connector tokens, so any machine you have linked will need to be reconnected.</p>
 </form>
 <hr>
+<h2 style="font-size:1rem;margin:0 0 .25rem">Keyfiles</h2>
+<p class="auth-note" style="margin-bottom:.75rem">A keyfile is a second way to sign in:
+  an encrypted key file plus its passphrase, both held only by you. If you lose either,
+  that keyfile is gone for good — nobody can reset it, so keep a password you remember
+  or enrol more than one.</p>
+<p class="auth-note" hidden data-keyfile-unsupported>This browser cannot create keyfiles (it has no WebCrypto).</p>
+<p id="keyfile_keys_status"></p>
+{{if .Keys}}
+<ul style="list-style:none;padding:0;margin:0 0 1rem;font-size:.8125rem">
+  {{range .Keys}}
+  <li style="display:flex;align-items:center;gap:.5rem;padding:.375rem 0;border-bottom:1px solid var(--c-border,#eee)">
+    <span style="flex:1">{{if .Label}}{{.Label}}{{else}}(unlabelled){{end}}
+      <span style="color:var(--c-text-dim,#888)">· added {{.Added}}</span></span>
+    <button type="button" class="danger" style="width:auto;margin:0;padding:.25rem .5rem"
+            data-key-id="{{.ID}}">Revoke</button>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="auth-note" style="margin-bottom:1rem">No keyfiles enrolled.</p>
+{{end}}
+<form id="keyfile_enrol" data-keyfile-panel>
+  <p id="keyfile_enrol_status"></p>
+  <label for="key_label">Label (optional)</label>
+  <input id="key_label" maxlength="64" placeholder="work laptop">
+  <label for="key_pass">Keyfile passphrase</label>
+  <input id="key_pass" type="password" autocomplete="new-password" required>
+  <label for="key_pass2">Confirm passphrase</label>
+  <input id="key_pass2" type="password" autocomplete="new-password" required>
+  <button type="submit">Create keyfile</button>
+  <p class="auth-note">The key is generated in this browser; only its public half is
+    uploaded. The download is encrypted with the passphrase above.</p>
+</form>
+<hr>
 <form method="post" action="/auth/logout-all">
   <input type="hidden" name="csrf_token" value="{{.CSRF}}">
   <button type="submit" class="danger">Sign out everywhere</button>
   <p class="auth-note">Revokes every session and connector token for this account, including this one.</p>
 </form>
 <p class="auth-alt"><a href="/">Back to moony</a></p>
+<script src="/auth/keyfile.js" defer></script>
 </div></div></body></html>
 `))

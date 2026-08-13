@@ -40,6 +40,10 @@ type Auth struct {
 	// throttling quietly switched off.
 	limiter     *loginLimiter
 	limiterOnce sync.Once
+
+	// challenges is the single-use set for keyfile login challenges. Zero value is
+	// usable, so an Auth built directly still gets replay protection.
+	challenges nonceSet
 }
 
 // throttler returns the login limiter, creating it if necessary.
