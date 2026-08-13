@@ -103,6 +103,15 @@ button too, under `MN_AUTH=local+oidc`), `/auth/register` self-serves accounts w
 it is open, and `/auth/password` is the account page: changing the password or
 signing out everywhere revokes every session **and** every 30-day connector token
 for that account.
+
+The login form also offers **keyfile** sign-in: an ECDSA P-256 key generated in the
+browser, downloaded as a passphrase-encrypted JSON file, and used by signing a
+single-use challenge (`/auth/challenge` → `/auth/login-keyfile`). Enrol and revoke
+keyfiles on the account page; the browser half is served from the binary at
+`/auth/keyfile.js`, so it needs no `internal/web/static` rebuild. Losing the file or
+its passphrase is final — the relay holds only the public key and has nothing to
+reset. Enrolled keyfiles are unaffected by a password change, and are the only
+credential a "sign out everywhere" does not touch.
 MN_OIDC_ISSUER=https://accounts.google.com  # your IdP's issuer URL (discovery)
 MN_OIDC_CLIENT_ID=…
 MN_OIDC_CLIENT_SECRET=…

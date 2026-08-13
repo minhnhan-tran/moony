@@ -145,9 +145,35 @@ argon2id password hashes, written `0600`.
 | `MN_AUTH_TRUSTED_PROXIES` | no | comma-separated IPs/CIDRs whose `X-Forwarded-For` is believed, for per-client rate limiting. Without it the peer address is used (behind a proxy, that is the proxy) |
 
 Routes: `/auth/login`, `/auth/register` (both public), and `/auth/password` — the
-signed-in account page, which changes the password or signs out everywhere. Both of
-those revoke **every** credential for the account, including the 30-day connector
-tokens, by bumping a per-account epoch mixed into its signing key.
+signed-in account page, which changes the password, manages keyfiles, or signs out
+everywhere. A password change or a global sign-out revokes **every** session and the
+30-day connector tokens for the account, by bumping a per-account epoch mixed into
+its signing key. (Enrolled keyfiles survive an epoch bump: they are a separate
+credential, revoked individually.)
+
+#### Keyfiles (second credential, no password)
+
+A **keyfile** is an ECDSA P-256 private key generated in the browser, encrypted with
+a passphrase (PBKDF2-SHA256, 300 000 iterations → AES-GCM) and downloaded as a small
+JSON file. Only the public half reaches the relay. Signing in means signing a
+single-use server challenge, so nothing reusable crosses the wire.
+
+- Enrol from `/auth/password` → *Keyfiles* → *Create keyfile* (up to 8 per account).
+- Sign in from `/auth/login`: username, the file, its passphrase.
+- Revoke from the same account page; a revoked key stops working immediately.
+
+**There is no reset.** The relay stores no copy of the key and cannot decrypt the
+file, so a lost file or forgotten passphrase means that credential is gone — tell
+users to keep their password working, or to enrol two keyfiles.
+
+Extra routes, all under the same gate rules: `/auth/challenge` and
+`/auth/login-keyfile` are public (login cannot require a session), `/auth/keyfile.js`
+is the public browser half served from the binary, and `/auth/keys` +
+`/auth/keys/revoke` require a session — the account they touch is read from that
+session, never from the request. Abuse controls: challenge minting is capped per
+client address, keyfile signature failures are counted in their own bucket (so a
+stranger cannot lock a known username out of password login), and every challenge
+expires in 90 s and is accepted exactly once.
 
 ```sh
 # a relay with local accounts, behind a TLS-terminating proxy

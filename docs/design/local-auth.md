@@ -1,6 +1,8 @@
 # Spec: local login/register for the relay (password + keyfile)
 
-Status: design approved; revised after review. Not yet implemented.
+Status: **implemented**. Passwords shipped in v2.30.0 (with a token-confusion fix
+found while reviewing it); keyfile credentials shipped in v2.31.0. Deviations from
+this spec, and why, are noted inline below.
 Scope: `cmd/relay` + `internal/auth` + `internal/web/static`.
 
 ## Problem
@@ -199,8 +201,18 @@ public key to `/auth/keys`, then builds the keyfile locally —
 PBKDF2-SHA256(passphrase, random salt) -> AES-GCM over the exported PKCS#8 private
 key -> JSON download. The private key never reaches the server.
 
-Login: `GET /auth/challenge` returns `Sign(randomNonce, audChallenge, 60s)` **and**
-records the nonce in an in-memory single-use set evicted at expiry. The browser
+Login: `GET /auth/challenge` returns a challenge blob and the nonce is recorded in
+an in-memory single-use set evicted at expiry.
+
+> **As built (v2.31.0), two deliberate deviations.** (1) The challenge is *not*
+> `Sign(...)` with a separate audience: it is its own construction
+> (`b64(account   nonce   exp).b64(HMAC(challengeDomain+payload))`, TTL 90 s) under
+> a third domain prefix. Reusing `Sign` for something handed to unauthenticated
+> callers is precisely the token-confusion class that had to be fixed in v2.30.0, and
+> a distinct construction makes the mistake unrepresentable rather than merely
+> checked. (2) The nonce is consumed *before* the signature is verified, so a captured
+> challenge cannot be retried with a different signature. The bounded set (8192) fails
+> closed if it ever fills, since evicting a live nonce would make it replayable. The browser
 decrypts the keyfile, signs the nonce, and POSTs the signature. The server:
 
 1. verifies the nonce's signature and expiry, and that `aud == audChallenge` (this
