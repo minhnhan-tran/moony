@@ -25,6 +25,11 @@ type Auth struct {
 	oauth    *oauth2.Config
 	secure   bool             // set the session cookie Secure (see cookieSecure)
 	clock    func() time.Time // nil ⇒ time.Now; overridable in tests
+
+	// accounts is the local account store, nil on an OIDC-only relay. It also
+	// supplies each local account's token epoch, so it is consulted on every
+	// Verify of a local token.
+	accounts *AccountStore
 }
 
 // defaults for optional knobs.
@@ -118,6 +123,17 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		return nil, true, fmt.Errorf("MN_AUTH_SECRET must be at least 16 bytes")
 	}
 
+	secure, err := cookieSecure(redirect)
+	if err != nil {
+		// enabled=true: auth WAS requested. Reporting false here alongside an error
+		// would let a caller that branches on it run open on exactly the
+		// misconfiguration this check exists to catch.
+		return nil, true, err
+	}
+
+	// Discovery is a network round-trip, so every purely local check belongs above
+	// it: an operator should not wait for their IdP to answer to be told a variable
+	// is wrong.
 	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return nil, true, fmt.Errorf("OIDC discovery for issuer %q: %w", issuer, err)
@@ -140,13 +156,6 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		if a = strings.ToLower(strings.TrimSpace(a)); a != "" {
 			admins[a] = true
 		}
-	}
-	secure, err := cookieSecure(redirect)
-	if err != nil {
-		// enabled=true: auth WAS requested. Reporting false here alongside an error
-		// would let a caller that branches on it run open on exactly the
-		// misconfiguration this check exists to catch.
-		return nil, true, err
 	}
 
 	a := &Auth{

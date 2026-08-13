@@ -40,7 +40,37 @@ var b64 = base64.RawURLEncoding
 func (a *Auth) Sign(account, aud string, ttl time.Duration) string {
 	exp := a.now().Add(ttl).Unix()
 	payload := account + "|" + strconv.FormatInt(exp, 10) + "|" + aud
-	return b64.EncodeToString([]byte(payload)) + "." + b64.EncodeToString(a.mac(payload))
+	key, ok := a.tokenKey(account)
+	if !ok {
+		// No key for this account (a local id with no store, or one that has been
+		// removed). Sign under the bare secret: Verify refuses local ids it cannot
+		// resolve, so the result simply will not verify.
+		key = a.secret
+	}
+	return b64.EncodeToString([]byte(payload)) + "." + b64.EncodeToString(macWith(key, payload))
+}
+
+// tokenKey returns the HMAC key for account, and whether one exists.
+//
+// Local accounts sign under a key derived from the account and its epoch, so
+// bumping the epoch invalidates every token already issued for it — the browser
+// session AND the 30-day connector credential — without a revocation list. OIDC
+// accounts keep the bare secret, so turning local accounts on does not log
+// existing SSO users out.
+func (a *Auth) tokenKey(account string) ([]byte, bool) {
+	if !strings.HasPrefix(account, localPrefix) {
+		return a.secret, true
+	}
+	if a.accounts == nil {
+		return nil, false // a local id on a relay with no account store
+	}
+	acct, ok := a.accounts.ByID(account)
+	if !ok || acct.Disabled {
+		return nil, false // deleted or disabled: fail closed, immediately
+	}
+	// account cannot contain "|" (canonicalUsername forbids it), so this is
+	// unambiguous.
+	return macWith(a.secret, account+"|"+strconv.FormatUint(acct.Epoch, 10)), true
 }
 
 // Verify checks a token's signature, expiry, and audience, returning the bound
@@ -60,9 +90,11 @@ func (a *Auth) Verify(tok, wantAud string) (account string, ok bool) {
 	if err != nil {
 		return "", false
 	}
-	if !hmac.Equal(sig, a.mac(string(payload))) {
-		return "", false
-	}
+	// The account must be read out BEFORE the MAC can be checked, because a local
+	// account's key depends on its epoch. Parsing bytes we have not yet
+	// authenticated is safe — nothing is acted on, and the MAC below still decides
+	// whether any of it is true.
+	//
 	// payload = account|exp|aud (account never contains "|"; split on the last two).
 	p := string(payload)
 	audCut := strings.LastIndexByte(p, '|')
@@ -77,6 +109,13 @@ func (a *Auth) Verify(tok, wantAud string) (account string, ok bool) {
 	if aud != wantAud || acct == "" {
 		return "", false
 	}
+	key, ok := a.tokenKey(acct)
+	if !ok {
+		return "", false
+	}
+	if !hmac.Equal(sig, macWith(key, p)) {
+		return "", false
+	}
 	exp, err := strconv.ParseInt(expStr, 10, 64)
 	if err != nil || a.now().Unix() >= exp {
 		return "", false
@@ -85,8 +124,10 @@ func (a *Auth) Verify(tok, wantAud string) (account string, ok bool) {
 }
 
 // mac computes the HMAC-SHA256 of s under the configured secret.
-func (a *Auth) mac(s string) []byte {
-	m := hmac.New(sha256.New, a.secret)
+func (a *Auth) mac(s string) []byte { return macWith(a.secret, s) }
+
+func macWith(key []byte, s string) []byte {
+	m := hmac.New(sha256.New, key)
 	m.Write([]byte(s))
 	return m.Sum(nil)
 }
