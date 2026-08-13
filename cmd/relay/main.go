@@ -109,8 +109,10 @@ func main() {
 
 	handler := http.Handler(r)
 	if authOn {
-		handler = authGate.Wrap(handler) // OIDC login gate over all browser routes
-		fmt.Println("  auth:   OIDC per-user login enabled (MN_AUTH=on)")
+		handler = authGate.Wrap(handler) // login gate over all browser routes
+		for _, line := range authGate.Describe() {
+			fmt.Println("  auth:   " + line)
+		}
 	} else if host, _, splitErr := net.SplitHostPort(*httpAddr); splitErr != nil || (host != "127.0.0.1" && host != "localhost" && host != "::1") {
 		// Binding beyond loopback with no auth means anyone who can reach this
 		// address gets full access to every connector's filesystem/agent — flag it

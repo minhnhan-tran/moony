@@ -504,3 +504,30 @@ var loginTmpl = template.Must(template.New("login").Parse(`<!doctype html>
 {{end}}
 </div></div></body></html>
 `))
+
+// Describe reports how authentication is configured, for the startup banner. An
+// operator needs to see which credentials are accepted and whether anyone may
+// still register — the previous banner said "OIDC (MN_AUTH=on)" regardless.
+func (a *Auth) Describe() []string {
+	var out []string
+	switch {
+	case a.LocalEnabled() && a.SSOEnabled():
+		out = append(out, "local accounts + single sign-on enabled (MN_AUTH=local+oidc)")
+	case a.LocalEnabled():
+		out = append(out, "local password accounts enabled (MN_AUTH=local)")
+	default:
+		out = append(out, "single sign-on enabled (MN_AUTH=on)")
+	}
+	if a.LocalEnabled() {
+		out = append(out, "accounts: "+a.accounts.path+fmt.Sprintf(" (%d registered)", a.accounts.Count()))
+		if registrationOpen() {
+			out = append(out, "self-registration is OPEN - anyone who can reach this relay may create an account (MN_AUTH_REGISTER=off to close)")
+		} else {
+			out = append(out, "self-registration is closed (MN_AUTH_REGISTER=off)")
+		}
+	}
+	if !a.secure {
+		out = append(out, "session cookies are NOT marked Secure (MN_AUTH_INSECURE_COOKIES=1) - use this only for local testing")
+	}
+	return out
+}

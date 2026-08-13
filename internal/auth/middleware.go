@@ -223,12 +223,27 @@ func (a *Auth) handleMe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
+	display := account
+	local := strings.HasPrefix(account, localPrefix)
+	if local {
+		display = strings.TrimPrefix(account, localPrefix)
+	}
+	// The CSRF token for authenticated POSTs (/auth/password, /auth/logout-all) is
+	// an HMAC of the session cookie, which the browser cannot compute for itself —
+	// so it is handed out here, to a request that already proved it holds the
+	// cookie. A cross-site attacker can neither read this response nor the cookie.
+	var csrf string
+	if c, err := r.Cookie(sessionCookie); err == nil {
+		csrf = a.csrfToken(c.Value)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"accountname":  account,
-		"display_name": account,
+		"display_name": display,
 		"in_group":     true,
-		"is_admin":     a.admins[strings.ToLower(account)],
+		"is_admin":     a.IsAdmin(r),
+		"local":        local,
+		"csrf_token":   csrf,
 	})
 }
 
