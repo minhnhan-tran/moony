@@ -30,7 +30,29 @@ func (a *Auth) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/auth/login":
+			// With local accounts on, /auth/login is the form (which offers SSO as a
+			// button); with OIDC alone it stays the straight redirect to the IdP.
+			if a.LocalEnabled() {
+				a.handleLocalLogin(w, r)
+			} else {
+				a.handleLogin(w, r)
+			}
+			return
+		case "/auth/sso":
+			if !a.SSOEnabled() {
+				http.NotFound(w, r)
+				return
+			}
 			a.handleLogin(w, r)
+			return
+		case "/auth/register":
+			a.handleRegister(w, r)
+			return
+		case "/auth/password":
+			a.handlePassword(w, r)
+			return
+		case "/auth/logout-all":
+			a.handleLogoutAll(w, r)
 			return
 		case "/auth/callback":
 			a.handleCallback(w, r)
@@ -92,7 +114,8 @@ func isPublicPath(p string) bool {
 	}
 	switch p {
 	case "/healthz", "/install.sh", "/favicon.ico", "/api/relay",
-		"/auth/login", "/auth/callback", "/auth/logout":
+		"/auth/login", "/auth/callback", "/auth/logout",
+		"/auth/register", "/auth/sso":
 		return true
 	}
 	return strings.HasPrefix(p, "/download/") || p == "/download" ||

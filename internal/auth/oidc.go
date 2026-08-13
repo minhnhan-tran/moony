@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -32,6 +33,23 @@ type Auth struct {
 	// supplies each local account's token epoch, so it is consulted on every
 	// Verify of a local token.
 	accounts *AccountStore
+
+	// limiter throttles password attempts per account and per client address.
+	// Reached through throttler(), which creates it on demand: an Auth built
+	// directly (tests, or a future caller that skips FromEnv) must not end up with
+	// throttling quietly switched off.
+	limiter     *loginLimiter
+	limiterOnce sync.Once
+}
+
+// throttler returns the login limiter, creating it if necessary.
+func (a *Auth) throttler() *loginLimiter {
+	a.limiterOnce.Do(func() {
+		if a.limiter == nil {
+			a.limiter = newLoginLimiter(a.clock)
+		}
+	})
+	return a.limiter
 }
 
 // defaults for optional knobs.
@@ -247,6 +265,7 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 		admins:   admins,
 		secure:   secure,
 		accounts: accounts,
+		limiter:  newLoginLimiter(nil),
 	}
 	// Only wire the OIDC halves when an identity provider was configured; in local
 	// mode there is none, and provider.Verifier would nil-dereference.
