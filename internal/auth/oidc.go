@@ -286,11 +286,31 @@ func FromEnv(ctx context.Context) (*Auth, bool, error) {
 // accountFromClaims extracts the configured account claim (default "email") from
 // an ID token's claim set, falling back to "sub". Returns "" if neither is set.
 func (a *Auth) accountFromClaims(claims map[string]any) string {
-	if v, ok := claims[a.claim].(string); ok && strings.TrimSpace(v) != "" {
-		return strings.TrimSpace(v)
+	// usable rejects a claim value that would collide with the local account
+	// namespace: "local:alice" from an identity provider would resolve to local
+	// user alice's store entry — and therefore to her connectors, i.e. shell access
+	// on her machine. Claims like preferred_username are often user-editable, so
+	// this cannot be left to the IdP. NUL is refused for the same reason as in
+	// Verify.
+	usable := func(v string) (string, bool) {
+		v = strings.TrimSpace(v)
+		if v == "" || strings.ContainsRune(v, 0) {
+			return "", false
+		}
+		if strings.HasPrefix(strings.ToLower(v), localPrefix) {
+			return "", false
+		}
+		return v, true
+	}
+	if v, ok := claims[a.claim].(string); ok {
+		if acct, good := usable(v); good {
+			return acct
+		}
 	}
 	if v, ok := claims["sub"].(string); ok {
-		return strings.TrimSpace(v)
+		if acct, good := usable(v); good {
+			return acct
+		}
 	}
 	return ""
 }
@@ -302,6 +322,13 @@ func sameHostRedirect(p string) string {
 		return "/"
 	}
 	if u, err := url.Parse(p); err != nil || u.Host != "" || u.Scheme != "" {
+		return "/"
+	}
+	// This value is embedded in the signed login-transaction blob, and "|" and NUL
+	// are the separators the token and blob formats are parsed on. url.Parse accepts
+	// both in a path, so refuse them here: a return path must never be able to shape
+	// the structure of something we sign.
+	if strings.ContainsAny(p, "|\x00") {
 		return "/"
 	}
 	return p

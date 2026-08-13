@@ -83,6 +83,24 @@ func OpenAccounts(path string) (*AccountStore, error) {
 		if a.Account == "" {
 			a.Account = id
 		}
+		// Validate what came off disk. The id becomes a token subject and a relay
+		// linkKey component, so a hand-edited file must not be able to introduce
+		// "local:alice|x", an id containing NUL, or an entry keyed differently from
+		// the account it holds (which would let one account shadow another).
+		if a.Account != id {
+			return nil, fmt.Errorf("account file %s: entry %q holds account %q; the key and the account must match", path, id, a.Account)
+		}
+		name, ok := strings.CutPrefix(a.Account, localPrefix)
+		if !ok {
+			return nil, fmt.Errorf("account file %s: account %q is missing the %q prefix", path, a.Account, localPrefix)
+		}
+		canon, err := canonicalUsername(name)
+		if err != nil {
+			return nil, fmt.Errorf("account file %s: account %q is not a valid local account: %w", path, a.Account, err)
+		}
+		if canon != name {
+			return nil, fmt.Errorf("account file %s: account %q is not in canonical form (want %q)", path, a.Account, localPrefix+canon)
+		}
 		s.accounts[a.Account] = a
 	}
 	return s, nil
@@ -191,7 +209,11 @@ func (s *AccountStore) Update(id string, fn func(*Account) error) error {
 	if !ok {
 		return fmt.Errorf("no such account: %s", id)
 	}
+	// Deep-copy for the rollback: PubKeys shares its backing array with the stored
+	// account, so a mutation inside fn would survive a failed save.
 	before := a
+	before.PubKeys = append([]PubKey(nil), a.PubKeys...)
+	a.PubKeys = append([]PubKey(nil), a.PubKeys...)
 	if err := fn(&a); err != nil {
 		return err
 	}
@@ -275,5 +297,10 @@ func (s *AccountStore) saveLocked() error {
 	if err := os.Rename(tmpName, s.path); err != nil {
 		return fmt.Errorf("replace account file: %w", err)
 	}
-	return os.Chmod(s.path, 0o600)
+	// The temp file was already 0600 and rename preserves the mode, so this is a
+	// belt-and-braces repair for a pre-existing file with wider permissions. It must
+	// not fail the save: the data is committed, and reporting an error here would
+	// roll the caller's in-memory state back out of step with the disk.
+	_ = os.Chmod(s.path, 0o600)
+	return nil
 }

@@ -21,6 +21,36 @@ const (
 	maxPasswordLen = 256
 )
 
+// maxConcurrentHashes caps how many argon2 computations may run at once.
+//
+// Each costs 64MiB of resident memory, so without a cap a few dozen concurrent
+// POSTs to a public login form demand gigabytes — cheaper for the attacker than for
+// us, and it takes the relay down for everyone rather than just slowing logins.
+// Requests queue on this gate instead.
+const maxConcurrentHashes = 4
+
+// hashGate holds the permits. Buffered channel rather than a semaphore type so the
+// zero value is unusable and the intent is obvious at the call site.
+var hashGate = make(chan struct{}, maxConcurrentHashes)
+
+// hashGateProbe lets tests observe how many hashes are in flight. nil in production.
+var hashGateProbe func(delta int)
+
+// withHashPermit runs fn holding one permit.
+func withHashPermit[T any](fn func() T) T {
+	hashGate <- struct{}{}
+	if hashGateProbe != nil {
+		hashGateProbe(1)
+	}
+	defer func() {
+		if hashGateProbe != nil {
+			hashGateProbe(-1)
+		}
+		<-hashGate
+	}()
+	return fn()
+}
+
 // argonParams are the cost parameters recorded alongside each hash, so they can be
 // raised later without invalidating passwords already stored.
 type argonParams struct {
@@ -48,7 +78,7 @@ func HashPassword(password string) (string, error) {
 
 // ValidatePassword reports whether a password is acceptable to store.
 func ValidatePassword(password string) error {
-	if n := len(password); n < minPasswordLen {
+	if n := utf8.RuneCountInString(password); n < minPasswordLen {
 		return fmt.Errorf("password must be at least %d characters", minPasswordLen)
 	} else if n > maxPasswordLen {
 		return fmt.Errorf("password must be at most %d characters", maxPasswordLen)
@@ -70,7 +100,9 @@ func hashPasswordWith(password string, p argonParams) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generate salt: %w", err)
 	}
-	sum := argon2.IDKey([]byte(password), salt, p.time, p.memory, p.threads, p.keyLen)
+	sum := withHashPermit(func() []byte {
+		return argon2.IDKey([]byte(password), salt, p.time, p.memory, p.threads, p.keyLen)
+	})
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, p.memory, p.time, p.threads,
 		base64.RawStdEncoding.EncodeToString(salt),
@@ -91,7 +123,9 @@ func VerifyPassword(encoded, password string) bool {
 	if err != nil {
 		return false
 	}
-	got := argon2.IDKey([]byte(password), salt, p.time, p.memory, p.threads, p.keyLen)
+	got := withHashPermit(func() []byte {
+		return argon2.IDKey([]byte(password), salt, p.time, p.memory, p.threads, p.keyLen)
+	})
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
@@ -117,6 +151,12 @@ func decodeHash(encoded string) (argonParams, []byte, []byte, error) {
 	}
 	if p.memory == 0 || p.time == 0 || p.threads == 0 {
 		return p, nil, nil, errors.New("degenerate parameters")
+	}
+	// The encoding is data: a stored (or tampered) hash naming 4TiB of memory would
+	// otherwise be an allocation bomb on the login path. These bounds are generous
+	// next to the defaults (64MiB, t=3).
+	if p.memory > 1<<21 || p.time > 16 || p.threads > 16 {
+		return p, nil, nil, errors.New("parameters exceed the accepted bounds")
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil || len(salt) == 0 {

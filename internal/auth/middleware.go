@@ -134,6 +134,13 @@ func wantsJSON(r *http.Request) bool {
 // state, PKCE verifier, and post-login return path in a short-lived signed
 // cookie, then redirects to the IdP.
 func (a *Auth) handleLogin(w http.ResponseWriter, r *http.Request) {
+	// Unreachable through FromEnv (an OIDC mode always builds a.oauth, and local
+	// mode routes /auth/login elsewhere), but this is a public route: a nil
+	// dereference here would be a panic per request rather than a 404.
+	if a.oauth == nil {
+		http.NotFound(w, r)
+		return
+	}
 	state := randToken()
 	verifier := oauth2.GenerateVerifier()
 	returnTo := sameHostRedirect(r.URL.Query().Get("return"))
@@ -297,7 +304,7 @@ func (a *Auth) VerifyConnectorToken(tok string) (owner string, ok bool) {
 // signBlob/openBlob sign an arbitrary opaque string (used for the login tx
 // cookie). Same construction as Sign but with a caller-supplied payload.
 func (a *Auth) signBlob(s string) string {
-	return b64.EncodeToString([]byte(s)) + "." + b64.EncodeToString(a.mac(s))
+	return b64.EncodeToString([]byte(s)) + "." + b64.EncodeToString(a.mac(txDomain+s))
 }
 
 func (a *Auth) openBlob(v string) (string, bool) {
@@ -313,7 +320,7 @@ func (a *Auth) openBlob(v string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	if !hmac.Equal(sig, a.mac(string(payload))) {
+	if !hmac.Equal(sig, a.mac(txDomain+string(payload))) {
 		return "", false
 	}
 	return string(payload), true

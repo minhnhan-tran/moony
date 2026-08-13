@@ -18,8 +18,14 @@ import (
 // each attempt expensive for us as well as the attacker, so failures are counted
 // per account and per client address.
 const (
+	// Per account: tight, because it is a targeted guess.
 	maxLoginAttempts = 8
-	loginLockout     = 15 * time.Minute
+	// Per client address: deliberately looser. Behind a reverse proxy every request
+	// arrives from the proxy's address, so a bucket as tight as the per-account one
+	// would let one attacker lock every user out of the relay.
+	maxLoginAttemptsPerIP = 40
+	loginLockout          = 15 * time.Minute
+	limiterMaxKeys        = 4096
 )
 
 const (
@@ -50,6 +56,16 @@ type failCount struct {
 	until time.Time
 }
 
+// limitFor is the allowance for a key. Login-by-address gets the loose allowance
+// (a proxy makes every client share one address); accounts and registration get the
+// tight one.
+func limitFor(key string) int {
+	if strings.HasPrefix(key, "ip:") {
+		return maxLoginAttemptsPerIP
+	}
+	return maxLoginAttempts
+}
+
 func newLoginLimiter(now func() time.Time) *loginLimiter {
 	if now == nil {
 		now = time.Now
@@ -71,7 +87,7 @@ func (l *loginLimiter) blocked(keys ...string) bool {
 			delete(l.fails, k) // window elapsed
 			continue
 		}
-		if f.n >= maxLoginAttempts {
+		if f.n >= limitFor(k) {
 			return true
 		}
 	}
@@ -91,12 +107,22 @@ func (l *loginLimiter) fail(keys ...string) {
 		f.n++
 		f.until = now.Add(loginLockout)
 	}
-	// Keep the map from growing without bound on a public relay.
-	if len(l.fails) > 4096 {
+	// Keep the map from growing without bound on a public relay: junk usernames and
+	// spoofed-looking addresses are free for a caller to invent.
+	if len(l.fails) > limiterMaxKeys {
 		for k, f := range l.fails {
 			if now.After(f.until) {
 				delete(l.fails, k)
 			}
+		}
+		// Still over cap: every entry is live, so drop arbitrary ones. Losing a
+		// counter is a smaller problem than unbounded memory, and the per-account
+		// key for a real victim is refreshed on their attacker's next attempt.
+		for k := range l.fails {
+			if len(l.fails) <= limiterMaxKeys {
+				break
+			}
+			delete(l.fails, k)
 		}
 	}
 }
@@ -109,16 +135,69 @@ func (l *loginLimiter) clear(keys ...string) {
 	}
 }
 
-// clientIP is the throttling key for an address. It deliberately ignores
-// X-Forwarded-For: on a relay behind a proxy that header is attacker-controlled
-// unless the proxy is trusted, and trusting it would let anyone reset their own
-// limit by varying it.
+// clientIP is the throttling key for an address.
+//
+// X-Forwarded-For is honoured ONLY when the immediate peer is listed in
+// MN_AUTH_TRUSTED_PROXIES, because otherwise the header is attacker-supplied and
+// anyone could reset their own limit by varying it. Without that variable the peer
+// address is used, which behind a reverse proxy is the proxy — hence the looser
+// per-address allowance (maxLoginAttemptsPerIP).
 func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	peer := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(peer); err == nil {
+		peer = host
 	}
-	return host
+	if !peerIsTrustedProxy(peer) {
+		return peer
+	}
+	// Right-most entry is the one the trusted proxy itself appended.
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		return peer
+	}
+	parts := strings.Split(xff, ",")
+	claimed := strings.TrimSpace(parts[len(parts)-1])
+	if ip := net.ParseIP(claimed); ip != nil {
+		return ip.String()
+	}
+	return peer
+}
+
+// trustedProxies is parsed once from MN_AUTH_TRUSTED_PROXIES (comma-separated IPs
+// or CIDRs).
+var trustedProxies = sync.OnceValue(func() []*net.IPNet {
+	var out []*net.IPNet
+	for _, raw := range strings.Split(os.Getenv("MN_AUTH_TRUSTED_PROXIES"), ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if _, cidr, err := net.ParseCIDR(raw); err == nil {
+			out = append(out, cidr)
+			continue
+		}
+		if ip := net.ParseIP(raw); ip != nil {
+			bits := 32
+			if ip.To4() == nil {
+				bits = 128
+			}
+			out = append(out, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+		}
+	}
+	return out
+})
+
+func peerIsTrustedProxy(peer string) bool {
+	ip := net.ParseIP(peer)
+	if ip == nil {
+		return false
+	}
+	for _, n := range trustedProxies() {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // csrfToken binds a form to something the caller must already possess: either the
@@ -266,15 +345,39 @@ func (a *Auth) handleRegister(w http.ResponseWriter, r *http.Request) {
 			Error: msg, Username: username,
 		})
 	}
-	if _, err := AccountID(username); err != nil {
+	// Registration hashes a password, so it is throttled exactly like login —
+	// otherwise the limiter on /auth/login is bypassed by posting here instead.
+	// A "reg:" key, not "ip:", so registration gets the tighter allowance: it is a
+	// rare action that also creates state, and account spam is its own nuisance.
+	keys := []string{"reg:" + clientIP(r)}
+	if a.throttler().blocked(keys...) {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", int(loginLockout.Seconds())))
+		a.renderLoginStatus(w, http.StatusTooManyRequests, loginPage{
+			Mode: "register", ReturnTo: returnTo, CSRF: a.issueCSRF(w),
+			Error: "Too many attempts. Wait a few minutes and try again.",
+		})
+		return
+	}
+	id, err := AccountID(username)
+	if err != nil {
+		a.throttler().fail(keys...)
 		fail(err.Error())
 		return
 	}
+	// Reject a name that is taken BEFORE hashing: otherwise re-posting a username
+	// known to exist costs the relay 64MiB per request for free.
+	if _, exists := a.accounts.ByID(id); exists {
+		a.throttler().fail(keys...)
+		fail("That username is already taken.")
+		return
+	}
 	if password != confirm {
+		a.throttler().fail(keys...)
 		fail("Those passwords do not match.")
 		return
 	}
 	if err := ValidatePassword(password); err != nil {
+		a.throttler().fail(keys...)
 		fail(err.Error())
 		return
 	}
@@ -283,6 +386,7 @@ func (a *Auth) handleRegister(w http.ResponseWriter, r *http.Request) {
 		fail(err.Error())
 		return
 	}
+	// Create re-checks under the store lock, so a racing registration still loses.
 	acct, err := a.accounts.Create(username, hash)
 	if err != nil {
 		if errors.Is(err, ErrAccountExists) {
@@ -310,11 +414,21 @@ func (a *Auth) handlePassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "this account's password is managed by your identity provider", http.StatusBadRequest)
 		return
 	}
+	sess, _ := r.Cookie(sessionCookie)
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		// Without this the route was POST-only, i.e. unusable from a browser: the
+		// only way to rotate a password would have been a hand-rolled curl call.
+		if sess == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+		a.renderAccount(w, http.StatusOK, accountPage{
+			Username: strings.TrimPrefix(account, localPrefix),
+			CSRF:     a.csrfToken(sess.Value),
+			Changed:  r.URL.Query().Get("changed") == "1",
+		})
 		return
 	}
-	sess, _ := r.Cookie(sessionCookie)
 	if sess == nil || !a.csrfValid(sess.Value, r.PostFormValue(csrfField)) {
 		http.Error(w, "invalid or missing CSRF token", http.StatusForbidden)
 		return
@@ -327,17 +441,21 @@ func (a *Auth) handlePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	old := r.PostFormValue("old_password")
 	next := r.PostFormValue("password")
+
+	// Check the allowance BEFORE verifying: VerifyPassword is the expensive part, so
+	// testing it first would let a locked-out caller keep spending 64MiB a request.
+	keys := []string{"ip:" + clientIP(r), account}
+	if a.throttler().blocked(keys...) {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", int(loginLockout.Seconds())))
+		http.Error(w, "too many attempts", http.StatusTooManyRequests)
+		return
+	}
 	if !VerifyPassword(acct.PasswordHash, old) {
-		// Throttled like a login: this is a password guess against a known account.
-		keys := []string{"ip:" + clientIP(r), account}
-		if a.throttler().blocked(keys...) {
-			http.Error(w, "too many attempts", http.StatusTooManyRequests)
-			return
-		}
 		a.throttler().fail(keys...)
 		http.Error(w, "current password is incorrect", http.StatusForbidden)
 		return
 	}
+	a.throttler().clear(keys...)
 	if next != r.PostFormValue("confirm") {
 		http.Error(w, "those passwords do not match", http.StatusBadRequest)
 		return
@@ -371,7 +489,7 @@ func (a *Auth) handlePassword(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/auth/password?changed=1", http.StatusFound)
 }
 
 // handleLogoutAll revokes every credential for the signed-in account: all browser
@@ -531,3 +649,74 @@ func (a *Auth) Describe() []string {
 	}
 	return out
 }
+
+// accountPage is the signed-in account page's data.
+type accountPage struct {
+	Username string
+	CSRF     string
+	Error    string
+	Changed  bool
+}
+
+func (a *Auth) renderAccount(w http.ResponseWriter, code int, p accountPage) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(code)
+	_ = accountTmpl.Execute(w, p)
+}
+
+var accountTmpl = template.Must(template.New("account").Parse(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your account · moony</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .auth-wrap{min-height:100vh;display:grid;place-items:center;padding:1.5rem}
+  .auth-card{width:min(25rem,100%);background:var(--c-surface,#fff);color:var(--c-text,#111);
+    border:1px solid var(--c-border,#e3e3e3);border-radius:var(--radius-lg,14px);
+    padding:1.5rem;box-shadow:0 10px 30px rgb(0 0 0 / 8%)}
+  .auth-card h1{margin:0 0 .25rem;font-size:1.25rem}
+  .auth-card p.sub{margin:0 0 1.25rem;color:var(--c-text-dim,#666);font-size:.875rem}
+  .auth-card label{display:block;font-size:.8125rem;margin:.75rem 0 .25rem;font-weight:600}
+  .auth-card input{width:100%;box-sizing:border-box;padding:.5rem .625rem;font:inherit;
+    border:1px solid var(--c-border,#ccc);border-radius:var(--radius-sm,8px);
+    background:var(--c-bg,#fff);color:inherit}
+  .auth-card button{width:100%;margin-top:1.25rem;padding:.5rem;font:inherit;font-weight:600;
+    border:0;border-radius:var(--radius-sm,8px);background:var(--c-accent,#3b6ef5);color:#fff;cursor:pointer}
+  .auth-card button.danger{background:transparent;color:var(--c-danger,#d33);
+    border:1px solid color-mix(in srgb,var(--c-danger,#d33) 40%,transparent)}
+  .auth-note{margin:.5rem 0 0;font-size:.75rem;color:var(--c-text-dim,#777)}
+  .auth-ok,.auth-err{margin:0 0 1rem;padding:.5rem .625rem;border-radius:var(--radius-sm,8px);font-size:.8125rem}
+  .auth-ok{background:color-mix(in srgb,var(--c-accent,#3b6ef5) 12%,transparent)}
+  .auth-err{background:color-mix(in srgb,var(--c-danger,#d33) 12%,transparent)}
+  hr{border:0;border-top:1px solid var(--c-border,#e3e3e3);margin:1.5rem 0}
+  .auth-alt{margin:1rem 0 0;text-align:center;font-size:.8125rem}
+</style>
+</head><body><div class="auth-wrap"><div class="auth-card">
+<h1>Your account</h1>
+<p class="sub">Signed in as {{.Username}}</p>
+{{if .Changed}}<p class="auth-ok">Password changed. Every other session and connector token has been signed out.</p>{{end}}
+{{if .Error}}<p class="auth-err">{{.Error}}</p>{{end}}
+<form method="post" action="/auth/password">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <label for="old_password">Current password</label>
+  <input id="old_password" name="old_password" type="password" required autocomplete="current-password">
+  <label for="password">New password</label>
+  <input id="password" name="password" type="password" required autocomplete="new-password">
+  <label for="confirm">Confirm new password</label>
+  <input id="confirm" name="confirm" type="password" required autocomplete="new-password">
+  <button type="submit">Change password</button>
+  <p class="auth-note">Changing your password signs out every other browser and revokes
+    connector tokens, so any machine you have linked will need to be reconnected.</p>
+</form>
+<hr>
+<form method="post" action="/auth/logout-all">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <button type="submit" class="danger">Sign out everywhere</button>
+  <p class="auth-note">Revokes every session and connector token for this account, including this one.</p>
+</form>
+<p class="auth-alt"><a href="/">Back to moony</a></p>
+</div></div></body></html>
+`))

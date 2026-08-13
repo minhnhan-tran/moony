@@ -47,8 +47,19 @@ func (a *Auth) Sign(account, aud string, ttl time.Duration) string {
 		// resolve, so the result simply will not verify.
 		key = a.secret
 	}
-	return b64.EncodeToString([]byte(payload)) + "." + b64.EncodeToString(macWith(key, payload))
+	return b64.EncodeToString([]byte(payload)) + "." + b64.EncodeToString(macWith(key, tokenDomain+payload))
 }
+
+// tokenDomain and txDomain separate the two things this package MACs under the
+// same secret. Without them the constructions are byte-identical, so an OIDC
+// login-transaction blob — handed out by the public /auth/login route, and ending
+// in a caller-supplied return path — parses and verifies as a session token, in
+// either audience. That is an authentication bypass with no credential involved.
+// See confusion_test.go.
+const (
+	tokenDomain = "moony-token\x00"
+	txDomain    = "moony-oidc-tx\x00"
+)
 
 // tokenKey returns the HMAC key for account, and whether one exists.
 //
@@ -109,11 +120,17 @@ func (a *Auth) Verify(tok, wantAud string) (account string, ok bool) {
 	if aud != wantAud || acct == "" {
 		return "", false
 	}
+	// NUL separates fields in the login-transaction blob and in the relay's
+	// linkKey, and cannot occur in a canonical local account or a real OIDC claim.
+	// Refuse it rather than let it shape an account id.
+	if strings.ContainsRune(acct, 0) {
+		return "", false
+	}
 	key, ok := a.tokenKey(acct)
 	if !ok {
 		return "", false
 	}
-	if !hmac.Equal(sig, macWith(key, p)) {
+	if !hmac.Equal(sig, macWith(key, tokenDomain+p)) {
 		return "", false
 	}
 	exp, err := strconv.ParseInt(expStr, 10, 64)

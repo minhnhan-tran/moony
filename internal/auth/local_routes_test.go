@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -538,5 +540,64 @@ func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
 			t.Errorf("%s took %v against %v for a known account: the hash is being skipped, which leaks whether the account exists",
 				name, d, known)
 		}
+	}
+}
+
+// GET /auth/password must render a usable form: without it the only way to rotate a
+// password is a hand-built POST, which no user will do.
+func TestAccountPageRendersAForm(t *testing.T) {
+	a, acct := localAuth(t)
+	sess := &http.Cookie{Name: sessionCookie, Value: a.Sign(acct.Account, audWeb, a.ttl)}
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/password", nil)
+	req.AddCookie(sess)
+	rec := httptest.NewRecorder()
+	a.Wrap(http.NotFoundHandler()).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /auth/password = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`name="old_password"`, `name="password"`, `name="confirm"`, `name="csrf_token"`, "/auth/logout-all"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the account page is missing %s", want)
+		}
+	}
+	// The rendered token must be the one the POST handler accepts.
+	if formValue(body, csrfField) != a.csrfToken(sess.Value) {
+		t.Error("the page renders a CSRF token the POST handler will reject")
+	}
+	// And it must not be reachable without a session.
+	rec2 := httptest.NewRecorder()
+	a.Wrap(http.NotFoundHandler()).ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, "/auth/password", nil))
+	if rec2.Code == http.StatusOK {
+		t.Error("the account page rendered for an anonymous visitor")
+	}
+}
+
+// X-Forwarded-For must be ignored unless the peer is a configured trusted proxy,
+// or an attacker resets their own rate limit by varying the header.
+func TestForwardedForOnlyTrustedFromAProxy(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	r.RemoteAddr = "203.0.113.9:5555"
+	r.Header.Set("X-Forwarded-For", "1.2.3.4")
+
+	if got := clientIP(r); got != "203.0.113.9" {
+		t.Errorf("clientIP = %q with no trusted proxies configured, want the peer address", got)
+	}
+
+	t.Setenv("MN_AUTH_TRUSTED_PROXIES", "203.0.113.0/24")
+	trustedProxies = sync.OnceValue(func() []*net.IPNet {
+		_, n, _ := net.ParseCIDR("203.0.113.0/24")
+		return []*net.IPNet{n}
+	})
+	if got := clientIP(r); got != "1.2.3.4" {
+		t.Errorf("clientIP = %q behind a trusted proxy, want the forwarded address", got)
+	}
+
+	// A forged chain must yield the right-most (proxy-appended) entry, not the first.
+	r.Header.Set("X-Forwarded-For", "9.9.9.9, 1.2.3.4")
+	if got := clientIP(r); got != "1.2.3.4" {
+		t.Errorf("clientIP = %q, want the right-most entry the trusted proxy appended", got)
 	}
 }

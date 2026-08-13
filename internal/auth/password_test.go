@@ -53,8 +53,8 @@ func TestVerifyPasswordFailsClosedOnBadEncodings(t *testing.T) {
 	bad := []string{
 		"", " ", "not-a-hash",
 		"$argon2id$", "$argon2id$v=19$",
-		"$argon2id$v=19$m=65536,t=3,p=2$", // no salt or hash
-		"$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$", // empty hash
+		"$argon2id$v=19$m=65536,t=3,p=2$",              // no salt or hash
+		"$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$",       // empty hash
 		"$argon2id$v=18$m=65536,t=3,p=2$c2FsdA$aGFzaA", // wrong version
 		"$argon2i$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA",  // wrong variant
 		"$argon2id$v=19$m=x,t=3,p=2$c2FsdA$aGFzaA",     // unparseable cost
