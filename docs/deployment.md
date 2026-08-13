@@ -118,11 +118,55 @@ serve the UI from a domain Vercel already manages.
 
 ## Authentication
 
-Set `MN_AUTH=on` and the relay requires the full OIDC set below, performing discovery against the issuer at startup. A missing variable or an unreachable issuer is **fatal by design** — it fails closed rather than starting half-secured, so a typo can't quietly leave the gate open.
+The relay accepts two kinds of credential, chosen with `MN_AUTH`:
+
+| `MN_AUTH` | Meaning |
+|---|---|
+| unset, `off` | **no authentication** — anyone who can reach the relay can use every connector attached to it |
+| `on` (or `oidc`) | browser login through an OIDC identity provider |
+| `local` | username + password accounts held by the relay itself; no identity provider needed |
+| `local+oidc` | both, offered on one login page |
+
+Anything else is a **startup error**, so a typo cannot quietly disable the gate.
+
+With `on` or `local+oidc` the relay requires the full OIDC set below and performs discovery against the issuer at startup. A missing variable or an unreachable issuer is **fatal by design** — it fails closed rather than starting half-secured.
+
+### Local password accounts
+
+`MN_AUTH=local` is the quickest way to put a login in front of a relay: no identity
+provider, no callback URL to register. Accounts live in one JSON file that holds
+argon2id password hashes, written `0600`.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `MN_AUTH` | — | `on`/`1`/`true`/`yes` enables the gate; `off`/`0`/`false`/`no` or unset = open relay. **Any other value is a startup error**, so a typo cannot quietly disable the gate |
+| `MN_AUTH_SECRET` | yes | signs cookies and connector credentials (as for OIDC) |
+| `MN_AUTH_USERS_FILE` | yes* | where accounts are stored, e.g. `/var/lib/moony/users.json`. *Defaults beside `MN_ANNOUNCEMENTS_FILE` if that is set; otherwise startup fails rather than keeping accounts somewhere that vanishes on redeploy |
+| `MN_AUTH_REGISTER` | no | `off` closes self-registration. **Open by default** — a relay with local accounts and no way to create one is useless, but leaving it open means anyone who can reach the relay can create an account |
+| `MN_AUTH_TRUSTED_PROXIES` | no | comma-separated IPs/CIDRs whose `X-Forwarded-For` is believed, for per-client rate limiting. Without it the peer address is used (behind a proxy, that is the proxy) |
+
+Routes: `/auth/login`, `/auth/register` (both public), and `/auth/password` — the
+signed-in account page, which changes the password or signs out everywhere. Both of
+those revoke **every** credential for the account, including the 30-day connector
+tokens, by bumping a per-account epoch mixed into its signing key.
+
+```sh
+# a relay with local accounts, behind a TLS-terminating proxy
+MN_AUTH=local \
+MN_AUTH_SECRET=$(openssl rand -hex 32) \
+MN_AUTH_USERS_FILE=/var/lib/moony/users.json \
+MN_AUTH_COOKIE_SECURE=1 \
+  relay -addr :8770
+```
+
+Register the accounts you want, then set `MN_AUTH_REGISTER=off` and restart. The
+startup banner states which mode is active, how many accounts exist, and whether
+registration is still open.
+
+### OIDC
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `MN_AUTH` | — | see the table above; `on` selects OIDC |
 | `MN_AUTH_SECRET` | yes | signs the browser cookie **and** the connector credential. Every replica must share the same value. `openssl rand -hex 32` |
 | `MN_OIDC_ISSUER` | yes | e.g. `https://accounts.example.com` |
 | `MN_OIDC_CLIENT_ID` | yes | |

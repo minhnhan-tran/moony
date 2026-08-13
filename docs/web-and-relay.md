@@ -87,6 +87,22 @@ if any is missing — fail closed):
 MN_AUTH=on
 MN_AUTH_SECRET=<random, ≥16 bytes>          # signs session cookies + connector tokens
 MN_AUTH_COOKIE_SECURE=1                     # required behind a TLS-terminating proxy
+
+Or skip the identity provider entirely and use local password accounts:
+
+```sh
+MN_AUTH=local
+MN_AUTH_SECRET=<random, ≥16 bytes>
+MN_AUTH_USERS_FILE=/var/lib/moony/users.json   # argon2id hashes, mode 0600
+MN_AUTH_REGISTER=off                            # once your accounts exist
+MN_AUTH_COOKIE_SECURE=1
+```
+
+`/auth/login` then serves a form instead of redirecting to an IdP (with an SSO
+button too, under `MN_AUTH=local+oidc`), `/auth/register` self-serves accounts while
+it is open, and `/auth/password` is the account page: changing the password or
+signing out everywhere revokes every session **and** every 30-day connector token
+for that account.
 MN_OIDC_ISSUER=https://accounts.google.com  # your IdP's issuer URL (discovery)
 MN_OIDC_CLIENT_ID=…
 MN_OIDC_CLIENT_SECRET=…
