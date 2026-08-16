@@ -173,6 +173,15 @@ func (a *Agent) turnIsNonReviewable() (bool, string) {
 	if len(rels) == 0 {
 		return false, "" // nothing changed: the empty-diff gate handles this
 	}
+	// A mutating tool ran whose targets couldn't be enumerated (bash: `sed -i`, a python
+	// heredoc, a generator), so rels is a LOWER BOUND, not the full change set. Concluding
+	// "only non-code files changed" from a partial set is how a turn that rewrote JS via
+	// bash while touching CHANGELOG.md with write_file skipped review entirely — the code
+	// changes were invisible to the gate and hidden behind a confidently wrong reason.
+	// Reviewing costs one model call; wrongly skipping hides bugs, so err toward reviewing.
+	if a.snapshots != nil && a.snapshots.hadOpaqueMutation() {
+		return false, ""
+	}
 	globs := selfReviewSkipGlobs()
 	sawBump := false
 	for _, rel := range rels {

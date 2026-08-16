@@ -33,6 +33,30 @@ type snapshotStore struct {
 	mu      sync.Mutex
 	entries []fileSnapshot
 	turn    int
+	// opaqueTurn is the turn in which a mutating tool ran whose targets could NOT be
+	// enumerated (bash and friends: `sed -i`, a python heredoc, a code generator). Such
+	// a turn's snapshot set is KNOWN-INCOMPLETE, so anything reasoning about "what
+	// changed this turn" must not treat it as the whole story. Stored as a turn id
+	// rather than a bool so it self-clears when the next turn starts.
+	opaqueTurn int
+}
+
+// markOpaqueMutation records that a mutating tool ran this turn whose file targets
+// can't be determined from its input, so the turn's snapshot set is incomplete.
+func (s *snapshotStore) markOpaqueMutation() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.opaqueTurn = s.turn
+}
+
+// hadOpaqueMutation reports whether the CURRENT turn ran a mutating tool whose
+// targets couldn't be enumerated. When true, currentTurnChanges()/changedRelPaths()
+// are a lower bound on what the turn actually changed, not the full set. The zero
+// value is turn 0 while startTurn() begins at 1, so an idle store reports false.
+func (s *snapshotStore) hadOpaqueMutation() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.turn > 0 && s.opaqueTurn == s.turn
 }
 
 // startTurn bumps the turn counter and returns the new id.
@@ -416,11 +440,33 @@ func writeRestore(path string, data []byte) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// snapshotForCall records the prior contents of any file this tool call is about to
+// mutate, so /undo can revert just this turn's writes. When the call mutates but its
+// targets can't be enumerated from its input (bash: `sed -i`, a heredoc, a generator),
+// nothing can be snapshotted — so the turn is flagged instead, because a change set that
+// is silently PARTIAL is worse than one that is known to be partial. Extracted from
+// executeApprovedCall so the snapshot-vs-flag decision is testable at its real call site.
+func (a *Agent) snapshotForCall(name string, input json.RawMessage) {
+	paths := snapshotPaths(name, input)
+	for _, p := range paths {
+		a.SnapshotPath(p)
+	}
+	if len(paths) > 0 || a.snapshots == nil {
+		return
+	}
+	// No enumerable targets. Only mutating tools matter: a read_only tool that changes
+	// nothing must not make the turn look unreviewable. Registry.Mutates fails safe
+	// (unknown tool → true), which is the behaviour we want here.
+	if a.tools != nil && a.tools.Mutates(name) {
+		a.snapshots.markOpaqueMutation()
+	}
+}
+
 // snapshotPaths inspects a tool call's input to find any file paths that the
 // call is about to mutate, so the agent can record their prior state before
 // the tool runs. We support write_file/edit_file/multi_edit (single-file) and
 // apply_patch (multi-file); bash is opaque, so its changes can't be
-// auto-snapshotted.
+// auto-snapshotted — see snapshotForCall, which flags such a turn instead.
 func snapshotPaths(toolName string, input json.RawMessage) []string {
 	switch toolName {
 	case "write_file", "edit_file", "multi_edit":

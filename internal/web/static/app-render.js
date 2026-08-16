@@ -987,6 +987,16 @@ function appendWithCode(node, text, re) {
   if (last < text.length) node.append(text.slice(last));
 }
 
+// tsToMs parses a server RFC3339 timestamp into epoch millis, returning 0 for a missing,
+// empty or unparseable value. 0 means "unknown" and is deliberately falsy so callers can
+// fall back with `|| Date.now()`; returning NaN instead would poison arithmetic downstream
+// and render a "NaNms" duration in the turn footer.
+function tsToMs(ts) {
+  if (!ts) return 0;
+  const ms = Date.parse(ts);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 // fmtDateTime renders a Date as a readable local "YYYY-MM-DD HH:MM" stamp for the
 // per-turn / per-message footer (e.g. "2026-06-19 08:52").
 function fmtDateTime(d) {
@@ -1006,9 +1016,14 @@ function turnMetaLine(parts) {
 
 // userMetaFooter builds the footer under a user message: a datetime stamp plus a
 // copy button that copies the prompt text. text is the raw prompt to copy.
+//
+// `when` may be null, meaning the send time is genuinely unknown (a replayed turn with no
+// persisted TurnMeta — e.g. one interrupted before it completed). In that case NO clock is
+// drawn: defaulting to new Date() would date a months-old question to the page load, which
+// reads as fact. Absent is honest; "now" is confidently wrong.
 function userMetaFooter(text, when) {
   const row = el("div", "user-meta flex items-center gap-1.5 mt-1 text-faint text-[11px] font-mono");
-  row.appendChild(el("span", null, fmtDateTime(when || new Date())));
+  if (when) row.appendChild(el("span", null, fmtDateTime(when)));
   if (text) {
     const copyBtn = el("button", "user-copy shrink-0");
     copyBtn.title = "Copy";
@@ -1044,9 +1059,15 @@ function userMetaFooter(text, when) {
 function renderTurnMeta() {
   if (!turnActive) return;
   turnActive = false;
-  const ms = turnStartMs ? Date.now() - turnStartMs : 0;
   const s = lastStatus || {};
-  const parts = [fmtDateTime(new Date()), fmtDur(ms)];
+  // turnStartMs === 0 means the turn's start is unknown: this is a replayed turn with no
+  // persisted TurnMeta (interrupted, or still running when the session was saved), so
+  // nothing here can be dated. Omit BOTH the clock and the duration rather than stamping
+  // new Date() / "0ms" — that would report the page-load instant and a zero-length turn as
+  // fact. Keep whatever IS known (cost, model, calls, tokens).
+  const datable = turnStartMs > 0;
+  const parts = [];
+  if (datable) parts.push(fmtDateTime(new Date()), fmtDur(Date.now() - turnStartMs));
   if (lastTurnCost > 0) parts.push(fmtUSD(lastTurnCost));
   // Prefer the model that actually served this turn (adaptive/cheap-reads can
   // downshift so the session model never ran); fall back to the status model.
@@ -1058,6 +1079,8 @@ function renderTurnMeta() {
   if (turnReasoning) parts.push("reasoning: " + turnReasoning); // thinking/reasoning level
   if (curStep > 0) parts.push(curStep + (curStep === 1 ? " call" : " calls")); // model calls made this turn
   parts.push(...tokenMetaParts(lastTurnIn, lastTurnOut, lastTurnCacheRead)); // total tokens ↑↓ + prompt-cache hit rate
+  // An interrupted turn can have no metrics at all; an empty footer line is noise.
+  if (!parts.length) return;
   appendMsg(turnMetaLine(parts));
   scrollBottom();
 }

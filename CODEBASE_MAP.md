@@ -37,6 +37,11 @@ Hand-authored, authoritative notes. Generators never touch this section.
   honoured with a `.sqeignore` fallback.
 - **This file:** only text inside the BEGIN/END markers survives. The structure section is
   regenerated from the code and must not be hand-edited; write durable knowledge here.
+- **Pinned notes are never *overwritten*, but they can be *trimmed in the prompt*.** When the
+  assembled section exceeds `MOONY_CODEBASE_MAP_BYTES`, the order is digest (down to a ~4 KB
+  floor) → narrative → pinned; pinned is clipped last and only when it alone overflows. The
+  budget also covers the headings/preamble, and a budget too small for those yields no map at
+  all. So keep pinned notes tight — an over-long pinned block starves the rest of the map.
 <!-- END PINNED -->
 
 ## Structure

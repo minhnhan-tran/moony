@@ -690,7 +690,11 @@ func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []att
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 	s.state = stateBusy
-	s.publishLocked(wireEvent{Type: "user", Text: prompt, Attachments: atts})
+	// Stamp the question with the moment the prompt was accepted. A turn has no persisted
+	// TurnMeta until it completes, so a browser that connects (or reloads) mid-turn has no
+	// other source for when the question was asked — without this it falls back to the page
+	// load time and the footer measures time since RELOAD rather than turn elapsed.
+	s.publishLocked(wireEvent{Type: "user", Text: prompt, Attachments: atts, Time: time.Now().Format(time.RFC3339)})
 	s.publishLocked(stateWire(stateBusy))
 	s.mu.Unlock()
 

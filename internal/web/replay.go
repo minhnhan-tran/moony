@@ -111,7 +111,12 @@ func replayMessages(messages []llm.Message, metas []sess.TurnMeta, taskMetas []s
 				}
 			}
 			if promptText.Len() > 0 || len(atts) > 0 {
-				out = append(out, wireEvent{Type: "user", Text: promptText.String(), Attachments: atts})
+				// Replay:true from the start. A question only gets a Time if its turn has a
+				// TurnMeta to derive one from (backfilled below); an interrupted turn returns
+				// before recordTurnMeta and so persists with no metadata at all. Flagged and
+				// undated tells the client "unknown" — without the flag it can't distinguish
+				// that from a live send and would stamp it with the page-load time.
+				out = append(out, wireEvent{Type: "user", Text: promptText.String(), Attachments: atts, Replay: true})
 				lastUserIdx = len(out) - 1
 			}
 		case llm.RoleAssistant:
@@ -163,7 +168,14 @@ func replayMessages(messages []llm.Message, metas []sess.TurnMeta, taskMetas []s
 			// and collapse the question→answer timeline to zero, contradicting the
 			// duration shown right beside it in this same footer.
 			if lastUserIdx >= 0 {
-				out[lastUserIdx].Time = tm.Time.Add(-time.Duration(tm.DurationMS) * time.Millisecond).Format(time.RFC3339)
+				// DurationMS <= 0 means the duration wasn't recorded (older records, or a
+				// skewed clock). Fall back to tm.Time rather than subtracting a bogus value,
+				// so a question can never be stamped AFTER the answer it opened.
+				if tm.DurationMS > 0 {
+					out[lastUserIdx].Time = tm.Time.Add(-time.Duration(tm.DurationMS) * time.Millisecond).Format(time.RFC3339)
+				} else {
+					out[lastUserIdx].Time = ts
+				}
 				lastUserIdx = -1
 			}
 			out = append(out, wireEvent{Type: "turn_meta", Meta: &turnMetaWire{

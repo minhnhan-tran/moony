@@ -1301,7 +1301,12 @@ function handle(ev) {
       asstLabeled = false; // a new turn → the next assistant answer gets a fresh label
       turnTodos = null;    // and a fresh per-question todo card in the transcript
       phaseTimes = {};     // reset per-phase timing for the new turn
-      turnStartMs = Date.now(); turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
+      // Seed the turn timer from the SERVER's send stamp when there is one, so a browser
+      // that connects or reloads mid-turn measures true turn elapsed instead of time since
+      // page load. 0 means the question can't be dated (replayed turn with no TurnMeta) —
+      // leave it 0 so the footer omits the duration rather than inventing one.
+      turnStartMs = ev.replay ? tsToMs(ev.time) : (tsToMs(ev.time) || Date.now());
+      turnActive = true; lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0; stickBottom = true; // start timing this turn; jump to it
       lastTodos = [];      // drop the previous turn's todos so a plan event can't resurrect them
       renderTodos([]);     // hide the previous turn's task-list bar until new todos arrive
       const m = startMsg("you", "text-ok", "person.crop.circle", "msg-user");
@@ -1314,7 +1319,11 @@ function handle(ev) {
       if (ev.attachments && ev.attachments.length) {
         m.appendChild(renderAttachments(ev.attachments));
       }
-      m.appendChild(userMetaFooter(ev.text || "", ev.time ? new Date(ev.time) : new Date()));
+      // Reuse the sanitized turnStartMs rather than parsing ev.time again: it already
+      // resolves "live but unstamped" to the local clock, "undatable replay" to 0, and an
+      // unparseable stamp to 0 (a raw `new Date(bad)` would render "NaN-NaN-NaN" instead).
+      // 0 → null, so the footer omits the clock rather than inventing one.
+      m.appendChild(userMetaFooter(ev.text || "", turnStartMs ? new Date(turnStartMs) : null));
       startPair(m, ev.text); // the question becomes this pair's pinned header; its answer follows in the scroll body
       break;
     }

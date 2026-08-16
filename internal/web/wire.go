@@ -101,8 +101,17 @@ type wireEvent struct {
 	// the browser can render the multi-agent conversation (live + on replay).
 	Board *boardMsgWire `json:"board,omitempty"`
 	// Time stamps a "user" event with when it was sent (RFC3339), for the
-	// per-message footer. Set on replay from the answering turn's time.
+	// per-message footer. Set on replay from the answering turn's start time
+	// (its end minus the turn duration), and live from when the prompt was
+	// accepted. Empty when the send time is genuinely unrecoverable — see Replay.
 	Time string `json:"time,omitempty"`
+	// Replay marks a "user" event rebuilt from persisted history rather than
+	// emitted live. Together with an empty Time it tells the browser the question
+	// CANNOT be dated (an interrupted turn never reached recordTurnMeta, so it has
+	// no TurnMeta to derive a time from), so the client must render no clock and no
+	// duration instead of falling back to the page-load time — which would date
+	// old history to "now".
+	Replay bool `json:"replay,omitempty"`
 	// CostUSD carries the just-finished turn's estimated cost on a "turn_done"
 	// event, so the live per-turn footer shows the answering cost (not the
 	// cumulative session total).

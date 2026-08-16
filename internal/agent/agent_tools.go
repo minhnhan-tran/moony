@@ -644,10 +644,9 @@ func (a *Agent) executeApprovedCall(ctx context.Context, emit func(Event), call 
 
 	// Snapshot the prior contents of any file this tool is about to mutate, so
 	// /undo can revert just this turn's writes. (Only mutating file tools, which
-	// run on the serial path, ever produce snapshot paths.)
-	for _, p := range snapshotPaths(call.Name, call.Input) {
-		a.SnapshotPath(p)
-	}
+	// run on the serial path, ever produce snapshot paths.) A mutating tool with no
+	// enumerable targets (bash) flags the turn's change set as incomplete instead.
+	a.snapshotForCall(call.Name, call.Input)
 
 	// Let streaming tools (delegate) report live progress: stash an emitter in
 	// the context, tagged with this call's id so the UI can nest the activity.
