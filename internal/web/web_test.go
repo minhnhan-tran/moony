@@ -441,10 +441,13 @@ func TestReplayMessagesTurnMeta(t *testing.T) {
 		{Role: llm.RoleUser, Content: []llm.ContentBlock{llm.TextBlock("more")}},
 		{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("ok")}},
 	}
+	// Distinct end times, ordered like real turns: metas[1] finishes after metas[0], so
+	// backing each turn's duration out of its end time yields a sane question→answer
+	// timeline (turn 1 asked, answered, then turn 2 asked).
 	now := time.Now()
 	metas := []sessionpkg.TurnMeta{
 		{Time: now, DurationMS: 1500, CostUSD: 0.012, Model: "anthropic.claude-opus-4-8", Reasoning: "high", MsgCount: 2},
-		{Time: now, DurationMS: 800, Model: "anthropic.claude-opus-4-8", MsgCount: 4},
+		{Time: now.Add(30 * time.Second), DurationMS: 800, Model: "anthropic.claude-opus-4-8", MsgCount: 4},
 	}
 	got := replayMessages(msgs, metas, nil, nil, nil)
 
@@ -469,9 +472,30 @@ func TestReplayMessagesTurnMeta(t *testing.T) {
 	if got[5].Meta == nil || got[5].Meta.DurationMS != 800 {
 		t.Errorf("second turn_meta = %+v, want duration 800", got[5].Meta)
 	}
-	// Each user message must be stamped with its turn's time for the footer.
+	// Each user message must be stamped with the START of its turn, so its footer
+	// shows when the question was asked. Stamping it with tm.Time (the turn's END)
+	// would make the question and the answer's footer read the same instant and
+	// collapse the question→answer timeline to zero against the duration beside it.
 	if got[0].Time == "" || got[3].Time == "" {
-		t.Errorf("user events not stamped with turn time: %q, %q", got[0].Time, got[3].Time)
+		t.Fatalf("user events not stamped with turn time: %q, %q", got[0].Time, got[3].Time)
+	}
+	for _, tc := range []struct {
+		idx  int
+		meta sessionpkg.TurnMeta
+	}{{0, metas[0]}, {3, metas[1]}} {
+		asked, err := time.Parse(time.RFC3339, got[tc.idx].Time)
+		if err != nil {
+			t.Fatalf("user event %d time %q unparseable: %v", tc.idx, got[tc.idx].Time, err)
+		}
+		want := tc.meta.Time.Add(-time.Duration(tc.meta.DurationMS) * time.Millisecond)
+		if d := asked.Sub(want); d > time.Second || d < -time.Second {
+			t.Errorf("user event %d stamped %v, want turn start %v (end %v minus %dms)",
+				tc.idx, asked, want, tc.meta.Time, tc.meta.DurationMS)
+		}
+		if !asked.Before(tc.meta.Time) {
+			t.Errorf("user event %d stamped %v, not before its turn's end %v — the question must precede the answer",
+				tc.idx, asked, tc.meta.Time)
+		}
 	}
 }
 

@@ -155,10 +155,15 @@ func replayMessages(messages []llm.Message, metas []sess.TurnMeta, taskMetas []s
 		// After the last message of a completed turn, replay its footer.
 		if tm, ok := metaByCount[i+1]; ok {
 			ts := tm.Time.Format(time.RFC3339)
-			// Stamp the user message that opened this turn with the turn's time, so
-			// its footer shows when it was sent rather than the reopen time.
+			// Stamp the user message that opened this turn with the turn's START time, so
+			// its footer shows when the question was sent rather than the reopen time.
+			// tm.Time is the turn's END (recordTurnMeta stamps time.Now() alongside
+			// DurationMS = time.Since(start)), so the start has to be backed out of it —
+			// using tm.Time directly would print the answer's finish time on the question
+			// and collapse the question→answer timeline to zero, contradicting the
+			// duration shown right beside it in this same footer.
 			if lastUserIdx >= 0 {
-				out[lastUserIdx].Time = ts
+				out[lastUserIdx].Time = tm.Time.Add(-time.Duration(tm.DurationMS) * time.Millisecond).Format(time.RFC3339)
 				lastUserIdx = -1
 			}
 			out = append(out, wireEvent{Type: "turn_meta", Meta: &turnMetaWire{
