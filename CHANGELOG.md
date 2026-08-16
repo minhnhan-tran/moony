@@ -5,6 +5,20 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.32.1] — 2026-08-16
+
+### Fixed
+
+- **A background job is no longer killed by an unguarded process-group signal.** Stopping a job
+  signals its whole group (a negative pid) so the shell's forked grandchild dies with it, but the
+  pid was negated without being checked — and negation is what makes an unchecked pid dangerous:
+  `kill(0, …)` signals the agent's *own* process group, and `kill(-1, …)` is a POSIX broadcast to
+  every process it may signal. A zero or absurd pid (a never-started or already-reaped process)
+  could therefore reach the group form. Now guarded at `pid <= 1` before negating, matching
+  `procutil.KillTree`, which had the guard all along. `ESRCH` (the group is already gone) is also
+  treated as success rather than falling through to a single-process kill that can only fail the
+  same way.
+
 ## [2.32.0] — 2026-08-16
 
 ### Fixed
