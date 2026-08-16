@@ -681,6 +681,15 @@ func (s *session) flushNotesIfIdle() {
 	s.agent.FlushNotes()
 }
 
+// publishUserPrompt publishes the question that opens a turn, stamped with the moment the
+// prompt was accepted. The stamp matters because a turn has no persisted TurnMeta until it
+// completes, so a browser that connects (or reloads) mid-turn has no other source for when the
+// question was asked — without it the client falls back to the page-load instant and the turn
+// footer measures time since RELOAD rather than turn elapsed. Caller must hold s.mu.
+func (s *session) publishUserPrompt(prompt string, atts []attachWire) {
+	s.publishLocked(wireEvent{Type: "user", Text: prompt, Attachments: atts, Time: time.Now().Format(time.RFC3339)})
+}
+
 func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []attachWire, ov turnOverride) bool {
 	s.mu.Lock()
 	if s.state != stateIdle {
@@ -690,11 +699,7 @@ func (s *session) startWith(prompt string, blocks []llm.ContentBlock, atts []att
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 	s.state = stateBusy
-	// Stamp the question with the moment the prompt was accepted. A turn has no persisted
-	// TurnMeta until it completes, so a browser that connects (or reloads) mid-turn has no
-	// other source for when the question was asked — without this it falls back to the page
-	// load time and the footer measures time since RELOAD rather than turn elapsed.
-	s.publishLocked(wireEvent{Type: "user", Text: prompt, Attachments: atts, Time: time.Now().Format(time.RFC3339)})
+	s.publishUserPrompt(prompt, atts)
 	s.publishLocked(stateWire(stateBusy))
 	s.mu.Unlock()
 

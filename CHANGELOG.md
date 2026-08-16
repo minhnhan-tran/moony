@@ -5,6 +5,44 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.32.0] — 2026-08-16
+
+### Fixed
+
+- **Turn timeline: a question is no longer dated to its answer.** `TurnMeta.Time` is stamped
+  at turn *completion*, but replay reused it for the user message that *opened* the turn, so a
+  reopened session showed the question and the answer's footer at the identical instant — a
+  20-minute exchange replayed as if it happened in one moment. Replayed questions are now
+  stamped `Time − DurationMS` (falling back to `Time` when no duration was recorded, so a
+  question can never be dated after its answer).
+- **A turn that is still running when the page reloads reports true elapsed time.** The live
+  `user` event carried no timestamp, so a browser reconnecting mid-turn fell back to the
+  page-load instant and the footer measured time since *reload* (the "95ms" symptom). The
+  server now stamps the event when the prompt is accepted, and the client seeds its turn timer
+  from that stamp.
+- **The client no longer invents timestamps for history it cannot date.** An interrupted turn
+  returns before `recordTurnMeta`, so it persists with no metadata at all; replay now flags
+  such questions as undatable instead of leaving the browser to fill the gap with "now". The
+  question footer draws no clock, and the turn footer omits both the clock and the duration,
+  rather than reporting the page-load time and a "0ms" turn as fact. Absent is honest.
+- **Self-review no longer concludes from an incomplete change set.** Only the four file tools
+  expose their targets, so anything `bash` rewrote (`sed -i`, a heredoc, a generator) was
+  invisible to the gate: a turn that edited code via bash while touching `CHANGELOG.md` was
+  told "only non-code files changed" and skipped review, hiding every code change behind a
+  wrong reason. Such a turn is now flagged and always reviewed — a wasted review call is
+  cheaper than a hidden bug.
+- **The codebase-map prompt section now fits its byte budget.** The ~800 bytes of headings and
+  preamble were appended *after* trimming, so the section always overshot
+  `MOONY_CODEBASE_MAP_BYTES`; the framing cost is now measured and reserved up front, and a
+  budget too small to fit it yields no map rather than a fragment stripped of the preamble that
+  explains what it is. Relatedly, `clipBytes` now fits its truncation marker *within* the limit
+  instead of appending it on top, so each section stays inside its share.
+
+### Changed
+
+- Documented that pinned codebase-map notes, while never overwritten, *can* be trimmed from the
+  prompt when the budget overflows (order: digest → narrative → pinned).
+
 ## [2.31.1] — 2026-08-16
 
 ### Changed

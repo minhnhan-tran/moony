@@ -1,10 +1,10 @@
 package web
 
 import (
+	"os"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/pysty1995/moony/internal/llm"
 )
 
 // The live "user" event must carry the send time. A turn has no persisted TurnMeta until it
@@ -12,15 +12,16 @@ import (
 // has no other source for when the question was asked. Without this stamp the client falls
 // back to the page-load instant and the turn footer reports time since RELOAD rather than
 // turn elapsed — the "09:18 · 95ms · 40 calls" symptom, where 95ms was the age of the page.
+//
+// Asserted through publishUserPrompt (the same helper startWith uses) rather than by calling
+// startWith, which spawns a turn goroutine that needs a live agent.
 func TestLiveUserEventCarriesSendTime(t *testing.T) {
 	sess := newSession("id", "t", nil)
 
 	before := time.Now().Add(-time.Second)
-	// startWith stamps and publishes the user event before dispatching to the agent, so the
-	// nil agent here is never reached (the goroutine blocks on MCP readiness / returns).
-	if !sess.startWith("a question", []llm.ContentBlock{llm.TextBlock("a question")}, nil, turnOverride{}) {
-		t.Fatal("startWith refused an idle session")
-	}
+	sess.mu.Lock()
+	sess.publishUserPrompt("a question", nil)
+	sess.mu.Unlock()
 	after := time.Now().Add(time.Second)
 
 	_, _, hist := sess.subscribe()
@@ -48,5 +49,17 @@ func TestLiveUserEventCarriesSendTime(t *testing.T) {
 	// and the client uses it to decide whether it may fall back to its own clock.
 	if user.Replay {
 		t.Error("live user event marked Replay; only events rebuilt from persisted history may be")
+	}
+}
+
+// A wiring guard: the assertion above drives publishUserPrompt directly, so it would still
+// pass if startWith stopped using it and published an unstamped event again.
+func TestStartWithPublishesStampedUserEvent(t *testing.T) {
+	src, err := os.ReadFile("session.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), "s.publishUserPrompt(prompt, atts)") {
+		t.Error("startWith does not publish the question via publishUserPrompt, so the live event may be unstamped and a client reloading mid-turn cannot date it")
 	}
 }
