@@ -5,6 +5,12 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.31.1] — 2026-08-16
+
+### Changed
+
+- web: stamp a replayed question with its turn's start, not the turn's end time
+
 ## [2.31.0] — 2026-08-13
 
 ### Added
