@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.7] — 2026-08-19
+
+### Fixed
+
+- **`.pair-a` scrollbar alignment on wide viewports.** `#transcript > *` previously capped
+  `.pair.pair-active` at `max-width: 52rem`, centering `.pair-a` in the middle of wide
+  screens and causing its vertical scrollbar to render mid-viewport and cut directly between
+  `#quickActions` and `#pager`. Now `#transcript > .pair.pair-active` and `.pair-a` span
+  `width: 100%` (with `max-width: none`), keeping the scrollbar anchored on the far right
+  boundary with content inside `.pair-a` centered at `max-width: 52rem`.
+
 ## [2.34.6] — 2026-08-19
 
 ### Fixed
