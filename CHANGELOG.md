@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.4] — 2026-08-19
+
+### Added
+
+- **Collapsible/Expandable queued messages strip (`#queueStrip`).** The queue strip docked
+  above the composer is now collapsible and collapsed by default when messages are queued.
+  Includes an accessible disclosure header (`.queue-head`) with indicator chevron (`chevron.right` /
+  `chevron.down`), keyboard support (`Enter` / `Space`), and full scrollable `.queue-list`
+  with individual remove buttons when expanded.
+
 ## [2.34.3] — 2026-08-19
 
 ### Added
