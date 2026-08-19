@@ -1477,15 +1477,26 @@ function handle(ev) {
       endAssistant(); endToolGroup(); endWorkerGroup();
       renderReplayedTurnMeta(ev.meta || null);
       // Re-accumulate the session token totals from history so the status bar
-      // matches the sum of these footers (the server's in-memory counters aren't
-      // restored on reopen). renderStatusBar() runs after replay (final status).
-      if (ev.meta) { cumTurnIn += ev.meta.inTokens || 0; cumTurnOut += ev.meta.outTokens || 0; }
+      // matches the sum of these footers.
+      if (ev.meta) {
+        cumTurnIn += ev.meta.inTokens || 0;
+        cumTurnOut += ev.meta.outTokens || 0;
+        if (ev.meta.inTokens > 0) {
+          lastTurnIn = ev.meta.inTokens;
+          if (lastStatus) {
+            lastStatus.contextTokens = ev.meta.inTokens;
+            if (lastStatus.contextWindow > 0) {
+              lastStatus.contextPercent = Math.min(100, Math.round((ev.meta.inTokens / lastStatus.contextWindow) * 100));
+            }
+          }
+        }
+      }
       // This turn already has its persisted footer, so clear the live turn
       // state. Otherwise turnActive stays true from the replayed turn_start
       // and the final "idle" status at end of replay fires renderTurnMeta(),
       // appending a SECOND footer stamped with the load time (new Date()).
       turnActive = false; turnStartMs = 0;
-      lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnIn = 0; lastTurnOut = 0; lastTurnCacheRead = 0;
+      lastTurnCost = 0; lastTurnModel = ""; lastTurnReasoning = ""; lastTurnOut = 0; lastTurnCacheRead = 0;
       break;
     }
     // Inert: a wire event whose kind the host didn't map. Rendering it as an info
@@ -2557,9 +2568,10 @@ function quotaInfoRows(s) {
 function contextInfoRows(s) {
   const fmt = (n) => (Number(n) || 0).toLocaleString();
   const rows = [{ label: "Context window", desc: s.model || "current model" }];
+  const ctxTokens = lastTurnIn || s.contextTokens || 0;
   if (s.contextWindow > 0) {
     rows.push({
-      label: `${fmt(s.contextTokens || 0)} / ${fmt(s.contextWindow)}`,
+      label: `${fmt(ctxTokens)} / ${fmt(s.contextWindow)}`,
       desc: "last turn input tokens / window",
     });
   }

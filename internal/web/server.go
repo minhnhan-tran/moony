@@ -1411,6 +1411,14 @@ func (s *Server) openSession(id string) *session {
 		title = "(untitled)"
 	}
 	live := newSession(id, title, s.newAgent(sess.WorkingDir, sess))
+	// Hydrate session usage from persisted turn metadata so the initial status event
+	// and status bar immediately show total tokens, cost, and context percentage.
+	for _, tm := range sess.TurnMetas {
+		live.tokensIn += tm.InTokens
+		live.tokensOut += tm.OutTokens
+		live.cachedIn += tm.CacheReadTokens
+		live.lastTurnIn = tm.InTokens
+	}
 	// Let chat turns invoke saved workflows via the run_workflow tool (@workflow).
 	s.attachWorkflowTool(live)
 	// After each turn, re-emit the status so token/cost/context counters update,

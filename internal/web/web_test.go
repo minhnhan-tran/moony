@@ -1108,6 +1108,55 @@ func TestStatusReflectsUsage(t *testing.T) {
 	}
 }
 
+// TestStatusLoadedFromSessionHistory confirms that loading a saved session from disk
+// populates live session token counters and seeds the status event with total tokens
+// and context usage.
+func TestStatusLoadedFromSessionHistory(t *testing.T) {
+	srv, _ := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
+
+	// Persist a session with TurnMetas
+	saved := &sessionpkg.Session{
+		ID:         "test-history-sess",
+		Title:      "History Test",
+		WorkingDir: t.TempDir(),
+		Model:      "anthropic.claude-sonnet-4-6",
+		TurnMetas: []sessionpkg.TurnMeta{
+			{InTokens: 10000, OutTokens: 500, CacheReadTokens: 2000, Calls: 1},
+			{InTokens: 25000, OutTokens: 1200, CacheReadTokens: 5000, Calls: 2},
+		},
+	}
+	if err := srv.store.Save(saved); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	// Load session via server
+	live := srv.openSession(saved.ID)
+	if live == nil {
+		t.Fatalf("openSession failed")
+	}
+
+	// Verify live usage counters are hydrated
+	in, out, lastIn, _, _, _ := live.usageSnapshot()
+	if in != 35000 || out != 1700 || lastIn != 25000 {
+		t.Fatalf("hydrated usage = in:%d out:%d lastIn:%d, want in:35000 out:1700 lastIn:25000", in, out, lastIn)
+	}
+
+	// Verify seeded statusEvent reflects usage
+	stEv := srv.statusEvent(saved, live)
+	if stEv.Status == nil {
+		t.Fatalf("expected Status in statusEvent")
+	}
+	if stEv.Status.TokensIn != 35000 || stEv.Status.TokensOut != 1700 {
+		t.Errorf("status tokens = in:%d out:%d, want 35000/1700", stEv.Status.TokensIn, stEv.Status.TokensOut)
+	}
+	if stEv.Status.ContextTokens != 25000 {
+		t.Errorf("status contextTokens = %d, want 25000", stEv.Status.ContextTokens)
+	}
+	if stEv.Status.ContextPercent <= 0 {
+		t.Errorf("status contextPercent = %d, want > 0", stEv.Status.ContextPercent)
+	}
+}
+
 // --- slash commands ---------------------------------------------------------
 
 // openLive creates a session and returns its live *session (white-box).
