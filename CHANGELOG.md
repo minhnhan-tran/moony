@@ -5,6 +5,18 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.33.0] — 2026-08-19
+
+### Added
+
+- **Collapsible/expandable background jobs strip in web UI.** The `jobsStrip` docked
+  above the composer is now collapsible/expandable and defaults to collapsed on session
+  load and reset. When collapsed, it presents a single compact summary bar (~26px) with
+  a leading chevron (`chevron.right`), terminal icon, and live job counts (e.g.
+  `Background jobs: 2 (1 running)`). Clicking the header or pressing `Enter`/`Space`
+  expands the strip to show full job rows and their output logs, while preserving focus
+  and pausing output polling during collapsed state.
+
 ## [2.32.1] — 2026-08-16
 
 ### Fixed
