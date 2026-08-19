@@ -155,3 +155,47 @@ func ruleBody(css, selector string) string {
 	}
 	return ""
 }
+
+// Standing rule: .pair-q always spans 100% of its parent, and so does the question
+// inside it. It is easy to lose by accident — .msg-user caps its children to a
+// right-hugging chat bubble (max-width: min(86%, 40rem)) for the scrolling transcript,
+// and the pinned header inherits that cap unless it is reset, which leaves the question
+// misaligned with the answer beneath it.
+func TestPairQuestionSpansItsParent(t *testing.T) {
+	b, err := staticFS.ReadFile("static/app.css")
+	if err != nil {
+		t.Fatalf("read app.css: %v", err)
+	}
+	css := strings.ReplaceAll(string(b), "\r\n", "\n")
+
+	block := cssBlock(t, css, ".pair-q {")
+	if !regexp.MustCompile(`width:\s*100%`).MatchString(block) {
+		t.Error(".pair-q must declare width: 100% — it spans its parent, always")
+	}
+	if !strings.Contains(block, "box-sizing: border-box") {
+		t.Error(".pair-q has padding, so it needs box-sizing: border-box to stay exactly 100% wide")
+	}
+	if regexp.MustCompile(`max-width:\s*(?:\d|min|calc)`).MatchString(block) {
+		t.Error(".pair-q must not cap its own width")
+	}
+
+	// The content inside must not re-narrow it.
+	inner := cssBlock(t, css, ".pair-q > .msg > * {")
+	if !regexp.MustCompile(`width:\s*100%`).MatchString(inner) || !regexp.MustCompile(`max-width:\s*none`).MatchString(inner) {
+		t.Error("the question inside .pair-q must reset the .msg-user bubble cap to width:100%/max-width:none")
+	}
+}
+
+// cssBlock returns the declarations of the first rule whose selector line matches.
+func cssBlock(t *testing.T, css, selector string) string {
+	t.Helper()
+	i := strings.Index(css, selector)
+	if i < 0 {
+		t.Fatalf("selector %q not found in app.css", selector)
+	}
+	j := strings.Index(css[i:], "}")
+	if j < 0 {
+		t.Fatalf("unterminated rule for %q", selector)
+	}
+	return css[i : i+j]
+}

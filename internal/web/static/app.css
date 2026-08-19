@@ -116,6 +116,9 @@ html.light {
   --pager-btn: 1.35rem;
   --pager-pad: .2rem;
   --pager-pill: calc(var(--pager-btn) + 2 * var(--pager-pad));
+  /* Clearance from the transcript wrap's right edge, keeping pills completely
+     clear of the scrollbar track on all platforms (Windows 17-22px scrollbar + safe gutter). */
+  --floating-pills-right: calc(1.25rem + 16px);
 }
 
 /* Smooth the flip between themes (colors only — not transforms/opacity, so
@@ -2847,6 +2850,18 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   box-sizing: border-box;
 }
 .pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
+/* The pinned question spans .pair-q completely — width is never negotiated with the
+   content inside it. .msg-user's chat-bubble cap (max-width: min(86%, 40rem), hugging
+   the right) is for the scrolling transcript, where a bubble reads as "the human said
+   this"; in the header it just leaves a ragged column that does not line up with the
+   answer below. Reset it here rather than weakening the bubble rule, which the
+   transcript still wants. */
+.pair-q > .msg,
+.pair-q > .msg > * {
+  width: 100%;
+  max-width: none;
+  align-items: stretch;
+}
 .pair-a {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 1rem 1rem 3rem;   /* extra bottom clearance: content never sits under the floating .pair-pager */
@@ -2866,7 +2881,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    clearance in .pair-a above keeps it from ever overlapping the answer text. */
 .pair-pager[hidden] { display: none; }
 .pair-pager {
-  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;   /* +10px clears .pair-a's scrollbar track */
+  position: absolute; bottom: .85rem; right: var(--floating-pills-right, calc(1.25rem + 16px)); z-index: 6;   /* clears .pair-a's and #transcript's scrollbar track */
   display: flex; align-items: center; gap: .1rem;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
   border-radius: var(--r-md); padding: var(--pager-pad);
@@ -2881,7 +2896,7 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    .quick-actions via --pill-shift (syncFloatingPills). */
 .jobs-pill[hidden] { display: none; }
 .jobs-pill {
-  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;
+  position: absolute; bottom: .85rem; right: var(--floating-pills-right, calc(1.25rem + 16px)); z-index: 6;
   display: flex; align-items: center;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
   border-radius: var(--r-md); padding: var(--pager-pad);
@@ -3211,7 +3226,7 @@ html.light .diff-hunk { color: #0550ae; }
         right to left), shifted clear of the pills to its right by --pill-shift
         (measured by syncFloatingPills). ---- */
 .quick-actions {
-  position: absolute; bottom: .85rem; right: calc(.85rem + 10px); z-index: 6;
+  position: absolute; bottom: .85rem; right: var(--floating-pills-right, calc(1.25rem + 16px)); z-index: 6;
   display: inline-flex; align-items: stretch; overflow: visible; /* the menu escapes the pill */
   border-radius: var(--r-md); user-select: none;
   background: rgb(var(--c-raised)); border: 1px solid rgb(var(--c-edge));
