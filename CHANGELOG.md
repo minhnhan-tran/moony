@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.0] — 2026-08-19
+
+### Added
+
+- **Dynamic 80% auto-compaction threshold.** Replaced the fixed 80,000-token threshold with
+  a dynamic calculation (`CompactThresholdRatio = 0.80`, `CompactKeepRatio = 0.40`) based on
+  the active model's max context length. Auto-compaction now automatically scales across
+  different model sizes (e.g. 32k local models compact at ~25.6k, 200k models at 160k, 1M models
+  at 800k) and adapts whenever models or `/context` overrides change. Explicit token overrides via
+  `MN_COMPACT_THRESHOLD` and `MN_COMPACT_KEEP` continue to take precedence.
+
 ## [2.34.7] — 2026-08-19
 
 ### Fixed
