@@ -5,6 +5,15 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.1] — 2026-08-19
+
+### Fixed
+
+- **Squished rows in jobs strip.** Rows in `.jobstrip-list` could vertically shrink
+  and overlap when many jobs were present due to default flex-shrink behavior in the
+  scrollable container. Added `flex-shrink: 0` to `.jobstrip-row` and `.jobstrip-head`
+  to maintain each row's natural height and proper scrolling.
+
 ## [2.34.0] — 2026-08-19
 
 ### Added
