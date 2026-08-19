@@ -2466,8 +2466,10 @@ function renderStats() {
   }
 
   // context-window fill: a small progress bar + percentage (brand → amber → red as it fills)
-  if (typeof s.contextPercent === "number" && s.contextPercent >= 0) {
-    const pct = Math.max(0, Math.min(100, s.contextPercent));
+  const hasWindow = typeof s.contextWindow === "number" && s.contextWindow > 0;
+  const hasPercent = typeof s.contextPercent === "number" && s.contextPercent >= 0;
+  if (hasWindow || hasPercent) {
+    const pct = Math.max(0, Math.min(100, hasPercent ? s.contextPercent : 0));
     const color = pct >= 90 ? themeColor("--c-danger") : pct >= 75 ? themeColor("--c-warn") : themeColor("--c-brand");
     const wrap = el("span", "inline-flex items-center gap-1.5 cursor-pointer stat-context");
     wrap.setAttribute("role", "button");
@@ -2557,11 +2559,12 @@ function contextInfoRows(s) {
   const rows = [{ label: "Context window", desc: s.model || "current model" }];
   if (s.contextWindow > 0) {
     rows.push({
-      label: `${fmt(s.contextTokens)} / ${fmt(s.contextWindow)}`,
+      label: `${fmt(s.contextTokens || 0)} / ${fmt(s.contextWindow)}`,
       desc: "last turn input tokens / window",
     });
   }
-  rows.push({ label: `${s.contextPercent || 0}%`, desc: "of window used" });
+  const pct = typeof s.contextPercent === "number" && s.contextPercent >= 0 ? s.contextPercent : 0;
+  rows.push({ label: `${pct}%`, desc: "of window used" });
   return rows;
 }
 
