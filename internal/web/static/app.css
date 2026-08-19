@@ -2200,25 +2200,76 @@ body.wf-active .app-topbar { z-index: 40; }
 
 /* ---- Queued-message strip: pending messages typed while the agent is busy,
         shown above the composer (mirrors the terminal's busy-time queue). ---- */
-#queueStrip { border-top: 1px solid rgb(var(--c-edge) / .6); }
-.queue-head { font-weight: 600; opacity: .85; }
+#queueStrip {
+  border-top: 1px solid rgb(var(--c-edge) / .6);
+  padding: .375rem .75rem .5rem;
+  display: flex; flex-direction: column; gap: .25rem;
+}
+#queueStrip.hidden { display: none; }
+#queueStrip.is-collapsed {
+  padding: .25rem .75rem .25rem;
+}
+#queueStrip.is-collapsed .queue-list {
+  display: none;
+}
+.queue-head {
+  display: flex; align-items: center; gap: .375rem;
+  font-size: 11px; font-weight: 600;
+  color: rgb(var(--c-ink) / .8);
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--r-sm);
+  padding: .125rem .25rem;
+  margin: -.125rem -.25rem;
+  transition: background .15s ease, color .15s ease;
+  flex-shrink: 0;
+}
+.queue-head:hover {
+  background: rgb(var(--c-raised) / .8);
+  color: rgb(var(--c-ink));
+}
+.queue-head:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.queue-head-chev {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: .875rem; height: .875rem;
+  color: rgb(var(--c-faint));
+  flex: none;
+}
+.queue-head-chev .sym { font-size: 11px; }
+.queue-head-text {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.queue-list {
+  display: flex; flex-direction: column; gap: .25rem;
+  max-height: min(10rem, 25vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .queue-row {
   background: rgb(var(--c-raised) / .5);
   border: 1px solid rgb(var(--c-edge) / .7);
   border-radius: var(--r-md);
   padding: .25rem .5rem;
+  display: flex; align-items: flex-start; gap: .5rem;
+  font-size: 11px;
+  flex-shrink: 0;
 }
-.queue-idx { color: rgb(var(--c-faint)); font-variant-numeric: tabular-nums; }
-.queue-text { color: rgb(var(--c-ink) / .85); white-space: pre-wrap; overflow-wrap: anywhere; }
+.queue-idx { color: rgb(var(--c-faint)); font-variant-numeric: tabular-nums; flex: none; }
+.queue-text { color: rgb(var(--c-ink) / .85); white-space: pre-wrap; overflow-wrap: anywhere; flex: 1 1 auto; min-width: 0; }
 .queue-remove {
   width: 18px; height: 18px; border-radius: var(--r-full);
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0; cursor: pointer; border: 0;
   background: transparent; color: rgb(var(--c-faint));
   transition: color .12s ease, background-color .12s ease;
+  flex: none;
 }
 .queue-remove:hover { color: rgb(var(--c-danger)); background: rgb(var(--c-base) / .6); }
-.queue-remove app-icon { font-size: 11px; }
+.queue-remove .sym { font-size: 11px; }
 
 /* ---- Composer: the textarea grows to fill the row; the attach button is tucked
         into its lower-left (the textarea gets left padding to clear it), and the

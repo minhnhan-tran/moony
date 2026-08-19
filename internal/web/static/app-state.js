@@ -333,6 +333,7 @@ const quickActions = $("#quickActions"), quickActionBtn = $("#quickActionBtn"), 
 // relay terminal-mirror). queuedMsgs mirrors the server's pending queue.
 let queueCapable = false;
 let queuedMsgs = [];
+let queueCollapsed = true;
 const userAvatarEl = $("#userAvatar"), userMenuEl = $("#userMenu");
 const themeToggleEl = $("#themeToggle");
 const soundToggleEl = $("#soundToggle");

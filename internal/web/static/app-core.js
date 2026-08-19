@@ -3655,25 +3655,67 @@ function syncStripTail() {
 function renderQueueStrip() {
   if (!queueStrip) return;
   queueStrip.innerHTML = "";
-  if (!queuedMsgs.length) { queueStrip.classList.add("hidden"); return; }
+  if (!queuedMsgs.length) {
+    queueStrip.classList.add("hidden");
+    queueStrip.classList.remove("is-collapsed");
+    return;
+  }
   queueStrip.classList.remove("hidden");
-  const head = el("div", "queue-head text-faint text-xs flex items-center gap-1.5");
+  queueStrip.classList.toggle("is-collapsed", queueCollapsed);
+
+  const head = el("div", "queue-head");
+  head.setAttribute("role", "button");
+  head.tabIndex = 0;
+  head.setAttribute("aria-expanded", queueCollapsed ? "false" : "true");
+  head.setAttribute("aria-controls", "queueStripList");
+
+  const chevWrap = el("span", "queue-head-chev");
+  chevWrap.appendChild(sym(queueCollapsed ? "chevron.right" : "chevron.down"));
+  head.appendChild(chevWrap);
+
   head.appendChild(sym("clock"));
-  head.appendChild(el("span", "", `queued (${queuedMsgs.length}) — runs when the turn finishes · Esc edits the last · × removes`));
+
+  const desc = queueCollapsed
+    ? `Queued (${queuedMsgs.length}) — runs when turn finishes · Esc edits last`
+    : `Queued (${queuedMsgs.length}) — runs when turn finishes · Esc edits last · × removes`;
+  const txt = el("span", "queue-head-text", desc);
+  head.appendChild(txt);
+
+  const toggle = (e) => {
+    e.stopPropagation();
+    queueCollapsed = !queueCollapsed;
+    renderQueueStrip();
+  };
+  head.onclick = toggle;
+  head.onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle(e);
+    }
+  };
   queueStrip.appendChild(head);
-  queuedMsgs.forEach((q, i) => {
-    const row = el("div", "queue-row text-faint text-xs flex items-baseline gap-1.5");
-    row.appendChild(el("span", "queue-idx shrink-0", `${i + 1}.`));
-    row.appendChild(el("span", "queue-text break-words flex-1", q.replace(/\n/g, " ⏎ ")));
-    const x = el("button", "queue-remove shrink-0");
-    x.type = "button";
-    x.title = "Remove";
-    x.setAttribute("aria-label", "Remove queued message");
-    x.appendChild(sym("xmark"));
-    x.onclick = () => removeQueuedMsg(i);
-    row.appendChild(x);
-    queueStrip.appendChild(row);
-  });
+
+  if (!queueCollapsed) {
+    const list = el("div", "queue-list");
+    list.id = "queueStripList";
+    queuedMsgs.forEach((q, i) => {
+      const row = el("div", "queue-row");
+      row.appendChild(el("span", "queue-idx", `${i + 1}.`));
+      row.appendChild(el("span", "queue-text", q.replace(/\n/g, " ⏎ ")));
+      const x = el("button", "queue-remove");
+      x.type = "button";
+      x.title = "Remove";
+      x.setAttribute("aria-label", `Remove queued message ${i + 1}`);
+      x.appendChild(sym("xmark"));
+      x.onclick = (e) => {
+        e.stopPropagation();
+        removeQueuedMsg(i);
+      };
+      row.appendChild(x);
+      list.appendChild(row);
+    });
+    queueStrip.appendChild(list);
+  }
 }
 
 // popQueued asks the server to pop the most recent queued message back into the
@@ -3701,10 +3743,14 @@ async function popQueued() {
 
 // removeQueuedMsg drops the queued message at index i (the × button).
 async function removeQueuedMsg(i) {
-  if (!current) return;
-  try {
-    await fetch(api(`/api/sessions/${current}/queue`), { method: "POST", body: JSON.stringify({ action: "remove", index: i }) });
-  } catch (_) { /* the queue event refreshes the strip */ }
+  if (current) {
+    try {
+      await fetch(api(`/api/sessions/${current}/queue`), { method: "POST", body: JSON.stringify({ action: "remove", index: i }) });
+    } catch (_) { /* the queue event refreshes the strip */ }
+  } else {
+    queuedMsgs.splice(i, 1);
+    renderQueueStrip();
+  }
 }
 
 // renderAttachments builds the read-only attachment row shown on a sent user
