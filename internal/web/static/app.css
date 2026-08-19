@@ -2838,8 +2838,13 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
    single bottom-right control (.pair-pager) merges scroll-to-bottom with the
    prev/pos/next pager — see below. ---- */
 #empty, #connLoader { margin: auto; }        /* center within the flex-column transcript */
-.pair { display: none; min-height: 0; }
-.pair.pair-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.pair,
+#transcript > .pair { display: none; min-height: 0; width: 100%; max-width: none; margin: 0; }
+.pair.pair-active,
+#transcript > .pair.pair-active {
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
+  width: 100%; max-width: none; margin: 0;
+}
 .pair-q {
   flex: none;
   width: 100%;                               /* always spans .pair.pair-active, matching .pair-a */
@@ -2864,8 +2869,14 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
 }
 .pair-a {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  width: 100%;
   padding: 1rem 1rem 3rem;   /* extra bottom clearance: content never sits under the floating .pair-pager */
   display: flex; flex-direction: column; gap: .75rem;   /* replaces the old space-y-3 on #transcript */
+  box-sizing: border-box;
+}
+.pair-a > * {
+  max-width: 52rem; width: 100%; margin-left: auto; margin-right: auto;
+  box-sizing: border-box;
 }
 
 /* Pager: one bottom-right control merging the prev/pos/next pair navigator

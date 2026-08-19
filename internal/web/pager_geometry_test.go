@@ -186,6 +186,30 @@ func TestPairQuestionSpansItsParent(t *testing.T) {
 	}
 }
 
+// TestPairActiveSpansParent ensures .pair.pair-active and .pair-a span 100% width
+// of #transcript so the vertical scrollbar is anchored to the right boundary of the
+// transcript wrap, clear of floating pills.
+func TestPairActiveSpansParent(t *testing.T) {
+	cssBytes, err := staticFS.ReadFile("static/app.css")
+	if err != nil {
+		t.Fatalf("reading embedded static/app.css: %v", err)
+	}
+	css := string(cssBytes)
+
+	pairActive := cssBlock(t, css, ".pair.pair-active {")
+	if !regexp.MustCompile(`width:\s*100%`).MatchString(pairActive) {
+		t.Errorf(".pair.pair-active missing width: 100%%; got: %s", pairActive)
+	}
+	if !regexp.MustCompile(`max-width:\s*none`).MatchString(pairActive) {
+		t.Errorf(".pair.pair-active missing max-width: none; got: %s", pairActive)
+	}
+
+	pairA := cssBlock(t, css, ".pair-a {")
+	if !regexp.MustCompile(`width:\s*100%`).MatchString(pairA) {
+		t.Errorf(".pair-a missing width: 100%%; got: %s", pairA)
+	}
+}
+
 // cssBlock returns the declarations of the first rule whose selector line matches.
 func cssBlock(t *testing.T, css, selector string) string {
 	t.Helper()

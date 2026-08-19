@@ -1,4 +1,4 @@
-// Verification script: verify clearance between floating pills (pager, quickActions, jobsPill) and transcript scrollbar
+// Verification script: verify clearance between floating pills (pager, quickActions, jobsPill) and pair-a scrollbar
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -23,7 +23,8 @@ const relay = spawn("./bin/relay.exe", [
 
 const chrome = spawn(CHROME, [
   "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
-  `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, "about:blank",
+  `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+  "--window-size=1280,800", "about:blank",
 ], { stdio: "ignore" });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -117,16 +118,23 @@ try {
     const pager = document.getElementById("pager");
     const qa = document.getElementById("quickActions");
     const jobs = document.getElementById("jobsPill");
+    const activePair = document.querySelector(".pair.pair-active");
     const activePairA = document.querySelector(".pair.pair-active .pair-a");
 
     const wrapRect = trWrap.getBoundingClientRect();
+    const pairRect = activePair.getBoundingClientRect();
+    const pairARect = activePairA.getBoundingClientRect();
     const pagerRect = pager.getBoundingClientRect();
     const qaRect = qa.getBoundingClientRect();
     const jobsRect = jobs.getBoundingClientRect();
-    const scrollbarWidth = activePairA ? (activePairA.offsetWidth - activePairA.clientWidth) : 10;
+    const scrollbarWidth = (activePairA.offsetWidth - activePairA.clientWidth) || 10;
 
     return {
       wrapRight: wrapRect.right,
+      wrapWidth: wrapRect.width,
+      pairWidth: pairRect.width,
+      pairAWidth: pairARect.width,
+      pairARight: pairARect.right,
       scrollbarWidth,
       pager: {
         right: pagerRect.right,
@@ -154,6 +162,12 @@ try {
 
   // Assertions for test 1
   if (test1.pager.hidden) throw new Error("Expected pager to be visible");
+  if (Math.abs(test1.pairWidth - test1.wrapWidth) > 1) {
+    throw new Error(`Expected pair width (${test1.pairWidth}px) to span full wrap width (${test1.wrapWidth}px)`);
+  }
+  if (Math.abs(test1.pairAWidth - test1.wrapWidth) > 1) {
+    throw new Error(`Expected pairA width (${test1.pairAWidth}px) to span full wrap width (${test1.wrapWidth}px)`);
+  }
   if (test1.pager.offsetFromWrapRight < 32) {
     throw new Error(`Pager offset from wrap right is ${test1.pager.offsetFromWrapRight}px, want >= 32px`);
   }
