@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.5] — 2026-08-19
+
+### Fixed
+
+- The pinned question in the paged transcript now spans `.pair-q` completely. `.pair-q`
+  itself was already `width: 100%`, but the question inside it inherited `.msg-user`'s
+  right-hugging chat-bubble cap (`max-width: min(86%, 40rem)`), so the header stopped
+  short of its own box and did not line up with the answer beneath it. Reset inside
+  `.pair-q` only — the scrolling transcript still wants the bubble — and pinned by a test.
+
 ## [2.34.4] — 2026-08-19
 
 ### Added
