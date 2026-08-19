@@ -3309,6 +3309,7 @@ function renderAttachStrip() {
 const pendingJobTickets = new Map();
 
 let stripJobs = [];          // last list from the "jobs" SSE event
+let stripCollapsed = true;   // whether the strip accordion is collapsed (default: true)
 let stripExpanded = null;    // id of the row whose log is open, or null
 const stripTails = new Map(); // id -> { cursor, text }
 let stripTailTimer = null;
@@ -3317,6 +3318,7 @@ let stripTailTimer = null;
 // especially its log text) must never appear under another.
 function resetJobsStrip() {
   stripJobs = [];
+  stripCollapsed = true;
   stripExpanded = null;
   stripTails.clear();
   stopStripTail();
@@ -3334,14 +3336,14 @@ function stopStripTail() {
 // the row's focus.
 let stripClockTimer = null;
 function syncStripClock() {
-  const needed = stripJobs.some((j) => j.running);
+  const needed = !stripCollapsed && stripJobs.some((j) => j.running);
   if (!needed) {
     if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
     return;
   }
   if (stripClockTimer) return;
   stripClockTimer = setInterval(() => {
-    if (!jobsStrip || jobsStrip.classList.contains("hidden")) return;
+    if (!jobsStrip || jobsStrip.classList.contains("hidden") || jobsStrip.classList.contains("is-collapsed")) return;
     // Keyed by id, not position: a command's finished runs fold into one row, so row N
     // is no longer job N and indexing would print one job's runtime on another's row.
     for (const cell of jobsStrip.querySelectorAll(".jobstrip-time")) {
@@ -3423,6 +3425,7 @@ function renderJobsStrip() {
 
   if (!list.length) {
     jobsStrip.classList.add("hidden");
+    jobsStrip.classList.remove("is-collapsed");
     jobsStrip.innerHTML = "";
     stopStripTail();
     if (stripClockTimer) { clearInterval(stripClockTimer); stripClockTimer = null; }
@@ -3433,31 +3436,65 @@ function renderJobsStrip() {
   // been reaped, or folded away by a newer run of the same command.
   if (stripExpanded && !rows.some((r) => r.job.id === stripExpanded)) stripExpanded = null;
 
+  const hadFocus = jobsStrip.contains(document.activeElement);
+
   jobsStrip.classList.remove("hidden");
+  jobsStrip.classList.toggle("is-collapsed", stripCollapsed);
   jobsStrip.innerHTML = "";
 
   const running = list.filter((j) => j.running).length;
   const head = el("div", "jobstrip-head");
+  head.tabIndex = 0;
+  head.setAttribute("role", "button");
+  head.setAttribute("aria-expanded", stripCollapsed ? "false" : "true");
+  head.setAttribute("aria-controls", "jobsStripList");
+
+  const chevWrap = el("span", "jobstrip-head-chev");
+  chevWrap.appendChild(sym(stripCollapsed ? "chevron.right" : "chevron.down"));
+  head.appendChild(chevWrap);
+
   head.appendChild(sym("terminal"));
   // Counts the jobs on show, not the runs behind them, so it matches what is visible.
   head.appendChild(el("span", "jobstrip-head-text",
-    `Background job: ${rows.length}${running ? ` (${running} running)` : ""}`));
+    `Background job${rows.length === 1 ? "" : "s"}: ${rows.length}${running ? ` (${running} running)` : ""}`));
+
+  head.onclick = (e) => {
+    e.stopPropagation();
+    stripCollapsed = !stripCollapsed;
+    renderJobsStrip();
+  };
+  head.onkeydown = (e) => {
+    if (e.target !== head) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      stripCollapsed = !stripCollapsed;
+      renderJobsStrip();
+    }
+  };
   jobsStrip.appendChild(head);
 
   // Rows go in a scroll box (capped by .jobstrip-list) instead of straight into the strip,
   // so many jobs can't grow the strip without bound.
   const listEl = el("div", "jobstrip-list");
+  listEl.id = "jobsStripList";
   for (const r of rows) listEl.appendChild(stripRow(r.job, r.folded));
   jobsStrip.appendChild(listEl);
 
-  // Re-rendering resets that box to the top, so an expanded row below the fold would have
-  // its log pane scrolled out of sight; "nearest" is a no-op when it is already visible,
-  // which keeps a later jobs event from yanking the list while the user reads.
-  const openRow = listEl.querySelector(".jobstrip-row.is-open");
-  if (openRow) openRow.scrollIntoView({ block: "nearest" });
+  if (!stripCollapsed) {
+    // Re-rendering resets that box to the top, so an expanded row below the fold would have
+    // its log pane scrolled out of sight; "nearest" is a no-op when it is already visible,
+    // which keeps a later jobs event from yanking the list while the user reads.
+    const openRow = listEl.querySelector(".jobstrip-row.is-open");
+    if (openRow) openRow.scrollIntoView({ block: "nearest" });
 
-  syncStripTail();
+    syncStripTail();
+  } else {
+    stopStripTail();
+  }
+
   syncStripClock();
+
+  if (hadFocus) head.focus();
 }
 
 function stripRow(j, folded) {
@@ -3556,7 +3593,7 @@ function stripIconBtn(icon, title, onClick) {
 
 // Poll the open row's output. Only one row can be expanded, so at most one poll runs.
 function syncStripTail() {
-  if (!stripExpanded) { stopStripTail(); return; }
+  if (stripCollapsed || !stripExpanded) { stopStripTail(); return; }
   if (stripTailTimer) return;
   const tick = async () => {
     const id = stripExpanded;

@@ -2064,12 +2064,41 @@ body.wf-active .app-topbar { z-index: 40; }
   display: flex; flex-direction: column; gap: .25rem;
 }
 #jobsStrip.hidden { display: none; }
+#jobsStrip.is-collapsed {
+  padding: .25rem .75rem .25rem;
+}
+#jobsStrip.is-collapsed .jobstrip-list {
+  display: none;
+}
 .jobstrip-head {
   display: flex; align-items: center; gap: .375rem;
   font-size: 11px; font-weight: 600;
   color: rgb(var(--c-ink) / .8);
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--r-sm);
+  padding: .125rem .25rem;
+  margin: -.125rem -.25rem;
+  transition: background .15s ease, color .15s ease;
+}
+.jobstrip-head:hover {
+  background: rgb(var(--c-edge) / .3);
+  color: rgb(var(--c-ink));
+}
+.jobstrip-head:focus-visible {
+  outline: 2px solid rgb(var(--c-brand));
+  outline-offset: 1px;
 }
 .jobstrip-head app-icon { font-size: 13px; opacity: .7; }
+.jobstrip-head-chev {
+  width: 14px; height: 14px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: rgb(var(--c-faint));
+}
+.jobstrip-head:hover .jobstrip-head-chev {
+  color: rgb(var(--c-ink));
+}
+.jobstrip-head-chev app-icon { font-size: 11px; opacity: 1; }
 /* The rows live in their own capped scroll box rather than growing the strip: a machine
    running several dev servers / watch scripts would otherwise push the transcript (and on
    a short window the composer) off screen. The head sits OUTSIDE it, so the "N running"
