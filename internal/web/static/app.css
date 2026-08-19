@@ -2070,6 +2070,10 @@ body.wf-active .app-topbar { z-index: 40; }
 #jobsStrip.is-collapsed .jobstrip-list {
   display: none;
 }
+.jobstrip-btn.danger:hover {
+  background: rgb(var(--c-danger) / .15);
+  color: rgb(var(--c-danger));
+}
 .jobstrip-head {
   display: flex; align-items: center; gap: .375rem;
   font-size: 11px; font-weight: 600;

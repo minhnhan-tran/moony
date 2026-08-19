@@ -311,6 +311,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/sessions/{id}/jobs", s.handleJobs)
 	mux.HandleFunc("GET /api/sessions/{id}/jobs/{job}/tail", s.handleJobTail)
 	mux.HandleFunc("POST /api/sessions/{id}/jobs/{job}/kill", s.handleJobKill)
+	mux.HandleFunc("DELETE /api/sessions/{id}/jobs/{job}", s.handleJobDelete)
+	mux.HandleFunc("POST /api/sessions/{id}/jobs/{job}/delete", s.handleJobDelete)
 	// Keyboard for TTY jobs: no approval prompt (the job was gated at start) but the
 	// destructive-command refusal still applies.
 	mux.HandleFunc("POST /api/sessions/{id}/jobs/{job}/input", s.handleJobInput)

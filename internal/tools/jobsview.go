@@ -161,6 +161,42 @@ func (s *JobStore) KillJob(id string) bool {
 	return true
 }
 
+// DeleteJob terminates the job if running and removes it from the store and persistence.
+// Returns false if the store is nil or the job does not exist.
+func (s *JobStore) DeleteJob(id string) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	j, ok := s.jobs[id]
+	if !ok {
+		s.mu.Unlock()
+		return false
+	}
+	delete(s.jobs, id)
+	s.mu.Unlock()
+
+	j.mu.Lock()
+	running := j.state == jobRunning
+	cancel := j.cancel
+	finished := j.finished
+	restored := j.restored
+	j.mu.Unlock()
+
+	if running && !restored && cancel != nil {
+		cancel()
+		if finished != nil {
+			select {
+			case <-finished:
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+	}
+
+	s.save()
+	return true
+}
+
 // StartBackgroundJob launches a command as a background job and returns its id, or ""
 // if no store is available. tty runs it under a pseudo-terminal (see jobtty.go).
 //
@@ -187,4 +223,12 @@ func (r *Registry) SendJobInput(id, data string, enter bool, check func(line str
 		return fmt.Errorf("no such background job %q", id)
 	}
 	return r.jobs.SendInput(id, data, enter, check)
+}
+
+// DeleteJob terminates the job if running and removes it from the store.
+func (r *Registry) DeleteJob(id string) bool {
+	if r == nil || r.jobs == nil {
+		return false
+	}
+	return r.jobs.DeleteJob(id)
 }

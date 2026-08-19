@@ -2141,6 +2141,25 @@ function jobRow(j, list) {
     : "Run this command again as a new job.";
   restartBtn.onclick = () => restartJob(j, list);
   actions.append(restartBtn);
+
+  const deleteBtn = el("button", "manage-install", "Delete");
+  deleteBtn.title = "Delete this job and its output.";
+  deleteBtn.onclick = async () => {
+    deleteBtn.disabled = true;
+    try {
+      await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}`), { method: "DELETE" });
+      if (jobsOpenID === j.id) {
+        jobsOpenID = null;
+        jobsLogText = "";
+      }
+      const idx = list.findIndex((x) => x.id === j.id);
+      if (idx !== -1) list.splice(idx, 1);
+      refreshJobsList(list);
+    } catch (_) {
+      deleteBtn.disabled = false;
+    }
+  };
+  actions.append(deleteBtn);
   head.append(actions);
   wrap.append(head);
 

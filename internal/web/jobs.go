@@ -184,6 +184,26 @@ func (s *Server) handleJobKill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
+// handleJobDelete terminates one background job (if running) and removes it from the store.
+func (s *Server) handleJobDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
+		http.Error(w, "DELETE or POST required", http.StatusMethodNotAllowed)
+		return
+	}
+	sess := s.lookup(r)
+	if sess == nil || sess.agent == nil {
+		http.NotFound(w, r)
+		return
+	}
+	id := strings.TrimSpace(r.PathValue("job"))
+	if !sess.agent.Registry().Jobs().DeleteJob(id) {
+		http.NotFound(w, r)
+		return
+	}
+	sess.publishEvent(wireEvent{Type: "jobs_changed"})
+	writeJSON(w, map[string]any{"ok": true})
+}
+
 // handleJobStart starts a NEW background job from the browser.
 //
 // Security: this is the one job route that executes something, so it runs the command

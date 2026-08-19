@@ -404,6 +404,45 @@ func TestJobStartTTYFlagReachesTheJob(t *testing.T) {
 	}
 }
 
+func TestJobDeleteRoute(t *testing.T) {
+	srv, id := jobsFixture(t, config.ApprovalAuto)
+
+	// Start a job
+	rec, out := doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs", `{"command":"printf hello"}`)
+	if rec.Code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("start: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Unknown job deletion returns 404
+	rec, _ = doJSON(t, srv, "DELETE", "/api/sessions/"+id+"/jobs/bg_nonexistent", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown job delete: status = %d, want 404", rec.Code)
+	}
+
+	// Delete existing job via DELETE
+	rec, out = doJSON(t, srv, "DELETE", "/api/sessions/"+id+"/jobs/bg_1", "")
+	if rec.Code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("delete job: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify job is no longer listed
+	_, list := doJSON(t, srv, "GET", "/api/sessions/"+id+"/jobs", "")
+	jobs, _ := list["jobs"].([]any)
+	if len(jobs) != 0 {
+		t.Fatalf("expected 0 jobs after deletion, got %d", len(jobs))
+	}
+
+	// Also test POST /delete alias
+	rec, _ = doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs", `{"command":"printf world"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("start second job: status = %d", rec.Code)
+	}
+	rec, out = doJSON(t, srv, "POST", "/api/sessions/"+id+"/jobs/bg_2/delete", "")
+	if rec.Code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("delete job via POST: status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
 // The jobs UI is spread across four static files that have to agree with each other and
 // with the routes above; nothing else in the suite would notice a rename. Reading the
 // EMBEDDED copies is deliberate — that's what the relay actually serves.

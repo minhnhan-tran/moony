@@ -3570,6 +3570,19 @@ function stripRow(j, folded) {
       }
     }));
   }
+  actions.appendChild(stripIconBtn("trash", "Delete this job", async () => {
+    try {
+      if (stripExpanded === j.id) {
+        stripExpanded = null;
+        stripTails.delete(j.id);
+      }
+      stripJobs = stripJobs.filter((x) => x.id !== j.id);
+      renderJobsStrip();
+      await fetch(api(`/api/sessions/${current}/jobs/${encodeURIComponent(j.id)}`), { method: "DELETE" });
+    } catch (_) {
+      flash("Could not delete the job.");
+    }
+  }, "danger"));
   line.appendChild(actions);
   row.appendChild(line);
 
@@ -3581,8 +3594,8 @@ function stripRow(j, folded) {
   return row;
 }
 
-function stripIconBtn(icon, title, onClick) {
-  const b = el("button", "jobstrip-btn", "");
+function stripIconBtn(icon, title, onClick, extraClass = "") {
+  const b = el("button", "jobstrip-btn" + (extraClass ? " " + extraClass : ""), "");
   b.type = "button";
   b.title = title;
   b.setAttribute("aria-label", title);

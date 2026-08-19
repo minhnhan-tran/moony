@@ -200,3 +200,57 @@ func TestBashOutputAndKillRoundTrip(t *testing.T) {
 		t.Fatalf("want already-finished message, got %q", kres2)
 	}
 }
+
+func TestJobStoreDeleteJob(t *testing.T) {
+	s := newJobStore()
+	dir := t.TempDir()
+	j := s.start(sandboxSetting{}, []string{dir}, `sleep 30`, jobOpts{})
+
+	if len(s.Jobs()) != 1 {
+		t.Fatalf("want 1 job, got %d", len(s.Jobs()))
+	}
+
+	// Deleting non-existent job returns false
+	if s.DeleteJob("bg_999") {
+		t.Fatal("expected false for unknown job delete")
+	}
+
+	// Deleting running job terminates process and removes from store
+	if !s.DeleteJob(j.id) {
+		t.Fatal("expected true when deleting job")
+	}
+
+	if len(s.Jobs()) != 0 {
+		t.Fatalf("want 0 jobs after delete, got %d", len(s.Jobs()))
+	}
+
+	if _, ok := s.Job(j.id); ok {
+		t.Fatal("job should not exist in store after delete")
+	}
+}
+
+func TestRegistryDeleteJob(t *testing.T) {
+	r := NewRegistry(t.TempDir())
+	r.RegisterDefaults(10000)
+	bt := &bashTool{r: r, maxOutputBytes: 10000}
+
+	in, _ := json.Marshal(map[string]any{"command": "printf 'done'", "background": true})
+	if _, err := bt.Execute(context.Background(), in); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	if !waitFor(2*time.Second, func() bool {
+		jobs := r.Jobs().Jobs()
+		return len(jobs) > 0 && !jobs[0].Running
+	}) {
+		t.Fatal("job did not finish")
+	}
+
+	if !r.DeleteJob("bg_1") {
+		t.Fatal("expected DeleteJob to return true")
+	}
+
+	if len(r.Jobs().Jobs()) != 0 {
+		t.Fatalf("want 0 jobs after deletion, got %d", len(r.Jobs().Jobs()))
+	}
+}
