@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.2] — 2026-08-19
+
+### Fixed
+
+- **Context bar missing in status bar.** The context bar (`ctx [====] N%`) in `.app-statusbar`
+  was previously omitted on new sessions or before any turn had run because `s.contextPercent`
+  starts at `-1` ("unknown until a turn completes"). The status bar now renders the context
+  pill whenever the model's context window size is known, displaying `0%` initially and
+  updating live as turns complete.
+
 ## [2.34.1] — 2026-08-19
 
 ### Fixed
