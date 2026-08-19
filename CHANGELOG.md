@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.0] — 2026-08-19
+
+### Added
+
+- **Background job deletion in web UI and API.** Added `DeleteJob` support on `JobStore`
+  and `Registry` (`DELETE /api/sessions/{id}/jobs/{job}` and `POST .../delete`), which
+  terminates running processes safely if active, deletes the job from memory, and updates
+  the `.moony/jobs.json` persistence file. In the web UI, each row in `jobstrip-line` now
+  features a trash icon button to instantly discard jobs and their output, with matching
+  "Delete" buttons in the Manage Background Jobs modal.
+
 ## [2.33.0] — 2026-08-19
 
 ### Added
