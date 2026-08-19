@@ -9,6 +9,13 @@ matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
 ### Fixed
 
+- **Floating pills scrollbar clearance (`#pager`, `#quickActions`, `#jobsPill`).** Floating
+  controls at the bottom-right of the transcript view previously used a hardcoded
+  `right: calc(.85rem + 10px)` (~23.6px), which caused the right edge of `#pager` to
+  overlap the vertical scrollbar track on Windows / Chromium (17–22px scrollbar widths
+  under 125%–150% DPI scaling). Introduced `--floating-pills-right: calc(1.25rem + 16px)`
+  in `app.css`, ensuring an unobstructed >= 16px clear gutter from the scrollbar track on
+  all platforms and zoom levels.
 - The pinned question in the paged transcript now spans `.pair-q` completely. `.pair-q`
   itself was already `width: 100%`, but the question inside it inherited `.msg-user`'s
   right-hugging chat-bubble cap (`max-width: min(86%, 40rem)`), so the header stopped

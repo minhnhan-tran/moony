@@ -49,7 +49,7 @@ Hand-authored, authoritative notes. Generators never touch this section.
 <!-- BEGIN AUTO:STRUCTURE -->
 Generated from the codebase and refreshed on change. Per directory: the significant source files and each file's key definitions. Tests and build output are omitted. Consult this before exploring; it is ground truth for structure.
 
-**Project:** `moony` · Go · 728 files · 305 source files mapped
+**Project:** `moony` · Go · 781 files · 319 source files mapped
 **Key files:** go.mod, Makefile, Dockerfile, docker-compose.yml, main.go, README.md, CHANGELOG.md, AGENTS.md
 
 _`kind:line` = where it's declared · `N refs` = files referencing it (`+` = more) · ⭐ = load-bearing file._
@@ -57,10 +57,10 @@ _`kind:line` = where it's declared · `N refs` = files referencing it (`+` = mor
 ### (project root)
 - `deploy_cmd.go` — runDeployCmd (func:19), TYPE (type:47), deployUsage (func:34), printStatus (func:129), runDeployAWS (func:62)
 - `headless.go` — firstLine (func:148, 5 refs), runHeadless (func:72, 2 refs), summarizeInput (func:139, 2 refs), headlessPrompt (func:20), isFlagPassed (func:56), readPipedStdin (func:158)
-- `main.go` ⭐ — Set (func:803, 47+ refs), scheduleList (func:708), standbyRelayState (func:846), daemonInstall (func:767), daemonRun (func:563), daemonSimple (func:551), +11 more
+- `main.go` ⭐ — Set (func:824, 52+ refs), scheduleList (func:729), standbyRelayState (func:867), daemonInstall (func:788), daemonRun (func:584), daemonSimple (func:572), +11 more
 
 ### cmd/relay/ — 2 files
-- `main.go` — probeHealth (func:218), acceptConnectors (func:168), browsable (func:196), fatal (func:207)
+- `main.go` — probeHealth (func:223), acceptConnectors (func:173), browsable (func:201), fatal (func:212)
 
 ### cmd/release/ — 2 files
 - `main.go` — bumpVersion (func:124), categorize (func:181), changelogEntry (func:157), prependChangelogEntry (func:211), replaceVersionConst (func:148), boolFlag (func:289), +5 more
@@ -68,19 +68,19 @@ _`kind:line` = where it's declared · `N refs` = files referencing it (`+` = mor
 ### cmd/sim-decide/ — 2 files
 - `main.go` — turn (type:53, 4 refs), request (type:59, 2 refs), buildUserPrompt (func:159), extractJSONObject (func:230), parseAction (func:212), action (type:67), +2 more
 
-### internal/agent/ — 132 files
+### internal/agent/ — 134 files
 _entry points: agent_
-- `agent.go` ⭐ — New (func:319, 108+ refs), Run (func:994, 94+ refs), ListModels (func:884, 16 refs), PlanMode (func:681, 15 refs), Reset (func:464, 14 refs), Usage (func:891, 13 refs), +46 more
+- `agent.go` ⭐ — New (func:319, 115+ refs), Run (func:994, 101+ refs), ListModels (func:884, 16 refs), PlanMode (func:681, 15 refs), Reset (func:464, 14 refs), Usage (func:891, 13 refs), +46 more
 - `agent_approval.go` — requestApproval (func:96, 3 refs), parallelToolConfig (func:23, 2 refs), requestQuestion (func:130, 2 refs), turnHardStopReason (func:85, 2 refs), requestApprovalOnce (func:104), requestExitPlan (func:195), +3 more
 - `agent_effort.go` — capOutput (func:82, 4 refs), appendTurnContext (func:55, 2 refs), autoReasoningEffort (func:238, 2 refs), modelThinkFloor (func:327, 2 refs), passiveEffort (func:313, 2 refs), passiveToolBatch (func:298, 2 refs), +11 more
 - `agent_events.go` — Info (type:131, 7 refs), ApprovalRequest (type:167), BackendSwitched (type:137), BoardMessagePosted (type:199)
 - `agent_persist.go` — persist (func:14, 11 refs), noteInfo (func:94, 5 refs), NoteInfo (func:112, 3 refs), FlushNotes (func:154, 2 refs), flushPendingNotes (func:128, 2 refs), recordBoardMessages (func:66, 2 refs), +2 more
 - `agent_prompt.go` — buildSystemPrompt (func:16, 9 refs), loadAgentsMD (func:287, 3 refs), tildePath (func:333, 2 refs), agentsMDPrompt (func:181), cbmProjectName (func:237), userProfilePrompt (func:152), +5 more
 - `agent_tools.go` — parallelSafe (func:273, 5 refs), approveToolCall (func:311, 3 refs), alwaysAllowRule (func:527, 2 refs), bashCommandField (func:561, 2 refs), hardApproval (func:574, 2 refs), needsApproval (func:542, 2 refs), +14 more
-- `board.go` — withAgentIdentity (func:127, 4 refs), withBoardAdmin (func:155, 3 refs), post (func:64, 2 refs), registerBoardTools (func:203, 2 refs), withMessageBoard (func:112, 2 refs), agentIdentityFrom (func:134), +14 more
+- `board.go` — withAgentIdentity (func:127, 4 refs), withBoardAdmin (func:155, 3 refs), post (func:64, 2 refs), registerBoardTools (func:203, 2 refs), withMessageBoard (func:112, 2 refs), agentIdentityFrom (func:134), +3 more
 - `btw.go` — AskSide (func:21, 2 refs)
 - `checkpoint.go` — onCompacted (func:215, 4 refs), ClearCheckpoint (func:192, 3 refs), WriteCheckpoint (func:100, 3 refs), CheckpointStatus (func:183, 2 refs), checkpointContext (func:170, 2 refs), maybeCheckpoint (func:72, 2 refs), +3 more
-- `codebasemap.go` — codebaseMapEnabled (func:28, 2 refs), codebaseMapPromptSection (func:61), clipBytes (func:126)
+- `codebasemap.go` — codebaseMapEnabled (func:28, 2 refs), codebaseMapPromptSection (func:62, 2 refs), clipBytes (func:150), renderCodebaseMapSection (func:119)
 - `codeoutline.go` — capToolOutput (func:143, 3 refs), outlineReadFile (func:73), isStructural (func:50), lineNum (func:129)
 - `compact.go` — Compact (func:51, 6 refs), clip (func:458, 6 refs), calibrateTokens (func:38, 4 refs), pruneStaleToolResults (func:237, 3 refs), serialize (func:430, 3 refs), compactBoundary (func:385, 2 refs), +10 more
 - `compact_overflow.go` — compactAndRetry (func:32, 2 refs), compactAtBoundary (func:91, 2 refs), compactedHead (func:113)
@@ -92,7 +92,7 @@ _entry points: agent_
 - `injection.go` — untrustedContentTool (func:30, 2 refs), wrapUntrustedToolOutput (func:46, 2 refs)
 - `jobstart.go` — StartBackgroundJobApproved (func:34, 3 refs), ApprovalPolicyName (func:80, 2 refs), BackgroundJobNeedsApproval (func:95, 2 refs), SendJobInput (func:60, 2 refs), gateBackgroundJob (func:119, 2 refs)
 - `jsonshrink.go` — compactJSON (func:27, 2 refs), pruneJSON (func:44, 2 refs), isEmptyJSON (func:93), looksLikeJSON (func:19), pruneEmpty (func:67)
-- `memory.go` — RefreshSystemPrompt (func:299, 7 refs), Remember (func:190, 5 refs), AutoCaptureRule (func:227, 3 refs), ParseMemoryFlags (func:732, 3 refs), systemPrompt (func:287, 3 refs), AddBullet (func:399, 2 refs), +40 more
+- `memory.go` — RefreshSystemPrompt (func:299, 7 refs), Remember (func:190, 5 refs), AutoCaptureRule (func:227, 3 refs), ParseMemoryFlags (func:739, 3 refs), systemPrompt (func:287, 3 refs), AddBullet (func:406, 2 refs), +41 more
 - `mentions.go` — expandFileMentions (func:339), expandMentionDirective (func:158), expandNotesMention (func:91), expandTurnMentions (func:57), mentionKind (type:33), notesDirective (func:108), +8 more
 - `plan.go` — Plan (func:35, 9 refs), AttachPlanStore (func:26, 6 refs), ApprovePlan (func:92, 4 refs), SetPlan (func:72, 4 refs), hasDraftPlan (func:131, 4 refs), ClearPlan (func:106, 3 refs), +16 more
 - `profile.go` — loadProjectProfile (func:76, 2 refs), maybeRefreshProfile (func:109, 2 refs), profileSlug (func:49), projectProfilePath (func:69), projectProfileSection (func:91), writeProjectProfile (func:138)
@@ -102,9 +102,9 @@ _entry points: agent_
 - `repeat.go` — looksLikeCorrection (func:74, 2 refs), looksLikeRepeatedAsk (func:92, 2 refs), userMessageTextHelper (func:127)
 - `scoped.go` — RunScoped (func:60), ScopedOptions (type:22), ScopedResult (type:49)
 - `selfreview.go` — TurnChangesDiff (func:46, 4 refs), maybeSelfReview (func:211, 2 refs), shortModelName (func:286, 2 refs), clipTo (func:120), parseReview (func:185), reviewableDiff (func:41), +6 more
-- `selfreview_gate.go` — turnIsNonReviewable (func:171, 2 refs), changedRelPaths (func:41), matchesSkipGlob (func:87), selfReviewSkipGlobs (func:68), versionBumpOnly (func:134), fileChangeIsVersionBump (func:203)
+- `selfreview_gate.go` — turnIsNonReviewable (func:171, 3 refs), changedRelPaths (func:41), matchesSkipGlob (func:87), selfReviewSkipGlobs (func:68), versionBumpOnly (func:134), fileChangeIsVersionBump (func:212)
 - `skill.go` — AttachSkills (func:109, 8 refs), newSkillTool (func:24), skillTool (type:19)
-- `snapshot.go` — SnapshotPath (func:198, 6 refs), pop (func:154, 6 refs), Undo (func:234, 5 refs), startTurn (func:39, 5 refs), mutatedThisTurn (func:50, 4 refs), ModifiedFiles (func:219, 3 refs), +17 more
+- `snapshot.go` — startTurn (func:63, 6 refs), SnapshotPath (func:222, 5 refs), Undo (func:258, 5 refs), mutatedThisTurn (func:74, 4 refs), ModifiedFiles (func:243, 3 refs), Rewind (func:323, 3 refs), +19 more
 - `task.go` — AttachSubAgents (func:720, 9 refs), newTaskTool (func:46, 3 refs), clearTaskCache (func:566, 2 refs), contextItems (func:601, 2 refs), totals (func:820, 2 refs), ResolveModel (func:576), +23 more
 - `taskstore.go` — newTaskStore (func:126, 3 refs), appendOutput (func:62, 2 refs), finalResult (func:107, 2 refs), handles (func:167)
 - `tasktools.go` — decodeHandle (func:22), handleInput (type:18), taskCancelTool (type:128), taskOutputTool (type:49)
@@ -113,7 +113,7 @@ _entry points: agent_
 - _… 7 more files_
 
 ### internal/announce/ — 2 files
-- `announce.go` — normalizeLevel (func:136), saveLocked (func:118), sortLocked (func:114), wire (type:40)
+- `announce.go` — normalizeLevel (func:136), sortLocked (func:114), wire (type:40)
 
 ### internal/app/ — 1 file
 - `app.go` — BuildServer (func:32, 2 refs), app (package:5)
@@ -123,19 +123,27 @@ _entry points: agent_
 - `iwork.go` — IsIWork (func:71, 2 refs), convertIWork (func:79, 2 refs), converterURL (func:61)
 - `office.go` — attach (package:1), extractOffice (func:17), collapseBlankLines (func:125), xmlRunText (func:91)
 
-### internal/auth/ — 4 files
-- `middleware.go` — FromEnvBackground (func:270), IsAdmin (func:222), OwnerFromRequest (func:219), VerifyConnectorToken (func:229), Wrap (func:28), openBlob (func:241), +11 more
-- `oidc.go` — enabled (func:38, 2 refs), FromEnv (func:51), accountFromClaims (func:128), sameHostRedirect (func:140), Auth (type:17), auth (package:1)
-- `token.go` — now (func:95, 6 refs), Sign (func:40, 2 refs), Verify (func:49, 2 refs), mac (func:88)
+### internal/auth/ — 26 files
+- `challenge.go` — mintChallenge (func:74, 3 refs), redeemChallenge (func:89, 3 refs), consume (func:47), nonceSet (type:39), parseChallenge (func:101)
+- `keyfile.go` — parsePubKeySPKI (func:46, 2 refs), verifyKeyfileSignature (func:82, 2 refs)
+- `keyfile.js` — download (func:83), unlock (func:176), aad (func:45), b64 (func:19), busy (func:261), deriveKey (func:33), +6 more
+- `keyfile_routes.go` — handleChallenge (func:136), handleKeyfileLogin (func:177), handleKeyfileScript (func:52), handleKeys (func:270), handleKeysRevoke (func:309), checkAPICSRF (func:123), +6 more
+- `local_routes.go` — Describe (func:667, 6 refs), csrfToken (func:226, 4 refs), blocked (func:91, 2 refs), checkPassword (func:321, 2 refs), clear (func:144, 2 refs), clientIP (func:159, 2 refs), +23 more
+- `middleware.go` — Wrap (func:29, 5 refs), openBlob (func:330, 3 refs), signBlob (func:326, 3 refs), sessionAccount (func:298, 2 refs), FromEnvBackground (func:367), IsAdmin (func:311), +12 more
+- `oidc.go` — LocalEnabled (func:152, 4 refs), sameHostRedirect (func:324, 4 refs), FromEnv (func:176, 3 refs), SSOEnabled (func:156, 3 refs), throttler (func:50, 3 refs), accountFromClaims (func:292, 2 refs), +6 more
+- `password.go` — HashPassword (func:75, 4 refs), VerifyPassword (func:118, 4 refs), ValidatePassword (func:80), hashPasswordWith (func:95), argonParams (type:56), decodeHash (func:132), +1 more
+- `store.go` — All (func:242, 11 refs), ByID (func:192, 6 refs), OpenAccounts (func:66, 4 refs), BumpEpoch (func:231, 3 refs), AccountID (func:139, 2 refs), canonicalUsername (func:119), +5 more
+- `store_keys.go` — AddPubKey (func:67, 2 refs), RemovePubKey (func:104, 2 refs), newKeyID (func:54), sanitizeLabel (func:36)
+- `token.go` — now (func:157, 11 refs), Sign (func:40, 10 refs), Verify (func:94, 8 refs), macWith (func:150, 3 refs), mac (func:148), tokenKey (func:75)
 
 ### internal/awsdeploy/ — 9 files
 - `assets.go` — applyPath (func:54, 2 refs), Asset (func:30), AssetNames (func:39), mustAsset (func:43)
-- `awscli.go` — advise (func:85, 2 refs), classify (func:61, 2 refs), aws (func:35), Problem (type:42), execRunner (func:19), runner (type:17)
+- `awscli.go` — advise (func:85, 2 refs), classify (func:61, 2 refs), aws (func:35), Problem (type:42)
 - `deploy.go` — Delete (func:448, 11 refs), Status (type:404, 6 refs), logf (func:73, 6 refs), Deploy (func:120, 3 refs), Options (type:17), Deployer (type:53), +9 more
 - `ssm.go` — convergeScript (func:27, 2 refs), sendCommandInput (func:48, 2 refs), writeTempJSON (func:69, 2 refs), shellQuote (func:96)
 
 ### internal/bridge/ — 2 files
-- `hub.go` — Command (type:48, 23 refs), PublishEvent (func:309, 5 refs), PublishState (func:323, 4 refs), PublishUser (func:316, 4 refs), SetActiveSession (func:262, 4 refs), SetController (func:232, 4 refs), +28 more
+- `hub.go` ⭐ — Command (type:48, 27+ refs), PublishEvent (func:309, 5 refs), PublishState (func:323, 4 refs), PublishUser (func:316, 4 refs), SetActiveSession (func:262, 4 refs), SetController (func:232, 4 refs), +28 more
 
 ### internal/budget/ — 2 files
 - `budget.go` — DailyBudget (func:30, 2 refs), MonthlyBudget (func:31, 2 refs), Record (func:56, 2 refs), envUSD (func:33)
@@ -144,8 +152,8 @@ _entry points: agent_
 _entry points: config, prefs, paths_
 - `agent.go` — Rule (func:43, 5 refs), BuildAgent (func:80, 4 refs), BuiltinAgent (func:105, 2 refs), PlanAgent (func:87, 2 refs)
 - `approval.go` — NormalizeApprovalPolicy (func:30, 12 refs), SafeBashCommand (func:77, 2 refs), safeSimpleCommand (func:109)
-- `codebasemap.go` — ReadCodebaseMap (func:52, 4 refs), WriteCodebaseMapStructure (func:142, 4 refs), CodebaseMapNarrative (func:84, 3 refs), CodebaseMapPinned (func:93, 3 refs), CodebaseMapStructure (func:76, 3 refs), section (func:61, 3 refs), +5 more
-- `config.go` ⭐ — Load (func:1641, 103+ refs), Config (type:15, 20 refs), SetModel (func:763, 18 refs), NormalizeReasoningFor (func:1373, 8 refs), NormalizeReasoning (func:1123, 7 refs), ReasoningLevelsFor (func:1064, 7 refs), +57 more
+- `codebasemap.go` — ReadCodebaseMap (func:52, 4 refs), WriteCodebaseMapStructure (func:142, 4 refs), CodebaseMapNarrative (func:84, 3 refs), CodebaseMapPinned (func:93, 3 refs), CodebaseMapStructure (func:76, 3 refs), WriteCodebaseMapPinned (func:154, 3 refs), +2 more
+- `config.go` ⭐ — Load (func:1641, 103+ refs), Config (type:15, 21 refs), SetModel (func:763, 18 refs), NormalizeReasoningFor (func:1373, 8 refs), NormalizeReasoning (func:1123, 7 refs), ReasoningLevelsFor (func:1064, 7 refs), +57 more
 - `context.go` — ContextWindowFor (func:57, 8 refs), ParseTokenCount (func:67, 5 refs), ContextWindow (func:47, 4 refs)
 - `dotenv.go` — UpsertDotEnv (func:107, 4 refs), LoadDotEnv (func:28, 3 refs), DotEnvValues (func:180), parseEnvLine (func:67), PersistentDotEnvPath (func:93), dotEnvCandidates (func:36), +2 more
 - `fallbackchain.go` — ParseFallbackChain (func:84, 3 refs), FallbackChain (func:150, 2 refs), FallbackChainProviders (func:134, 2 refs), FallbackChainSpec (func:124), FallbackChainSpecs (func:159), StrictReasoning (func:28), +3 more
@@ -168,10 +176,10 @@ _entry points: config, prefs, paths_
 - `procname.go` — processName (func:23, 2 refs), lookupProcessName (func:29), procfsProcessName (func:48), psProcessName (func:70)
 - `procname_windows.go` — platformProcessName (func:20, 2 refs)
 - `scheduler.go` — runScheduler (func:21)
-- `service.go` — Start (func:120, 18 refs), Stop (func:146, 8 refs), launchdPlistPath (func:239), renderLaunchd (func:272), renderSystemd (func:335), servicePATH (func:359), +12 more
+- `service.go` — Start (func:120, 21 refs), Stop (func:146, 8 refs), launchdPlistPath (func:239), renderLaunchd (func:272), renderSystemd (func:335), servicePATH (func:359), +12 more
 
 ### internal/dap/ — 5 files
-- `dap.go` — Dial (func:237, 5 refs), Clear (func:583, 2 refs), DrainOutput (func:381, 2 refs), WaitStopped (func:324, 2 refs), ClearStopped (func:373), Terminated (func:390), +27 more
+- `dap.go` — Dial (func:237, 5 refs), Clear (func:583, 2 refs), DrainOutput (func:381, 2 refs), WaitStopped (func:324, 2 refs), ClearStopped (func:373), Terminated (func:390), +1 more
 - `spawn.go` — Spawn (func:49, 4 refs), listenAddr (func:70), SpawnOptions (type:36), annotate (func:205), dap (package:17), killProcess (func:180), +4 more
 
 ### internal/diff/ — 2 files
@@ -181,10 +189,10 @@ _entry points: config, prefs, paths_
 - `doctor.go` — Check (type:53, 11 refs), CheckEmbeddings (func:468), checkHooks (func:294), checkSandbox (func:400), checkSubagentsAndCommands (func:310), Counts (func:70), +15 more
 
 ### internal/domains/ — 2 files
-- `domains.go` — EnsureDefaults (func:72, 3 refs), HostFromURL (func:138, 3 refs), normalizeDomain (func:183), hostMatches (func:202), normalizeHost (func:173)
+- `domains.go` — EnsureDefaults (func:72, 3 refs), HostFromURL (func:138, 3 refs), normalizeDomain (func:183), hostMatches (func:202)
 
 ### internal/eval/ — 3 files
-- `eval.go` — MetricsFromTurnMetas (func:54, 2 refs), Passed (func:158, 2 refs), Scorecard (func:192, 2 refs), Total (func:169, 2 refs), TotalCostUSD (func:172), TotalSteps (func:181), +4 more
+- `eval.go` — MetricsFromTurnMetas (func:54, 2 refs), Passed (func:158, 2 refs), Scorecard (func:192, 2 refs), Total (func:169, 2 refs), TotalCostUSD (func:172), TotalSteps (func:181)
 - `fixtures.go` — Fixtures (func:8, 2 refs), calc (module:14), doesn (package:23), greet (module:25)
 
 ### internal/format/ — 2 files
@@ -195,10 +203,10 @@ _entry points: github_
 - `auth.go` — Token (func:34, 3 refs), resolveToken (func:45)
 - `githost.go` — Detect (func:137, 11 refs), CheckRun (type:98), Comment (type:84), CreatePROpts (type:55), HostKind (type:16), ListPROpts (type:64), +2 more
 - `github.go` ⭐ — decode (func:48, 36+ refs), CheckStatus (func:239, 5 refs), CreatePR (func:93, 5 refs), GetPR (func:141, 5 refs), ListPRs (func:108, 5 refs), ListReviewComments (func:169, 5 refs), +7 more
-- `gitlab.go` — newGitLabClient (func:22, 2 refs), gitlabClient (type:16), glDiscussion (type:169), glMR (type:65), glNote (type:154), glStatus (type:223), +1 more
+- `gitlab.go` — newGitLabClient (func:22, 2 refs), gitlabClient (type:16), glDiscussion (type:169), glMR (type:65)
 
 ### internal/hooks/ — 5 files
-- `hooks.go` ⭐ — Count (func:110, 27+ refs), Empty (func:107, 18 refs), Context (type:67, 14 refs), log (func:254, 6 refs), Event (type:57, 4 refs), loadFile (func:262, 3 refs), +6 more
+- `hooks.go` ⭐ — Count (func:110, 31+ refs), Empty (func:107, 18 refs), Context (type:67, 14 refs), log (func:254, 14 refs), Event (type:57, 4 refs), loadFile (func:262, 3 refs), +6 more
 
 ### internal/llm/ — 41 files
 _entry points: types_
@@ -207,7 +215,7 @@ _entry points: types_
 - `client.go` — NewClient (func:43, 19 refs), WithModel (func:216, 5 refs), modelFrom (func:224, 5 refs), Client (type:23, 4 refs), StreamMessagesNoThink (func:168, 4 refs), WithProvider (func:245, 4 refs), +26 more
 - `copilot.go` — usesCopilot (func:33, 3 refs), checkCopilotAuth (func:250), listCopilotModels (func:260), streamCopilot (func:75), copilotEffort (func:192), copilotTurn (type:207), +5 more
 - `embed.go` — doEmbedRequest (func:93), embedOllama (func:47), embedRemote (func:70)
-- `embedcache.go` — Len (func:232, 19 refs), load (func:142, 5 refs), NewEmbedCache (func:53, 2 refs), key (func:59), EmbedCache (type:24), cacheEntry (type:36), +2 more
+- `embedcache.go` — Len (func:232, 20 refs), load (func:142, 5 refs), NewEmbedCache (func:53, 2 refs), key (func:59), EmbedCache (type:24), cacheEntry (type:36), +2 more
 - `imagegen.go` — GenerateImage (func:47, 3 refs), decodeDataURL (func:198), GeneratedImage (type:25), ImageRef (type:19), decodeBase64Image (func:186), oaiRespAudio (type:175), +1 more
 - `models.go` — ModelServableBy (func:23, 6 refs), knownModelName (func:97, 2 refs), ListImageModels (func:113), humanizeModelID (func:178), isImageGenModel (func:137), isNonChatModel (func:155), +1 more
 - `ollama.go` — userAgent (func:107, 6 refs), checkOllamaAuth (func:219, 2 refs), listOllamaModels (func:174, 2 refs), ollamaBaseURL (func:38, 2 refs), ollamaModelResident (func:327), ollamaNumCtx (func:88), +11 more
@@ -220,8 +228,8 @@ _entry points: types_
 - `streamer.go` — Streamer (type:13)
 - `tokens.go` — MessageChars (func:120, 3 refs), CharsPerToken (func:82, 2 refs), Estimate (func:65, 2 refs), Observe (func:47, 2 refs), TokenEstimator (type:21), fit (func:93)
 - `toolname.go` — prepareToolNames (func:67, 2 refs), restoreToolNames (func:149, 2 refs), CleanToolName (func:50), wireToolName (func:29), wrapToolUseHandler (func:165), addSuffixlessAliases (func:113), +1 more
-- `types.go` ⭐ — TextBlock (func:201, 46+ refs), UserText (func:228, 35+ refs), ToolResultBlock (func:206, 9 refs), ImageBlock (func:183, 8 refs), DocumentBlock (func:192, 3 refs), ToolCalls (func:322, 3 refs), +16 more
-- `usage.go` — HasBalance (func:45, 2 refs), IsProject (func:110), UsageBudget (type:55), UsageData (type:88), UsageModelData (type:99), UsageModelQuota (type:71), +4 more
+- `types.go` ⭐ — TextBlock (func:201, 47+ refs), UserText (func:228, 35+ refs), ToolResultBlock (func:206, 9 refs), ImageBlock (func:183, 8 refs), DocumentBlock (func:192, 3 refs), ToolCalls (func:322, 3 refs), +5 more
+- `usage.go` — HasBalance (func:45, 2 refs), IsProject (func:110), UsageBudget (type:55), UsageData (type:88)
 - `videogen.go` — GenerateVideo (func:69, 3 refs), str (func:238, 2 refs), isVideoGenModel (func:254), GeneratedVideo (type:19), ListVideoModels (func:269), VideoOptions (type:43), +7 more
 
 ### internal/lsp/ — 8 files
@@ -235,14 +243,14 @@ _entry points: types_
 - `manage.go` — Filter (func:89, 12 refs), SkillEnabled (func:67, 9 refs), AgentEnabled (func:77, 8 refs), MCPEnabled (func:72, 8 refs), LSPEnabled (func:82, 5 refs), SetMCP (func:108, 5 refs), +1 more
 
 ### internal/mcp/ — 13 files
-- `adapter.go` — ConnectAll (func:279, 6 refs), Failures (func:237, 5 refs), Servers (func:229, 5 refs), RegisterTools (func:338, 4 refs), Failure (func:256, 3 refs), Prompts (func:198, 3 refs), +13 more
+- `adapter.go` — ConnectAll (func:279, 6 refs), Failures (func:237, 5 refs), Servers (func:229, 5 refs), RegisterTools (func:338, 4 refs), Failure (func:256, 3 refs), Prompts (func:198, 3 refs), +4 more
 - `client.go` — CallTool (func:313, 2 refs), GetPrompt (func:289, 2 refs), ListPrompts (func:269, 2 refs), ListResources (func:225, 2 refs), ListTools (func:209, 2 refs), ReadResource (func:244, 2 refs), +16 more
 - `config.go` — LoadConfigs (func:76, 23 refs), Enabled (func:292, 9 refs), readConfig (func:302, 2 refs), ReferencedEnvVars (func:147), claudeConfig (type:55), claudeDiscoveryEnabled (func:267), +5 more
 - `edit.go` — AddServer (func:18, 10 refs), RemoveServer (func:43, 9 refs), ParseAddArgs (func:64, 3 refs), sqeConfigPath (func:94), readRawConfig (func:101), writeRawConfig (func:111)
 - `transport.go` — Send (func:84, 13 refs), readLoop (func:117, 6 refs), Receive (func:91, 2 refs), drainStderr (func:284, 2 refs), newHTTPSSETransport (func:155), newStdioTransport (func:48), +4 more
 
 ### internal/netrc/ — 2 files
-- `netrc.go` — Parse (func:63, 18 refs), Bearer (func:108, 3 refs), Path (func:31), Entry (type:20), File (type:27), netrc (package:11)
+- `netrc.go` — Parse (func:63, 23 refs), Bearer (func:108, 3 refs), Path (func:31), Entry (type:20), File (type:27), netrc (package:11)
 
 ### internal/notify/ — 2 files
 - `notify.go` — MinSeconds (func:37), WebhookURL (func:32), enabledEvents (func:51), postWebhook (func:88)
@@ -253,83 +261,85 @@ _entry points: types_
 ### internal/plugins/ — 5 files
 - `catalog.go` — componentCount (func:76, 2 refs)
 - `marketplace.go` — InstallFromMarketplace (func:367, 5 refs), MarketplacePlugins (func:292, 5 refs), AddMarketplace (func:192, 4 refs), Marketplaces (func:151, 4 refs), RemoveFromMarketplace (func:463, 4 refs), RemoveMarketplace (func:242, 4 refs), +36 more
-- `plugins.go` ⭐ — Remove (func:168, 49+ refs), Install (func:86, 14 refs), StatusAll (func:32, 6 refs), fileExists (func:256, 3 refs), commandExists (func:210), commandsBase (func:202), +3 more
+- `plugins.go` ⭐ — Remove (func:168, 51+ refs), Install (func:86, 14 refs), StatusAll (func:32, 6 refs), fileExists (func:256, 3 refs), commandExists (func:210), commandsBase (func:202), +3 more
 
 ### internal/procutil/ — 3 files
 - `procutil_unix.go` — Terminate (func:40, 6 refs), Detach (func:29, 5 refs), KillTree (func:69, 5 refs), procutil (package:17)
 
 ### internal/provider/ — 2 files
-- `provider.go` ⭐ — List (func:169, 32+ refs), Normalize (func:197, 26+ refs), Lookup (func:176, 16 refs), DefaultModelFor (func:270, 15 refs), Label (func:188, 15 refs), UsesAnthropicWire (func:208, 6 refs), +5 more
+- `provider.go` ⭐ — List (func:169, 32+ refs), Normalize (func:197, 26+ refs), Lookup (func:176, 20 refs), DefaultModelFor (func:270, 15 refs), Label (func:188, 15 refs), UsesAnthropicWire (func:208, 6 refs), +5 more
 
 ### internal/quickactions/ — 2 files
 - `quickactions.go` — read (func:457, 10 refs), indexOf (func:344, 6 refs), EnsureGlobalDefaults (func:132, 5 refs), normalize (func:355, 3 refs), EffectiveScope (func:223, 2 refs), ListScope (func:231, 2 refs), +10 more
 
 ### internal/rag/ — 2 files
-- `store.go` — Hash (func:75, 2 refs), Prune (func:94, 2 refs), Put (func:85, 2 refs), Search (func:126, 2 refs), ContentHash (func:208), Chunk (type:19), +4 more
+- `store.go` — Hash (func:75, 2 refs), Prune (func:94, 2 refs), Put (func:85, 2 refs), Search (func:126, 2 refs), ContentHash (func:208)
 
-### internal/relay/ — 6 files
-- `connector.go` — ServeConnector (func:28, 3 refs), tunnelRW (type:93), writeHeadLocked (func:105)
+### internal/relay/ — 7 files
+- `connector.go` — ServeConnector (func:28, 4 refs), tunnelRW (type:93), writeHeadLocked (func:105)
 - `download.go` — baseURL (func:28, 2 refs), flash (func:283), serveDownloadFile (func:40), serveDownloadPage (func:94), serveInstallScript (func:81), fallback (func:284), +2 more
-- `protocol.go` — frame (type:45, 3 refs), newTunnel (func:68, 2 refs), readFrame (func:86, 2 refs), writeFrame (func:70, 2 refs), frameType (type:29), tunnel (type:62)
-- `relay.go` — push (func:138, 11 refs), ServeHTTP (func:399, 13 refs), Connected (func:240, 4 refs), SetDownloads (func:217, 3 refs), SetTunnelAddr (func:223, 3 refs), SetVersion (func:211, 3 refs), +23 more
+- `protocol.go` — frame (type:45, 3 refs), newTunnel (func:68, 2 refs), readFrame (func:86, 2 refs), writeFrame (func:70, 2 refs)
+- `relay.go` — push (func:138, 15 refs), pop (func:168, 6 refs), ServeHTTP (func:414, 18 refs), Connected (func:240, 4 refs), AddConnector (func:320, 3 refs), SetDownloads (func:217, 3 refs), +25 more
 
 ### internal/schedule/ — 4 files
-- `schedule.go` ⭐ — Open (func:231, 27+ refs), OpenAt (func:240, 7 refs), ParseSpec (func:154, 5 refs), Store (type:228, 5 refs), Describe (func:93, 4 refs), FormatList (func:130, 4 refs), +13 more
+- `schedule.go` ⭐ — Open (func:231, 28+ refs), OpenAt (func:240, 7 refs), ParseSpec (func:154, 5 refs), Store (type:228, 5 refs), FormatList (func:130, 4 refs), Summary (func:123, 4 refs), +12 more
 - `schedule_unix.go` — lockFile (func:13, 2 refs), unlockFile (func:18, 2 refs)
 
-### internal/selfupdate/ — 2 files
-- `selfupdate.go` — LatestVersion (func:78, 4 refs), Announcement (type:101), Announcements (func:112), AssetName (func:72), SetHTTPClientForTest (func:42), checksumFor (func:196), +3 more
+### internal/selfupdate/ — 8 files
+- `replace_windows.go` — replaceExecutable (func:26, 2 refs)
+- `restart_windows.go` — Restart (func:18, 3 refs)
+- `selfupdate.go` — LatestVersion (func:78, 4 refs), AssetName (func:72, 2 refs), CleanupStaleBackups (func:201, 2 refs), Announcement (type:101), Announcements (func:112), SetHTTPClientForTest (func:42), +2 more
 
 ### internal/session/ — 6 files
 - `backend.go` — Backend (type:11)
-- `crypto.go` — isEncrypted (func:220, 2 refs), decodeKey (func:152), decrypt (func:250), encrypt (func:226), resolveCrypto (func:76), verifyKey (func:285), +7 more
-- `session.go` ⭐ — Dir (func:277, 70+ refs), Rename (func:369, 28+ refs), NewStoreAt (func:262, 19 refs), ListByDir (func:397, 6 refs), Encrypted (func:474, 5 refs), Latest (func:412, 4 refs), +12 more
+- `crypto.go` — decrypt (func:250, 2 refs), encrypt (func:226, 2 refs), isEncrypted (func:220, 2 refs), decodeKey (func:152), resolveCrypto (func:76), verifyKey (func:285), +7 more
+- `session.go` ⭐ — Dir (func:277, 72+ refs), Rename (func:369, 30+ refs), NewStoreAt (func:262, 19 refs), ListByDir (func:397, 6 refs), Encrypted (func:474, 5 refs), Latest (func:412, 4 refs), +12 more
 
 ### internal/skills/ — 9 files
 - `catalog.go` — Catalog (func:73, 16 refs), CatalogEntryByName (func:76, 16 refs), SkillMarkdown (func:86, 2 refs), CatalogEntry (type:65), skills (package:1)
 - `edit.go` — renderSkill (func:50), skillsBase (func:133)
-- `skills.go` — parseFrontmatter (func:166), Skill (type:23), readSkillDir (func:128)
+- `skills.go` — enabled (func:119), parseFrontmatter (func:166), Skill (type:23), readSkillDir (func:128)
 
 ### internal/subagents/ — 7 files
 - `catalog.go` — Markdown (func:81, 2 refs), readOnly (func:25, 2 refs), BuiltinPersonas (func:52)
-- `edit.go` — Create (func:43, 7 refs), Scaffold (func:15, 5 refs), SeedGlobalDefaultAgents (func:168, 4 refs), MaterializeExternals (func:208, 2 refs), SetProvider (func:262, 2 refs), SetReasoning (func:270, 2 refs), +7 more
+- `edit.go` — Create (func:43, 16 refs), Scaffold (func:15, 5 refs), SeedGlobalDefaultAgents (func:168, 4 refs), MaterializeExternals (func:208, 2 refs), SetProvider (func:262, 2 refs), SetReasoning (func:270, 2 refs), +7 more
 - `subagents.go` — SubagentCapable (func:77, 5 refs), EnvVars (func:428, 4 refs), ReadOnly (func:204, 4 refs), Builtin (func:65, 2 refs), PrimaryCapable (func:70, 2 refs), ToAgent (func:86, 2 refs), +11 more
 
 ### internal/taskboard/ — 3 files
-- `taskboard.go` ⭐ — Get (func:189, 53+ refs), finish (func:409, 8 refs), Apply (func:203, 7 refs), Discard (func:241, 2 refs), Enqueue (func:149, 2 refs), newBoard (func:101), +9 more
+- `taskboard.go` ⭐ — Get (func:189, 58+ refs), finish (func:409, 8 refs), Apply (func:203, 7 refs), Discard (func:241, 2 refs), Enqueue (func:149, 2 refs), newBoard (func:101), +8 more
 - `worktree.go` — applyPatch (func:107), createWorktree (func:51), gitDiff (func:95), removeWorktree (func:79), worktree (type:35), excludeFromStatus (func:121), +1 more
 
-### internal/tools/ — 108 files
-_entry points: files, tool, jobs_
+### internal/tools/ — 109 files
+_entry points: files, tool, jobtty_
 - `ask.go` — WithUserAsker (func:61, 2 refs), WithUserBatchAsker (func:87, 2 refs), AskOption (type:30), AskRequest (type:39), UserAsker (type:53), UserBatchAsker (type:80), +11 more
 - `bash.go` — truncate (func:285, 14 refs), stripRedundantLeadingCD (func:145), bashKillTool (type:233), bashOutputTool (type:174), bashTool (type:15), snapHeadToLine (func:301), +1 more
 - `browser.go` — appendConsole (func:238), takeConsole (func:252), browserInput (type:69), browserTool (type:28), chromeExecPath (func:295), ensureStarted (func:191), +3 more
-- `codebasemap.go` — CodebaseMapStructural (func:115, 4 refs), CodebaseMapDigest (func:134, 3 refs), CodebaseMapForDir (func:185, 2 refs), CodebaseMapDirs (func:201), cbmFile (type:99), cbmMeta (type:210), +8 more
+- `codebasemap.go` — CodebaseMapDigest (func:134, 3 refs), CodebaseMapStructural (func:115, 3 refs), CodebaseMapForDir (func:185, 2 refs), CodebaseMapDirs (func:201), cbmFile (type:99), cbmMeta (type:210), +8 more
 - `codebasemap_tool.go` — codebaseMapInput (type:36), codebaseMapTool (type:18)
 - `codenav.go` — SetLSP (func:29, 7 refs), locateSymbol (func:168), relOrAbs (func:148), utf16Len (func:235), wholeWordCols (func:194)
 - `dap.go` — call (func:485, 9 refs), info (type:751, 6 refs), RegisterDAP (func:16, 2 refs), dapAttachTool (type:220), dapConnectTool (type:125), dapContinueTool (type:411), +19 more
-- `defaults.go` ⭐ — Default (func:107, 30+ refs), RegisterDefaults (func:5, 12 refs), RegisterTodo (func:96, 4 refs), RegisterPlan (func:102, 3 refs), RegisterAllowed (func:52, 2 refs)
+- `defaults.go` ⭐ — Default (func:107, 30+ refs), RegisterDefaults (func:5, 12 refs), RegisterTodo (func:96, 4 refs), RegisterAllowed (func:52, 3 refs), RegisterPlan (func:102, 3 refs)
 - `env.go` — scrubbedEnvFor (func:86, 4 refs), ScrubbedEnv (func:105, 2 refs), scrubbedEnv (func:66)
 - `exit_plan.go` — WithExitPlanConfirmer (func:39), ExitPlanConfirmer (type:31), ExitPlanRequest (type:22), exitPlanConfirmerFrom (func:45)
-- `filepicker.go` — queryTerms (func:97), acc (type:129), containsTerm (func:195), fileRank (type:121), findFilesInput (type:45), findFilesTool (type:25), +3 more
-- `files.go` ⭐ — Execute (func:52, 92+ refs), Name (func:32, 77+ refs), Mutates (func:162, 63+ refs), Schema (func:40, 56+ refs), Description (func:34, 52+ refs), Preview (func:291, 11 refs), +18 more
+- `filepicker.go` — queryTerms (func:97), acc (type:129), containsTerm (func:195), fileRank (type:121)
+- `files.go` ⭐ — Execute (func:52, 93+ refs), Name (func:32, 78+ refs), Mutates (func:162, 65+ refs), Schema (func:40, 56+ refs), Description (func:34, 52+ refs), Preview (func:291, 11 refs), +18 more
 - `git.go` — runGit (func:18, 5 refs), GitInfo (func:52, 4 refs), GitAheadBehind (func:77, 3 refs), GitCommitChanges (func:321, 2 refs), GitCommitDiffFor (func:237, 2 refs), GitDiffFor (func:224, 2 refs), +21 more
-- `github.go` — parse (func:116, 8 refs), looksFailed (func:306), ciStatusTool (type:226), currentBranch (func:61), failedRunLogs (func:313), firstArg (func:52), +3 more
+- `github.go` — parse (func:116, 17 refs), looksFailed (func:306), ciStatusTool (type:226), currentBranch (func:61), failedRunLogs (func:313), firstArg (func:52), +3 more
 - `ignore.go` — Match (func:208, 10 refs), LoadIgnore (func:86, 3 refs), IgnoreSet (type:78), addScoped (func:187), appendFile (func:99), appendFileScoped (func:168), +5 more
 - `image_gen.go` — NewImageGenTool (func:34, 2 refs), mediaTypeFor (func:141), ImageGenerator (type:18), extFor (func:155)
-- `jobs.go` ⭐ — add (func:193, 40+ refs), get (func:231, 14 refs), snapshot (func:137, 14 refs), start (func:437, 12 refs), list (func:248, 10 refs), newID (func:238, 7 refs), +11 more
-- `jobs_unix.go` — configureProcess (func:21, 2 refs)
+- `jobs.go` ⭐ — add (func:193, 41+ refs), get (func:231, 21 refs), snapshot (func:137, 14 refs), start (func:437, 12 refs), list (func:248, 10 refs), newID (func:238, 7 refs), +11 more
+- `jobs_unix.go` — configureProcess (func:32, 3 refs)
 - `jobscope.go` — JobStoreFor (func:39, 2 refs), KillAllProjectJobs (func:84, 2 refs), jobStoreKey (func:61)
-- `jobspersist.go` — save (func:87, 13 refs), restore (func:178, 4 refs), record (func:152, 3 refs), isRestored (func:253, 2 refs), jobSeqOf (func:264), jobRecord (type:61), +2 more
-- `jobsview.go` — Jobs (func:101, 9 refs), KillJob (func:143, 5 refs), JobTail (func:129, 4 refs), StartBackgroundJob (func:171, 4 refs), Job (func:114), JobInfo (type:18), +2 more
-- `jobtty.go` ⭐ — Write (func:199, 40+ refs), Flush (func:295, 12 refs), newPTY (func:54, 2 refs), runTTY (func:67), tools (package:1), ttyFilter (type:178), +2 more
-- `lint.go` — findMarker (func:153), orDot (func:85), planLintRuns (func:107), dedupLinterRuns (func:167), lintTool (type:19), linterRun (type:93), +1 more
+- `jobspersist.go` — save (func:87, 14 refs), restore (func:178, 5 refs), record (func:152, 3 refs), isRestored (func:253, 2 refs), jobSeqOf (func:264), jobRecord (type:61), +2 more
+- `jobsview.go` — Jobs (func:101, 9 refs), KillJob (func:143, 5 refs), JobTail (func:129, 4 refs), StartBackgroundJob (func:207, 4 refs), DeleteJob (func:166, 2 refs), Job (func:114, 2 refs), +3 more
+- `jobtty.go` ⭐ — Write (func:199, 46+ refs), Flush (func:295, 12 refs), newPTY (func:54, 2 refs), runTTY (func:67), tools (package:1), ttyFilter (type:178), +2 more
+- `lint.go` — findMarker (func:153), orDot (func:85), planLintRuns (func:107), dedupLinterRuns (func:167)
 - `lsp.go` — RegisterLSP (func:21, 2 refs), formatLocations (func:63), resolveLSPTarget (func:43), lspDefinitionTool (type:95), lspDiagnosticsTool (type:200), lspHoverTool (type:181), +4 more
 - `memory.go` — NewMemorySink (func:26, 4 refs), RegisterRemember (func:105, 3 refs), RegisterRememberUser (func:113, 2 refs), SetList (func:34, 2 refs), SetSave (func:30, 2 refs)
 - `mobile.go` — ExecuteImages (func:93, 7 refs), androidEscapeText (func:428), adbArgs (func:266), android (func:255), androidScreenshot (func:356), androidText (func:273), +9 more
 - `patch.go` — applyUpdate (func:229), parsePatch (func:64), isPatchHeader (func:150), parseHunks (func:158), patchHunk (type:49), patchKind (type:40), +1 more
-- `plan.go` — NewPlanStore (func:36, 7 refs), Sync (func:67, 3 refs), PlanStore (type:29), clonePlan (func:80)
-- `pr.go` — resolve (func:57, 22 refs), detectDefaultBase (func:38), draftSuffix (func:140), formatPRDetail (func:215), parseInput (func:83), prChecksTool (type:344), +4 more
+- `plan.go` — NewPlanStore (func:36, 7 refs), Sync (func:67, 4 refs), PlanStore (type:29), clonePlan (func:80)
+- `pr.go` ⭐ — resolve (func:57, 30+ refs), detectDefaultBase (func:38), draftSuffix (func:140), formatPRDetail (func:215), parseInput (func:83), prChecksTool (type:344), +4 more
 - `proc.go` — configureProcessGroup (func:16, 2 refs)
 - `progress.go` — ProgressFrom (func:20, 2 refs), WithProgress (func:14, 2 refs), ProgressFn (type:8), progressCtxKey (type:10)
 - `recall.go` — rankNotesBM25 (func:109), noteEmbedText (func:224), recallTool (type:31), scored (type:145), scoredNote (type:101)
@@ -344,8 +354,9 @@ _entry points: files, tool, jobs_
 - _… 9 more files_
 
 ### internal/tui/ — 44 files
+_entry points: tui_
 - `agent_mentions.go` — agentMentionList (func:60, 2 refs), trailingMention (func:187, 2 refs), completeAtMention (func:128), completeMention (func:155), expandPrompt (func:116), agentMentionNames (func:28), +3 more
-- `announce.go` — announceCmd (func:30), announceRefreshCmd (func:44), applyAnnouncements (func:53), announceMsg (type:18), announceTickMsg (type:21), renderAnnouncement (func:79)
+- `announce.go` — announceCmd (func:30), announceRefreshCmd (func:44), applyAnnouncements (func:53), announceMsg (type:18)
 - `attach.go` — stageAttachment (func:16, 2 refs), stagedAttachmentsLine (func:108, 2 refs), attachFullPath (func:37), pasteClipboardImage (func:50), PNGf (class:79), clipboardImagePNG (func:69)
 - `bell.go` — ringBell (func:15), tuiBellEnabled (func:9)
 - `btw.go` — btwCmd (func:15)
@@ -355,19 +366,20 @@ _entry points: files, tool, jobs_
 - `seed.go` — seedEntries (func:12), extractedFileMarker (func:103)
 - `styles.go` — logoGradientColors (func:315), tui (package:1)
 - `transcript.go` — render (func:171, 12 refs), renderDiff (func:423, 4 refs), toggleCollapse (func:378, 3 refs), clipPath (func:713, 2 refs), completeTool (func:146, 2 refs), indent (func:570, 2 refs), +22 more
-- `tui.go` — Update (func:647, 19 refs), View (func:2420, 9 refs), refresh (func:3147, 7 refs), submit (func:1301, 7 refs), command (func:1544, 6 refs), label (func:198, 5 refs), +115 more
+- `tui.go` ⭐ — Update (func:647, 27+ refs), View (func:2420, 9 refs), submit (func:1301, 8 refs), refresh (func:3147, 7 refs), command (func:1544, 6 refs), label (func:198, 5 refs), +115 more
 - `tui_bridge.go` — SetHub (func:47, 2 refs), SetRelay (func:21, 2 refs), publishSessions (func:116, 2 refs), publishStatus (func:168, 2 refs), BindController (func:244), RelayReporter (func:33), +11 more
-- `tui_cmds.go` — playDoneSoundCmd (func:188, 2 refs), checkpointCmd (func:152), compactCmd (func:140), doctorCmd (func:63), fetchMCPPromptCmd (func:165), fetchModelsCmd (func:22), +7 more
+- `tui_cmds.go` — playDoneSoundCmd (func:188, 2 refs), checkpointCmd (func:152), compactCmd (func:140), doctorCmd (func:63), fetchMCPPromptCmd (func:165), fetchModelsCmd (func:22), +6 more
 - `tui_format.go` — formatTokens (func:224, 3 refs), formatUSD (func:205, 3 refs), appendHistory (func:158, 2 refs), clampPct (func:235, 2 refs), commonPrefix (func:58, 2 refs), markdownStyle (func:77, 2 refs), +15 more
 - `tui_slash.go` — saveConfig (func:29, 2 refs), agentsCmd (func:421), copyLast (func:350), domainsCmd (func:274), lspCmd (func:679), mcpsCmd (func:590), +11 more
 - `tui_status.go` — addContextStatus (func:238, 2 refs), applyUsage (func:26, 2 refs), contextBarEnabled (func:142, 2 refs), contextStatus (func:255, 2 refs), contextStyle (func:153, 2 refs), formatQuotaShort (func:61, 2 refs), +11 more
 - `tui_view.go` — statusView (func:501, 9 refs), answer (type:264, 5 refs), headerView (func:394, 3 refs), sidebarView (func:45, 3 refs), commandHints (func:605, 2 refs), menuView (func:332, 2 refs), +11 more
 
-### internal/web/ — 108 files
+### internal/web/ — 116 files
 _entry points: workflow_run, server_
 - `access.go` — accessLists (type:26), handleAddDomain (func:83), handleAddPermission (func:45), handleGetDomains (func:78)
 - `agents_market.go` — reattachSubAgents (func:37, 2 refs), agentCatalogItem (type:20), agentModelOption (type:185), agentOptions (type:264), handleAgentInstall (func:117), handleAgentModels (func:197), +7 more
 - `announcements.go` — AnnouncementsHandler (func:22, 2 refs), announcementsAPI (type:16)
+- `assetstamp.go` — indexHTML (func:79, 3 refs), assetIsFingerprinted (func:103, 2 refs), assetStamp (func:39, 2 refs), isStampedAsset (func:89), stampAssets (func:71)
 - `commands.go` — runCommand (func:151, 5 refs), commandsEvent (func:81, 4 refs), enabledWord (func:657, 3 refs), onOff (func:650, 3 refs), commandCatalog (func:73, 2 refs), runSelfUpdate (func:596), +9 more
 - `commands_config.go` — connectMCP (func:715, 4 refs), ensureOllamaModel (func:894, 3 refs), connectLSP (func:810, 2 refs), mcpsCommand (func:656, 2 refs), agentsCommand (func:383), goalCommand (func:173), +14 more
 - `commands_handlers.go` — mcpConnStatus (func:182, 2 refs), mcpStatusLabel (func:199, 2 refs), agentItem (type:27), handleListAgents (func:83), handleListLSP (func:143), handleListMCPs (func:120), +7 more
@@ -379,39 +391,39 @@ _entry points: workflow_run, server_
 - `filesystem.go` — resolveNewSessionDir (func:122, 2 refs), dirEntry (type:25), expandHome (func:103), handleListDir (func:40), handleOpenDir (func:78)
 - `fileview.go` — bytesLookBinary (func:216), resolveInWorkspace (func:76), fileTree (type:54), fileTreeEntry (type:46), fileView (type:35), handleFileTree (func:244), +3 more
 - `git.go` — handleGitCommitDiff (func:51), handleGitDiff (func:33), handleGitOverview (func:21), handleGitWrite (func:77)
-- `jobs.go` — sessionJobWires (func:75, 5 refs), jobsDigest (func:112, 2 refs), newJobTicket (func:301), handleJobInput (func:319), handleJobKill (func:168), handleJobStart (func:194), +6 more
+- `jobs.go` — sessionJobWires (func:75, 5 refs), jobsDigest (func:112, 2 refs), newJobTicket (func:321), handleJobDelete (func:188), handleJobInput (func:339), handleJobKill (func:168), +7 more
 - `lsp_market.go` — lastLines (func:208, 3 refs), handleLspCatalog (func:39), handleLspInstall (func:98), handleLspRemove (func:188), handleLspToggle (func:163), lspCatalogItem (type:23)
 - `mcp_market.go` — configuredHas (func:87), handleMcpInstall (func:91), handleMcpRemove (func:147), handleMcpToggle (func:122), handleMcpsCatalog (func:37), mcpCatalogItem (type:21)
-- `memory.go` — handleCodebaseMap (func:120), handleDeleteMemory (func:91), handleListMemory (func:18), handleReplaceMemorySection (func:69), handleSaveMemory (func:33)
-- `mirror.go` — NewMirrorServer (func:36, 2 refs), mirrorWire (func:235), MirrorServer (type:30), handleList (func:75)
-- `observability.go` — accessLogEnabled (func:108), looksLikeID (func:158), middleware (func:119), newMetrics (func:48), observe (func:50), routeLabel (func:142), +9 more
+- `memory.go` — handleCodebaseMap (func:157), handleDeleteMemory (func:93), handleListMemory (func:18), handleReplaceMemorySection (func:70), handleSaveMemory (func:33), propagateMemory (func:128)
+- `mirror.go` — NewMirrorServer (func:36, 2 refs), mirrorWire (func:237), MirrorServer (type:30), handleList (func:77)
+- `observability.go` — accessLogEnabled (func:108), looksLikeID (func:158), middleware (func:119), newMetrics (func:48), observe (func:50), routeLabel (func:142), +2 more
 - `persona.go` — personaFields (func:828, 4 refs), applyPersonaEdit (func:615, 2 refs), envPersistSet (func:1146, 2 refs), applyCustomEnvEdits (func:1051), applyEnvTokenEdits (func:1107), applyEnvVarRemovals (func:1074), +24 more
 - `plugins_market.go` — refreshAfterPlugin (func:228), handlePluginInstall (func:152), handlePluginMarketplaceAdd (func:98), handlePluginMarketplaceRemove (func:132), handlePluginRemove (func:187), handlePluginsCatalog (func:37), +4 more
 - `quickactions.go` — handleAddQuickAction (func:75), handleGetQuickActions (func:51), handleMoveQuickAction (func:115), handleRemoveQuickAction (func:101)
-- `replay.go` — replayMessages (func:21, 3 refs), rangeReplay (func:276, 2 refs), tailReplay (func:251, 2 refs), atoiDefault (func:306), extractedFileName (func:194), result (type:22), +2 more
+- `replay.go` — replayMessages (func:21, 4 refs), rangeReplay (func:293, 2 refs), tailReplay (func:268, 2 refs), atoiDefault (func:323), extractedFileName (func:211), result (type:22), +2 more
 - `schedules.go` — handleListSchedules (func:64), handleScheduleAdd (func:83), handleScheduleRemove (func:147), handleScheduleRun (func:175), handleScheduleToggle (func:120), scheduleItem (type:21), +1 more
 - `search.go` — handleSearch (func:40), searchSnippet (func:107), messageSearchText (func:87), searchMatch (type:19)
-- `server.go` ⭐ — writeJSON (func:1598, 26+ refs), Handler (func:270, 20 refs), lookup (func:1375, 17 refs), NewServer (func:124, 14 refs), WriteHeader (func:490, 13 refs), openSession (func:1381, 12 refs), +57 more
-- `session.go` — emit (func:246, 22 refs), publishEvent (func:367, 11 refs), subscribe (func:499, 7 refs), clearQueue (func:932, 3 refs), queuedList (func:925, 3 refs), unsubscribe (func:511, 3 refs), +46 more
+- `server.go` ⭐ — writeJSON (func:1622, 27+ refs), Handler (func:270, 21 refs), lookup (func:1391, 18 refs), WriteHeader (func:500, 17 refs), NewServer (func:124, 14 refs), openSession (func:1397, 13 refs), +57 more
+- `session.go` — emit (func:246, 22 refs), publishEvent (func:367, 11 refs), subscribe (func:499, 8 refs), clearQueue (func:941, 3 refs), queuedList (func:934, 3 refs), unsubscribe (func:511, 3 refs), +47 more
 - `skills_market.go` — reattachSkills (func:32, 2 refs), handleSkillInstall (func:80), handleSkillRemove (func:125), handleSkillToggle (func:100), handleSkillsCatalog (func:39), skillCatalogItem (type:19)
-- `status.go` — shortModel (func:120, 13 refs), contextPercent (func:107, 6 refs), statusEvent (func:22, 5 refs), prettyDir (func:134, 4 refs)
-- `taskboard.go` — handleListTasks (func:16), handleTaskAdd (func:31), handleTaskApply (func:60), handleTaskDiscard (func:75), sessionAndExe (func:88), taskID (func:103)
-- `wire.go` — toWire (func:343, 6 refs), attachWireFromAttachment (func:479, 2 refs), planWireFrom (func:446, 2 refs), cmdWire (type:192), contextSegmentsWire (func:171), wireEvent (type:17), +20 more
+- `status.go` — shortModel (func:120, 13 refs), contextPercent (func:107, 6 refs), statusEvent (func:22, 6 refs), prettyDir (func:134, 4 refs)
+- `taskboard.go` — handleListTasks (func:16), handleTaskAdd (func:31), handleTaskApply (func:60), handleTaskDiscard (func:75)
+- `wire.go` — toWire (func:352, 6 refs), attachWireFromAttachment (func:488, 2 refs), planWireFrom (func:455, 2 refs), cmdWire (type:201), contextSegmentsWire (func:180), wireEvent (type:17), +20 more
 - `worker_market.go` — handleWorkerInstall (func:33)
 - `workflow_approval.go` — pauseKey (func:36), approvalHub (type:29), handleResumeWorkflow (func:80), pauseResolution (type:21)
 - `workflow_authoring.go` — handleSetWorkflowRuntime (func:201), llmText (func:318), normalizeCapName (func:31), runtimeSnapshot (func:173), firstJSONObject (func:333), handleCreateAgent (func:77), +9 more
 - `workflow_handlers.go` — handleCreateWorkflow (func:54), handleDeleteWorkflow (func:131), handleGetWorkflow (func:85), handleListWorkflows (func:35), handleSaveWorkflow (func:104), newWorkflowID (func:28), +1 more
 - `workflow_history.go` — firstSentence (func:215, 3 refs), capabilityItem (type:144), handleGetRun (func:40), handleListRuns (func:25), handleResumeRun (func:63), handleWorkflowCapabilities (func:163), +2 more
 - `workflow_invoke.go` — attachWorkflowTool (func:39, 2 refs), WorkflowToolFuncs (func:30), nodeMetaSuffix (func:229), nodeTarget (func:203), runSavedWorkflow (func:72), listWorkflowNames (func:50), +2 more
-- `workflow_run.go` ⭐ — Close (func:200, 94+ refs), run (func:233, 20 refs), randBytes (func:584), recordingEmit (func:112), runApproval (func:536), runUserInput (func:564), +16 more
+- `workflow_run.go` ⭐ — Close (func:200, 97+ refs), run (func:233, 21 refs), randBytes (func:584), recordingEmit (func:112), runApproval (func:536), runUserInput (func:564), +16 more
 
 ### internal/web/static/ — 17 files
-- `app-core.js` — approve (func:3687, 6 refs), popQueued (func:3597, 3 refs), api (const:4, 2 refs), handle (func:1291, 2 refs), renderSearchResults (func:5785, 2 refs), sendText (func:3006, 2 refs), +214 more
-- `app-manage.js` — renderDeployPanel (func:2286, 2 refs), stopDeployPolling (func:2282, 2 refs), manageRow (func:1064), openMemoryEditor (func:237), openPlugins (func:663), refreshManage (func:1057), +74 more
-- `app-render.js` — renderMD (func:390, 3 refs), prettyModel (func:845, 2 refs), providerLabel (func:910, 2 refs), appendDiffCount (func:1137), appendMsg (func:520), bashCommand (func:667), +39 more
-- `app-state.js` — sym (const:197, 5 refs), alertBox (func:248, 2 refs), confirmBox (func:209, 2 refs), themeColor (const:202), AppIcon (class:173)
-- `app-workflow.js` — open (func:157, 4 refs), field (func:924, 2 refs), base (func:63), checkbox (func:1111), renderAgentBuilderInto (func:1853), setRunning (func:1252), +92 more
-- `app.css` — text-faint (class:2932, 4 refs), input (id:636, 3 refs), access-empty (class:900, 2 refs), access-form (class:950, 2 refs), access-head (class:897, 2 refs), access-input (class:951, 2 refs), +25 more
+- `app-core.js` — approve (func:3818, 6 refs), handle (func:1291, 3 refs), popQueued (func:3724, 3 refs), api (const:4, 2 refs), fmtUSD (const:1863, 2 refs), renderJobsStrip (func:3437, 2 refs), +215 more
+- `app-manage.js` — renderDeployPanel (func:2328, 2 refs), stopDeployPolling (func:2324, 2 refs), jobRow (func:2095), manageRow (func:1087), openMemoryEditor (func:248), openPlugins (func:686), +75 more
+- `app-render.js` — prettyModel (func:845, 3 refs), renderMD (func:390, 3 refs), appendMsg (func:520, 2 refs), fmtDur (func:821, 2 refs), providerLabel (func:910, 2 refs), renderTurnMeta (func:1059, 2 refs), +40 more
+- `app-state.js` — sym (const:197, 6 refs), alertBox (func:248, 2 refs), confirmBox (func:209, 2 refs), themeColor (const:202), AppIcon (class:173)
+- `app-workflow.js` — open (func:157, 4 refs), field (func:924, 2 refs), base (func:63), checkbox (func:1111), renderAgentBuilderInto (func:1853), setRunning (func:1252)
+- `app.css` — input (id:636, 4 refs), msg (class:323, 4 refs), text-faint (class:3029, 4 refs), jobstrip-row (class:2118, 3 refs), transcript-wrap (class:2763, 3 refs), access-empty (class:900, 2 refs), +43 more
 
 ### internal/worker/ — 8 files
 _entry points: worker_
@@ -419,7 +431,7 @@ _entry points: worker_
 - `claude.go` — openClaude (func:22), parseClaudeJSON (func:116), claudeResult (type:31), claudeSession (type:16)
 - `detect.go` — Readiness (func:179, 6 refs), InstallCommand (func:41, 3 refs), ProbeReadiness (func:130, 3 refs), InstallPlanFor (func:159, 2 refs), RefreshReadiness (func:145, 2 refs), Installed (func:67), +5 more
 - `gemini.go` — buildArgs (func:93, 2 refs), openGemini (func:25), parseGeminiJSON (func:112), geminiResult (type:36), geminiSession (type:20)
-- `worker.go` ⭐ — Add (func:542, 63+ refs), SetEnabled (func:461, 9 refs), All (func:313, 8 refs), Configs (func:296, 6 refs), file (type:114, 6 refs), globalPath (func:118, 5 refs), +15 more
+- `worker.go` ⭐ — Add (func:542, 74+ refs), SetEnabled (func:461, 9 refs), Configs (func:296, 6 refs), file (type:114, 6 refs), globalPath (func:118, 5 refs), CloseAll (func:444, 3 refs), +14 more
 
 ### internal/workflow/ — 19 files
 - `dictionary_demo.go` — GetDictionaryNodeFunc (func:72, 2 refs), NewDictionaryWorkflow (func:41, 2 refs), workflow (package:1)
@@ -437,19 +449,24 @@ _entry points: worker_
 ### ios/AgentRelayClient/ — 10 files
 _entry points: SSEClient_
 - `AgentRelayClientApp.swift` — reload (func:171), AgentRelayClientApp (struct:7), BrowserView (struct:82), seedDefaultProfilesIfNeeded (func:42), startObservingProgress (func:173)
-- `ComposerView.swift` — send (func:169, 8 refs), ComposerView (struct:5), agentHue (func:258), AttachmentStripView (struct:309), AutocompletePopover (struct:274), agentColor (func:239), +6 more
-- `ConfigSheets.swift` — encode (func:343, 2 refs), ConfigSheetsView (struct:10), AnyEncodableValue (struct:339), MCPListView (struct:221), MCPServer (struct:327), SkillConfig (struct:319), +15 more
+- `ComposerView.swift` — ComposerView (struct:5), agentHue (func:258), AttachmentStripView (struct:309), AutocompletePopover (struct:274), agentColor (func:239), buildAttachments (func:178), +5 more
+- `ConfigSheets.swift` — encode (func:343, 3 refs), ConfigSheetsView (struct:10), AnyEncodableValue (struct:339), MCPListView (struct:221), MCPServer (struct:327), SkillConfig (struct:319), +15 more
 - `HostProfile.swift` — HostProfile (class:5, 2 refs)
 - `MainSplitView.swift` — AddHostSheet (func:531), HeaderBarView (struct:581), MainSplitView (struct:4), MenuPickerSheet (struct:780), ProgressDrawer (struct:680), checkAuthAndFetchSessions (func:297), +10 more
 - `Models.swift` — ChatMessage (struct:232), ClientApproval (struct:248), ClientQuestion (struct:257), MessageBody (struct:197), OutboundAttachment (struct:185)
-- `SSEClient.swift` ⭐ — cancel (func:817, 83+ refs), interrupt (func:597, 7 refs), sendMessage (func:480, 4 refs), connect (func:81, 2 refs), set (func:811, 2 refs), AuthWebView (struct:682), +26 more
+- `SSEClient.swift` ⭐ — cancel (func:817, 84+ refs), set (func:811, 9 refs), interrupt (func:597, 7 refs), sendMessage (func:480, 4 refs), AuthWebView (struct:682), Coordinator (class:742), +25 more
 - `TranscriptView.swift` — foregroundColor (func:108, 3 refs), TranscriptView (struct:3), ApprovalCardView (struct:154), AvatarView (struct:118), CodeDiffView (struct:333), MessageRowView (struct:43), +6 more
+
+### scripts/ — 8 files
+- `e2e_keyfile.mjs` — keyfileOnDisk (func:85)
+- `verify_jobs_strip.mjs` — check (func:98, 5 refs), navigate (func:87, 3 refs)
+- `verify_queue_strip.mjs` — send (func:66, 15 refs), connect (func:33, 9 refs), evaluate (func:74, 7 refs), sleep (const:29, 6 refs)
 
 ### test/browser/src/ — 4 files
 - `decider.ts` — scriptedDecider (func:27, 3 refs), llmDecider (func:13), Decider (type:10), Script (interface:21)
 - `driver.ts` — runConversation (func:16, 4 refs), trunc (func:66)
 - `persona.ts` — Turn (interface:6)
-- `sqe.ts` — newSession (func:12, 9 refs), Sqe (class:33, 4 refs), focusLaptop (func:9), selectSession (func:11), Pending (type:24), QSpec (interface:16)
+- `sqe.ts` — newSession (func:12, 10 refs), Sqe (class:33, 4 refs), focusLaptop (func:9), selectSession (func:11), Pending (type:24), QSpec (interface:16)
 <!-- END AUTO:STRUCTURE -->
 
 ## Narrative — features → files
