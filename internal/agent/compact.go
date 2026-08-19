@@ -52,14 +52,29 @@ func (a *Agent) Compact(ctx context.Context) (int, error) {
 	return a.compactAtBoundary(ctx, a.compactBoundary())
 }
 
+func (a *Agent) compactThreshold() int {
+	if a == nil || a.cfg == nil {
+		return 0
+	}
+	return a.cfg.CompactThresholdFor(a.cfg.Model)
+}
+
+func (a *Agent) compactKeep() int {
+	if a == nil || a.cfg == nil {
+		return 0
+	}
+	return a.cfg.CompactKeepFor(a.cfg.Model)
+}
+
 // maybeCompact summarizes older history into a single synthetic exchange when
 // the estimated context size exceeds the configured threshold. It preserves
 // tool_use/tool_result pairing by only cutting at genuine user-text boundaries.
 func (a *Agent) maybeCompact(ctx context.Context, emit func(Event)) error {
-	if a.cfg.CompactThresholdTokens <= 0 {
+	thresh := a.compactThreshold()
+	if thresh <= 0 {
 		return nil
 	}
-	if a.estTokens(a.messages) < a.cfg.CompactThresholdTokens {
+	if a.estTokens(a.messages) < thresh {
 		return nil
 	}
 
@@ -72,7 +87,7 @@ func (a *Agent) maybeCompact(ctx context.Context, emit func(Event)) error {
 	// whole conversation. If trimming alone drops us back under the threshold, we
 	// skip summarization entirely.
 	if reclaimed := a.pruneStaleToolResults(a.cfg.ToolResultKeepRounds); reclaimed > 0 {
-		if a.estTokens(a.messages) < a.cfg.CompactThresholdTokens {
+		if a.estTokens(a.messages) < thresh {
 			text := fmt.Sprintf("Trimmed ~%d KB of stale tool output to stay within the context window (no summary needed).", reclaimed/1024)
 			emit(Info{Text: text})
 			a.noteInfo(text)
@@ -383,7 +398,7 @@ func isGenuineUser(m llm.Message) bool {
 } // compactBoundary returns the earliest genuine-user index whose suffix fits
 // within the keep budget, so everything before it can be summarized.
 func (a *Agent) compactBoundary() int {
-	keep := a.cfg.CompactKeepTokens
+	keep := a.compactKeep()
 	for i := 0; i < len(a.messages); i++ {
 		if !isGenuineUser(a.messages[i]) {
 			continue

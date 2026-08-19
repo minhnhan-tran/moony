@@ -106,7 +106,7 @@ In the web UI the jobs panel is reachable from the button on the left of the pag
   - `/permissions remove <rule> [--global]` — delete a rule.
 - **Diff previews** — `write_file` and `edit_file` implement a `Preview` capability; the agent computes a unified diff of the pending change and shows it both inline in the transcript and inside the approval box (green additions, red deletions).
 - **Session persistence** — after every turn the conversation is written to `~/.config/moony/sessions/<id>.json`. Resume the latest with `--continue`, a specific one with `--session <id>`, list them with `/sessions`, and start fresh with `/reset`.
-- **Context compaction** — before each turn the agent estimates history size; once it crosses `CompactThresholdTokens` (~140k), it summarizes the oldest messages via the model and replaces them with a compact summary, always cutting at a safe user-message boundary so `tool_use`/`tool_result` pairs stay intact.
+- **Context compaction** — before each turn the agent estimates history size; once it crosses 80% of the model's max context length (or `MN_COMPACT_THRESHOLD`), it summarizes older messages via the model and replaces them with a compact summary, always cutting at a safe user-message boundary so `tool_use`/`tool_result` pairs stay intact.
 - **Resilient requests** — transient model-request failures (network errors, `429`, `5xx`/`529`) are retried with exponential backoff + jitter, honoring `Retry-After`, so a blip doesn't waste a whole turn. Retries cover only the request/initial response; once a stream starts it isn't re-issued (no duplicated output). Client errors (`4xx`) and cancellations are not retried.
 
 ## Requirements

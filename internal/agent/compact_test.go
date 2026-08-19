@@ -532,3 +532,46 @@ func TestMaybeCompactFiresMidTurn(t *testing.T) {
 		t.Fatalf("expected history to shrink after mid-turn compaction: before=%d after=%d", before, len(a.messages))
 	}
 }
+
+func TestMaybeCompactDynamic80PercentThreshold(t *testing.T) {
+	fake := &scriptedStreamer{turns: []llm.Response{
+		{Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: "dynamic summary"}}},
+	}}
+	// ContextWindow = 1000 -> 80% threshold = 800 tokens, keep = 320 tokens.
+	cfg := &config.Config{
+		ContextWindow: 1000,
+	}
+	a := &Agent{
+		cfg:    cfg,
+		client: fake,
+		messages: []llm.Message{
+			llm.UserText("initial"),
+		},
+	}
+
+	noop := func(Event) {}
+	// Below 80% of 1000 tokens: no-op.
+	if err := a.maybeCompact(context.Background(), noop); err != nil {
+		t.Fatalf("maybeCompact below 80%%: %v", err)
+	}
+	if fake.calls != 0 {
+		t.Fatalf("expected 0 summarize calls below 80%%, got %d", fake.calls)
+	}
+
+	// Add messages to cross 800 tokens.
+	// estTokens is roughly chars/4. 3600 chars is ~900 tokens.
+	big := strings.Repeat("x", 720)
+	for i := 0; i < 5; i++ {
+		a.messages = append(a.messages, llm.UserText(big))
+	}
+	if a.estTokens(a.messages) <= 800 {
+		t.Fatalf("test setup: expected >800 tokens, got %d", a.estTokens(a.messages))
+	}
+
+	if err := a.maybeCompact(context.Background(), noop); err != nil {
+		t.Fatalf("maybeCompact above 80%%: %v", err)
+	}
+	if fake.calls != 1 {
+		t.Fatalf("expected 1 summarize call when above 80%%, got %d", fake.calls)
+	}
+}

@@ -52,3 +52,46 @@ func TestContextWindowForOverride(t *testing.T) {
 		t.Errorf("override = %d, want 1000000", got)
 	}
 }
+
+func TestCompactThresholdAndKeep(t *testing.T) {
+	c := &Config{}
+	// Default dynamic: 80% of context window for threshold, 40% of threshold for keep.
+	// 200k model -> 160k threshold, 64k keep.
+	if got := c.CompactThresholdFor("anthropic.claude-sonnet-4-6"); got != 160_000 {
+		t.Errorf("CompactThresholdFor(200k) = %d, want 160000", got)
+	}
+	if got := c.CompactKeepFor("anthropic.claude-sonnet-4-6"); got != 64_000 {
+		t.Errorf("CompactKeepFor(200k) = %d, want 64000", got)
+	}
+
+	// 1M model -> 800k threshold, 320k keep.
+	c.ContextWindow = 1_000_000
+	if got := c.CompactThresholdFor("any-model"); got != 800_000 {
+		t.Errorf("CompactThresholdFor(1M override) = %d, want 800000", got)
+	}
+	if got := c.CompactKeepFor("any-model"); got != 320_000 {
+		t.Errorf("CompactKeepFor(1M override) = %d, want 320000", got)
+	}
+
+	// Explicit override of CompactThresholdTokens takes precedence.
+	c.CompactThresholdTokens = 50_000
+	if got := c.CompactThresholdFor("any-model"); got != 50_000 {
+		t.Errorf("CompactThresholdFor(explicit 50k) = %d, want 50000", got)
+	}
+	// Keep dynamically follows 40% of explicit threshold (20k).
+	if got := c.CompactKeepFor("any-model"); got != 20_000 {
+		t.Errorf("CompactKeepFor(from explicit 50k threshold) = %d, want 20000", got)
+	}
+
+	// Explicit override of CompactKeepTokens takes precedence.
+	c.CompactKeepTokens = 15_000
+	if got := c.CompactKeepFor("any-model"); got != 15_000 {
+		t.Errorf("CompactKeepFor(explicit 15k) = %d, want 15000", got)
+	}
+
+	// Disabled threshold (<0) passes through.
+	c.CompactThresholdTokens = -1
+	if got := c.CompactThresholdFor("any-model"); got != -1 {
+		t.Errorf("CompactThresholdFor(disabled -1) = %d, want -1", got)
+	}
+}

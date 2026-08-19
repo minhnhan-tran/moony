@@ -45,7 +45,7 @@ func (a *Agent) compactAndRetry(ctx context.Context, err error, emit func(Event)
 	// Shrink the keep-window when the provider's own numbers say the retained tail
 	// alone wouldn't fit: compactBoundary keeps CompactKeepTokens of recent turns,
 	// which is meaningless if that budget is itself over the limit.
-	if max > 0 && a.cfg.CompactKeepTokens > max/2 {
+	if max > 0 && a.compactKeep() > max/2 {
 		a.cfg.CompactKeepTokens = max / 2
 	}
 

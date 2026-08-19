@@ -540,10 +540,14 @@ type Config struct {
 	// ImageProvider, so it survives a restart and is distinguishable from "unset".
 	ImageProviderPersona *string
 	// CompactThresholdTokens is the estimated history size that triggers
-	// context compaction before a turn.
+	// context compaction before a turn. 0 (the default) derives it dynamically
+	// as 80% of the active model's max context length.
+	// Env: MN_COMPACT_THRESHOLD.
 	CompactThresholdTokens int
 	// CompactKeepTokens is roughly how much recent history to retain when
-	// compacting older messages into a summary.
+	// compacting older messages into a summary. 0 (the default) derives it
+	// dynamically as 40% of the compact threshold (~32% of max context length).
+	// Env: MN_COMPACT_KEEP.
 	CompactKeepTokens int
 	// ToolResultKeepRounds is how many of the most recent tool-result-carrying
 	// messages keep their full output in history. Older tool results are elided
@@ -1708,8 +1712,8 @@ func Load() *Config {
 		SandboxNetwork:         true,
 		AutoDelegate:           false,
 		AutoOffloadReadBytes:   32768,
-		CompactThresholdTokens: 80000,
-		CompactKeepTokens:      32000,
+		CompactThresholdTokens: 0,
+		CompactKeepTokens:      0,
 		ToolResultKeepRounds:   8,
 	}
 

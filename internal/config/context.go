@@ -61,6 +61,36 @@ func (c *Config) ContextWindowFor(model string) int {
 	return ContextWindow(model)
 }
 
+// CompactThresholdRatio is the fraction of max context length that triggers
+// automatic context compaction when no explicit token count is set.
+const CompactThresholdRatio = 0.80
+
+// CompactKeepRatio is the fraction of the compact threshold to retain as
+// recent history when summarizing older turns.
+const CompactKeepRatio = 0.40
+
+// CompactThresholdFor returns the token threshold that triggers compaction:
+// an explicit override (c.CompactThresholdTokens, when != 0) takes precedence,
+// otherwise it defaults to 80% of the model's effective context window.
+func (c *Config) CompactThresholdFor(model string) int {
+	if c != nil && c.CompactThresholdTokens != 0 {
+		return c.CompactThresholdTokens
+	}
+	window := c.ContextWindowFor(model)
+	return int(float64(window) * CompactThresholdRatio)
+}
+
+// CompactKeepFor returns the number of recent-history tokens to retain:
+// an explicit override (c.CompactKeepTokens, when != 0) takes precedence,
+// otherwise it defaults to 40% of the compaction threshold (~32% of context length).
+func (c *Config) CompactKeepFor(model string) int {
+	if c != nil && c.CompactKeepTokens != 0 {
+		return c.CompactKeepTokens
+	}
+	thresh := c.CompactThresholdFor(model)
+	return int(float64(thresh) * CompactKeepRatio)
+}
+
 // ParseTokenCount parses a token count that may use a k/m suffix (case
 // insensitive): "1m" or "1M" -> 1_000_000, "200k" -> 200_000, "131072" -> as-is.
 // Underscores and commas are ignored. Returns an error on anything else.

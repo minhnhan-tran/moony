@@ -75,11 +75,18 @@ func TestContextCostDefaults(t *testing.T) {
 		t.Setenv(k, "")
 	}
 	c := Load()
-	if c.CompactThresholdTokens != 80000 {
-		t.Errorf("default CompactThresholdTokens = %d, want 80000", c.CompactThresholdTokens)
+	if c.CompactThresholdTokens != 0 {
+		t.Errorf("default CompactThresholdTokens = %d, want 0 (dynamic 80%%)", c.CompactThresholdTokens)
 	}
-	if c.CompactKeepTokens != 32000 {
-		t.Errorf("default CompactKeepTokens = %d, want 32000", c.CompactKeepTokens)
+	if c.CompactKeepTokens != 0 {
+		t.Errorf("default CompactKeepTokens = %d, want 0 (dynamic keep)", c.CompactKeepTokens)
+	}
+	// Default dynamic computation is 80% of context window for threshold and 40% of threshold for keep
+	if got := c.CompactThresholdFor("claude-3-5-sonnet"); got != 160000 {
+		t.Errorf("CompactThresholdFor(200k) = %d, want 160000", got)
+	}
+	if got := c.CompactKeepFor("claude-3-5-sonnet"); got != 64000 {
+		t.Errorf("CompactKeepFor(200k) = %d, want 64000", got)
 	}
 	if c.MaxToolOutputBytes != 16000 {
 		t.Errorf("default MaxToolOutputBytes = %d, want 16000", c.MaxToolOutputBytes)
