@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.34.3] — 2026-08-19
+
+### Added
+
+- **Token usage & context fill on session history restore.** Resuming or opening an existing
+  session from history now immediately populates total input/output token counts, estimated
+  cost, and the context window fill percentage (`ctx N%`) in the web UI status bar.
+  The server hydrates live session counters from persisted `TurnMetas` on load, and the
+  client synchronizes context percentages and last-turn token sizes during history replay.
+
 ## [2.34.2] — 2026-08-19
 
 ### Fixed
