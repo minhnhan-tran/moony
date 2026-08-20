@@ -1022,7 +1022,7 @@ function turnMetaLine(parts) {
 // drawn: defaulting to new Date() would date a months-old question to the page load, which
 // reads as fact. Absent is honest; "now" is confidently wrong.
 function userMetaFooter(text, when) {
-  const row = el("div", "user-meta flex items-center gap-1.5 mt-1 text-faint text-[11px] font-mono");
+  const row = el("div", "user-meta flex items-center justify-end gap-1.5 mt-1 text-faint text-[11px] font-mono");
   if (when) row.appendChild(el("span", null, fmtDateTime(when)));
   if (text) {
     const copyBtn = el("button", "user-copy shrink-0");

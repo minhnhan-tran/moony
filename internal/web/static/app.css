@@ -270,7 +270,7 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
    the same right edge as the user bubbles, closing the old right-side void. The
    disclosure heads are width:fit-content (see below), so they hug their label. */
 .msg-user { display: flex; flex-direction: column; align-items: flex-end; width: 100%; }
-.msg-user > * { max-width: min(86%, 40rem); }
+.msg-user > * { max-width: min(86%, 52rem); }
 .msg-user .msg-label { display: none; } /* reference style: flat bubble, no speaker label */
 
 /* Separate conversation pairs: extra breathing room before each new user turn
@@ -332,12 +332,37 @@ body.app-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
    from the agent's plain, left-railed reply. Tinted from the app accent; reads
    in both themes. */
 .user-body {
+  align-self: flex-end;
+  margin-left: auto;
+  width: fit-content;
+  max-width: min(86%, 52rem);
+  text-align: left;
   background: rgb(var(--c-brand) / .12);
   border: 1px solid rgb(var(--c-brand) / .28);
   border-radius: var(--r-2xl);
   padding: .65rem 1.05rem;
   line-height: 1.5;
   box-shadow: 0 1px 2px rgb(var(--c-shadow) / .35);
+  box-sizing: border-box;
+}
+
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-self: flex-end;
+  margin-left: auto;
+  width: 100%;
+}
+
+.user-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: flex-end;
+  margin-left: auto;
+  width: 100%;
+  opacity: .85;
 }
 
 /* The assistant's reply: flat editorial prose (no card) with a single subtle
@@ -2854,18 +2879,25 @@ pre.diff { box-shadow: inset 0 1px 0 rgb(var(--c-shadow) / .5); padding: .35rem 
   background: rgb(var(--c-surface) / .4);
   box-sizing: border-box;
 }
-.pair-q > .msg { margin: 0; }                /* .pair-q owns the spacing + divider */
-/* The pinned question spans .pair-q completely — width is never negotiated with the
-   content inside it. .msg-user's chat-bubble cap (max-width: min(86%, 40rem), hugging
-   the right) is for the scrolling transcript, where a bubble reads as "the human said
-   this"; in the header it just leaves a ragged column that does not line up with the
-   answer below. Reset it here rather than weakening the bubble rule, which the
-   transcript still wants. */
-.pair-q > .msg,
-.pair-q > .msg > * {
+.pair-q > .msg {
+  margin: 0;
   width: 100%;
   max-width: none;
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.pair-q > .msg > .user-body {
+  align-self: flex-end;
+  margin-left: auto;
+  width: fit-content;
+  max-width: min(86%, 52rem);
+}
+.pair-q > .msg > .user-meta,
+.pair-q > .msg > .msg-attachments {
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-end;
 }
 .pair-a {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;

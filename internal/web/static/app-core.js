@@ -3756,7 +3756,7 @@ async function removeQueuedMsg(i) {
 // renderAttachments builds the read-only attachment row shown on a sent user
 // message (image thumbnails inline, other kinds as labeled chips).
 function renderAttachments(atts) {
-  const row = el("div", "msg-attachments flex flex-wrap gap-2 mt-1.5");
+  const row = el("div", "msg-attachments flex flex-wrap justify-end gap-2 mt-1.5");
   atts.forEach((a) => {
     if (a.kind === "image" && a.dataUri) {
       const img = el("img", "attach-thumb-lg");

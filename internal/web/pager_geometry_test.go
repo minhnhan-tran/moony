@@ -179,10 +179,13 @@ func TestPairQuestionSpansItsParent(t *testing.T) {
 		t.Error(".pair-q must not cap its own width")
 	}
 
-	// The content inside must not re-narrow it.
-	inner := cssBlock(t, css, ".pair-q > .msg > * {")
-	if !regexp.MustCompile(`width:\s*100%`).MatchString(inner) || !regexp.MustCompile(`max-width:\s*none`).MatchString(inner) {
-		t.Error("the question inside .pair-q must reset the .msg-user bubble cap to width:100%/max-width:none")
+	// The message container inside must span width: 100%
+	msgBlock := cssBlock(t, css, ".pair-q > .msg {")
+	if !regexp.MustCompile(`width:\s*100%`).MatchString(msgBlock) {
+		t.Error(".pair-q > .msg must declare width: 100%")
+	}
+	if !regexp.MustCompile(`align-items:\s*flex-end`).MatchString(msgBlock) {
+		t.Error(".pair-q > .msg must align items to flex-end (right)")
 	}
 }
 
