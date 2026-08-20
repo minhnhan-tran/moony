@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.1] — 2026-08-20
+
+### Added
+
+- **Right-alignment for user message elements (`user-meta`, `msg-attachments`, `user-body`).**
+  User prompt bubbles (`.user-body`), attachment chips and image thumbnails (`.msg-attachments`),
+  and metadata footers (`.user-meta` with timestamp, copy button, and re-ask button) now
+  consistently dock to the right edge in both the scrolling transcript and `.pair-q` pinned
+  headers, with natural left-to-right reading text inside the bubble.
+
 ## [2.35.0] — 2026-08-19
 
 ### Added
