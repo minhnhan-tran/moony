@@ -5,6 +5,17 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.2] — 2026-08-21
+
+### Fixed
+
+- **Status bar `ctx%` showed 0% in sessions without a measured turn.** When opening a
+  session, reloading, or running slash commands (`/context`, `/compact`), `lastTurnIn` is
+  unmeasured (`<= 0`). Previously the web status bar fell back to rendering `0%` despite the
+  session holding substantial static and history context (~49.5k tokens). The status event now
+  falls back to the agent's live context breakdown estimate (`agent.ContextBreakdown()`) so the
+  status bar and tooltip immediately display the accurate context fill (e.g. 25%).
+
 ## [2.35.1] — 2026-08-20
 
 ### Added
