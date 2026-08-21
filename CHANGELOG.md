@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.3] — 2026-08-21
+
+### Fixed
+
+- **Context breakdown card layout (`.msg-info.ctx-card`).** Resolved flex layout conflicts
+  between `.msg-info` and `.ctx-card`, grouped the header gauge icon and title on the left with
+  the summary tokens/percentage pushed to the right, added tabular column alignments for token
+  counts (`min-width: 3.5rem; text-align: right`) and percentage badges, and expanded max width to
+  `44rem` for a balanced card presentation. Pinned by `TestContextCardLayoutInvariants`.
+
 ## [2.35.2] — 2026-08-21
 
 ### Fixed

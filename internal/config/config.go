@@ -620,7 +620,7 @@ type Config struct {
 // regardless of MN_MAX_SUBAGENT_DEPTH, to cap worst-case fan-out cost/recursion.
 const SubagentDepthCeiling = 4
 
-const Version = "2.35.2"
+const Version = "2.35.3"
 
 // VersionLess reports whether semantic version a is strictly older than b, where
 // each is "x.y.z" (an optional leading "v" is tolerated). It returns false when
