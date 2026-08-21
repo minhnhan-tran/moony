@@ -3129,44 +3129,51 @@ html.light .diff-hunk { color: #0550ae; }
    set inline from the theme tokens in app.js.
    ============================================================================ */
 .ctx-card {
-  display: block;
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
   border: 1px solid rgb(var(--c-edge));
+  border-left: 3px solid rgb(var(--c-brand));
   border-radius: var(--r-lg);
   background: rgb(var(--c-surface));
-  padding: 0.7em 0.9em;
-  margin: 0.4em 0;
-  max-width: 32rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  width: 100%;
+  max-width: 44rem;
+  box-sizing: border-box;
+  gap: 0.6rem;
+  line-height: 1.4;
 }
-.ctx-head { margin-bottom: 0.55em; }
+.ctx-head { width: 100%; margin-bottom: 0.1rem; }
 .ctx-title { font-weight: 600; color: rgb(var(--c-ink)); }
 .ctx-bar {
   display: flex;
   width: 100%;
-  height: 12px;
+  height: 10px;
   border-radius: var(--r-sm);
   overflow: hidden;
   background: rgb(var(--c-edge-soft));
 }
-.ctx-bar-seg { height: 100%; }
+.ctx-bar-seg { height: 100%; transition: width .15s ease; }
 .ctx-bar-seg + .ctx-bar-seg { box-shadow: inset 1px 0 0 rgb(var(--c-surface) / .6); }
-.ctx-legend { margin-top: 0.6em; display: flex; flex-direction: column; gap: 0.2em; }
-.ctx-legend-row { font-size: 0.85em; }
-.ctx-legend-row-toggle { cursor: pointer; border-radius: var(--r-xs); }
+.ctx-legend { margin-top: 0.2rem; display: flex; flex-direction: column; gap: 0.25rem; width: 100%; }
+.ctx-legend-row { font-size: 0.85rem; padding: 0.15rem 0.35rem; border-radius: var(--r-sm); width: 100%; box-sizing: border-box; }
+.ctx-legend-row-toggle { cursor: pointer; }
 .ctx-legend-row-toggle:hover { background: rgb(var(--c-ink) / .05); }
-.ctx-chevron { font-size: 0.7em; transition: transform .12s ease; }
+.ctx-chevron { font-size: 0.75rem; width: 0.85rem; text-align: center; transition: transform .12s ease; }
 .ctx-chevron.rotate-90 { transform: rotate(90deg); }
-.ctx-chevron-spacer { width: 0.7em; display: inline-block; }
-.ctx-legend-count { font-size: 0.75em; padding: 0 0.4em; border-radius: var(--r-md); background: rgb(var(--c-ink) / .08); font-variant-numeric: tabular-nums; }
+.ctx-chevron-spacer { width: 0.85rem; display: inline-block; }
+.ctx-legend-count { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: var(--r-md); background: rgb(var(--c-ink) / .08); font-variant-numeric: tabular-nums; }
 .ctx-swatch { width: 10px; height: 10px; border-radius: var(--r-xs); display: inline-block; }
 .ctx-legend-label { color: rgb(var(--c-ink)); }
-.ctx-legend-tok { font-variant-numeric: tabular-nums; }
-.ctx-legend-pct { font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: right; }
-.ctx-items { margin: 0.15em 0 0.35em 5px; padding-left: 12px; border-left: 2px solid rgb(var(--c-faint-2)); display: flex; flex-direction: column; gap: 0.12em; }
+.ctx-legend-tok { font-variant-numeric: tabular-nums; min-width: 3.5rem; text-align: right; }
+.ctx-legend-pct { font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right; }
+.ctx-items { margin: 0.15rem 0 0.35rem 1.6rem; padding-left: 0.75rem; border-left: 2px solid rgb(var(--c-edge)); display: flex; flex-direction: column; gap: 0.15rem; }
 .ctx-items.hidden { display: none; }
-.ctx-item-row { font-size: 0.8em; color: rgb(var(--c-faint)); }
+.ctx-item-row { font-size: 0.8rem; color: rgb(var(--c-faint)); width: 100%; box-sizing: border-box; }
 .ctx-item-label { color: rgb(var(--c-faint)); font-family: var(--font-mono, monospace); }
 .ctx-item-tok { font-variant-numeric: tabular-nums; }
-.ctx-foot { margin-top: 0.55em; }
+.ctx-foot { margin-top: 0.2rem; padding-top: 0.45rem; border-top: 1px solid rgb(var(--c-edge) / .5); line-height: 1.4; }
 
 /* ---- confirmBox(): in-app modal replacing the native confirm() dialog ---- */
 .msgbox-back {

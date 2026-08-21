@@ -2642,10 +2642,13 @@ function renderContextBreakdown(ctx) {
   endAssistant(); endToolGroup(); endWorkerGroup();
   const card = el("div", "msg msg-info ctx-card text-sm");
 
-  const head = el("div", "ctx-head flex items-baseline gap-1.5");
-  head.appendChild(sym("gauge.with.dots.needle.33percent", "text-brand shrink-0"));
-  head.appendChild(el("span", "ctx-title", "Context usage"));
-  head.appendChild(el("span", "text-faint", `~${fmtTokens(total)} of ${fmtTokens(window)} tokens · ${pct}% of window`));
+  const head = el("div", "ctx-head flex items-center justify-between gap-2 flex-wrap");
+  const headLeft = el("div", "flex items-center gap-1.5 shrink-0");
+  headLeft.appendChild(sym("gauge.with.dots.needle.33percent", "text-brand shrink-0"));
+  headLeft.appendChild(el("span", "ctx-title font-medium", "Context usage"));
+  head.appendChild(headLeft);
+  head.appendChild(el("span", "ctx-summary font-mono text-xs text-faint ml-auto",
+    `~${fmtTokens(total)} of ${fmtTokens(window)} tokens · ${pct}% of window`));
   card.appendChild(head);
 
   // Stacked bar: each segment's width is its share of the WINDOW (so unused
@@ -2671,7 +2674,7 @@ function renderContextBreakdown(ctx) {
   const legend = el("div", "ctx-legend");
   segs.forEach((s) => {
     const hasItems = s.items && s.items.length;
-    const row = el("div", "ctx-legend-row flex items-center gap-1.5" + (hasItems ? " ctx-legend-row-toggle" : ""));
+    const row = el("div", "ctx-legend-row flex items-center gap-2" + (hasItems ? " ctx-legend-row-toggle" : ""));
     if (hasItems) {
       const chev = sym("chevron.right", "ctx-chevron text-faint shrink-0");
       row.appendChild(chev);
@@ -2681,21 +2684,23 @@ function renderContextBreakdown(ctx) {
     const sw = el("span", "ctx-swatch shrink-0");
     sw.style.background = CONTEXT_SEGMENT_COLORS[s.label] || CONTEXT_SEGMENT_FALLBACK;
     row.appendChild(sw);
-    row.appendChild(el("span", "ctx-legend-label", s.label));
-    if (hasItems) row.appendChild(el("span", "ctx-legend-count text-faint", `${s.items.length}`));
-    row.appendChild(el("span", "flex-1"));
-    row.appendChild(el("span", "ctx-legend-tok text-faint", fmtTokens(s.tokens)));
+    const labelWrap = el("div", "flex items-center gap-1.5 flex-1 min-w-0");
+    labelWrap.appendChild(el("span", "ctx-legend-label truncate", s.label));
+    if (hasItems) labelWrap.appendChild(el("span", "ctx-legend-count text-faint shrink-0", `${s.items.length}`));
+    row.appendChild(labelWrap);
+    const statsWrap = el("div", "flex items-center gap-2.5 shrink-0 ml-auto");
+    statsWrap.appendChild(el("span", "ctx-legend-tok text-faint", fmtTokens(s.tokens)));
     const segPct = window > 0 ? Math.round((s.tokens * 100) / window) : 0;
-    row.appendChild(el("span", "ctx-legend-pct text-faint", segPct + "%"));
+    statsWrap.appendChild(el("span", "ctx-legend-pct text-faint", segPct + "%"));
+    row.appendChild(statsWrap);
     legend.appendChild(row);
     if (hasItems) {
       const sub = el("div", "ctx-items hidden"); // collapsed by default
       sub.style.borderColor = CONTEXT_SEGMENT_COLORS[s.label] || CONTEXT_SEGMENT_FALLBACK;
       s.items.forEach((it) => {
-        const irow = el("div", "ctx-item-row flex items-center gap-1.5");
+        const irow = el("div", "ctx-item-row flex items-center justify-between gap-2");
         irow.appendChild(el("span", "ctx-item-label truncate", it.label));
-        irow.appendChild(el("span", "flex-1"));
-        irow.appendChild(el("span", "ctx-item-tok text-faint", fmtTokens(it.tokens)));
+        irow.appendChild(el("span", "ctx-item-tok text-faint shrink-0", fmtTokens(it.tokens)));
         sub.appendChild(irow);
       });
       legend.appendChild(sub);

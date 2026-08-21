@@ -226,3 +226,34 @@ func cssBlock(t *testing.T, css, selector string) string {
 	}
 	return css[i : i+j]
 }
+
+// TestContextCardLayoutInvariants ensures .ctx-card has a well-defined vertical column layout,
+// proper tabular alignments for tokens & percentages, and does not inherit horizontal flex deformation.
+func TestContextCardLayoutInvariants(t *testing.T) {
+	b, err := staticFS.ReadFile("static/app.css")
+	if err != nil {
+		t.Fatalf("read app.css: %v", err)
+	}
+	css := strings.ReplaceAll(string(b), "\r\n", "\n")
+
+	cardBlock := cssBlock(t, css, ".ctx-card {")
+	if !regexp.MustCompile(`display:\s*flex`).MatchString(cardBlock) {
+		t.Error(".ctx-card must declare display: flex")
+	}
+	if !regexp.MustCompile(`flex-direction:\s*column`).MatchString(cardBlock) {
+		t.Error(".ctx-card must declare flex-direction: column")
+	}
+	if !strings.Contains(cardBlock, "box-sizing: border-box") {
+		t.Error(".ctx-card must declare box-sizing: border-box")
+	}
+
+	tokBlock := cssBlock(t, css, ".ctx-legend-tok {")
+	if !regexp.MustCompile(`text-align:\s*right`).MatchString(tokBlock) {
+		t.Error(".ctx-legend-tok must declare text-align: right for vertical tabular alignment")
+	}
+
+	pctBlock := cssBlock(t, css, ".ctx-legend-pct {")
+	if !regexp.MustCompile(`text-align:\s*right`).MatchString(pctBlock) {
+		t.Error(".ctx-legend-pct must declare text-align: right for vertical tabular alignment")
+	}
+}
