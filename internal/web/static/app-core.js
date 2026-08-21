@@ -2479,8 +2479,10 @@ function renderStats() {
   // context-window fill: a small progress bar + percentage (brand → amber → red as it fills)
   const hasWindow = typeof s.contextWindow === "number" && s.contextWindow > 0;
   const hasPercent = typeof s.contextPercent === "number" && s.contextPercent >= 0;
-  if (hasWindow || hasPercent) {
-    const pct = Math.max(0, Math.min(100, hasPercent ? s.contextPercent : 0));
+  const hasTokens = typeof s.contextTokens === "number" && s.contextTokens > 0;
+  if (hasWindow && (hasPercent || hasTokens)) {
+    let pct = hasPercent ? s.contextPercent : Math.round((s.contextTokens / s.contextWindow) * 100);
+    pct = Math.max(0, Math.min(100, pct));
     const color = pct >= 90 ? themeColor("--c-danger") : pct >= 75 ? themeColor("--c-warn") : themeColor("--c-brand");
     const wrap = el("span", "inline-flex items-center gap-1.5 cursor-pointer stat-context");
     wrap.setAttribute("role", "button");
@@ -2570,12 +2572,15 @@ function contextInfoRows(s) {
   const rows = [{ label: "Context window", desc: s.model || "current model" }];
   const ctxTokens = lastTurnIn || s.contextTokens || 0;
   if (s.contextWindow > 0) {
+    const isEstimate = !lastTurnIn && s.contextTokens > 0;
     rows.push({
       label: `${fmt(ctxTokens)} / ${fmt(s.contextWindow)}`,
-      desc: "last turn input tokens / window",
+      desc: isEstimate ? "estimated context tokens / window" : "last turn input tokens / window",
     });
   }
-  const pct = typeof s.contextPercent === "number" && s.contextPercent >= 0 ? s.contextPercent : 0;
+  const pct = typeof s.contextPercent === "number" && s.contextPercent >= 0
+    ? s.contextPercent
+    : (s.contextWindow > 0 && ctxTokens > 0 ? Math.min(100, Math.round((ctxTokens / s.contextWindow) * 100)) : 0);
   rows.push({ label: `${pct}%`, desc: "of window used" });
   return rows;
 }

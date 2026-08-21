@@ -1157,6 +1157,35 @@ func TestStatusLoadedFromSessionHistory(t *testing.T) {
 	}
 }
 
+func TestStatusEventFallsBackToEstimatedContextWhenLastInZero(t *testing.T) {
+	srv, _ := newTestServer(t, &fakeStreamer{}, config.ApprovalAuto, false)
+	saved := &sessionpkg.Session{
+		ID:         "test-fresh-sess",
+		Title:      "Fresh Test",
+		WorkingDir: t.TempDir(),
+		Model:      "anthropic.claude-sonnet-4-6",
+	}
+	if err := srv.store.Save(saved); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	live := srv.openSession(saved.ID)
+	if live == nil {
+		t.Fatalf("openSession failed")
+	}
+
+	// With no turns run yet (lastIn == 0), statusEvent should estimate context from live.agent
+	stEv := srv.statusEvent(saved, live)
+	if stEv.Status == nil {
+		t.Fatalf("expected Status in statusEvent")
+	}
+	if stEv.Status.ContextTokens <= 0 {
+		t.Errorf("status ContextTokens = %d, want > 0 (estimated context)", stEv.Status.ContextTokens)
+	}
+	if stEv.Status.ContextPercent < 0 {
+		t.Errorf("status ContextPercent = %d, want >= 0", stEv.Status.ContextPercent)
+	}
+}
+
 // --- slash commands ---------------------------------------------------------
 
 // openLive creates a session and returns its live *session (white-box).

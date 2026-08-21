@@ -81,8 +81,14 @@ func (s *Server) statusEvent(sess *sessionpkg.Session, live *session) wireEvent 
 		st.TokensIn = in
 		st.TokensOut = out
 		st.CostUSD = config.CostUSDFull(model, in, out, cacheRead, cacheWrite) // cache-adjusted session estimate; quota (below) takes display priority
-		st.ContextPercent = contextPercent(lastIn, cfg.ContextWindowFor(model))
-		st.ContextTokens = lastIn
+		ctxTokens := lastIn
+		if ctxTokens <= 0 && live.agent != nil {
+			if bd := live.agent.ContextBreakdown(); bd.Total > 0 {
+				ctxTokens = bd.Total
+			}
+		}
+		st.ContextPercent = contextPercent(ctxTokens, cfg.ContextWindowFor(model))
+		st.ContextTokens = ctxTokens
 		st.ContextWindow = cfg.ContextWindowFor(model)
 		st.QuotaSpend = spend
 		st.QuotaBudget = budget
