@@ -5,6 +5,16 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.4] — 2026-08-21
+
+### Fixed
+
+- **Background job timer kept ticking for killed/stopped jobs (`.jobstrip-time`).** `JobInfo`
+  now includes the `ended` timestamp when a job terminates. `stripRuntime()` in `app-core.js`
+  uses `j.ended - j.started` when the job is no longer running, and `syncStripClock()` ticks
+  the 1-second interval only for active running jobs, freezing stopped and killed jobs at their
+  exact elapsed duration.
+
 ## [2.35.3] — 2026-08-21
 
 ### Fixed
