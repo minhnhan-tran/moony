@@ -19,6 +19,7 @@ type JobInfo struct {
 	ID      string    `json:"id"`
 	Command string    `json:"command"`
 	Started time.Time `json:"started"`
+	Ended   time.Time `json:"ended,omitempty"`
 	State   string    `json:"state"`
 	Exit    int       `json:"exit"`
 	Err     string    `json:"err,omitempty"`
@@ -58,6 +59,7 @@ func (j *job) infoLocked() JobInfo {
 		ID:      j.id,
 		Command: j.command,
 		Started: j.started,
+		Ended:   j.ended,
 		State:   string(j.state),
 		Exit:    j.exit,
 		Err:     j.errMsg,

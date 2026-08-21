@@ -149,3 +149,17 @@ func jobstripFunc(t *testing.T, src, name string) string {
 	}
 	return src[start : start+1+end]
 }
+
+func TestJobsStripRuntimeFreezesForFinishedAndKilledJobs(t *testing.T) {
+	src := readAsset(t, "static/app-core.js")
+
+	clk := jobstripFunc(t, src, "syncStripClock")
+	if !strings.Contains(clk, "j.running") {
+		t.Error("syncStripClock must check j.running before updating a time cell so finished/killed jobs do not count up")
+	}
+
+	rt := jobstripFunc(t, src, "stripRuntime")
+	if !strings.Contains(rt, "j.ended") {
+		t.Error("stripRuntime must use j.ended when available for non-running jobs")
+	}
+}

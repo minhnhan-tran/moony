@@ -3,6 +3,7 @@ package tools
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // The invariant this whole file exists for: a UI tailing a job must NOT consume the
@@ -314,5 +315,36 @@ func TestModelCursorSurvivesTrim(t *testing.T) {
 	}
 	if len(out) > maxJobOutputBytes {
 		t.Errorf("model got %d bytes, want <= the cap", len(out))
+	}
+}
+
+func TestJobInfoIncludesEndedWhenStopped(t *testing.T) {
+	s := newJobStore()
+	started := time.Now().Add(-5 * time.Second)
+	ended := time.Now().Add(-2 * time.Second)
+	j := &job{
+		id:      "bg_1",
+		command: "echo test",
+		state:   jobKilled,
+		started: started,
+		ended:   ended,
+		store:   s,
+	}
+	s.add(j)
+
+	info, ok := s.Job("bg_1")
+	if !ok {
+		t.Fatalf("job not found")
+	}
+	if info.Ended.IsZero() {
+		t.Errorf("expected Ended to be set, got zero time")
+	}
+	if !info.Ended.Equal(ended) {
+		t.Errorf("Ended = %v, want %v", info.Ended, ended)
+	}
+
+	list := s.Jobs()
+	if len(list) != 1 || list[0].Ended.IsZero() {
+		t.Errorf("Jobs() list item should have Ended set")
 	}
 }

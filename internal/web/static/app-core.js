@@ -3373,16 +3373,21 @@ function syncStripClock() {
     // is no longer job N and indexing would print one job's runtime on another's row.
     for (const cell of jobsStrip.querySelectorAll(".jobstrip-time")) {
       const j = stripJobs.find((x) => x.id === cell.dataset.job);
-      if (j) cell.textContent = stripRuntime(j);
+      if (j && j.running) cell.textContent = stripRuntime(j);
     }
   }, 1000);
 }
 
-// Human runtime for a job, counted from its start timestamp.
+// Human runtime for a job, counted from start to end (or now if still running).
 function stripRuntime(j) {
   const started = Date.parse(j.started || "");
   if (!Number.isFinite(started)) return "";
-  const secs = Math.max(0, Math.round((Date.now() - started) / 1000));
+  let end = Date.now();
+  if (!j.running && j.ended) {
+    const ended = Date.parse(j.ended);
+    if (Number.isFinite(ended)) end = ended;
+  }
+  const secs = Math.max(0, Math.round((end - started) / 1000));
   if (secs < 60) return `${secs}s`;
   const m = Math.floor(secs / 60), s = secs % 60;
   if (m < 60) return `${m}m ${s}s`;
