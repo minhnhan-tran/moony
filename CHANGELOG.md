@@ -5,6 +5,22 @@ All notable changes to **moony** are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The top entry always
 matches `config.Version` (enforced by `TestChangelogMatchesVersion`).
 
+## [2.35.5] — 2026-08-22
+
+### Fixed
+
+- **A full context could no longer be compacted — by either path.** `compactBoundary`
+  looked for the earliest genuine-user message whose *suffix* fit the keep budget and
+  returned `0` when none did. That is precisely the state a full history is in: once the
+  recent tail alone exceeds keep, every suffix does, so the scan fell through to `0` — which
+  both callers interpret as "nothing to compact". Auto-compaction silently did nothing on
+  every turn and `/compact` replied "Nothing to compact yet." while the context bar sat at
+  100% and each turn overflowed; the worse the overflow, the more certain the refusal. It now
+  falls back to the **last** genuine-user boundary — the largest cut that still preserves
+  `tool_use`/`tool_result` pairing — so it makes maximal progress instead of none. `0` is
+  still returned when genuinely uncompactable (history already fits, no genuine-user message,
+  or a single turn larger than the window).
+
 ## [2.35.4] — 2026-08-21
 
 ### Fixed
