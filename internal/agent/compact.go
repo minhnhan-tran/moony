@@ -395,10 +395,27 @@ func isGenuineUser(m llm.Message) bool {
 		}
 	}
 	return true
-} // compactBoundary returns the earliest genuine-user index whose suffix fits
+}
+
+// compactBoundary returns the earliest genuine-user index whose suffix fits
 // within the keep budget, so everything before it can be summarized.
+//
+// When NO suffix fits — the recent tail alone is already over the keep budget —
+// it falls back to the LAST genuine-user boundary rather than giving up. That
+// case is exactly the one that matters most: a history at 100% of the window
+// where every suffix exceeds keep. Returning 0 there meant "nothing to compact",
+// so auto-compaction silently did nothing and /compact answered "Nothing to
+// compact yet." while the context stayed full and every turn overflowed. The
+// last boundary is the largest cut that still preserves tool_use/tool_result
+// pairing, so it makes maximal progress instead of none.
+//
+// 0 still means "don't compact", but now only when it is genuinely true: the
+// whole history already fits (the loop returns 0 on its first iteration), there
+// is no genuine-user message to cut at, or the only one is at index 0 — a single
+// turn larger than the window, which no amount of summarizing can shrink.
 func (a *Agent) compactBoundary() int {
 	keep := a.compactKeep()
+	last := -1
 	for i := 0; i < len(a.messages); i++ {
 		if !isGenuineUser(a.messages[i]) {
 			continue
@@ -406,6 +423,10 @@ func (a *Agent) compactBoundary() int {
 		if a.estTokens(a.messages[i:]) <= keep {
 			return i
 		}
+		last = i // over budget, but a valid (pairing-safe) cut point
+	}
+	if last > 0 {
+		return last
 	}
 	return 0
 }

@@ -575,3 +575,86 @@ func TestMaybeCompactDynamic80PercentThreshold(t *testing.T) {
 		t.Fatalf("expected 1 summarize call when above 80%%, got %d", fake.calls)
 	}
 }
+
+// A history at ~100% of the window, where the recent tail alone already exceeds the
+// keep budget, must still compact. This regressed as a total stall: compactBoundary
+// found no suffix that fit, returned 0, and BOTH paths then treated that as "nothing
+// to do" — auto-compaction did nothing every turn and /compact replied "Nothing to
+// compact yet." while the context bar sat at 100% and turns overflowed.
+func TestCompactBoundaryFallsBackWhenNoSuffixFitsKeep(t *testing.T) {
+	big := strings.Repeat("x", 400_000) // ~100k tokens each
+	a := &Agent{
+		cfg: &config.Config{ContextWindow: 200_000}, // keep = 64k, threshold = 160k
+		messages: []llm.Message{
+			llm.UserText("first prompt"),
+			{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock(big)}},
+			llm.UserText("second prompt"),
+			{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock(big)}},
+		},
+	}
+
+	// Precondition: the whole history is over threshold and no suffix fits keep.
+	if got := a.estTokens(a.messages); got < a.compactThreshold() {
+		t.Fatalf("test setup: est=%d must exceed threshold=%d", got, a.compactThreshold())
+	}
+	if got := a.estTokens(a.messages[2:]); got <= a.compactKeep() {
+		t.Fatalf("test setup: the tail (est=%d) must exceed keep=%d", got, a.compactKeep())
+	}
+
+	cut := a.compactBoundary()
+	if cut <= 0 {
+		t.Fatalf("boundary = %d, want > 0: a full context must still be compactable", cut)
+	}
+	if !isGenuineUser(a.messages[cut]) {
+		t.Errorf("boundary %d must land on a genuine user message to keep tool pairing intact", cut)
+	}
+	if cut != 2 {
+		t.Errorf("boundary = %d, want 2 (the last genuine-user boundary = maximal progress)", cut)
+	}
+}
+
+// The corresponding end-to-end guarantee: with a full context, maybeCompact must
+// actually summarize and leave the history smaller.
+func TestMaybeCompactShrinksAFullContext(t *testing.T) {
+	big := strings.Repeat("x", 400_000)
+	fake := &scriptedStreamer{turns: []llm.Response{
+		{StopReason: "end_turn", Blocks: []llm.ContentBlock{llm.TextBlock("summary of the earlier turns")}},
+	}}
+	a := &Agent{
+		cfg:    &config.Config{ContextWindow: 200_000},
+		client: fake,
+		messages: []llm.Message{
+			llm.UserText("first prompt"),
+			{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock(big)}},
+			llm.UserText("second prompt"),
+			{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock(big)}},
+		},
+	}
+	before := a.estTokens(a.messages)
+
+	if err := a.maybeCompact(context.Background(), func(Event) {}); err != nil {
+		t.Fatalf("maybeCompact: %v", err)
+	}
+	if fake.calls == 0 {
+		t.Fatal("maybeCompact did not summarize a context that is at 100% of the window")
+	}
+	if after := a.estTokens(a.messages); after >= before {
+		t.Errorf("history did not shrink: before=%d after=%d", before, after)
+	}
+}
+
+// A single turn larger than the whole window is genuinely uncompactable: there is no
+// earlier boundary to cut at, so 0 ("give up honestly") must survive the fallback.
+func TestCompactBoundaryStillZeroForOneOversizedTurn(t *testing.T) {
+	big := strings.Repeat("x", 400_000)
+	a := &Agent{
+		cfg: &config.Config{ContextWindow: 200_000},
+		messages: []llm.Message{
+			llm.UserText("only prompt"),
+			{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock(big)}},
+		},
+	}
+	if cut := a.compactBoundary(); cut != 0 {
+		t.Errorf("boundary = %d, want 0: one oversized turn has no earlier cut point", cut)
+	}
+}
